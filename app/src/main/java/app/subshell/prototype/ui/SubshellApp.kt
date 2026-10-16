@@ -159,6 +159,7 @@ import app.subshell.prototype.ui.screens.CommentMediaViewerScreen
 import app.subshell.prototype.data.account.UserFlairMutationRequest
 import app.subshell.prototype.data.account.UserFlairUiState
 import app.subshell.prototype.ui.app.SettingsReviewNudge
+import app.subshell.prototype.ui.app.CrashReportPrompt
 
 
 
@@ -631,6 +632,14 @@ fun SubshellApp(
         SettingsReviewNudge(
             state = state,
             noticeHost = viewportErrorHostState,
+        )
+        // CRASH01_NEXT_START_OFFERS_A_REPORT_V1
+        CrashReportPrompt(
+            noticeHost = viewportErrorHostState,
+            onOpenDiagnostics = {
+                requestedSettingsDestinationName = SettingsDestination.DIAGNOSTICS.name
+                state.openSecondary(SecondaryDestination.SETTINGS)
+            },
         )
         ShareIntoSubshellEffect(
             state = state,

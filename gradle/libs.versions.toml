@@ -21,6 +21,10 @@ kotlinxSerialization = "1.9.0"
 kotlinxCoroutines = "1.10.2"
 benchmark = "1.4.1"
 uiautomator = "2.4.0"
+# PERF01 (owner 2026-10-16): baseline profile installed on sideloaded APKs,
+# and LeakCanary in debug builds only.
+profileinstaller = "1.4.0"
+leakcanary = "2.14"
 # Robolectric: the newest release at fetch time; bump if resolution says it does not exist.
 robolectric = "4.16"
 
@@ -52,6 +56,8 @@ junit4 = { module = "junit:junit", version.ref = "junit4" }
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestExtJunit" }
 androidx-browser = { module = "androidx.browser:browser", version.ref = "browser" }
 androidx-work-runtime = { module = "androidx.work:work-runtime", version.ref = "workManager" }
+androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
+leakcanary-android = { module = "com.squareup.leakcanary:leakcanary-android", version.ref = "leakcanary" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }

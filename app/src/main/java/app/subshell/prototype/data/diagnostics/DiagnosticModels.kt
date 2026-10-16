@@ -43,6 +43,11 @@ internal enum class DiagnosticOperation {
     USER_INCIDENT_MARKED,
     DIAGNOSTICS_OPENED,
     REPORT_CREATED,
+    // CRASH01_CRASHES_ARE_RECORDED_LOCALLY_V1: added when the next start finds
+    // a recorded crash, at the crash's own time.
+    APP_CRASHED,
+    APP_NATIVE_CRASHED,
+    APP_NOT_RESPONDING,
 }
 
 internal enum class DiagnosticPresentationKind {
@@ -153,6 +158,20 @@ internal object DiagnosticEvents {
             subsystem = DiagnosticSubsystem.SETTINGS,
             operation = DiagnosticOperation.DIAGNOSTICS_OPENED,
             outcome = DiagnosticOutcome.OBSERVED,
+        )
+
+    fun appStoppedUnexpectedly(record: CrashRecord): DiagnosticEvent =
+        DiagnosticEvent(
+            id = newDiagnosticEventId(),
+            timestampEpochMs = record.timestampEpochMs,
+            level = DiagnosticLevel.ERROR,
+            subsystem = DiagnosticSubsystem.APP,
+            operation = when (record.kind) {
+                CrashKind.CRASH -> DiagnosticOperation.APP_CRASHED
+                CrashKind.NATIVE_CRASH -> DiagnosticOperation.APP_NATIVE_CRASHED
+                CrashKind.NOT_RESPONDING -> DiagnosticOperation.APP_NOT_RESPONDING
+            },
+            outcome = DiagnosticOutcome.FAILED,
         )
 
     fun reportCreated(nowEpochMs: Long = System.currentTimeMillis()): DiagnosticEvent =

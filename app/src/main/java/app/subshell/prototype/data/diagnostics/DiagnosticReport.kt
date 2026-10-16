@@ -88,6 +88,7 @@ internal fun buildDiagnosticReport(
     snapshot: DiagnosticSnapshot,
     environment: DiagnosticReportEnvironment,
     generatedAtEpochMs: Long = System.currentTimeMillis(),
+    crashes: List<CrashRecord> = emptyList(),
 ): String = buildString {
     appendLine("subshell diagnostic report")
     appendLine("schema=DIAG01A1_V1")
@@ -119,6 +120,24 @@ internal fun buildDiagnosticReport(
     appendLine("oauth_tokens=not_collected")
     appendLine("cookies=not_collected")
     appendLine("request_response_bodies=not_collected")
+    // CRASH01_CRASHES_ARE_RECORDED_LOCALLY_V1
+    appendLine("exception_messages=not_collected")
+    appendLine("crash_details=exception_classes_and_code_locations_only")
+    appendLine()
+    appendLine("[crashes]")
+    crashes.forEach { crash ->
+        append(formatUtcTimestamp(crash.timestampEpochMs))
+        append(" kind=${crash.kind.token}")
+        append(" app_version_code=${crash.appVersionCode ?: "unknown"}")
+        if (crash.exceptionClasses.isNotEmpty()) {
+            append(" exception=${crash.exceptionClasses.joinToString("<-")}")
+        }
+        crash.topFrame?.let { append(" top=$it") }
+        if (crash.appFrames.isNotEmpty()) {
+            append(" app_frames=${crash.appFrames.joinToString(",")}")
+        }
+        appendLine()
+    }
     appendLine()
     appendLine("[events]")
     snapshot.events.forEach { event ->

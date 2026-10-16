@@ -852,4 +852,17 @@ grep -Fq 'redditCommunity.onSearchMentions(state.activeAccountId, query)' "$M/ui
     fail ACTIVITY_WIRES_MENTION_SEARCH
 pass ACTIVITY_WIRES_MENTION_SEARCH
 
+# CRASH01 (owner 2026-10-16): the crash recorder is installed at the very start
+# of MainActivity.onCreate, and SubshellApp hosts the next-start prompt that
+# opens Diagnostics. Crash01CrashReportsTest covers both parts; this holds the
+# two links no test starts the whole activity for.
+grep -F -A6 'override fun onCreate(savedInstanceState: Bundle?) {' "$M/MainActivity.kt" |
+    grep -Fq 'CrashRecorder.install(applicationContext)' &&
+grep -F -A3 'CrashReportPrompt(' "$M/ui/SubshellApp.kt" |
+    grep -Fq 'noticeHost = viewportErrorHostState,' &&
+grep -F -A6 'CrashReportPrompt(' "$M/ui/SubshellApp.kt" |
+    grep -Fq 'requestedSettingsDestinationName = SettingsDestination.DIAGNOSTICS.name' ||
+    fail ACTIVITY_WIRES_CRASH_REPORTS
+pass ACTIVITY_WIRES_CRASH_REPORTS
+
 echo 'RESULT=SUBSHELL_BOUNDARY_GUARDS_CONTRACT_PASS'

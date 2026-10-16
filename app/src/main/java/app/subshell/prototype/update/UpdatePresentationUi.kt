@@ -85,6 +85,7 @@ internal fun UpdatePresentationHost(
                         currentVersionCode = BuildConfig.VERSION_CODE,
                         lastPresentedVersionCode =
                             store.lastPresentedUpdateVersionCode(),
+                        lastPresentedAtEpochMillis = store.lastUpdatePresentedAtEpochMillis(),
                     )
                 },
         )
@@ -102,6 +103,7 @@ internal fun UpdatePresentationHost(
                                 currentVersionCode = BuildConfig.VERSION_CODE,
                                 lastPresentedVersionCode =
                                     store.lastPresentedUpdateVersionCode(),
+                                lastPresentedAtEpochMillis = store.lastUpdatePresentedAtEpochMillis(),
                             )
                         )
             }
@@ -118,6 +120,7 @@ internal fun UpdatePresentationHost(
                 currentVersionCode = BuildConfig.VERSION_CODE,
                 lastPresentedVersionCode =
                     store.lastPresentedUpdateVersionCode(),
+                lastPresentedAtEpochMillis = store.lastUpdatePresentedAtEpochMillis(),
             )
         ) {
             UpdatePresentationCoordinator.clear(candidate)
@@ -161,6 +164,7 @@ internal fun UpdatePresentationHost(
     explicitAvailable?.let { explicit ->
         UpdateAvailableDialog(
             release = explicit.release,
+            advisory = explicit.release.advisoryFor(BuildConfig.VERSION_CODE),
             onNotifyNextTime = notifyNextTime,
             onDismiss = {
                 store.markUpdatePresented(explicit.release.versionCode)
@@ -239,6 +243,7 @@ internal fun UpdatePresentationHost(
         ?.let { release ->
         UpdateAvailableDialog(
             release = release,
+            advisory = release.advisoryFor(BuildConfig.VERSION_CODE),
             onNotifyNextTime = notifyNextTime,
             onDismiss = {
                 store.markUpdatePresented(release.versionCode)
@@ -317,10 +322,13 @@ internal fun UpdateAvailableDialog(
     onDismiss: () -> Unit,
     onViewRelease: () -> Unit,
     onNotifyNextTime: (() -> Unit)? = null,
+    advisory: UpdateAdvisory? = null,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("subshell update available") },
+        title = {
+            Text(if (advisory != null) "Known problem in your version" else "subshell update available")
+        },
         text = {
             // ISSUE209_UPDATE_DIALOGS_SCROLL_V1 (#209): AlertDialog does not
             // scroll its text, so long highlights cut off the rest.
@@ -328,8 +336,23 @@ internal fun UpdateAvailableDialog(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
+                // UPDATE09_KNOWN_BAD_VERSION_ADVISORY_V1: the problem first, in
+                // the error container, before what the new release brings.
+                advisory?.let { known ->
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        shape = MaterialTheme.shapes.medium,
+                    ) {
+                        Text(
+                            known.message,
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
                 Text(
-                    release.versionName,
+                    if (advisory != null) "${release.versionName} fixes it" else release.versionName,
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(

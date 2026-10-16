@@ -84,13 +84,21 @@ internal class UpdateStateStore(
     fun lastPresentedUpdateVersionCode(): Int =
         preferences.getInt(KEY_LAST_PRESENTED_UPDATE_VERSION_CODE, 0)
 
-    fun markUpdatePresented(versionCode: Int) {
+    /** UPDATE09: when an update dialog was last shown, for the daily advisory repeat. */
+    fun lastUpdatePresentedAtEpochMillis(): Long =
+        preferences.getLong(KEY_LAST_UPDATE_PRESENTED_AT_EPOCH_MILLIS, 0L)
+
+    fun markUpdatePresented(
+        versionCode: Int,
+        nowEpochMillis: Long = System.currentTimeMillis(),
+    ) {
         if (versionCode <= 0) return
         preferences.edit {
             putInt(
                 KEY_LAST_PRESENTED_UPDATE_VERSION_CODE,
                 maxOf(lastPresentedUpdateVersionCode(), versionCode),
             )
+            putLong(KEY_LAST_UPDATE_PRESENTED_AT_EPOCH_MILLIS, nowEpochMillis)
         }
     }
 
@@ -204,5 +212,7 @@ internal class UpdateStateStore(
             "update01.available_release_json"
         private const val KEY_NOTIFICATION_PERMISSION_ASKED =
             "update08.notification_permission_asked"
+        private const val KEY_LAST_UPDATE_PRESENTED_AT_EPOCH_MILLIS =
+            "update09.last_update_presented_at_epoch_ms"
     }
 }

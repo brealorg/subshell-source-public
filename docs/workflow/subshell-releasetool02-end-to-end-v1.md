@@ -134,6 +134,47 @@ PREDECESSOR_FAILURE=NO
 RELEASE_BLOCKING_FAILURE=NO
 ```
 
+## Stage C: public source snapshot (RELEASETOOL02E)
+
+Hard rule 7: private history never goes public. After Stage B is COMPLETE,
+`tools/release02/publish-source-snapshot.py` publishes the source of the
+release to `brealorg/subshell-source-public` as one snapshot commit:
+
+```bash
+python3 tools/release02/publish-source-snapshot.py \
+  --release-state "$PUB/release-beta-state.env" \
+  --qualified-source-root "$SRC_MAIN" \
+  --source-remote https://github.com/brealorg/subshell-source-public.git \
+  --source-main-before "$SOURCE_PUBLIC_MAIN_BEFORE" \
+  --gitleaks /path/to/gitleaks \
+  --output "$PUB-source"
+```
+
+- It reads `release-beta-state.env` (STATE=COMPLETE) and the same remote-less
+  qualified clone as Stage A/B. It refuses a dirty clone, a clone at another
+  commit or tree, a tracked file the repository ignores, and a missing
+  `.gitleaks.toml`.
+- It replaces the tree of a fresh clone of the public repository with
+  `git archive SOURCE_COMMIT`. It commits as
+  `brealorg <6815997+brealorg@users.noreply.github.com>` on top of
+  `--source-main-before` and tags the commit `v<VERSION_NAME>`.
+- Fences: the snapshot's tree id equals `SOURCE_TREE` (the public source is
+  byte for byte the source of the APK); the private `SOURCE_COMMIT` is not
+  reachable from the public repository, checked before the commit, after it
+  and after the push; gitleaks finds nothing with the repository's
+  `.gitleaks.toml`; the push is `--atomic` and never forced.
+- Resume: run it again with a new `--output`. If the tag already points at a
+  snapshot with the same tree on main, it only verifies it
+  (`SNAPSHOT_REUSED=YES`). A tag on another tree stops it.
+- It writes `source-snapshot-state.env` (STATE=COMPLETE, SNAPSHOT_COMMIT, TAG,
+  SNAPSHOT_TREE_IDENTITY=PASS, PRIVATE_APP_SOURCE_PUBLIC=NO).
+- `tools/release02/selftest-source-snapshot.py` runs it against local
+  repositories on every land (check-contract02-selftests).
+- Stage B's README fence accepts the sentence "The Android application source
+  code is published separately in [brealorg/subshell-source-public]". The old
+  "not published" sentence is accepted only until the public README has been
+  updated.
+
 ## Failure classification
 
 - **Primary**: the current RELEASETOOL02C orchestration/state assertion fails.

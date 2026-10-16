@@ -66,9 +66,24 @@ internal fun shouldAutoPresentUpdate(
     release: UpdateManifestRelease,
     currentVersionCode: Int,
     lastPresentedVersionCode: Int,
+    lastPresentedAtEpochMillis: Long = 0L,
+    nowEpochMillis: Long = System.currentTimeMillis(),
 ): Boolean =
     release.versionCode > currentVersionCode &&
-        release.versionCode > lastPresentedVersionCode
+        (
+            release.versionCode > lastPresentedVersionCode ||
+                // UPDATE09_KNOWN_BAD_VERSION_ADVISORY_V1: a known problem in
+                // the installed version brings the dialog back once a day.
+                (
+                    release.advisoryFor(currentVersionCode) != null &&
+                        (
+                            lastPresentedAtEpochMillis <= 0L ||
+                                nowEpochMillis < lastPresentedAtEpochMillis ||
+                                nowEpochMillis - lastPresentedAtEpochMillis >=
+                                UPDATE09_ADVISORY_REPEAT_INTERVAL_MILLIS
+                            )
+                    )
+            )
 
 internal fun consumeUpdatePresentationIntent(
     context: Context,

@@ -61,6 +61,19 @@ rewritten = module.rewrite_public_copy(
 assert "0.80.0-beta.1" in rewritten
 assert "0.79.0-beta.9" not in rewritten
 module.verify_public_copy_privacy_boundary(rewritten)
+# RELEASETOOL02E: the README that names the public source repository passes,
+# a README that says nothing about the source does not.
+module.verify_public_copy_privacy_boundary(
+    "The Android application source code is published separately in "
+    "[brealorg/subshell-source-public](https://github.com/brealorg/subshell-source-public), "
+    "one snapshot per release.\n"
+)
+try:
+    module.verify_public_copy_privacy_boundary("**Public beta available — 0.80.0-beta.1**\n")
+except module.PromotionError as exc:
+    assert str(exc) == "PUBLIC_SOURCE_PRIVACY_BOUNDARY_MISSING", exc
+else:
+    raise AssertionError("a README without the source sentence must be refused")
 
 release = {
     "versionCode": 300,
@@ -302,6 +315,50 @@ expect_error(
     "CHANGELOG_HEADLINE_TOO_LONG",
 )
 print("RELNOTES01_SELFTEST=PASS")
+
+
+# UPDATE09_KNOWN_BAD_VERSION_ADVISORY_V1: an advisory travels into the manifest
+# exactly; a malformed one stops the release instead of reaching nobody.
+def changelog_with_advisory(advisory) -> Path:
+    root = changelog_with(["A"])
+    path = root / "app/src/main/assets/changelog/releases.json"
+    payload = __import__("json").loads(path.read_text())
+    payload["releases"][0]["advisory"] = advisory
+    path.write_text(__import__("json").dumps(payload))
+    return root
+
+
+good_advisory = {"affectedVersionCodes": [245, 244], "message": " 0.81 can lose a draft. "}
+advised = module.load_release_from_changelog(changelog_with_advisory(good_advisory), "0.80-beta", 300)
+advised_manifest = module.render_update_manifest(
+    release=advised,
+    state=state,
+    published_at="2026-10-01T12:00:00Z",
+    release_url=advised["releaseUrl"],
+)
+assert advised_manifest["advisory"] == {"affectedVersionCodes": [245, 244], "message": "0.81 can lose a draft."}
+assert advised_manifest["schemaVersion"] == 1
+plain = module.load_release_from_changelog(changelog_with(["A"]), "0.80-beta", 300)
+assert "advisory" not in module.render_update_manifest(
+    release=plain, state=state, published_at="2026-10-01T12:00:00Z", release_url=plain["releaseUrl"],
+)
+for bad, marker in (
+    ({"affectedVersionCodes": [245]}, "CHANGELOG_ADVISORY_INVALID"),
+    ({"affectedVersionCodes": [245], "message": "x", "extra": 1}, "CHANGELOG_ADVISORY_INVALID"),
+    ({"affectedVersionCodes": [245], "message": "M" * 241}, "CHANGELOG_ADVISORY_MESSAGE_INVALID"),
+    ({"affectedVersionCodes": [245], "message": "  "}, "CHANGELOG_ADVISORY_MESSAGE_INVALID"),
+    ({"affectedVersionCodes": [], "message": "x"}, "CHANGELOG_ADVISORY_VERSIONS_INVALID"),
+    ({"affectedVersionCodes": [300], "message": "x"}, "CHANGELOG_ADVISORY_VERSIONS_INVALID"),
+    ({"affectedVersionCodes": [245, 245], "message": "x"}, "CHANGELOG_ADVISORY_VERSIONS_INVALID"),
+    ({"affectedVersionCodes": ["245"], "message": "x"}, "CHANGELOG_ADVISORY_VERSIONS_INVALID"),
+    ({"affectedVersionCodes": [True], "message": "x"}, "CHANGELOG_ADVISORY_VERSIONS_INVALID"),
+    ({"affectedVersionCodes": list(range(1, 34)), "message": "x"}, "CHANGELOG_ADVISORY_VERSIONS_INVALID"),
+):
+    expect_error(
+        lambda bad=bad: module.load_release_from_changelog(changelog_with_advisory(bad), "0.80-beta", 300),
+        marker,
+    )
+print("UPDATE09_ADVISORY_SELFTEST=PASS")
 
 
 # RELEASETOOL02C_SITE_RELEASE_NOTES_V1

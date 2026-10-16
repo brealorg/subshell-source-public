@@ -269,8 +269,36 @@ def load_release_from_changelog(
         "https://github.com/"
     ):
         fail("CHANGELOG_RELEASE_URL_INVALID")
+    validate_changelog_advisory(release.get("advisory"), version_code)
 
     return release
+
+
+# UPDATE09_KNOWN_BAD_VERSION_ADVISORY_V1 (2026-10-16, owner-approved): a release
+# may name older versions with a known problem. The app drops a malformed
+# advisory on its own, so a mistake here would silently reach nobody; the
+# release stops instead. Clients before 0.82 ignore the field.
+MAX_ADVISORY_CHARS = 240
+MAX_ADVISORY_VERSIONS = 32
+
+
+def validate_changelog_advisory(advisory, version_code: int) -> None:
+    if advisory is None:
+        return
+    if not isinstance(advisory, dict) or set(advisory) != {"affectedVersionCodes", "message"}:
+        fail("CHANGELOG_ADVISORY_INVALID")
+    message = advisory["message"]
+    codes = advisory["affectedVersionCodes"]
+    if not isinstance(message, str) or not message.strip() or len(message.strip()) > MAX_ADVISORY_CHARS:
+        fail("CHANGELOG_ADVISORY_MESSAGE_INVALID")
+    if (
+        not isinstance(codes, list)
+        or not codes
+        or len(codes) > MAX_ADVISORY_VERSIONS
+        or len(set(codes)) != len(codes)
+        or not all(type(code) is int and 0 < code < version_code for code in codes)
+    ):
+        fail("CHANGELOG_ADVISORY_VERSIONS_INVALID")
 
 
 def rewrite_public_copy(text: str, previous: str, current: str) -> str:
@@ -297,7 +325,7 @@ def render_update_manifest(
     if release_url != expected_url:
         fail("REMOTE_RELEASE_URL_CHANGELOG_MISMATCH")
 
-    return {
+    manifest = {
         "schemaVersion": 1,
         "channel": "beta",
         "versionCode": int(state["VERSION_CODE"]),
@@ -308,6 +336,13 @@ def render_update_manifest(
         "headline": release["headline"].strip(),
         "highlights": [item.strip() for item in release["highlights"]],
     }
+    advisory = release.get("advisory")
+    if advisory is not None:
+        manifest["advisory"] = {
+            "affectedVersionCodes": list(advisory["affectedVersionCodes"]),
+            "message": advisory["message"].strip(),
+        }
+    return manifest
 
 
 def manifest_text(manifest: dict) -> str:
@@ -465,9 +500,24 @@ def load_changelog_releases(root: Path) -> list[dict]:
     return releases
 
 
+# RELEASETOOL02E_PUBLIC_SOURCE_SNAPSHOTS_V1 (2026-10-16, owner-approved): the
+# source is published as one snapshot per release in a separate repository
+# (hard rule 7: private history never goes public). The public README must say
+# where the source is; the old "not published" sentence is accepted only until
+# the README has been updated, and is dropped after the first snapshot release.
+PUBLIC_SOURCE_SNAPSHOT_MARKER = (
+    "The Android application source code is published separately in "
+    "[brealorg/subshell-source-public]"
+)
+LEGACY_PRIVATE_SOURCE_MARKER = (
+    "The Android application source code is **not published in this repository"
+)
+
+
 def verify_public_copy_privacy_boundary(readme: str) -> None:
-    marker = "The Android application source code is **not published in this repository"
-    if marker not in readme:
+    if PUBLIC_SOURCE_SNAPSHOT_MARKER in readme:
+        return
+    if LEGACY_PRIVATE_SOURCE_MARKER not in readme:
         fail("PUBLIC_SOURCE_PRIVACY_BOUNDARY_MISSING")
 
 

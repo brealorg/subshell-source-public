@@ -62,6 +62,24 @@ or with a rationale after one refusal), and opens Subshell's notification
 settings otherwise (a final refusal, or notifications turned off for the app).
 The "asked once" flag is device-local (`update08.notification_permission_asked`).
 
+UPDATE09 (owner, 2026-10-16): a known-bad-version advisory. The top release in
+`app/src/main/assets/changelog/releases.json` may carry
+
+```json
+"advisory": {"affectedVersionCodes": [245], "message": "0.81 can lose a draft when …"}
+```
+
+The message is at most 240 characters. The list holds at most 32 versions, each
+older than the release; RELEASETOOL02B stops the release on anything else. Stage B
+copies the advisory into the manifest as an optional `advisory` field, and
+`schemaVersion` stays 1. Builds before 0.82 ignore the field and see a plain
+update. From 0.82, a reader on a listed version sees "Known problem in your
+version" with the message first in the dialog, and the notification names the
+problem. The dialog comes back at most once a day until they update, while a
+plain update is offered once. The last time the dialog was shown is device-local
+(`update09.last_update_presented_at_epoch_ms`). An advisory only travels with a
+new release; there is no way yet to publish one without a release.
+
 ## Device-local state
 
 All update/check/acknowledgement state uses the existing

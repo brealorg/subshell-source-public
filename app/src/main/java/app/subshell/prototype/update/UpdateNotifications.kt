@@ -12,6 +12,7 @@ import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import app.subshell.prototype.BuildConfig
 import app.subshell.prototype.MainActivity
 import app.subshell.prototype.R
 
@@ -66,6 +67,7 @@ internal object UpdateNotificationCenter {
     fun postAvailable(
         context: Context,
         release: UpdateManifestRelease,
+        currentVersionCode: Int = BuildConfig.VERSION_CODE,
     ): Boolean {
         val appContext = context.applicationContext
         if (!canPost(appContext)) return false
@@ -87,11 +89,12 @@ internal object UpdateNotificationCenter {
 
         val notification = NotificationCompat.Builder(appContext, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_subshell)
-            .setContentTitle("subshell update available")
-            .setContentText("${release.versionName} is ready")
+            .setContentTitle(updateNotificationTitle(release, currentVersionCode))
+            .setContentText(updateNotificationText(release, currentVersionCode))
             .setStyle(
                 NotificationCompat.BigTextStyle().bigText(
-                    release.headline,
+                    // UPDATE09_KNOWN_BAD_VERSION_ADVISORY_V1
+                    release.advisoryFor(currentVersionCode)?.message ?: release.headline,
                 ),
             )
             .setContentIntent(pendingIntent)
@@ -137,3 +140,17 @@ internal fun updateNotificationOptIn(
 internal fun appNotificationSettingsIntent(context: Context): Intent =
     Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
         .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+
+internal fun updateNotificationTitle(release: UpdateManifestRelease, currentVersionCode: Int): String =
+    if (release.advisoryFor(currentVersionCode) != null) {
+        "Known problem in your subshell version"
+    } else {
+        "subshell update available"
+    }
+
+internal fun updateNotificationText(release: UpdateManifestRelease, currentVersionCode: Int): String =
+    if (release.advisoryFor(currentVersionCode) != null) {
+        "${release.versionName} fixes it"
+    } else {
+        "${release.versionName} is ready"
+    }

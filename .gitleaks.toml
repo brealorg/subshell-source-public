@@ -1,0 +1,30 @@
+# RELEASETOOL02E_SECRET_SCAN_CONFIG_V1: the release snapshot of the public
+# source (tools/release02/publish-source-snapshot.py) is scanned with gitleaks
+# and stops on any finding. The default rules stay; only these known false
+# positives are allowed, each by its exact shape, never a whole file of code.
+[extend]
+useDefault = true
+
+# Reddit's reaction emoji file names (Direct Chat catalogue and its tests).
+[[allowlists]]
+description = "Reddit reaction emoji file names"
+regexTarget = "secret"
+regexes = ['''^[a-z0-9]{13}\.(gif|png)$''']
+
+# The SHA-256 of the release keystore file, pinned by the signing checks and
+# already documented in docs/auth; a digest of an encrypted file reveals nothing.
+[[allowlists]]
+description = "Release keystore file digest"
+regexTarget = "line"
+regexes = ['''EXPECTED_KEYSTORE_SHA256='[0-9a-f]{64}'''']
+
+# Status labels printed by the signing runtimes.
+[[allowlists]]
+description = "Signing runtime status labels"
+regexTarget = "line"
+regexes = ['''printf 'PASSWORD_FILES=TMPFS_OR_PRIVATE_TEMP_[0-9]+\\n'''']
+
+# The self-signed keystore of the instrumented tests' local HTTPS server.
+[[allowlists]]
+description = "Instrumented-test HTTPS server keystore"
+paths = ['''^app/src/androidTest/assets/subshell_media04a1_test_server\.p12$''']

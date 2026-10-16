@@ -4,6 +4,7 @@ import androidx.core.app.ActivityCompat
 import android.content.pm.PackageManager
 import android.Manifest
 import androidx.lifecycle.lifecycleScope
+import app.subshell.prototype.data.diagnostics.CrashRecorder
 import app.subshell.prototype.inbox.takeInboxNotificationTarget
 import app.subshell.prototype.inbox.takeModmailNotificationTarget
 import app.subshell.prototype.inbox.InboxNotificationTarget
@@ -403,6 +404,9 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
     override fun onCreate(savedInstanceState: Bundle?) {
         // SUBS01B8A_DISABLE_COMPOSE_CONTENT_CAPTURE_V1
         androidx.compose.ui.contentcapture.ContentCaptureManager.isEnabled = false
+        // CRASH01_CRASHES_ARE_RECORDED_LOCALLY_V1: first, so a crash anywhere
+        // after this point is recorded (once per process).
+        CrashRecorder.install(applicationContext)
         super.onCreate(savedInstanceState)
         deviceUnlockPrompt = BiometricPrompt(
             this,

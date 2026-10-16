@@ -88,6 +88,7 @@ import app.subshell.prototype.data.diagnostics.DiagnosticSnapshot
 import app.subshell.prototype.data.diagnostics.DiagnosticSubsystem
 import app.subshell.prototype.data.diagnostics.StagedDiagnosticReport
 import app.subshell.prototype.data.diagnostics.SubshellDiagnosticSupport
+import app.subshell.prototype.data.diagnostics.CrashRecordStore
 import app.subshell.prototype.data.diagnostics.buildDiagnosticReport
 import app.subshell.prototype.data.diagnostics.copyDiagnosticReport
 import app.subshell.prototype.data.diagnostics.diagnosticReportEnvironment
@@ -117,6 +118,7 @@ internal fun DiagnosticsScreen(
     val context = LocalContext.current
     val appContext = context.applicationContext
     val store = remember(appContext) { DiagnosticEventStore(appContext) }
+    val crashStore = remember(appContext) { CrashRecordStore(appContext) }
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val reportSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
@@ -151,6 +153,7 @@ internal fun DiagnosticsScreen(
                     val reportText = buildDiagnosticReport(
                         snapshot = updated,
                         environment = diagnosticReportEnvironment(appContext),
+                        crashes = crashStore.records(),
                     )
                     val staged = stageDiagnosticReport(appContext, reportText)
                     updated to staged
@@ -196,7 +199,7 @@ internal fun DiagnosticsScreen(
             title = { Text("Clear diagnostic history?") },
             text = {
                 Text(
-                    "This deletes the local diagnostic event history. " +
+                    "This deletes the local diagnostic event history and crash records. " +
                         "It does not change your Reddit data or app settings.",
                 )
             },
@@ -207,6 +210,7 @@ internal fun DiagnosticsScreen(
                         coroutineScope.launch {
                             snapshot = withContext(Dispatchers.IO) {
                                 store.clear()
+                                crashStore.clear()
                                 store.snapshot()
                             }
                             showMessage("Diagnostic history cleared")
@@ -1135,6 +1139,9 @@ private fun diagnosticOperationLabel(event: DiagnosticEvent): String = when (eve
     app.subshell.prototype.data.diagnostics.DiagnosticOperation.DIAGNOSTICS_OPENED -> "Diagnostics opened"
     app.subshell.prototype.data.diagnostics.DiagnosticOperation.REPORT_CREATED -> "Diagnostic report created"
     DiagnosticOperation.USER_INCIDENT_MARKED -> "User reported a problem"
+    DiagnosticOperation.APP_CRASHED -> "subshell closed unexpectedly"
+    DiagnosticOperation.APP_NATIVE_CRASHED -> "subshell closed unexpectedly (native)"
+    DiagnosticOperation.APP_NOT_RESPONDING -> "subshell stopped responding"
 }
 
 private fun diagnosticLevelLabel(level: DiagnosticLevel): String = when (level) {

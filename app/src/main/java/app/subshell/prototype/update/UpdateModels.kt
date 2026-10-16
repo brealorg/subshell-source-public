@@ -27,6 +27,22 @@ internal const val UPDATE01_MAX_HIGHLIGHTS = 12
 internal const val UPDATE01_LEGACY_CLIENT_HIGHLIGHT_CHARS = 180
 internal const val UPDATE01_LEGACY_CLIENT_HIGHLIGHTS = 6
 
+// UPDATE09_KNOWN_BAD_VERSION_ADVISORY_V1 (owner 2026-10-16): a release may
+// carry an advisory naming older versions with a known problem. A reader on one
+// of them sees the problem in the update dialog and notification, and the
+// dialog comes back at most once a day until they update (a plain update is
+// offered once). Optional: 0.77-0.81 ignore the field (ignoreUnknownKeys), and
+// schemaVersion stays 1 so they keep the rest of the manifest.
+internal const val UPDATE09_MAX_ADVISORY_CHARS = 240
+internal const val UPDATE09_MAX_ADVISORY_VERSIONS = 32
+internal const val UPDATE09_ADVISORY_REPEAT_INTERVAL_MILLIS = 24L * 60L * 60L * 1000L
+
+@Serializable
+internal data class UpdateAdvisory(
+    val affectedVersionCodes: List<Int> = emptyList(),
+    val message: String = "",
+)
+
 @Serializable
 internal data class UpdateManifestRelease(
     val schemaVersion: Int,
@@ -38,6 +54,7 @@ internal data class UpdateManifestRelease(
     val apkSha256: String,
     val headline: String,
     val highlights: List<String> = emptyList(),
+    val advisory: UpdateAdvisory? = null,
 )
 
 internal enum class InstalledVersionTransition {
@@ -123,8 +140,33 @@ internal fun normalizeUpdateManifest(
         apkSha256 = apkSha,
         headline = headline,
         highlights = highlights,
+        advisory = raw.advisory?.let { normalizeUpdateAdvisory(it, raw.versionCode) },
     )
 }
+
+/**
+ * UPDATE09: a malformed advisory is dropped, never the release. It may only
+ * name versions older than the release that carries it.
+ */
+internal fun normalizeUpdateAdvisory(
+    raw: UpdateAdvisory,
+    releaseVersionCode: Int,
+): UpdateAdvisory? {
+    val message = raw.message.trim()
+    if (message.isEmpty() || message.length > UPDATE09_MAX_ADVISORY_CHARS || '\u0000' in message) {
+        return null
+    }
+    if (raw.affectedVersionCodes.size > UPDATE09_MAX_ADVISORY_VERSIONS) return null
+    val affected = raw.affectedVersionCodes
+        .filter { code -> code in 1 until releaseVersionCode }
+        .distinct()
+    if (affected.isEmpty()) return null
+    return UpdateAdvisory(affectedVersionCodes = affected, message = message)
+}
+
+/** UPDATE09: the advisory when it concerns the installed version and the release fixes it. */
+internal fun UpdateManifestRelease.advisoryFor(currentVersionCode: Int): UpdateAdvisory? =
+    advisory?.takeIf { isNewerThan(currentVersionCode) && currentVersionCode in it.affectedVersionCodes }
 
 internal fun UpdateManifestRelease.isNewerThan(
     currentVersionCode: Int,

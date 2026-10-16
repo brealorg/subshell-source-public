@@ -20,4 +20,10 @@ bash tools/contract02/verify-release-qualification-selftest.sh >/dev/null ||
     fail CONTRACT02F_VERIFIER_SELFTEST
 echo 'PASS=CONTRACT02F_VERIFIER_SELFTEST'
 
+# RELEASETOOL02E_PUBLIC_SOURCE_SNAPSHOTS_V1 (2026-10-16, owner-approved): the
+# public source snapshot (Stage C) against local repositories, no network.
+PYTHONDONTWRITEBYTECODE=1 python3 tools/release02/selftest-source-snapshot.py >/dev/null ||
+    fail RELEASETOOL02E_SOURCE_SNAPSHOT_SELFTEST
+echo 'PASS=RELEASETOOL02E_SOURCE_SNAPSHOT_SELFTEST'
+
 echo 'RESULT=SUBSHELL_CONTRACT02_SELFTESTS_CONTRACT_PASS'

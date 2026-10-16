@@ -919,11 +919,30 @@ android {
             isProfileable = true
             matchingFallbacks += listOf("release")
             buildConfigField("boolean", "FEED04B_BENCHMARK_PROBES", "true")
+            // initWith copied release before the block below configures it,
+            // so the benchmark build takes R8 here too: it measures and
+            // device-checks the same shrunk code a release ships.
+            // PERF01_BASELINE_PROFILE_V1: -Psubshell.baselineProfileSource builds
+            // it without R8, so BaselineProfileGenerator records source names;
+            // R8 rewrites a source-named profile for its own output, never one
+            // recorded from merged classes.
+            val baselineProfileSource =
+                providers.gradleProperty("subshell.baselineProfileSource").isPresent
+            isMinifyEnabled = !baselineProfileSource
+            isShrinkResources = !baselineProfileSource
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
         getByName("release") {
             if (auth05d2ReleaseSigningInputs.configured) {
                 signingConfig = signingConfigs.getByName("subshellRelease")
             }
+            // R8_RELEASE_SHRINKS_WITHOUT_RENAMING_V1 (owner 2026-10-16): R8
+            // removes unused code and resources and optimises; proguard-rules.pro
+            // keeps every name, so crash reports (CRASH01) stay readable
+            // without a mapping file per release.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 
@@ -1008,6 +1027,12 @@ dependencies {
 
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.biometric)
+    // PERF01_BASELINE_PROFILE_V1: compiles src/main/baseline-prof.txt on
+    // install, which a sideloaded APK otherwise never gets (no Play cloud profile).
+    implementation(libs.androidx.profileinstaller)
+    // PERF01_LEAKCANARY_IN_DEBUG_ONLY_V1: reports leaked activities and
+    // composables in lane builds; never part of a release.
+    debugImplementation(libs.leakcanary.android)
     implementation(libs.androidx.fragment)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.compose.animation)
