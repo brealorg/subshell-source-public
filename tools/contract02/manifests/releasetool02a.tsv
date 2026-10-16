@@ -1,0 +1,4 @@
+# id	path	block_mode	predecessors
+releasetool01a	tools/check-releasetool01a-contract.sh	none	-
+releasetool01b	tools/check-releasetool01b-contract.sh	none	-
+releasetool02a	tools/check-releasetool02a-contract.sh	primary	releasetool01a,releasetool01b

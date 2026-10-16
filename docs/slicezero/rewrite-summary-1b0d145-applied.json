@@ -1,0 +1,53 @@
+{
+ "rows": 2474,
+ "by_decision": {
+  "rewrite": 1343,
+  "binding": 352,
+  "skip:shape": 300,
+  "skip:orphan": 190,
+  "skip:flags": 115,
+  "pin:negated": 74,
+  "pin:low-spec": 41,
+  "skip:polarity": 34,
+  "skip:function-body": 25
+ },
+ "rewrite": {
+  "lines": 1343,
+  "checkers": 119,
+  "by_hub": {
+   "SubshellApp.kt": 536,
+   "SubshellState.kt": 303,
+   "AuthConnectViewModel.kt": 245,
+   "AuthApplicationRuntime.kt": 165,
+   "MainActivity.kt": 94
+  },
+  "flips_false_to_true": 9,
+  "false_before_and_after": 40,
+  "quoted_lines": 0,
+  "grep_vs_rg": {
+   "rg": 978,
+   "grep": 365
+  },
+  "multi_line": 192
+ },
+ "skip_reasons": {
+  "skip:shape:not a single-target -Fq line": 300,
+  "skip:orphan:or-fail": 102,
+  "skip:orphan:then-pass": 76,
+  "skip:flags:-F": 72,
+  "skip:function-body:": 25,
+  "skip:flags:-q": 21,
+  "skip:flags:-Fc": 17,
+  "skip:polarity:no-fail-tail": 15,
+  "skip:orphan:set-e": 12,
+  "skip:polarity:no-then": 9,
+  "skip:polarity:negated-group": 4,
+  "skip:polarity:then-if": 3,
+  "skip:flags:-Fx": 2,
+  "skip:flags:-Uq": 2,
+  "skip:flags:-n": 1,
+  "skip:polarity:then-YOU_BLOCK=\"$(": 1,
+  "skip:polarity:then-A4A_SHARED_YOU_HOST=\"$(": 1,
+  "skip:polarity:then-test": 1
+ }
+}

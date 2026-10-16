@@ -1,0 +1,7 @@
+# id	path	block_mode	predecessors
+beta09	tools/check-beta09-release-scope-contract.sh	primary	-
+beta09-nonnative-suite	tools/check-beta09-nonnative-suite-contract.sh	primary	-
+releasetool02a	tools/check-releasetool02a-contract.sh	primary	-
+releasetool02b	tools/check-releasetool02b-contract.sh	primary	-
+releasetool02c	tools/check-releasetool02c-contract.sh	primary	-
+releasetool02d	tools/check-releasetool02d-contract.sh	primary	-

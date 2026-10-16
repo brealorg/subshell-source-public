@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application
+        android:icon="${subshellDebugLauncherIcon}"
+        android:label="${subshellDebugAppLabel}"
+        android:networkSecurityConfig="@xml/subshell_debug_network_security_config"
+        android:roundIcon="${subshellDebugLauncherIcon}"
+        android:usesCleartextTraffic="false"
+        tools:replace="android:icon,android:label,android:networkSecurityConfig,android:roundIcon">
+        <activity
+            android:name="app.subshell.prototype.auth.AuthCallbackActivity"
+            android:exported="true"
+            tools:replace="android:exported">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="oauth"
+                    android:path="/callback"
+                    android:scheme="subshell-auth-test" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

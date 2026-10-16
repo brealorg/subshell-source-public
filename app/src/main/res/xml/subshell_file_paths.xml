@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <cache-path
+        name="shared_media"
+        path="shared_media/" />
+    <!-- ISSUE33_SHARE_INTO_SUBSHELL_V1: images shared into a draft. -->
+    <files-path
+        name="shared_into_subshell"
+        path="shared_into_subshell/" />
+    <cache-path
+        name="diagnostics_reports"
+        path="diagnostics_reports/" />
+</paths>

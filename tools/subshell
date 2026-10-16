@@ -1,0 +1,589 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE="${SUBSHELL_BASE:-$HOME/dev/subshell}"
+MAIN="$BASE/subshell-repo"
+DEV1="$BASE/subshell-dev1"
+DEV2="$BASE/subshell-dev2"
+APK_REL="app/build/outputs/apk/debug/app-debug.apk"
+CONTRACT_DELTA_REL="tools/check-contract-delta.sh"
+MAIN_PACKAGE='io.github.brealorg.subshell'
+DEV1_PACKAGE='io.github.brealorg.subshell.debug.dev1'
+DEV2_PACKAGE='io.github.brealorg.subshell.debug.dev2'
+
+usage() {
+    cat <<'EOF'
+Usage:
+  ./tools/subshell status
+  ./tools/subshell start dev1 FEATURE
+  ./tools/subshell start dev2 FEATURE
+  ./tools/subshell checkpoint dev1 [commit message]
+  ./tools/subshell checkpoint dev2 [commit message]
+  ./tools/subshell sync dev1
+  ./tools/subshell sync dev2
+  ./tools/subshell land dev1
+  ./tools/subshell land dev2
+  ./tools/subshell dev1 [Gradle arguments]
+  ./tools/subshell dev2 [Gradle arguments]
+
+main is the canonical baseline.
+start creates a short-lived feature branch from current main.
+checkpoint commits the current lane without landing it.
+sync rebases a clean lane onto current main and aborts cleanly on conflict.
+land syncs, blocks new contract failures, tests, builds, and fast-forwards main, then returns the lane to IDLE.
+dev1/dev2 build, install, and launch the matching lane.
+
+Optional environment variables:
+  SUBSHELL_BASE
+  SUBSHELL_ADB_SERIAL
+EOF
+}
+
+stop() {
+    printf 'STOP=%s\n' "$*" >&2
+    exit 1
+}
+
+require_repo() {
+    local repo="$1"
+    local label="$2"
+
+    [[ -d "$repo" ]] || stop "${label}_WORKTREE_NOT_FOUND path=$repo"
+    git -C "$repo" rev-parse --is-inside-work-tree >/dev/null 2>&1 ||
+        stop "${label}_NOT_A_GIT_WORKTREE path=$repo"
+}
+
+require_layout() {
+    require_repo "$MAIN" MAIN
+    require_repo "$DEV1" DEV1
+    require_repo "$DEV2" DEV2
+}
+
+lane_repo() {
+    case "$1" in
+        dev1) printf '%s\n' "$DEV1" ;;
+        dev2) printf '%s\n' "$DEV2" ;;
+        *) stop "UNKNOWN_LANE lane=$1" ;;
+    esac
+}
+
+lane_package() {
+    case "$1" in
+        dev1) printf '%s\n' "$DEV1_PACKAGE" ;;
+        dev2) printf '%s\n' "$DEV2_PACKAGE" ;;
+        *) stop "UNKNOWN_LANE lane=$1" ;;
+    esac
+}
+
+repo_clean() {
+    [[ -z "$(git -C "$1" status --porcelain)" ]]
+}
+
+require_clean() {
+    local repo="$1"
+    local label="$2"
+
+    if ! repo_clean "$repo"; then
+        git -C "$repo" status --short --branch >&2
+        stop "${label}_NOT_CLEAN"
+    fi
+}
+
+require_main() {
+    require_layout
+    [[ "$(git -C "$MAIN" branch --show-current)" == main ]] ||
+        stop "MAIN_WORKTREE_NOT_ON_MAIN"
+    require_clean "$MAIN" MAIN
+}
+
+install_hook() {
+    local repo="$1"
+    local role="$2"
+    local gitdir hookdir
+
+    gitdir="$(git -C "$repo" rev-parse --absolute-git-dir)"
+    hookdir="$gitdir/subshell-hooks-v2"
+    mkdir -p "$hookdir"
+
+    cat > "$hookdir/pre-commit" <<'HOOK'
+#!/usr/bin/env bash
+set -euo pipefail
+
+role="$(git config --worktree --get subshell.role 2>/dev/null || true)"
+expected="$(git config --worktree --get subshell.expectedBranch 2>/dev/null || true)"
+branch="$(git branch --show-current)"
+
+case "$role" in
+    main)
+        if [[ "${SUBSHELL_ALLOW_MAIN_COMMIT:-0}" != 1 ]]; then
+            echo 'STOP=SUBSHELL_MAIN_DIRECT_COMMIT_BLOCKED' >&2
+            echo 'Use ./tools/subshell land dev1 or ./tools/subshell land dev2.' >&2
+            exit 1
+        fi
+        ;;
+    dev1|dev2)
+        if [[ -z "$expected" || -z "$branch" || "$branch" != "$expected" || "$branch" != "$role/"* ]]; then
+            echo "STOP=SUBSHELL_LANE_BRANCH_MISMATCH role=$role expected=$expected actual=$branch" >&2
+            exit 1
+        fi
+        ;;
+    *)
+        echo "STOP=SUBSHELL_WORKTREE_ROLE_INVALID role=$role" >&2
+        exit 1
+        ;;
+esac
+HOOK
+
+    chmod +x "$hookdir/pre-commit"
+    rm -f "$hookdir/pre-merge-commit"
+    git -C "$repo" config --worktree subshell.role "$role"
+    git -C "$repo" config --worktree core.hooksPath "$hookdir"
+}
+
+require_active_lane() {
+    local lane="$1"
+    local repo branch expected role
+
+    repo="$(lane_repo "$lane")"
+    role="$(git -C "$repo" config --worktree --get subshell.role 2>/dev/null || true)"
+    expected="$(git -C "$repo" config --worktree --get subshell.expectedBranch 2>/dev/null || true)"
+    branch="$(git -C "$repo" branch --show-current)"
+
+    [[ "$role" == "$lane" ]] || stop "LANE_ROLE_MISMATCH lane=$lane role=$role"
+    [[ -n "$branch" ]] || stop "LANE_IDLE lane=$lane"
+    [[ "$branch" == "$lane/"* ]] || stop "LANE_BRANCH_INVALID lane=$lane branch=$branch"
+    [[ "$expected" == "$branch" ]] ||
+        stop "LANE_EXPECTED_BRANCH_MISMATCH lane=$lane expected=$expected actual=$branch"
+
+    printf '%s\n' "$repo"
+}
+
+normalize_feature() {
+    local feature="$1"
+    local slug
+
+    [[ "$feature" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] ||
+        stop "INVALID_FEATURE_NAME value=$feature"
+    slug="$(tr '[:upper:]' '[:lower:]' <<<"$feature")"
+    printf '%s\n' "$slug"
+}
+
+lane_state() {
+    local lane="$1"
+    local repo branch head main_head role expected state clean base
+
+    repo="$(lane_repo "$lane")"
+    branch="$(git -C "$repo" branch --show-current)"
+    head="$(git -C "$repo" rev-parse --short HEAD)"
+    main_head="$(git -C "$MAIN" rev-parse --short main)"
+    role="$(git -C "$repo" config --worktree --get subshell.role 2>/dev/null || true)"
+    expected="$(git -C "$repo" config --worktree --get subshell.expectedBranch 2>/dev/null || true)"
+    base="$(git -C "$repo" config --worktree --get subshell.baseMain 2>/dev/null || true)"
+
+    if repo_clean "$repo"; then
+        clean=YES
+    else
+        clean=NO
+    fi
+
+    if [[ "$clean" == NO ]]; then
+        state=DIRTY
+    elif [[ -z "$branch" ]]; then
+        state=IDLE
+    elif [[ "$role" != "$lane" || "$branch" != "$lane/"* || "$expected" != "$branch" ]]; then
+        state=INVALID
+    elif git -C "$repo" merge-base --is-ancestor main HEAD; then
+        if [[ "$(git -C "$repo" rev-parse HEAD)" == "$(git -C "$MAIN" rev-parse main)" ]]; then
+            state=EMPTY
+        else
+            state=READY
+        fi
+    else
+        state=STALE
+    fi
+
+    printf 'LANE=%s STATE=%s CLEAN=%s BRANCH=%s HEAD=%s MAIN=%s BASE=%s\n' \
+        "$lane" "$state" "$clean" "${branch:-DETACHED}" "$head" "$main_head" "${base:-NONE}"
+}
+
+status_command() {
+    local main_clean
+
+    require_layout
+
+    if repo_clean "$MAIN"; then
+        main_clean=YES
+    else
+        main_clean=NO
+    fi
+
+    printf 'MAIN_BRANCH=%s\n' "$(git -C "$MAIN" branch --show-current)"
+    printf 'MAIN_HEAD=%s\n' "$(git -C "$MAIN" rev-parse --short HEAD)"
+    printf 'MAIN_CLEAN=%s\n' "$main_clean"
+    lane_state dev1
+    lane_state dev2
+    printf 'RESULT=SUBSHELL_WORKFLOW_STATUS\n'
+}
+
+start_lane() {
+    local lane="$1"
+    local feature="$2"
+    local repo slug branch current current_head main_head
+
+    require_main
+    repo="$(lane_repo "$lane")"
+    require_clean "$repo" "${lane^^}"
+    current="$(git -C "$repo" branch --show-current)"
+    current_head="$(git -C "$repo" rev-parse HEAD)"
+    main_head="$(git -C "$MAIN" rev-parse main)"
+
+    if [[ -n "$current" ]]; then
+        if git -C "$repo" merge-base --is-ancestor "$current_head" "$main_head"; then
+            git -C "$repo" switch --detach "$main_head" >/dev/null 2>&1
+            git -C "$MAIN" branch -d "$current" >/dev/null 2>&1 || true
+        else
+            stop "LANE_ALREADY_ACTIVE lane=$lane branch=$current"
+        fi
+    fi
+
+    slug="$(normalize_feature "$feature")"
+    branch="$lane/$slug"
+
+    if git -C "$MAIN" show-ref --verify --quiet "refs/heads/$branch"; then
+        stop "FEATURE_BRANCH_ALREADY_EXISTS branch=$branch"
+    fi
+
+    git -C "$repo" switch --detach "$main_head" >/dev/null 2>&1
+    git -C "$repo" switch -c "$branch" "$main_head" >/dev/null 2>&1
+    git -C "$repo" config --worktree subshell.expectedBranch "$branch"
+    git -C "$repo" config --worktree subshell.baseMain "$main_head"
+    git -C "$repo" config --worktree subshell.featureName "$feature"
+    install_hook "$repo" "$lane"
+
+    printf 'LANE=%s\n' "$lane"
+    printf 'BRANCH=%s\n' "$branch"
+    printf 'BASE_MAIN=%s\n' "$main_head"
+    printf 'RESULT=%s_READY\n' "${lane^^}"
+}
+
+checkpoint_lane() {
+    local lane="$1"
+    shift
+    local repo branch feature message head
+
+    repo="$(require_active_lane "$lane")"
+    branch="$(git -C "$repo" branch --show-current)"
+
+    if repo_clean "$repo"; then
+        stop "CHECKPOINT_HAS_NO_CHANGES lane=$lane"
+    fi
+
+    git -C "$repo" add -A
+    git -C "$repo" diff --cached --check
+
+    if [[ -z "$(git -C "$repo" diff --cached --name-only)" ]]; then
+        stop "CHECKPOINT_HAS_NO_STAGED_CHANGES lane=$lane"
+    fi
+
+    feature="$(git -C "$repo" config --worktree --get subshell.featureName 2>/dev/null || true)"
+    if [[ "$#" -gt 0 ]]; then
+        message="$*"
+    elif [[ -n "$feature" ]]; then
+        message="Complete $feature"
+    else
+        message="Complete ${branch#*/}"
+    fi
+
+    printf '===== STAGED =====\n'
+    git -C "$repo" status --short
+    git -C "$repo" commit -m "$message"
+    require_clean "$repo" "${lane^^}"
+    head="$(git -C "$repo" rev-parse HEAD)"
+
+    printf 'LANE=%s\n' "$lane"
+    printf 'BRANCH=%s\n' "$branch"
+    printf 'CHECKPOINT=%s\n' "$head"
+    printf 'RESULT=%s_CHECKPOINT_COMPLETE\n' "${lane^^}"
+}
+
+sync_lane() {
+    local lane="$1"
+    local repo branch main_head old_head new_head
+
+    require_main
+    repo="$(require_active_lane "$lane")"
+    require_clean "$repo" "${lane^^}"
+    branch="$(git -C "$repo" branch --show-current)"
+    main_head="$(git -C "$MAIN" rev-parse main)"
+    old_head="$(git -C "$repo" rev-parse HEAD)"
+
+    if git -C "$repo" merge-base --is-ancestor "$main_head" HEAD; then
+        git -C "$repo" config --worktree subshell.baseMain "$main_head"
+        printf 'LANE=%s\n' "$lane"
+        printf 'BRANCH=%s\n' "$branch"
+        printf 'MAIN=%s\n' "$main_head"
+        printf 'RESULT=%s_ALREADY_SYNCED\n' "${lane^^}"
+        return
+    fi
+
+    if ! git -C "$repo" rebase "$main_head"; then
+        git -C "$repo" rebase --abort >/dev/null 2>&1 || true
+        stop "SYNC_CONFLICT_ABORTED lane=$lane branch=$branch"
+    fi
+
+    git -C "$repo" diff --check "$main_head...HEAD"
+    git -C "$repo" config --worktree subshell.baseMain "$main_head"
+    new_head="$(git -C "$repo" rev-parse HEAD)"
+
+    printf 'LANE=%s\n' "$lane"
+    printf 'BRANCH=%s\n' "$branch"
+    printf 'OLD_HEAD=%s\n' "$old_head"
+    printf 'NEW_HEAD=%s\n' "$new_head"
+    printf 'MAIN=%s\n' "$main_head"
+    printf 'RESULT=%s_SYNC_COMPLETE\n' "${lane^^}"
+}
+
+resolve_aapt() {
+    local sdk_root build_tools
+
+    sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Android/Sdk}}"
+    build_tools="$(
+        find "$sdk_root/build-tools" -mindepth 1 -maxdepth 1 -type d 2>/dev/null |
+        sort -V |
+        tail -n 1
+    )"
+
+    [[ -x "$build_tools/aapt" ]] || stop "AAPT_NOT_FOUND sdk=$sdk_root"
+    printf '%s\n' "$build_tools/aapt"
+}
+
+apk_package() {
+    local apk="$1"
+    local aapt metadata
+
+    aapt="$(resolve_aapt)"
+    metadata="$("$aapt" dump badging "$apk" | sed -n '1p')"
+    sed -n "s/.*package: name='\([^']*\)'.*/\1/p" <<<"$metadata"
+}
+
+verify_apk() {
+    local apk="$1"
+    local expected="$2"
+    local actual
+
+    [[ -f "$apk" ]] || stop "APK_NOT_FOUND path=$apk"
+    actual="$(apk_package "$apk")"
+    [[ "$actual" == "$expected" ]] ||
+        stop "APK_PACKAGE_MISMATCH expected=$expected actual=$actual"
+}
+
+resolve_device() {
+    local configured
+    local -a devices=()
+
+    command -v adb >/dev/null || stop "ADB_NOT_AVAILABLE"
+    adb start-server >/dev/null
+    configured="${SUBSHELL_ADB_SERIAL:-}"
+
+    if [[ -n "$configured" ]]; then
+        [[ "$(adb -s "$configured" get-state 2>/dev/null || true)" == device ]] ||
+            stop "ADB_DEVICE_UNAVAILABLE serial=$configured"
+        printf '%s\n' "$configured"
+        return
+    fi
+
+    mapfile -t devices < <(adb devices | awk 'NR > 1 && $2 == "device" { print $1 }')
+
+    case "${#devices[@]}" in
+        1) printf '%s\n' "${devices[0]}" ;;
+        0) stop "NO_ADB_DEVICE" ;;
+        *) stop "MULTIPLE_ADB_DEVICES_SET_SUBSHELL_ADB_SERIAL" ;;
+    esac
+}
+
+build_lane() {
+    local lane="$1"
+    shift
+    local repo package apk serial component
+
+    repo="$(require_active_lane "$lane")"
+    package="$(lane_package "$lane")"
+    apk="$repo/$APK_REL"
+    component="$package/app.subshell.prototype.MainActivity"
+
+    (
+        cd "$repo"
+        ./gradlew :app:assembleDebug "-Psubshell.debugSlot=$lane" \
+            --offline --no-daemon --no-configuration-cache "$@"
+    )
+
+    verify_apk "$apk" "$package"
+    serial="$(resolve_device)"
+    adb -s "$serial" install -r "$apk"
+    adb -s "$serial" shell am force-stop "$package"
+    adb -s "$serial" shell am start -W -n "$component"
+
+    printf 'LANE=%s\n' "$lane"
+    printf 'PACKAGE=%s\n' "$package"
+    printf 'DEVICE=%s\n' "$serial"
+    printf 'RESULT=%s_BUILD_INSTALL_LAUNCH_PASS\n' "${lane^^}"
+}
+
+refresh_idle_lane() {
+    local lane="$1"
+    local head="$2"
+    local repo branch
+
+    repo="$(lane_repo "$lane")"
+    branch="$(git -C "$repo" branch --show-current)"
+
+    if [[ -z "$branch" ]] && repo_clean "$repo"; then
+        git -C "$repo" switch --detach "$head" >/dev/null 2>&1
+    fi
+}
+
+land_lane() {
+    local lane="$1"
+    local repo package branch main_before lane_head log rc warnings main_after other_lane
+
+    require_main
+    repo="$(require_active_lane "$lane")"
+    require_clean "$repo" "${lane^^}"
+    branch="$(git -C "$repo" branch --show-current)"
+    main_before="$(git -C "$MAIN" rev-parse main)"
+
+    if ! git -C "$repo" merge-base --is-ancestor "$main_before" HEAD; then
+        sync_lane "$lane"
+    fi
+
+    lane_head="$(git -C "$repo" rev-parse HEAD)"
+    [[ "$lane_head" != "$main_before" ]] || stop "LAND_HAS_NO_COMMITS lane=$lane"
+    git -C "$repo" diff --check "$main_before...$lane_head"
+
+    # SUBSHELL_WORKFLOW01_BASELINE_AWARE_LAND_V1
+    # Historical contracts may already be red on main. A lane may preserve or
+    # reduce that debt, but it may not introduce a new failure signature.
+    [[ -x "$repo/$CONTRACT_DELTA_REL" ]] ||
+        stop "CONTRACT_DELTA_TOOL_MISSING path=$repo/$CONTRACT_DELTA_REL"
+    bash "$repo/$CONTRACT_DELTA_REL" "$MAIN" "$repo" ||
+        stop "LAND_CONTRACT_DELTA_FAILED lane=$lane"
+
+    log="${TMPDIR:-/tmp}/subshell-land-$lane-$$.log"
+    rm -f "$log"
+
+    set +e
+    (
+        cd "$repo"
+        # --rerun: an UP-TO-DATE Kotlin compile prints no warnings, so the
+        # LAND_KOTLIN_WARNINGS fence below would pass on a cached build.
+        # STEP3_LAND_LINT_GATE_V1: lintDebug with the land lint profile (the
+        # rules the retired quality01* checkers stood in for, new findings
+        # only) and the auth policy-matrix tasks, which before ran only under
+        # `gradle check`. None of them reads signing material.
+        ./gradlew \
+            :app:compileDebugKotlin --rerun \
+            :app:compileDebugUnitTestKotlin --rerun \
+            :app:testDebugUnitTest \
+            :app:assembleDebug \
+            :app:lintDebug \
+            :app:verifyAuth04ConfigurationPolicy \
+            :app:verifyAuth05ProductionIdentityPolicy \
+            :app:verifyAuth05cApplicationIdPolicy \
+            :app:verifyAuth05d2ReleaseSigningPolicy \
+            "-Psubshell.debugSlot=$lane" \
+            -Psubshell.landLint=true \
+            --offline \
+            --no-daemon \
+            --no-configuration-cache
+    ) 2>&1 | tee "$log"
+    rc=${PIPESTATUS[0]}
+    set -e
+
+    [[ "$rc" -eq 0 ]] || stop "LAND_BUILD_FAILED lane=$lane rc=$rc"
+    warnings="$(grep -E '^w: ' "$log" || true)"
+    [[ -z "$warnings" ]] || {
+        printf '%s\n' "$warnings" >&2
+        stop "LAND_KOTLIN_WARNINGS lane=$lane"
+    }
+
+    package="$(lane_package "$lane")"
+    verify_apk "$repo/$APK_REL" "$package"
+    require_clean "$repo" "${lane^^}"
+    require_clean "$MAIN" MAIN
+    [[ "$(git -C "$MAIN" rev-parse main)" == "$main_before" ]] ||
+        stop "MAIN_CHANGED_DURING_LAND"
+
+    git -C "$MAIN" merge --ff-only "$branch"
+    main_after="$(git -C "$MAIN" rev-parse main)"
+    [[ "$main_after" == "$(git -C "$repo" rev-parse HEAD)" ]] ||
+        stop "MAIN_FAST_FORWARD_MISMATCH"
+
+    git -C "$repo" switch --detach "$main_after" >/dev/null 2>&1
+    git -C "$MAIN" branch -d "$branch" >/dev/null
+    if [[ "$lane" == dev1 ]]; then
+        other_lane=dev2
+    else
+        other_lane=dev1
+    fi
+    refresh_idle_lane "$other_lane" "$main_after"
+    git -C "$repo" config --worktree --unset-all subshell.expectedBranch >/dev/null 2>&1 || true
+    git -C "$repo" config --worktree --unset-all subshell.baseMain >/dev/null 2>&1 || true
+    git -C "$repo" config --worktree --unset-all subshell.featureName >/dev/null 2>&1 || true
+    install_hook "$repo" "$lane"
+
+    require_clean "$MAIN" MAIN
+    require_clean "$repo" "${lane^^}"
+
+    printf 'LANE=%s\n' "$lane"
+    printf 'LANDED_BRANCH=%s\n' "$branch"
+    printf 'MAIN_BEFORE=%s\n' "$main_before"
+    printf 'MAIN_AFTER=%s\n' "$main_after"
+    printf 'CONTRACT_DELTA=PASS\n'
+    printf 'KOTLIN_WARNINGS=NONE\n'
+    printf 'RESULT=%s_LANDED_TO_MAIN\n' "${lane^^}"
+}
+
+command="${1:-}"
+[[ -n "$command" ]] || {
+    usage
+    exit 2
+}
+shift
+
+case "$command" in
+    status)
+        [[ "$#" -eq 0 ]] || stop "STATUS_TAKES_NO_ARGUMENTS"
+        status_command
+        ;;
+    start)
+        [[ "$#" -eq 2 ]] || stop "USAGE_START_LANE_FEATURE"
+        start_lane "$1" "$2"
+        ;;
+    checkpoint)
+        [[ "$#" -ge 1 ]] || stop "USAGE_CHECKPOINT_LANE_MESSAGE"
+        lane="$1"
+        shift
+        checkpoint_lane "$lane" "$@"
+        ;;
+    sync)
+        [[ "$#" -eq 1 ]] || stop "USAGE_SYNC_LANE"
+        sync_lane "$1"
+        ;;
+    land)
+        [[ "$#" -eq 1 ]] || stop "USAGE_LAND_LANE"
+        land_lane "$1"
+        ;;
+    dev1)
+        build_lane dev1 "$@"
+        ;;
+    dev2)
+        build_lane dev2 "$@"
+        ;;
+    help|-h|--help)
+        usage
+        ;;
+    *)
+        usage >&2
+        exit 2
+        ;;
+esac

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- M3221_LIGHT_COLD_START_V1 (#221 foundations-02): light-theme readers saw a
+         dark-grey window before Compose drew; the window now follows the night mode. -->
+    <style name="Theme.Subshell" parent="android:style/Theme.Material.Light.NoActionBar" xmlns:tools="http&#58;//schemas.android.com/tools" tools:targetApi="27">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">@color/subshell_window_light</item>
+    </style>
+</resources>

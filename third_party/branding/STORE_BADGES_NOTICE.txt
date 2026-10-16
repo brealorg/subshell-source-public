@@ -1,0 +1,11 @@
+Store badges used by the subshell Reddit onboarding flow.
+
+Google Play badge
+Source: Google Play
+Asset: Get it on Google Play badge
+Usage subject to Google Play brand guidelines.
+
+F-Droid badge
+Source: F-Droid Contributors
+Asset: Get it on F-Droid badge
+License: CC-BY-SA-3.0

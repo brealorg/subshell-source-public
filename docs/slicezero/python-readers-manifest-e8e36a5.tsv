@@ -1,0 +1,27 @@
+checker	line	label	haystack	token	in_SubshellState	in_ui_state	old_truth	new_truth	flip
+check-crosspost01a1c-draft-destination-contract.sh	52	CROSSPOST01A1C_STATE_AND_PORTABLE_BOUNDARY	state	if (!canUpdateSourceBoundComposerDraft(postComposerDraft, draft)) return	1	0	True	True	False
+check-crosspost01a1c-draft-destination-contract.sh	52	CROSSPOST01A1C_STATE_AND_PORTABLE_BOUNDARY	state	CROSSPOST01A1E_REOPEN_REQUIRES_SOURCE_AND_OWNER_V1	1	0	True	True	False
+check-crosspost01a1c-draft-destination-contract.sh	52	CROSSPOST01A1C_STATE_AND_PORTABLE_BOUNDARY	state	canReopenSourceBoundDraft(draft)	2	0	True	True	False
+check-crosspost01a1c-draft-destination-contract.sh	52	CROSSPOST01A1C_STATE_AND_PORTABLE_BOUNDARY	state	if (crosspostSource != null) return null	1	0	True	True	False
+check-crosspost01a1c-draft-destination-contract.sh	52	CROSSPOST01A1C_STATE_AND_PORTABLE_BOUNDARY	state	crosspostSource == null &&	1	0	True	True	False
+check-crosspost01a1e-create-flow-contract.sh	44	CROSSPOST01A1E_SHARED_POST_ENTRY	common+state	Text("Crosspost")	0	0	True	True	False
+check-crosspost01a1e-create-flow-contract.sh	44	CROSSPOST01A1E_SHARED_POST_ENTRY	common+state	state.canOpenCrosspostComposer(post)	0	0	True	True	False
+check-crosspost01a1e-create-flow-contract.sh	44	CROSSPOST01A1E_SHARED_POST_ENTRY	common+state	state.openCrosspostComposer(post)	0	0	True	True	False
+check-crosspost01a1e-create-flow-contract.sh	44	CROSSPOST01A1E_SHARED_POST_ENTRY	common+state	newCrosspostComposerDraft(source, activeAccountId)	1	0	True	True	False
+check-crosspost01a1e-create-flow-contract.sh	44	CROSSPOST01A1E_SHARED_POST_ENTRY	common+state	canReopenSourceBoundDraft(draft)	2	0	True	True	False
+check-crosspost01a1e-create-flow-contract.sh	93	CROSSPOST01A1E_WRAPPER_AND_LATE_SUCCESS_ISOLATION	flow+state+app	submitted.fullname == source.fullname	0	0	True	True	False
+check-crosspost01a1e-create-flow-contract.sh	93	CROSSPOST01A1E_WRAPPER_AND_LATE_SUCCESS_ISOLATION	flow+state+app	submitted.crosspostFullname != source.fullname	0	0	True	True	False
+check-crosspost01a1e-create-flow-contract.sh	93	CROSSPOST01A1E_WRAPPER_AND_LATE_SUCCESS_ISOLATION	flow+state+app	id = submitted.fullname	0	0	True	True	False
+check-crosspost01a1e-create-flow-contract.sh	93	CROSSPOST01A1E_WRAPPER_AND_LATE_SUCCESS_ISOLATION	flow+state+app	kind = PostKind.CROSSPOST	0	0	True	True	False
+check-crosspost01a1e-create-flow-contract.sh	93	CROSSPOST01A1E_WRAPPER_AND_LATE_SUCCESS_ISOLATION	flow+state+app	body = ""	0	0	True	True	False
+check-crosspost01a1e-create-flow-contract.sh	93	CROSSPOST01A1E_WRAPPER_AND_LATE_SUCCESS_ISOLATION	flow+state+app	postComposerDrafts.removeAll { it.id in matchingIds }	1	0	True	True	False
+check-crosspost01a1e-create-flow-contract.sh	93	CROSSPOST01A1E_WRAPPER_AND_LATE_SUCCESS_ISOLATION	flow+state+app	postComposerDraft.id in matchingIds	2	0	True	True	False
+check-crosspost01a1e-create-flow-contract.sh	93	CROSSPOST01A1E_WRAPPER_AND_LATE_SUCCESS_ISOLATION	flow+state+app	if (navigate)	1	0	True	True	False
+check-crosspost01a1e-create-flow-contract.sh	93	CROSSPOST01A1E_WRAPPER_AND_LATE_SUCCESS_ISOLATION	flow+state+app	open(created)	3	0	True	True	False
+check-crosspost01a1e-create-flow-contract.sh	93	CROSSPOST01A1E_WRAPPER_AND_LATE_SUCCESS_ISOLATION	flow+state+app	state.completeRemoteCrosspostComposer(	0	0	True	True	False
+check-crosspost01a2-post-publish-rebind-contract.sh	40	CROSSPOST01A2_ROUTE_SAFE_REBIND	state	rebindCompletedCrosspostToCanonical	1	0	True	True	False
+check-crosspost01a2-post-publish-rebind-contract.sh	40	CROSSPOST01A2_ROUTE_SAFE_REBIND	state	routeStack.current as? SubshellRoute.Post ?: return false	3	0	True	True	False
+check-crosspost01a2-post-publish-rebind-contract.sh	40	CROSSPOST01A2_ROUTE_SAFE_REBIND	state	selectedPost ?: return false	1	0	True	True	False
+check-crosspost01a2-post-publish-rebind-contract.sh	40	CROSSPOST01A2_ROUTE_SAFE_REBIND	state	redditTargetMatchesPost(submittedPost.id, route.postRoute.postId)	1	0	True	True	False
+check-crosspost01a2-post-publish-rebind-contract.sh	40	CROSSPOST01A2_ROUTE_SAFE_REBIND	state	canonicalCrosspostCompletionOrFallback(	1	0	True	True	False
+check-crosspost01a2-post-publish-rebind-contract.sh	40	CROSSPOST01A2_ROUTE_SAFE_REBIND	state	replaceCurrentPostSelection(rebound)	1	0	True	True	False

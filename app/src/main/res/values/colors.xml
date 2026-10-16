@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="subshell_icon_background">#171411</color>
+    <!-- M3221_LIGHT_COLD_START_V1: the Compose backgrounds, so the first frame matches. -->
+    <color name="subshell_window_light">#FFFFF8F4</color>
+    <color name="subshell_window_dark">#FF17120F</color>
+</resources>

@@ -1,0 +1,93 @@
+#!/bin/sh
+set -u
+
+# SUBSHELL_WORKFLOW02_SUCCESS_ONLY_CONTRACT_MEMO_RUNTIME_V1
+# Activated by the aggregate suite and direct source-contract bootstrap.
+# Successful contract-script executions are memoized for one bounded suite.
+# Failures are never cached.
+
+REAL_BASH="${SUBSHELL_CONTRACT_REAL_BASH:-}"
+MEMO_ROOT="${SUBSHELL_CONTRACT_MEMO_ROOT:-}"
+MEMO_DIR="${SUBSHELL_CONTRACT_MEMO_DIR:-}"
+MEMO_EVENTS="${SUBSHELL_CONTRACT_MEMO_EVENTS:-}"
+
+if [ -z "$REAL_BASH" ]; then
+    if [ -x /usr/bin/bash ]; then
+        REAL_BASH=/usr/bin/bash
+    elif [ -x /bin/bash ]; then
+        REAL_BASH=/bin/bash
+    else
+        echo 'STOP=SUBSHELL_CONTRACT_REAL_BASH_UNAVAILABLE' >&2
+        exit 127
+    fi
+fi
+
+if [ "$#" -eq 0 ] || [ -z "$MEMO_ROOT" ] || [ -z "$MEMO_DIR" ]; then
+    exec "$REAL_BASH" "$@"
+fi
+
+case "$1" in
+    -*) exec "$REAL_BASH" "$@" ;;
+esac
+
+case "$1" in
+    /*) candidate="$1" ;;
+    *) candidate="$PWD/$1" ;;
+esac
+
+target="$(realpath -m -- "$candidate" 2>/dev/null || true)"
+case "$target" in
+    "$MEMO_ROOT"/tools/check-*-contract.sh) ;;
+    *) exec "$REAL_BASH" "$@" ;;
+esac
+
+key="$({
+    printf 'TARGET\0%s\0PWD\0%s\0ARGC\0%s\0' "$target" "$PWD" "$#"
+    arg_index=0
+    for arg in "$@"; do
+        arg_index=$((arg_index + 1))
+        if [ "$arg_index" -eq 1 ]; then
+            printf 'ARG\0%s\0' "$target"
+        else
+            printf 'ARG\0%s\0' "$arg"
+        fi
+    done
+    env | LC_ALL=C sort | grep -Ev \
+        '^(PWD|OLDPWD|SHLVL|_|SUBSHELL_CONTRACT_REAL_BASH|SUBSHELL_CONTRACT_MEMO_ROOT|SUBSHELL_CONTRACT_MEMO_DIR|SUBSHELL_CONTRACT_MEMO_EVENTS)='
+} | sha256sum | awk '{print $1}')"
+
+entry="$MEMO_DIR/$key"
+if [ -f "$entry/complete" ]; then
+    [ -n "$MEMO_EVENTS" ] &&
+        printf 'HIT\t%s\t%s\n' "$key" "$target" >> "$MEMO_EVENTS"
+    cat "$entry/stdout"
+    cat "$entry/stderr" >&2
+    exit 0
+fi
+
+tmp="$MEMO_DIR/.tmp.$key.$$"
+rm -rf "$tmp"
+mkdir -p "$tmp"
+
+"$REAL_BASH" "$@" >"$tmp/stdout" 2>"$tmp/stderr"
+rc=$?
+
+cat "$tmp/stdout"
+cat "$tmp/stderr" >&2
+
+if [ "$rc" -eq 0 ]; then
+    : > "$tmp/complete"
+    if [ ! -e "$entry" ]; then
+        mv "$tmp" "$entry"
+    else
+        rm -rf "$tmp"
+    fi
+    [ -n "$MEMO_EVENTS" ] &&
+        printf 'MISS\t%s\t%s\n' "$key" "$target" >> "$MEMO_EVENTS"
+else
+    [ -n "$MEMO_EVENTS" ] &&
+        printf 'FAIL_NOT_CACHED\t%s\t%s\n' "$key" "$target" >> "$MEMO_EVENTS"
+    rm -rf "$tmp"
+fi
+
+exit "$rc"

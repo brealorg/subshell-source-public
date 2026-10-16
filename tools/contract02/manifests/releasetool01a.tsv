@@ -1,0 +1,2 @@
+# id	path	block_mode	predecessors
+releasetool01a	tools/check-releasetool01a-contract.sh	primary	-

@@ -1,0 +1,260 @@
+package app.subshell.prototype.data.network.reddit
+
+import app.subshell.prototype.data.COMMENTS02_MORE_BATCH_SIZE
+import app.subshell.prototype.data.auth.LIVE03_COMMENT_DEPTH
+import app.subshell.prototype.data.auth.LIVE03_COMMENT_LIMIT
+import app.subshell.prototype.data.RedditCommentSort
+import app.subshell.prototype.data.auth.normalizeRedditPostFullname
+import app.subshell.prototype.data.network.JsonGetRequest
+import app.subshell.prototype.data.network.NetworkResult
+import app.subshell.prototype.data.network.SubshellHttpClient
+import app.subshell.prototype.data.network.SubshellNetworkJson
+import app.subshell.prototype.data.network.map
+import app.subshell.prototype.model.Comment
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
+
+internal data class RedditCommentPage(
+    val comments: List<Comment>,
+    val suggestedSort: RedditCommentSort?,
+    // ISSUE22_COMMENT_AUTHOR_FULLNAME_V1: author username -> "t2_…" account
+    // fullname, for the batch avatar lookup. Transient: not part of Comment
+    // and never cached.
+    val authorFullnames: Map<String, String> = emptyMap(),
+)
+
+internal data class RedditMoreChildrenPage(
+    val comments: List<Comment>,
+    val authorFullnames: Map<String, String> = emptyMap(),
+    // DATALAYER02: Reddit refused the request (json.errors, e.g. RATELIMIT)
+    // but answered 200; comments is then empty and must not be merged.
+    val rejectedByReddit: Boolean = false,
+)
+
+internal class RedditCommentNetworkDataSource(
+    private val httpClient: SubshellHttpClient,
+    private val json: Json = SubshellNetworkJson.providerJson,
+    private val clock: EpochSecondsClock = SystemEpochSecondsClock,
+) {
+    suspend fun comments(
+        postId: String,
+        sort: RedditCommentSort,
+        limit: Int = LIVE03_COMMENT_LIMIT,
+        depth: Int = LIVE03_COMMENT_DEPTH,
+        focusedCommentId: String? = null,
+        context: Int = 0,
+    ): NetworkResult<RedditCommentPage> {
+        require(limit in 1..REDDIT_MAX_COMMENT_LIMIT) {
+            "Reddit comment limit must be between 1 and $REDDIT_MAX_COMMENT_LIMIT"
+        }
+        require(depth in 1..REDDIT_MAX_COMMENT_DEPTH) {
+            "Reddit comment depth must be between 1 and $REDDIT_MAX_COMMENT_DEPTH"
+        }
+        return httpClient.getJson(
+            request = redditCommentsJsonRequest(
+                postId = postId,
+                sort = sort,
+                limit = limit,
+                depth = depth,
+                focusedCommentId = focusedCommentId,
+                context = context,
+            ),
+            deserializer = ListSerializer(RedditCommentListingDto.serializer()),
+        ).map { listings ->
+            val authorFullnames = linkedMapOf<String, String>()
+            RedditCommentPage(
+                comments = listings.toComments(
+                    json = json,
+                    nowEpochSeconds = clock.epochSeconds(),
+                    limit = limit,
+                    maxDepth = depth,
+                    authorFullnames = authorFullnames,
+                ),
+                suggestedSort = listings.suggestedCommentSort(),
+                authorFullnames = authorFullnames,
+            )
+        }
+    }
+
+    suspend fun moreChildren(
+        postId: String,
+        childIds: List<String>,
+        sort: RedditCommentSort,
+        depth: Int = LIVE03_COMMENT_DEPTH,
+    ): NetworkResult<RedditMoreChildrenPage> {
+        require(depth in 1..REDDIT_MAX_COMMENT_DEPTH) {
+            "Reddit comment depth must be between 1 and $REDDIT_MAX_COMMENT_DEPTH"
+        }
+        return httpClient.getJson(
+            request = redditMoreChildrenJsonRequest(
+                postId = postId,
+                childIds = childIds,
+                sort = sort,
+                depth = depth,
+            ),
+            deserializer = RedditMoreChildrenResponseDto.serializer(),
+        ).map { response ->
+            val authorFullnames = linkedMapOf<String, String>()
+            RedditMoreChildrenPage(
+                comments = response.toComments(
+                    jsonCodec = json,
+                    nowEpochSeconds = clock.epochSeconds(),
+                    maxDepth = depth,
+                    authorFullnames = authorFullnames,
+                ),
+                authorFullnames = authorFullnames,
+                rejectedByReddit = response.json.errors.isNotEmpty(),
+            )
+        }
+    }
+
+    companion object {
+        const val REDDIT_MAX_COMMENT_LIMIT = 100
+        const val REDDIT_MAX_COMMENT_DEPTH = 10
+    }
+}
+
+internal fun redditCommentsJsonRequest(
+    postId: String,
+    sort: RedditCommentSort,
+    limit: Int = LIVE03_COMMENT_LIMIT,
+    depth: Int = LIVE03_COMMENT_DEPTH,
+    focusedCommentId: String? = null,
+    context: Int = 0,
+): JsonGetRequest {
+    require(limit in 1..RedditCommentNetworkDataSource.REDDIT_MAX_COMMENT_LIMIT)
+    require(depth in 1..RedditCommentNetworkDataSource.REDDIT_MAX_COMMENT_DEPTH)
+    val articleId = normalizeRedditPostFullname(postId).removePrefix("t3_")
+    require(context in 0..8) {
+        "Reddit focused-comment context is outside the supported range"
+    }
+    val normalizedFocusedCommentId =
+        normalizeRedditFocusedCommentId(focusedCommentId)
+
+    return JsonGetRequest(
+        pathSegments = listOf("comments", articleId),
+        queryParameters = buildList {
+                add("raw_json" to "1")
+                add("limit" to limit.toString())
+                add("depth" to depth.toString())
+                add("sort" to sort.apiValue)
+
+                if (normalizedFocusedCommentId != null) {
+                    add("comment" to normalizedFocusedCommentId)
+                    add("context" to context.toString())
+                }
+            },
+    )
+}
+internal fun normalizeRedditFocusedCommentId(
+    value: String?,
+): String? {
+    val identifier = value
+        ?.trim()
+        ?.removePrefix("t1_")
+        ?: return null
+
+    require(
+        identifier.isNotEmpty() &&
+            identifier.length <= 32 &&
+            identifier.all(Char::isLetterOrDigit),
+    ) {
+        "Reddit focused-comment ID is invalid"
+    }
+
+    return identifier
+}
+
+
+internal fun redditMoreChildrenJsonRequest(
+    postId: String,
+    childIds: List<String>,
+    sort: RedditCommentSort,
+    depth: Int = LIVE03_COMMENT_DEPTH,
+): JsonGetRequest {
+    require(childIds.size in 1..COMMENTS02_MORE_BATCH_SIZE) {
+        "Reddit more-comment batch must contain 1..$COMMENTS02_MORE_BATCH_SIZE child IDs"
+    }
+    require(depth in 1..RedditCommentNetworkDataSource.REDDIT_MAX_COMMENT_DEPTH)
+    val normalizedChildIds = childIds.map { childId ->
+        childId.trim().removePrefix("t1_").also { normalized ->
+            require(normalized.isNotEmpty() && normalized.all(Char::isLetterOrDigit)) {
+                "Reddit child comment ID contains unsupported characters"
+            }
+        }
+    }.distinct()
+    require(normalizedChildIds.size == childIds.size) {
+        "Reddit more-comment child IDs must be unique"
+    }
+    return JsonGetRequest(
+        pathSegments = listOf("api", "morechildren"),
+        queryParameters = listOf(
+            "api_type" to "json",
+            "raw_json" to "1",
+            "link_id" to normalizeRedditPostFullname(postId),
+            "children" to normalizedChildIds.joinToString(","),
+            "limit_children" to "true",
+            "depth" to depth.toString(),
+            "sort" to sort.apiValue,
+        ),
+    )
+}
+
+
+internal fun mergeFocusedCommentContext(
+    current: List<app.subshell.prototype.model.Comment>,
+    focused: List<app.subshell.prototype.model.Comment>,
+    // OCB-492: true when `focused` is fresher than `current` (a network focused
+    // load over the cache); shared comments then take focused's fields.
+    preferFocusedFields: Boolean = false,
+): List<app.subshell.prototype.model.Comment> {
+    if (current.isEmpty()) return focused
+    if (focused.isEmpty()) return current
+
+    fun mergeLevel(
+        base: List<app.subshell.prototype.model.Comment>,
+        overlay: List<app.subshell.prototype.model.Comment>,
+    ): List<app.subshell.prototype.model.Comment> {
+        val overlayById = overlay.associateBy { comment -> comment.id }
+        val existingIds = base.mapTo(linkedSetOf()) { comment -> comment.id }
+        return buildList {
+            base.forEach { baseComment ->
+                val overlayComment = overlayById[baseComment.id]
+                add(
+                    if (overlayComment == null) {
+                        baseComment
+                    } else {
+                        (if (preferFocusedFields) overlayComment else baseComment).copy(
+                            children = mergeLevel(
+                                base = baseComment.children,
+                                overlay = overlayComment.children,
+                            ),
+                        )
+                    },
+                )
+            }
+            overlay.forEach { overlayComment ->
+                if (overlayComment.id !in existingIds) add(overlayComment)
+            }
+        }
+    }
+
+    return mergeLevel(current, focused)
+}
+
+internal fun focusedCommentContextForTarget(
+    comments: List<app.subshell.prototype.model.Comment>,
+    focusedCommentId: String,
+): List<app.subshell.prototype.model.Comment> {
+    fun pathToTarget(
+        comment: app.subshell.prototype.model.Comment,
+    ): app.subshell.prototype.model.Comment? {
+        if (comment.id == focusedCommentId) return comment
+        val childPath = comment.children
+            .firstNotNullOfOrNull { child -> pathToTarget(child) }
+            ?: return null
+        return comment.copy(children = listOf(childPath))
+    }
+
+    return comments.mapNotNull { comment -> pathToTarget(comment) }
+}

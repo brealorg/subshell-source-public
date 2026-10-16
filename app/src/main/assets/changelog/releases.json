@@ -1,0 +1,165 @@
+{
+  "schemaVersion": 1,
+  "releases": [
+    {
+      "versionCode": 245,
+      "versionName": "0.81-beta",
+      "date": "2026-10-15",
+      "headline": "Subshell 0.81: feed videos keep their shape",
+      "highlights": [
+        "Fixed: tall and very wide videos in the feed were stretched and cut off at the edge while playing.",
+        "Mention people in comments: type @ or u/ for people from the thread, then Reddit's people search.",
+        "Subshell checks for updates when you come back to it, so a new release shows up within the hour.",
+        "The update dialog can turn on update notifications if Android has them switched off."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v0.81-beta"
+    },
+    {
+      "versionCode": 244,
+      "versionName": "0.80-beta",
+      "date": "2026-10-15",
+      "headline": "Subshell 0.80: Material 3 throughout, a new video player and better accessibility",
+      "highlights": [
+        "Material 3 throughout: one top bar per screen, a navigation rail on tablets and foldables, list rows and segmented choices in Settings.",
+        "Video: a new seek bar with live frames, playback options in post and full screen, speed, double-tap skip, hold for 2x and picture-in-picture (each optional).",
+        "Wi-Fi only autoplay now really holds autoplay on mobile data; playing video keeps the screen on, and unplugging headphones pauses.",
+        "A Video group in Settings: subtitles, audio language, timeline size, quality and where the playback options show.",
+        "Better contrast, screen-reader labels and large-text layouts across the app.",
+        "Defaults reviewed: the theme follows the system, unread markers are on, and a one-time tip points to Settings.",
+        "Comments removed by a moderator are marked Removed in the thread.",
+        "NSFW: searches follow Show NSFW posts, quarantined communities can be opted into, banned and private ones say why; optional random NSFW community.",
+        "Errors appear in one tray instead of pop-ups; an image that can never load offers Open in browser.",
+        "Images linked over http load over https; a link to an image host stays a link.",
+        "Fixes: GIFs on your own profile autoplay again, lists without a top bar scroll by touch, Hidden tab for local accounts, link decoding on Android 8-12.",
+        "Many internal checks replaced by behaviour tests, and every land now runs a lint gate."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v0.80-beta"
+    },
+    {
+      "versionCode": 243,
+      "versionName": "0.79-beta",
+      "date": "2026-10-08",
+      "headline": "Subshell 0.79: saved searches, RedGIFs in the app, Reddit favorites sync and a full review of the code.",
+      "highlights": [
+        "New: saved searches in the Search hub, an optional scroll position indicator, RedGIFs clips in the app (with Show NSFW posts) and favorites synced with Reddit.",
+        "Reddit emotes, GIFs and images show inline in posts and comments and can be edited; spoilers stay hidden until tapped; escapes, nested styles and lists render right.",
+        "Safer writing: a post, comment, message or moderator action whose answer was lost is checked with Reddit instead of sent twice, and drafts survive restarts.",
+        "Accounts stay apart: votes, scroll positions, lists and notifications no longer cross between accounts; a notification for another account switches to it.",
+        "Fewer crashes and stalls: the app returns where you were after Android closes it, large photos no longer crash previews, and slow work left the main thread.",
+        "Accessibility: switches, choices and buttons announce what they are and their state, touch targets are larger, and auto-hiding controls follow the system timeout.",
+        "Correctness: votes, refreshes, paging, search results, markdown, flair and moderator tools now do what they show, and Retry picks up where a load failed.",
+        "No lost work: drafts, replies and moderator actions survive Android closing the app or a missing answer from Reddit, and backups read back everything they hold.",
+        "Privacy and security: names and ids stay out of release logs, turning a protection off needs the device unlock, and comment images load only from known image hosts.",
+        "Speed: lists, settings, backups and links read their data off the main thread, caches are capped, and long threads load more replies on their own.",
+        "Also: inbox notifications are on by default, shares and links open in the Subshell you already have, numbers follow your language and word filters match whole words.",
+        "Removed: video downloads. Videos stream; anything an older version downloaded can be deleted in Settings."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v0.79-beta"
+    },
+    {
+      "versionCode": 242,
+      "versionName": "0.78.0-beta.1",
+      "date": "2026-09-27",
+      "headline": "Subshell 0.78: app lock, private user notes, sharing into Subshell and content filters everywhere.",
+      "highlights": [
+        "Optional app lock: unlock with biometrics or the screen lock, choose when it locks again, and optionally hide what notifications say.",
+        "Private notes and coloured tags on Reddit users, shown next to their name, with an opt-in to include them in backups.",
+        "Share links, text and images from other apps into Subshell to start a post (optional, off by default).",
+        "Content filters now work on community pages, custom feeds and search, can be limited to one community, and can show how many posts they hide.",
+        "Many more Reddit links open inside the app: share links, images and videos, profile tabs, searches, custom feeds and wiki pages.",
+        "Also new: find in thread, jump between top-level comments, in-app text size, pure black theme, launcher shortcuts, gallery downloads, Giphy GIFs and post flair emoji."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v0.78.0-beta.1"
+    },
+    {
+      "versionCode": 241,
+      "versionName": "0.77.0-beta.7",
+      "date": "2026-09-21",
+      "headline": "Seventh public beta of Subshell.",
+      "highlights": [
+        "Comment author avatars in threads, with a setting to turn them off.",
+        "An open drawer closes on Back or a scrim tap even with comment swipe actions on.",
+        "Moderators can send a removal message after removing a post or comment, with saved responses that can be backed up.",
+        "One composer family everywhere: the same editor, formatting bar, preview and buttons in posts, comments, chat, modmail and New message.",
+        "Editing a post or comment asks before discarding unsaved changes."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v0.77.0-beta.7"
+    },
+    {
+      "versionCode": 240,
+      "versionName": "0.77.0-beta.6",
+      "date": "2026-09-20",
+      "headline": "Sixth public beta of Subshell.",
+      "highlights": [
+        "Returning to Home or a community from a post keeps your place in the feed; cached feeds revalidate on first entry and again after fifteen minutes.",
+        "Internal restructuring of app state into focused components and removal of unused screens, with no intended visible changes.",
+        "Same changes as beta.5, republished so the in-app update check can offer it."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v0.77.0-beta.6"
+    },
+    {
+      "versionCode": 239,
+      "versionName": "0.77.0-beta.5",
+      "date": "2026-09-20",
+      "headline": "Fifth public beta of Subshell.",
+      "highlights": [
+        "Returning to Home or a community from a post keeps your place in the feed; cached feeds revalidate on first entry and again after fifteen minutes.",
+        "Internal restructuring of app state into focused components and removal of unused screens, with no intended visible changes."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v0.77.0-beta.5"
+    },
+    {
+      "versionCode": 238,
+      "versionName": "0.77.0-beta.4",
+      "date": "2026-09-18",
+      "headline": "Fourth public beta of Subshell.",
+      "highlights": [
+        "Native Reddit crossposting now supports destination selection, flair, review, publishing, and immediate canonical post presentation.",
+        "Posts can now be followed and unfollowed directly from the post overflow menu.",
+        "Community user flair support now includes selecting your own flair and richer author flair presentation.",
+        "Configurable swipe actions are available for posts and comments, with gesture arbitration and haptic feedback.",
+        "Cached Home and community feeds now refresh automatically on re-entry, and inline comment images open in the shared fullscreen viewer.",
+        "Video looping is available as an optional setting, alongside refinements to Accounts and searchable Settings."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v0.77.0-beta.4"
+    },
+    {
+      "versionCode": 237,
+      "versionName": "0.77.0-beta.3",
+      "date": "2026-09-15",
+      "headline": "Third public beta of Subshell.",
+      "highlights": [
+        "Expanded Mod Tools with reports, content controls, Mod Log, user management, and moderator team administration.",
+        "Portable backup and restore now covers more community state and optional post drafts with transactional restore.",
+        "Improved Reddit video reliability with poster continuity, returned-feed audio fixes, fallback handling, and landscape controls.",
+        "More flexible comment hierarchy and collapse presentation.",
+        "Built-in GitHub beta update awareness with What's New and an in-app changelog."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v0.77.0-beta.3"
+    },
+    {
+      "versionCode": 236,
+      "versionName": "0.77.0-beta.2",
+      "date": "2026-09-06",
+      "headline": "Second public beta of Subshell.",
+      "highlights": [
+        "Adaptive Subscriptions/community workspace improvements.",
+        "Better Modmail selection continuity in adaptive layouts.",
+        "Stronger concealment of sensitive preloaded video before reveal.",
+        "Clearer Reddit Client ID onboarding and setup guidance.",
+        "Additional diagnostics support for beta troubleshooting."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v0.77.0-beta.2"
+    },
+    {
+      "versionCode": 235,
+      "versionName": "0.77.0-beta.1",
+      "date": "2026-09-05",
+      "headline": "First public beta of Subshell.",
+      "highlights": [
+        "First signed public beta distributed through GitHub Releases."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v0.77.0-beta.1"
+    }
+  ]
+}
