@@ -4,9 +4,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -34,6 +31,7 @@ import app.subshell.prototype.ui.error.LocalViewportErrorHostState
 import app.subshell.prototype.ui.mediaActionScope
 import app.subshell.prototype.ui.mediaDownloadFolder
 import app.subshell.prototype.ui.shareRemoteMedia
+import app.subshell.prototype.ui.symbols.Symbols
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -93,7 +91,7 @@ internal fun RemoteMediaActionsSheet(
             ListItem(
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 content = { Text("Share media") },
-                leadingContent = { Icon(Icons.Rounded.Share, contentDescription = null) },
+                leadingContent = { Icon(Symbols.Share, contentDescription = null) },
                 modifier = Modifier.clickable {
                     onDismiss()
                     mediaActionScope.launch {
@@ -110,7 +108,7 @@ internal fun RemoteMediaActionsSheet(
             ListItem(
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 content = { Text("Download") },
-                leadingContent = { Icon(Icons.Rounded.Download, contentDescription = null) },
+                leadingContent = { Icon(Symbols.Download, contentDescription = null) },
                 modifier = Modifier.clickable {
                     download = MediaDownloadUiState.Saving(done = 0, total = 1)
                     mediaActionScope.launch {

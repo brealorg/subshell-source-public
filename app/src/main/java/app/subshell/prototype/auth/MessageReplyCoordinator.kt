@@ -1,6 +1,7 @@
 package app.subshell.prototype.auth
 
 import app.subshell.prototype.data.error.SafeFailureText
+import app.subshell.prototype.data.error.safeJsonPathText
 import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.account.MessageReplyChannel
 import app.subshell.prototype.data.account.MessageReplyFailureKind
@@ -209,6 +210,13 @@ internal class MessageReplyCoordinator(
 internal fun messageReplyFailureDetails(result: AuthenticatedRedditMessageReplyResult.Failed): FailureDetails? {
     val status = result.statusCode?.takeIf { code -> code in 100..599 }
     val step = SafeFailureText.fromUntrusted(result.providerCode)
-    if (status == null && step == null) return null
-    return FailureDetails(httpStatusCode = status, providerCode = step, retryable = result.retryable)
+    val jsonPath = safeJsonPathText(result.jsonPath)
+    if (status == null && step == null && result.protocolKind == null && jsonPath == null) return null
+    return FailureDetails(
+        httpStatusCode = status,
+        providerCode = step,
+        retryable = result.retryable,
+        protocolKind = result.protocolKind,
+        jsonPath = jsonPath,
+    )
 }

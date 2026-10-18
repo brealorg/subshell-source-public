@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -28,6 +26,7 @@ import app.subshell.prototype.ui.error.ErrorActionKind
 import app.subshell.prototype.ui.error.ErrorPresentation
 import app.subshell.prototype.ui.error.ErrorPresentationKind
 import app.subshell.prototype.ui.error.ReportErrorPresentationDiagnostic
+import app.subshell.prototype.ui.symbols.Symbols
 
 @Composable
 fun ErrorNotice(
@@ -81,7 +80,7 @@ fun ErrorNotice(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.ErrorOutline,
+                    imageVector = Symbols.Error,
                     contentDescription = null,
                     modifier = Modifier.size(if (compact) 20.dp else 24.dp),
                     tint = MaterialTheme.colorScheme.error,
@@ -158,7 +157,7 @@ internal fun InlineErrorNotice(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.ErrorOutline,
+                    imageVector = Symbols.Error,
                     contentDescription = null,
                     modifier = Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.error,
@@ -217,7 +216,7 @@ private fun DegradedErrorNotice(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Icon(
-                imageVector = Icons.Rounded.ErrorOutline,
+                imageVector = Symbols.Error,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.error,

@@ -788,6 +788,7 @@ class SubshellState(
     initialVideoSpeedControls: Boolean = false,
     initialVideoDoubleTapSeek: Boolean = false,
     initialVideoHoldForDoubleSpeed: Boolean = false,
+    initialVideoPinchToZoom: Boolean = false,
     initialVideoPictureInPicture: Boolean = false,
     initialVideoRotateFullscreen: Boolean = false,
     initialVideoTechnicalDetails: Boolean = false,
@@ -925,6 +926,9 @@ class SubshellState(
     initialSavedSearchesEnabled: Boolean = false,
     initialScrollPositionIndicator: Boolean = false,
     initialRandomNsfwCommunityPlacement: RandomNsfwCommunityPlacement = RandomNsfwCommunityPlacement.OFF,
+    initialPinnedPostsPresentation: PinnedPostsPresentation = PinnedPostsPresentation.CARDS,
+    initialPostLayout: PostLayout = PostLayout.LARGE,
+    initialListThumbnailSide: ListThumbnailSide = ListThumbnailSide.RIGHT,
     initialRequireDeviceUnlockForHiddenSubscriptions: Boolean = false,
     initialCommunityDiscoveryLayout: CommunityDiscoveryLayout = CommunityDiscoveryLayout.CAROUSEL,
 ) {
@@ -1056,6 +1060,9 @@ class SubshellState(
         initialSavedSearchesEnabled = initialSavedSearchesEnabled,
         initialScrollPositionIndicator = initialScrollPositionIndicator,
         initialRandomNsfwCommunityPlacement = initialRandomNsfwCommunityPlacement,
+        initialPinnedPostsPresentation = initialPinnedPostsPresentation,
+        initialPostLayout = initialPostLayout,
+        initialListThumbnailSide = initialListThumbnailSide,
         initialCommunityDiscoveryLayout = initialCommunityDiscoveryLayout,
         initialRequireDeviceUnlockForHiddenSubscriptions = initialRequireDeviceUnlockForHiddenSubscriptions,
         initialNavigationLabelMode = initialNavigationLabelMode,
@@ -1079,6 +1086,7 @@ class SubshellState(
         initialVideoSpeedControls = initialVideoSpeedControls,
         initialVideoDoubleTapSeek = initialVideoDoubleTapSeek,
         initialVideoHoldForDoubleSpeed = initialVideoHoldForDoubleSpeed,
+        initialVideoPinchToZoom = initialVideoPinchToZoom,
         initialVideoPictureInPicture = initialVideoPictureInPicture,
         initialVideoRotateFullscreen = initialVideoRotateFullscreen,
         initialVideoTechnicalDetails = initialVideoTechnicalDetails,
@@ -1223,6 +1231,12 @@ class SubshellState(
         private set
     var randomNsfwCommunityPlacement by settings::randomNsfwCommunityPlacement
         private set
+    var pinnedPostsPresentation by settings::pinnedPostsPresentation
+        private set
+    var postLayout by settings::postLayout
+        private set
+    var listThumbnailSide by settings::listThumbnailSide
+        private set
     var communityDiscoveryLayout by settings::communityDiscoveryLayout
         private set
     var requireDeviceUnlockForHiddenSubscriptions by settings::requireDeviceUnlockForHiddenSubscriptions
@@ -1281,6 +1295,7 @@ class SubshellState(
     var videoSpeedControls by settings::videoSpeedControls
     var videoDoubleTapSeek by settings::videoDoubleTapSeek
     var videoHoldForDoubleSpeed by settings::videoHoldForDoubleSpeed
+    var videoPinchToZoom by settings::videoPinchToZoom
     var videoPictureInPicture by settings::videoPictureInPicture
     var videoRotateFullscreen by settings::videoRotateFullscreen
     var videoTechnicalDetails by settings::videoTechnicalDetails
@@ -1291,6 +1306,9 @@ class SubshellState(
     var landscapeVolumeGestureEnabled by settings::landscapeVolumeGestureEnabled
         private set
     var reduceMotion by settings::reduceMotion
+    var systemRemovesAnimations by settings::systemRemovesAnimations
+    val motionReduced: Boolean
+        get() = settings.motionReduced
     var activeAnimatedMediaId by mutableStateOf<String?>(null)
     var feedPreviewState by settings::feedPreviewState
     private val accountSessionCatalog = mutableStateListOf<AccountSessionSummary>().apply {
@@ -5558,6 +5576,18 @@ class SubshellState(
         settings.updateRandomNsfwCommunityPlacement(placement)
     }
 
+    fun updatePinnedPostsPresentation(presentation: PinnedPostsPresentation) {
+        settings.updatePinnedPostsPresentation(presentation)
+    }
+
+    fun updatePostLayout(layout: PostLayout) {
+        settings.updatePostLayout(layout)
+    }
+
+    fun updateListThumbnailSide(side: ListThumbnailSide) {
+        settings.updateListThumbnailSide(side)
+    }
+
     /** ISSUE211: whether "Random NSFW community" shows at [placement] now. */
     fun offersRandomNsfwCommunity(placement: RandomNsfwCommunityPlacement): Boolean =
         showNsfwPosts && activeAccountIsAuthenticated &&
@@ -5663,6 +5693,10 @@ class SubshellState(
         settings.updateVideoHoldForDoubleSpeed(enabled)
     }
 
+    fun updateVideoPinchToZoom(enabled: Boolean) {
+        settings.updateVideoPinchToZoom(enabled)
+    }
+
     fun updateVideoPictureInPicture(enabled: Boolean) {
         settings.updateVideoPictureInPicture(enabled)
     }
@@ -5749,6 +5783,10 @@ class SubshellState(
         savedSearchesEnabled = savedSearchesEnabled,
         scrollPositionIndicator = scrollPositionIndicator,
         randomNsfwCommunityPlacement = randomNsfwCommunityPlacement,
+        pinnedPostsPresentation = pinnedPostsPresentation,
+        postLayout = postLayout,
+        listThumbnailSide = listThumbnailSide,
+        mutedCommunityDirectViewMode = mutedCommunityDirectViewMode,
         communityDiscoveryLayout = communityDiscoveryLayout,
         navigationLabelMode = navigationLabelMode,
         tabletLayoutMode = tabletLayoutMode,
@@ -5771,6 +5809,7 @@ class SubshellState(
         videoSpeedControls = videoSpeedControls,
         videoDoubleTapSeek = videoDoubleTapSeek,
         videoHoldForDoubleSpeed = videoHoldForDoubleSpeed,
+        videoPinchToZoom = videoPinchToZoom,
         videoPictureInPicture = videoPictureInPicture,
         videoRotateFullscreen = videoRotateFullscreen,
         videoTechnicalDetails = videoTechnicalDetails,
@@ -5836,6 +5875,10 @@ class SubshellState(
         savedSearchesEnabled = settings.savedSearchesEnabled
         scrollPositionIndicator = settings.scrollPositionIndicator
         randomNsfwCommunityPlacement = settings.randomNsfwCommunityPlacement
+        pinnedPostsPresentation = settings.pinnedPostsPresentation
+        postLayout = settings.postLayout
+        listThumbnailSide = settings.listThumbnailSide
+        mutedCommunityDirectViewMode = settings.mutedCommunityDirectViewMode
         communityDiscoveryLayout = settings.communityDiscoveryLayout
         navigationLabelMode = settings.navigationLabelMode
         tabletLayoutMode = settings.tabletLayoutMode
@@ -5858,6 +5901,7 @@ class SubshellState(
         videoSpeedControls = settings.videoSpeedControls
         videoDoubleTapSeek = settings.videoDoubleTapSeek
         videoHoldForDoubleSpeed = settings.videoHoldForDoubleSpeed
+        videoPinchToZoom = settings.videoPinchToZoom
         videoPictureInPicture = settings.videoPictureInPicture
         videoRotateFullscreen = settings.videoRotateFullscreen
         videoTechnicalDetails = settings.videoTechnicalDetails

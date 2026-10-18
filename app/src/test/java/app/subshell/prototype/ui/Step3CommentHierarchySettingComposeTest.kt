@@ -30,8 +30,8 @@ import org.robolectric.annotation.Config
 /**
  * STEP3 (issue10): Settings > Comments previews a parent comment and one reply
  * (no third level, no reply context, no style choices inside the preview);
- * the Comment hierarchy row shows the short value and opens a dialog with the
- * full names, which changes the style; search finds the row.
+ * the Comment hierarchy row shows the chosen name and opens a dialog with the
+ * same names, which changes the style; search finds the row.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36], qualifiers = "w411dp-h891dp")
@@ -78,17 +78,20 @@ class Step3CommentHierarchySettingComposeTest {
         show()
         composeRule.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(hasText("Comment hierarchy"))
         composeRule.waitForIdle()
-        assertTrue(count("Guides") > 0)
+        // SETTINGSREVIEW01_ROWS_USE_THE_DIALOG_WORDS_V1: the row says what the dialog says.
+        assertTrue(count("Guide lines") > 0)
+        assertEquals(0, count("Parent connectors"))
 
         composeRule.onAllNodesWithText("Comment hierarchy").onFirst()
             .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitForIdle()
-        assertTrue(count("Guide lines") > 0)
+        assertTrue(count("Parent connectors") > 0)
         composeRule.onAllNodesWithText("Parent connectors").onFirst().performClick()
         composeRule.waitForIdle()
 
         assertEquals(CommentHierarchyStyle.PARENT_CONNECTORS, state.commentHierarchyStyle)
-        assertTrue(count("Connectors") > 0)
+        assertTrue(count("Parent connectors") > 0)
+        assertEquals(0, count("Guide lines"))
     }
 
     @Test

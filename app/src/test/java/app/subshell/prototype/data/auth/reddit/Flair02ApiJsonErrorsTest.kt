@@ -79,10 +79,13 @@ class Flair02ApiJsonErrorsTest {
 
     @Test
     fun userFlairRefusedInA200BodyFailsAndAnEmptyErrorListIsAcknowledged() = runBlocking {
+        val refused = userFlairManager(refusal).mutate(UserFlairMutationRequest(accountA, "subshell", "template-1"))
         assertEquals(
             AuthenticatedRedditUserFlairMutationResult.Failed(UserFlairFailureKind.HTTP),
-            userFlairManager(refusal).mutate(UserFlairMutationRequest(accountA, "subshell", "template-1")),
+            (refused as AuthenticatedRedditUserFlairMutationResult.Failed).copy(details = null),
         )
+        // DIAG05_PLAIN_NOTICES_ARE_RECORDED_V1: Reddit's code goes to the diagnostics.
+        assertEquals("BAD_FLAIR_TARGET", refused.details?.providerCode?.value)
         assertEquals(
             AuthenticatedRedditUserFlairMutationResult.Acknowledged,
             userFlairManager(accepted).mutate(UserFlairMutationRequest(accountA, "subshell", "template-1")),

@@ -47,6 +47,7 @@ internal sealed interface RedditBlockedAccountsNetworkResult {
         val statusCode: Int,
         val retryable: Boolean,
         val metadata: NetworkResponseMetadata,
+        val providerReason: String? = null,
     ) : RedditBlockedAccountsNetworkResult
 
     data class TransportFailure(
@@ -106,6 +107,7 @@ internal class RedditBlockedAccountsNetworkDataSource(
                 statusCode = result.statusCode,
                 retryable = result.retryable,
                 metadata = result.metadata,
+                providerReason = result.providerReason,
             )
 
         is NetworkResult.TransportFailure ->

@@ -59,4 +59,41 @@ class Step3PostVoteTransportTest {
         assertEquals(true, result.retryable)
         assertEquals(1, attempts)
     }
+
+    // DIAG04_REDDIT_ERROR_CODE_ON_400_V1: a refused vote keeps Reddit's code, not its message.
+    @Test
+    fun aRefusedVoteKeepsRedditsErrorCode() = runBlocking {
+        val voter = ConfiguredRedditPostVoter(
+            capability = object : AuthCommentWriteCapability {
+                override suspend fun beginAuthorization(accountStableId: String): String = error("unused")
+                override fun hasPendingAuthorization() = false
+                override fun hasStoredCallback() = false
+                override fun cancelPendingAuthorization() = Unit
+                override suspend fun completePendingAuthorization(): AuthCommentWriteCapabilityResult = error("unused")
+                override suspend fun ensureAuthorized(accountStableId: String): AuthSessionResult =
+                    AuthSessionResult.Authenticated(session)
+            },
+            callFactory = OkHttpClient.Builder().addInterceptor { chain ->
+                okhttp3.Response.Builder().request(chain.request()).protocol(okhttp3.Protocol.HTTP_1_1)
+                    .code(400).message("Bad Request")
+                    .body(
+                        okhttp3.ResponseBody.Companion.run {
+                            """{"json": {"errors": [["TOO_OLD", "that's a piece of history now", "id"]]}}"""
+                                .toResponseBody(okhttp3.MediaType.Companion.run { "application/json".toMediaType() })
+                        },
+                    )
+                    .build()
+            }.build(),
+            endpoint = NetworkEndpoint.https("https://oauth.reddit.test/"),
+            userAgent = "subshell-test",
+            ioDispatcher = Dispatchers.Unconfined,
+        )
+
+        val result = voter.vote(PostVoteRequest(accountStableId = "reddit:me", postFullname = "t3_abc", direction = 1))
+
+        result as AuthenticatedPostVoteResult.Failed
+        assertEquals(400, result.failureDetails?.httpStatusCode)
+        assertEquals("too_old", result.failureDetails?.providerCode?.value)
+        assertEquals(null, result.failureDetails?.providerMessage)
+    }
 }

@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -28,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import app.subshell.prototype.ui.ScreenMargin
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.isTraversalGroup
+import app.subshell.prototype.ui.symbols.Symbols
 
 // M3225_SETTINGS_ROWS_ARE_LIST_ITEMS_V1 (#225, settings-03): every settings row is
 // an M3 ListItem (headline, supporting text, leading icon, trailing control) on
@@ -164,7 +163,7 @@ internal fun SettingsNavigationItem(
             .settingsRowBleed()
             .clickable(onClick = onClick),
         trailing = {
-            Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null)
+            Icon(Symbols.ArrowForward, contentDescription = null)
         },
     )
 }

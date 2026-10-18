@@ -1,8 +1,8 @@
 package app.subshell.prototype.ui.components
 
+import app.subshell.prototype.ui.error.ReportFailureDiagnostic
 import androidx.compose.material3.IconButton
 
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,9 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -42,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.subshell.prototype.data.account.ModeratorLogUiState
 import app.subshell.prototype.data.account.RedditModeratorLogEntry
+import app.subshell.prototype.ui.symbols.Symbols
 import java.time.Duration
 import java.time.Instant
 
@@ -69,7 +67,7 @@ fun ModeratorLogButton(
         },
     ) {
         Icon(
-            imageVector = Icons.Rounded.History,
+            imageVector = Symbols.History,
             contentDescription = null,
             modifier = Modifier.size(18.dp),
         )
@@ -96,6 +94,11 @@ fun ModeratorLogDialog(
     if (!state.matches(accountStableId, community)) return
 
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
+    ReportFailureDiagnostic(
+        scopeKey = "moderator_log",
+        active = state.failureKind != null,
+        failureDetails = state.failureDetails,
+    )
 
     val content: @Composable () -> Unit = {
                 LazyColumn(
@@ -117,7 +120,7 @@ fun ModeratorLogDialog(
                             if (embeddedInModToolsWorkspace) {
                                 IconButton(onClick = onDismiss) {
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                                        imageVector = Symbols.ArrowBack,
                                         contentDescription = "Back to Mod tools",
                                     )
                                 }
@@ -142,7 +145,7 @@ fun ModeratorLogDialog(
                                 onClick = onRefresh,
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.Refresh,
+                                    imageVector = Symbols.Refresh,
                                     contentDescription = "Refresh mod log",
                                 )
                             }

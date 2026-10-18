@@ -27,6 +27,7 @@ import app.subshell.prototype.data.auth.reddit.RedditOAuth
 import app.subshell.prototype.harness.FakeAndroidKeyStore
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.ui.SubshellApp
 import app.subshell.prototype.ui.SubshellState
@@ -103,7 +104,7 @@ class Step3RedditOnboardingComposeTest {
         )
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 accountConnect = AccountConnectEntryPoints(
                     connectAccountState = ConnectAccountUiState(

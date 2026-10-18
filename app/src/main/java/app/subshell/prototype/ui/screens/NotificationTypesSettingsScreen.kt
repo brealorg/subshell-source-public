@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -35,6 +33,7 @@ import app.subshell.prototype.ui.components.rememberRouteTopBarScrollBehavior
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.ui.graphics.Color
+import app.subshell.prototype.ui.symbols.Symbols
 
 // NOTIFY01A1R2_NOTIFICATION_TYPES_SUBSCREEN_PRESENTATION_V1
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,7 +54,7 @@ fun NotificationTypesSettingsScreen(
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(
-                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        Symbols.ArrowBack,
                         contentDescription = "Back",
                     )
                 }

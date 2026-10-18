@@ -23,14 +23,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.PersonAdd
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -74,6 +66,7 @@ import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.error.toSafeTechnicalDetail
 import app.subshell.prototype.model.CommunityModerator
 import app.subshell.prototype.model.RedditPeopleSearchItem
+import app.subshell.prototype.ui.symbols.Symbols
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Semaphore
@@ -86,7 +79,7 @@ fun ModeratorTeamButton(onClick: () -> Unit) {
         modifier = Modifier.heightIn(min = 48.dp),
         onClick = onClick,
     ) {
-        Icon(imageVector = Icons.Rounded.Person, contentDescription = null,
+        Icon(imageVector = Symbols.Person, contentDescription = null,
             modifier = Modifier.size(18.dp))
         Spacer(modifier = Modifier.width(6.dp))
         Text("Moderators")
@@ -291,7 +284,7 @@ fun ModeratorTeamContent(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back to Mod tools")
+                    Icon(Symbols.ArrowBack, "Back to Mod tools")
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Moderators", style = MaterialTheme.typography.headlineSmall)
@@ -299,7 +292,7 @@ fun ModeratorTeamContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 IconButton(enabled = canRead && !projection.loading, onClick = { onLoad(true) }) {
-                    Icon(Icons.Rounded.Refresh, "Refresh moderators")
+                    Icon(Symbols.Refresh, "Refresh moderators")
                 }
             }
         }
@@ -313,7 +306,7 @@ fun ModeratorTeamContent(
                         showInviteEditor = true
                     },
                 ) {
-                    Icon(Icons.Rounded.PersonAdd, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Symbols.PersonAdd, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Invite moderator")
                 }
@@ -502,7 +495,7 @@ fun ModeratorTeamContent(
                             },
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.Edit,
+                                imageVector = Symbols.Edit,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
                             )
@@ -521,7 +514,7 @@ fun ModeratorTeamContent(
                             },
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.Close,
+                                imageVector = Symbols.Close,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
                                 tint = MaterialTheme.colorScheme.error,
@@ -736,7 +729,7 @@ private fun ModeratorInviteEditor(
         item("moderator-invite-header") {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(enabled = !busy, onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back to moderators")
+                    Icon(Symbols.ArrowBack, "Back to moderators")
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Invite moderator", style = MaterialTheme.typography.headlineSmall)
@@ -803,7 +796,7 @@ private fun ModeratorInviteEditor(
                             selectedPerson = null
                             username = ""
                         }) {
-                            Icon(Icons.Rounded.Close, "Change moderator invite target")
+                            Icon(Symbols.Close, "Change moderator invite target")
                         }
                     }
                 }
@@ -1217,7 +1210,7 @@ private fun ModeratorPermissionEditor(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(enabled = !busy, onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back to moderators")
+                    Icon(Symbols.ArrowBack, "Back to moderators")
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Edit permissions", style = MaterialTheme.typography.headlineSmall)
@@ -1479,7 +1472,7 @@ internal fun ModeratorRemovalEditor(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(enabled = !busy, onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back to moderators")
+                    Icon(Symbols.ArrowBack, "Back to moderators")
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Remove moderator", style = MaterialTheme.typography.headlineSmall)

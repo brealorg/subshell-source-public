@@ -65,10 +65,10 @@ class Diag03JsonFieldPathTest {
             store.recordViewportFailure("home", details, nowEpochMs = 1_000L)
             assertEquals("$.data.count", store.snapshot().events.single().failure?.jsonPath)
 
-            // A line from before DIAG03 has one field less.
+            // A line from before DIAG03 has its first 16 fields only (DIAG04 appended more after the path).
             val log = File(directory, "events-v1.log")
             val legacy = log.readLines().map { line ->
-                if (line.startsWith("E|")) line.substringBeforeLast('|') else line
+                if (line.startsWith("E|")) line.split('|').take(16).joinToString("|") else line
             }
             log.writeText(legacy.joinToString("\n", postfix = "\n"))
             val event = DiagnosticEventStore(directory = directory, maxEvents = 20, maxBytes = 8192)

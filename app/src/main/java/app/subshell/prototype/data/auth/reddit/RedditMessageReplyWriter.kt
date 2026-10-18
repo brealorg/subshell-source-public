@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.auth.reddit
 
+import app.subshell.prototype.data.network.NetworkProtocolFailureKind
 import app.subshell.prototype.data.error.isRedditWriteOutcomeUnknownStatus
 import app.subshell.prototype.data.account.MessageReplyFailureKind
 import app.subshell.prototype.data.account.MessageReplyChannel
@@ -10,6 +11,7 @@ import app.subshell.prototype.data.auth.AuthInboxReadCapability
 import app.subshell.prototype.data.auth.AuthSessionResult
 import app.subshell.prototype.data.auth.OAuthEndpointResult
 import app.subshell.prototype.data.auth.authenticatedAccountId
+import app.subshell.prototype.data.error.redditWriteRetryAfterMs
 import app.subshell.prototype.data.network.NetworkEndpoint
 import app.subshell.prototype.data.network.NetworkResponseMetadata
 import app.subshell.prototype.data.network.NetworkResult
@@ -47,6 +49,9 @@ internal sealed interface AuthenticatedRedditMessageReplyResult {
         val retryAfterMs: Long? = null,
         val statusCode: Int? = null,
         val providerCode: String? = null,
+        // DIAG04_JSON_PATH_REACHES_THE_REPORT_V1: an answer that could not be read, and its field.
+        val protocolKind: NetworkProtocolFailureKind? = null,
+        val jsonPath: String? = null,
         // SUBSHELL_MESSAGES02E2A2_REDDIT_PARITY_DUAL_WRITE_V1
         // Non-null only when the first Matrix m.image write was already server-confirmed
         // and the subsequent Reddit-parity m.text write failed or became uncertain.
@@ -204,8 +209,7 @@ internal class RedditMessageReplyWriter(
                         } else {
                             MessageReplyFailureKind.API
                         },
-                        retryAfterMs = result.metadata.retryAfterMs
-                            ?: result.metadata.rateLimit.resetAfterMs,
+                        retryAfterMs = redditWriteRetryAfterMs(result.metadata, rateLimited = result.providerCode == "RATELIMIT"),
                         providerCode = result.providerCode,
                     )
 
@@ -222,8 +226,7 @@ internal class RedditMessageReplyWriter(
                         },
                         retryable = result.retryable &&
                             !isRedditWriteOutcomeUnknownStatus(result.statusCode),
-                        retryAfterMs = result.metadata.retryAfterMs
-                            ?: result.metadata.rateLimit.resetAfterMs,
+                        retryAfterMs = redditWriteRetryAfterMs(result.metadata, rateLimited = result.statusCode == 429),
                         statusCode = result.statusCode,
                     )
 
@@ -244,7 +247,11 @@ internal class RedditMessageReplyWriter(
                     }
 
                     is RedditMessageReplyNetworkResult.ProtocolFailure ->
-                        failed(MessageReplyFailureKind.OUTCOME_UNKNOWN)
+                        failed(
+                            MessageReplyFailureKind.OUTCOME_UNKNOWN,
+                            protocolKind = result.kind,
+                            jsonPath = result.jsonPath,
+                        )
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -307,15 +314,18 @@ internal class RedditMessageReplyWriter(
                     },
                     retryable = result.retryable,
                     statusCode = result.statusCode,
-                    retryAfterMs = result.metadata.retryAfterMs
-                        ?: result.metadata.rateLimit.resetAfterMs,
+                    retryAfterMs = redditWriteRetryAfterMs(result.metadata, rateLimited = result.statusCode == 429),
                 )
                 is NetworkResult.TransportFailure -> return mediaFailed(
                     MessageReplyFailureKind.TRANSPORT,
                     retryable = result.retryable,
                 )
                 is NetworkResult.ProtocolFailure ->
-                    return mediaFailed(MessageReplyFailureKind.API)
+                    return mediaFailed(
+                        MessageReplyFailureKind.API,
+                        protocolKind = result.kind,
+                        jsonPath = result.jsonPath,
+                    )
             }
             val uploaded = when (val result = mediaNetwork.upload(lease, staged)) {
                 is RedditMediaBinaryUploadResult.Uploaded -> result
@@ -391,12 +401,16 @@ internal class RedditMessageReplyWriter(
         retryable: Boolean = false,
         retryAfterMs: Long? = null,
         statusCode: Int? = null,
+        protocolKind: NetworkProtocolFailureKind? = null,
+        jsonPath: String? = null,
     ): MessageReplyMediaResolution.Failed = MessageReplyMediaResolution.Failed(
         failed(
             kind = kind,
             retryable = retryable,
             retryAfterMs = retryAfterMs,
             statusCode = statusCode,
+            protocolKind = protocolKind,
+            jsonPath = jsonPath,
         ),
     )
 
@@ -406,6 +420,8 @@ internal class RedditMessageReplyWriter(
         retryAfterMs: Long? = null,
         statusCode: Int? = null,
         providerCode: String? = null,
+        protocolKind: NetworkProtocolFailureKind? = null,
+        jsonPath: String? = null,
     ): AuthenticatedRedditMessageReplyResult.Failed =
         AuthenticatedRedditMessageReplyResult.Failed(
             kind = kind,
@@ -413,5 +429,7 @@ internal class RedditMessageReplyWriter(
             retryAfterMs = retryAfterMs,
             statusCode = statusCode,
             providerCode = providerCode,
+            protocolKind = protocolKind,
+            jsonPath = jsonPath,
         )
 }

@@ -57,6 +57,7 @@ internal fun customFeedPostsErrorPresentation(
     statusCode: Int?,
     retryable: Boolean,
     append: Boolean,
+    details: FailureDetails? = null,
 ): ErrorPresentation = readErrorPresentation(
     title = if (append) "Couldn't load more posts" else "Couldn't refresh the feed",
     reason = when (failureKind) {
@@ -76,7 +77,7 @@ internal fun customFeedPostsErrorPresentation(
             "Reddit returned a feed response that subshell couldn't read."
     },
     cachedMessage = "Loaded posts remain visible.",
-    details = null,
+    details = details,
     retryable = retryable,
     showingCachedContent = true,
 )

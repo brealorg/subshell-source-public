@@ -20,6 +20,7 @@ import app.subshell.prototype.data.account.RedditCommunityDiscoveryUiState
 import app.subshell.prototype.data.account.RedditSubscriptionsUiState
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.Community
 import app.subshell.prototype.model.CommunityDiscoveryItem
@@ -233,7 +234,7 @@ class Step3CommunitiesInlineDiscoveryComposeTest {
         val context = ApplicationProvider.getApplicationContext<Application>()
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 redditFeed = FeedEntryPoints(
                     redditSubscriptionsState = RedditSubscriptionsUiState(

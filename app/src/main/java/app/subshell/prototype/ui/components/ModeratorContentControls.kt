@@ -1,5 +1,6 @@
 package app.subshell.prototype.ui.components
 
+import app.subshell.prototype.ui.error.ReportFailureDiagnostic
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,14 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AdminPanelSettings
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.LockOpen
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -59,6 +52,7 @@ import app.subshell.prototype.data.account.isContentControl
 import app.subshell.prototype.data.account.reportTarget
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import app.subshell.prototype.ui.symbols.Symbols
 
 // MODERATION02A3_ROOT_OWNED_CONTENT_CONTROL_ENTRY_POINTS_V1
 internal data class ModeratorContentControlsEntryPoints(
@@ -81,7 +75,7 @@ internal fun ModeratorContentControlsButton(
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
     ) {
         Icon(
-            Icons.Rounded.AdminPanelSettings,
+            Symbols.AdminPanelSettings,
             contentDescription = null,
             modifier = Modifier.size(18.dp),
         )
@@ -103,7 +97,7 @@ internal fun ModeratorContentControlsMenuItem(
         text = { Text("Moderation controls") },
         leadingIcon = {
             Icon(
-                Icons.Rounded.AdminPanelSettings,
+                Symbols.AdminPanelSettings,
                 contentDescription = null,
             )
         },
@@ -177,7 +171,7 @@ internal fun ModeratorContentControlsDialog(
                 enabled = !busy && state.target != null,
             ) {
                 Icon(
-                    Icons.Rounded.Refresh,
+                    Symbols.Refresh,
                     contentDescription = "Refresh moderation controls",
                 )
             }
@@ -234,9 +228,9 @@ internal fun ModeratorContentControlsDialog(
                         ) {
                             Icon(
                                 if (item.contentState.locked == true) {
-                                    Icons.Rounded.LockOpen
+                                    Symbols.LockOpen
                                 } else {
-                                    Icons.Rounded.Lock
+                                    Symbols.Lock
                                 },
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
@@ -269,7 +263,7 @@ internal fun ModeratorContentControlsDialog(
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Icon(
-                                Icons.Rounded.AdminPanelSettings,
+                                Symbols.AdminPanelSettings,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
                             )
@@ -311,6 +305,12 @@ internal fun ModeratorContentControlsDialog(
                 ModeratorContentControlNoticeCard(
                     notice = notice,
                     modifier = Modifier.padding(horizontal = 16.dp),
+                )
+                ReportFailureDiagnostic(
+                    scopeKey = "moderator_content_controls",
+                    active = notice == ModeratorContentControlsNotice.READ_FAILED ||
+                        notice == ModeratorContentControlsNotice.WRITE_FAILED,
+                    failureDetails = state.failureDetails,
                 )
             }
 
@@ -364,11 +364,11 @@ internal fun ModeratorContentControlsDialog(
                 Icon(
                     when (pinned.action) {
                         RedditModeratorAction.LOCK ->
-                            Icons.Rounded.Lock
+                            Symbols.Lock
                         RedditModeratorAction.UNLOCK ->
-                            Icons.Rounded.LockOpen
+                            Symbols.LockOpen
                         else ->
-                            Icons.Rounded.AdminPanelSettings
+                            Symbols.AdminPanelSettings
                     },
                     contentDescription = null,
                 )
@@ -532,7 +532,7 @@ private fun ModeratorControlStateBadge(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                if (iconLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
+                if (iconLocked) Symbols.Lock else Symbols.LockOpen,
                 contentDescription = null,
                 modifier = Modifier.size(18.dp),
             )
@@ -572,7 +572,7 @@ private fun ModeratorDistinguishStateBadge(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                Icons.Rounded.AdminPanelSettings,
+                Symbols.AdminPanelSettings,
                 contentDescription = null,
                 modifier = Modifier.size(18.dp),
             )
@@ -613,7 +613,7 @@ private fun ModeratorContentControlNoticeCard(
             verticalAlignment = Alignment.Top,
         ) {
             Icon(
-                if (verified) Icons.Rounded.CheckCircle else Icons.Rounded.Info,
+                if (verified) Symbols.CheckCircle else Symbols.Info,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
             )

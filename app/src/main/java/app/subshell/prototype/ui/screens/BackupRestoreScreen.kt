@@ -29,24 +29,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Backup
-import androidx.compose.material.icons.rounded.CloudDone
-import androidx.compose.material.icons.rounded.CloudOff
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Restore
-import androidx.compose.material.icons.rounded.Save
-import androidx.compose.material.icons.rounded.Sync
-import androidx.compose.material.icons.rounded.SyncProblem
-import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -103,8 +85,10 @@ import app.subshell.prototype.ui.SubshellSettings
 import app.subshell.prototype.ui.SubshellState
 import app.subshell.prototype.ui.error.ReportViewportError
 import app.subshell.prototype.ui.error.backupErrorPresentation
+import app.subshell.prototype.ui.symbols.Symbols
 import java.text.DateFormat
 import java.util.Date
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
@@ -309,7 +293,7 @@ fun BackupRestoreScreen(
             title = { Text("Backup & restore") },
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                    Icon(Symbols.ArrowBack, contentDescription = "Back")
                 }
             },
             scrollBehavior = routeTopBarScroll,
@@ -391,7 +375,7 @@ fun BackupRestoreScreen(
                         },
                         title = "Automatic settings history",
                         description = "Captures changed settings states. Retention is controlled separately below.",
-                        icon = Icons.Rounded.History,
+                        icon = Symbols.History,
                     )
                 }
             }
@@ -680,7 +664,7 @@ fun BackupRestoreScreen(
                     onClick = { saveDialogVisible = true },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Icon(Icons.Rounded.Save, contentDescription = null)
+                    Icon(Symbols.Save, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
                     Text("Save current setup")
                 }
@@ -694,7 +678,7 @@ fun BackupRestoreScreen(
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Icon(Icons.Rounded.UploadFile, contentDescription = null)
+                    Icon(Symbols.UploadFile, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
                     Text("Import backup file")
                 }
@@ -709,7 +693,7 @@ fun BackupRestoreScreen(
                             contentColor = MaterialTheme.colorScheme.error,
                         ),
                     ) {
-                        Icon(Icons.Rounded.Delete, contentDescription = null)
+                        Icon(Symbols.Delete, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
                         Text("Delete all backups")
                     }
@@ -738,7 +722,7 @@ fun BackupRestoreScreen(
             if (loadedSnapshots == null) {
                 item("manual-loading") {
                     EmptySnapshots(
-                        icon = Icons.Rounded.History,
+                        icon = Symbols.History,
                         title = "Loading saved setups…",
                         description = "Reading the backups on this device.",
                     )
@@ -746,7 +730,7 @@ fun BackupRestoreScreen(
             } else if (manualSnapshots.isEmpty()) {
                 item("manual-empty") {
                     EmptySnapshots(
-                        icon = Icons.Rounded.Backup,
+                        icon = Symbols.Backup,
                         title = "No named setups yet",
                         description = "Save a setup you want to keep until you delete it.",
                     )
@@ -800,7 +784,7 @@ fun BackupRestoreScreen(
             if (loadedSnapshots == null) {
                 item("history-loading") {
                     EmptySnapshots(
-                        icon = Icons.Rounded.History,
+                        icon = Symbols.History,
                         title = "Loading saved setups…",
                         description = "Reading the backups on this device.",
                     )
@@ -808,7 +792,7 @@ fun BackupRestoreScreen(
             } else if (historySnapshots.isEmpty()) {
                 item("history-empty") {
                     EmptySnapshots(
-                        icon = Icons.Rounded.History,
+                        icon = Symbols.History,
                         title = "No settings changes captured yet",
                         description = "A changed state is saved after settings settle, and again on the next launch if needed.",
                     )
@@ -859,7 +843,7 @@ fun BackupRestoreScreen(
             if (loadedSnapshots == null) {
                 item("safety-loading") {
                     EmptySnapshots(
-                        icon = Icons.Rounded.History,
+                        icon = Symbols.History,
                         title = "Loading saved setups…",
                         description = "Reading the backups on this device.",
                     )
@@ -867,7 +851,7 @@ fun BackupRestoreScreen(
             } else if (safetySnapshots.isEmpty()) {
                 item("safety-empty") {
                     EmptySnapshots(
-                        icon = Icons.Rounded.Restore,
+                        icon = Symbols.History,
                         title = "No safety snapshots yet",
                         description = "A safety snapshot is created automatically before each restore.",
                     )
@@ -1180,68 +1164,70 @@ fun BackupRestoreScreen(
                         // LOWUI6_RESTORE_FINISHES_ONCE_STARTED_V1 (OCB-175): once the
                         // safety snapshot is written, leaving the screen must not
                         // skip applying the restore.
-                        scope.launch(NonCancellable) {
-                            val result = withContext(Dispatchers.IO) {
-                                runCatching {
-                                    repository.prepareRestore(
-                                        pending.snapshot.id,
-                                        pending.currentSettings,
-                                        pending.currentJoinedCommunityIdsByAccount,
-                                        pending.currentFavoriteCommunityNamesByAccount,
-                                        pending.currentFavoriteCustomFeedPathsByAccount,
-                                        pending.currentHiddenCommunityNamesByAccount,
-                                        pending.currentCommunityMutesByAccount,
-                                        pending.currentPostComposerDraftsByAccount,
-                                        pending.currentModeratorSavedResponses,
-                                        pending.currentUserTagsByAccount,
-                                        pending.currentSavedSearchesByAccount,
-                                    )
-                                }
-                            }
-                            result.onSuccess { target ->
-                                runCatching {
-                                    state.restoreBackupState(
-                                        settings = target.settingsRestoredOver(
+                        scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                            withContext(NonCancellable) {
+                                val result = withContext(Dispatchers.IO) {
+                                    runCatching {
+                                        repository.prepareRestore(
+                                            pending.snapshot.id,
                                             pending.currentSettings,
-                                        ),
-                                        joinedCommunityIdsByAccount =
-                                            target.joinedCommunityIdsByAccount,
-                                        favoriteCommunityNamesByAccount =
-                                            target.favoriteCommunityNamesByAccount,
-                                        favoriteCustomFeedPathsByAccount =
-                                            target.favoriteCustomFeedPathsByAccount,
-                                        hiddenCommunityNamesByAccount =
-                                            target.hiddenCommunityNamesByAccount.takeIf {
-                                                includeHiddenCommunities
-                                            },
-                                        communityMutesByAccount =
-                                            target.communityMutesByAccount.takeIf {
-                                                includeCommunityMutes
-                                            },
-                                        postComposerDraftsByAccount =
-                                            target.postComposerDraftsByAccount.takeIf {
-                                                includePostComposerDrafts
-                                            },
-                                        moderatorSavedResponses =
-                                            target.moderatorSavedResponses.takeIf {
-                                                includeModeratorSavedResponses
-                                            },
-                                        userTagsByAccount =
-                                            target.userTagsByAccount.takeIf {
-                                                includeUserTags
-                                            },
-                                        savedSearchesByAccount = target.savedSearchesByAccount,
-                                    )
-                                }.onSuccess {
-                                    refresh()
-                                    failureOperation = null
-                                    failureDetails = null
-                                    message = "Restored ${target.name}. A safety snapshot was saved first."
+                                            pending.currentJoinedCommunityIdsByAccount,
+                                            pending.currentFavoriteCommunityNamesByAccount,
+                                            pending.currentFavoriteCustomFeedPathsByAccount,
+                                            pending.currentHiddenCommunityNamesByAccount,
+                                            pending.currentCommunityMutesByAccount,
+                                            pending.currentPostComposerDraftsByAccount,
+                                            pending.currentModeratorSavedResponses,
+                                            pending.currentUserTagsByAccount,
+                                            pending.currentSavedSearchesByAccount,
+                                        )
+                                    }
+                                }
+                                result.onSuccess { target ->
+                                    runCatching {
+                                        state.restoreBackupState(
+                                            settings = target.settingsRestoredOver(
+                                                pending.currentSettings,
+                                            ),
+                                            joinedCommunityIdsByAccount =
+                                                target.joinedCommunityIdsByAccount,
+                                            favoriteCommunityNamesByAccount =
+                                                target.favoriteCommunityNamesByAccount,
+                                            favoriteCustomFeedPathsByAccount =
+                                                target.favoriteCustomFeedPathsByAccount,
+                                            hiddenCommunityNamesByAccount =
+                                                target.hiddenCommunityNamesByAccount.takeIf {
+                                                    includeHiddenCommunities
+                                                },
+                                            communityMutesByAccount =
+                                                target.communityMutesByAccount.takeIf {
+                                                    includeCommunityMutes
+                                                },
+                                            postComposerDraftsByAccount =
+                                                target.postComposerDraftsByAccount.takeIf {
+                                                    includePostComposerDrafts
+                                                },
+                                            moderatorSavedResponses =
+                                                target.moderatorSavedResponses.takeIf {
+                                                    includeModeratorSavedResponses
+                                                },
+                                            userTagsByAccount =
+                                                target.userTagsByAccount.takeIf {
+                                                    includeUserTags
+                                                },
+                                            savedSearchesByAccount = target.savedSearchesByAccount,
+                                        )
+                                    }.onSuccess {
+                                        refresh()
+                                        failureOperation = null
+                                        failureDetails = null
+                                        message = "Restored ${target.name}. A safety snapshot was saved first."
+                                    }.onFailure { error ->
+                                        reportFailure(BackupFailureOperation.RESTORE, error)
+                                    }
                                 }.onFailure { error ->
                                     reportFailure(BackupFailureOperation.RESTORE, error)
                                 }
-                            }.onFailure { error ->
-                                reportFailure(BackupFailureOperation.RESTORE, error)
                             }
                         }
                     },
@@ -1372,9 +1358,9 @@ private fun BackupProtectionCard(
     val isProtected = status.protection == BackupProtection.PROTECTED
     val waiting = status.protection == BackupProtection.WAITING
     val icon = when (status.protection) {
-        BackupProtection.PROTECTED -> Icons.Rounded.CloudDone
-        BackupProtection.WAITING -> Icons.Rounded.SyncProblem
-        BackupProtection.INTERNAL_ONLY -> Icons.Rounded.CloudOff
+        BackupProtection.PROTECTED -> Symbols.CloudDone
+        BackupProtection.WAITING -> Symbols.SyncProblem
+        BackupProtection.INTERNAL_ONLY -> Symbols.CloudOff
     }
     val title = when (status.protection) {
         BackupProtection.PROTECTED -> "Protected outside the app"
@@ -1436,7 +1422,7 @@ private fun BackupProtectionCard(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        Icons.Rounded.Folder,
+                        Symbols.Folder,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1467,18 +1453,18 @@ private fun BackupProtectionCard(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     TextButton(onClick = onSync) {
-                        Icon(Icons.Rounded.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Symbols.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("Sync")
                     }
                     TextButton(onClick = onChooseFolder) {
-                        Icon(Icons.Rounded.Folder, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Symbols.Folder, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("Change")
                     }
                     Box {
                         IconButton(onClick = { folderMenuExpanded = true }) {
-                            Icon(Icons.Rounded.MoreVert, contentDescription = "More backup folder options")
+                            Icon(Symbols.MoreVert, contentDescription = "More backup folder options")
                         }
                         DropdownMenu(
                             expanded = folderMenuExpanded,
@@ -1490,14 +1476,14 @@ private fun BackupProtectionCard(
                                     folderMenuExpanded = false
                                     onDisconnect()
                                 },
-                                leadingIcon = { Icon(Icons.Rounded.CloudOff, contentDescription = null) },
+                                leadingIcon = { Icon(Symbols.CloudOff, contentDescription = null) },
                             )
                         }
                     }
                 }
             } else {
                 Button(onClick = onChooseFolder, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Rounded.Folder, contentDescription = null)
+                    Icon(Symbols.Folder, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
                     Text("Choose backup folder")
                 }
@@ -1589,7 +1575,7 @@ private fun BackupRetentionRow(
                     trailingIcon = {
                         if (option == retention) {
                             Icon(
-                                Icons.Rounded.Check,
+                                Symbols.Check,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
                             )
@@ -1672,9 +1658,9 @@ private fun SnapshotCard(
             Row(verticalAlignment = Alignment.Top) {
                 Icon(
                     when (snapshot.kind) {
-                        SnapshotKind.MANUAL -> Icons.Rounded.Save
-                        SnapshotKind.CHANGE -> Icons.Rounded.History
-                        SnapshotKind.SAFETY -> Icons.Rounded.Restore
+                        SnapshotKind.MANUAL -> Symbols.Save
+                        SnapshotKind.CHANGE -> Symbols.History
+                        SnapshotKind.SAFETY -> Symbols.History
                     },
                     contentDescription = null,
                     modifier = Modifier.padding(top = 2.dp),
@@ -1700,16 +1686,16 @@ private fun SnapshotCard(
                 }
                 Box {
                     IconButton(onClick = { menuExpanded = true }) {
-                        Icon(Icons.Rounded.MoreVert, contentDescription = "More actions")
+                        Icon(Symbols.MoreVert, contentDescription = "More actions")
                     }
                     DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                         if (onRename != null) {
-                            SnapshotMenuItem(Icons.Rounded.Edit, "Rename") {
+                            SnapshotMenuItem(Symbols.Edit, "Rename") {
                                 menuExpanded = false
                                 onRename()
                             }
                         }
-                        SnapshotMenuItem(Icons.Rounded.Delete, "Delete") {
+                        SnapshotMenuItem(Symbols.Delete, "Delete") {
                             menuExpanded = false
                             onDelete()
                         }
@@ -1721,12 +1707,12 @@ private fun SnapshotCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Button(onClick = onRestore, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Rounded.Restore, contentDescription = null)
+                    Icon(Symbols.History, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
                     Text("Restore")
                 }
                 OutlinedButton(onClick = onExport, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Rounded.Download, contentDescription = null)
+                    Icon(Symbols.Download, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
                     Text("Export")
                 }

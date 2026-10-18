@@ -10,6 +10,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.subshell.prototype.data.SampleData
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.FeedViewportState
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
@@ -68,7 +69,7 @@ class Video13FeedSurfaceShapeTest {
     private fun surfaceIn(post: Post): Pair<Float, Float> {
         ensureWorkManagerInitialized(context)
         // Released: the player never learns a video size, as before the first frame.
-        val coordinator = VideoPlaybackCoordinator(context).apply { release() }
+        val coordinator = testVideoPlaybackCoordinator(context).apply { release() }
         // A feed card that is on screen and paused keeps its surface (the feed branch).
         val state = feedState().also {
             it.updateGoogleFeedVideoVisibility(viewport, surfaceA, post.id, present = true)

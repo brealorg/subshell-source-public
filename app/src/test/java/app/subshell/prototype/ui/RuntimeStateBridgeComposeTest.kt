@@ -12,6 +12,7 @@ import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.data.account.RedditCommunityInfoUiState
 import app.subshell.prototype.data.account.UserFlairUiState
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.ui.app.CommunityEntryPoints
 import app.subshell.prototype.ui.app.FeedEntryPoints
@@ -61,7 +62,7 @@ class RuntimeStateBridgeComposeTest {
 
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 redditFeed = FeedEntryPoints(onLoadRedditSubscriptions = { id, force -> events += "subs:$id:$force" }),
                 redditInbox = InboxEntryPoints(onLoadRedditInbox = { id, force -> events += "inbox:$id:$force" }),

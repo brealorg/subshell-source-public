@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.account
 
+import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.normalizeRedditCommunityName
 import java.net.URI
 
@@ -116,6 +117,8 @@ data class ModeratorReportsUiState(
     val revision: Long = 0,
     val notice: ModeratorReportsNotice? = null,
     val recentTargets: List<ModeratorReportTarget> = emptyList(),
+    // DIAG05_PLAIN_NOTICES_ARE_RECORDED_V1: what Reddit answered for a failed read or write.
+    val failureDetails: FailureDetails? = null,
 ) {
     val busy: Boolean get() = loading || mutating
 }

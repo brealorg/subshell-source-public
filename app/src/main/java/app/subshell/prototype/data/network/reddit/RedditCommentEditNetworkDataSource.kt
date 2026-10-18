@@ -44,6 +44,7 @@ internal sealed interface RedditCommentEditNetworkResult {
         val statusCode: Int,
         val retryable: Boolean,
         val metadata: NetworkResponseMetadata,
+        val providerReason: String? = null,
     ) : RedditCommentEditNetworkResult
 
     data class TransportFailure(
@@ -180,6 +181,7 @@ internal class RedditCommentEditNetworkDataSource(
                 statusCode = result.statusCode,
                 retryable = result.retryable,
                 metadata = result.metadata,
+                providerReason = result.providerReason,
             )
 
             is NetworkResult.TransportFailure -> RedditCommentEditNetworkResult.TransportFailure(

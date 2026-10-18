@@ -186,11 +186,10 @@ class Backup02A2TransactionalRestoreTest {
                     "                                state.restoreJoinedCommunityIdsByAccount(",
             ),
         )
+        // Indentation-free: the restore moved into withContext(NonCancellable)
+        // when coroutines 1.11 deprecated launch(NonCancellable).
         assertTrue(
-            screenSource.contains(
-                "runCatching {\n" +
-                    "                                    state.restoreBackupState(",
-            ),
+            Regex("""runCatching \{\s*state\.restoreBackupState\(""").containsMatchIn(screenSource),
         )
     }
 

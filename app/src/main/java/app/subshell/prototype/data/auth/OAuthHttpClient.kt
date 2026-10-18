@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.auth
 
+import app.subshell.prototype.data.network.toNetworkTransportFailureKind
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.nio.charset.StandardCharsets
@@ -211,7 +212,10 @@ internal class OAuthTokenEndpointClient(
     } catch (cancelled: CancellationException) {
         throw cancelled
     } catch (error: IOException) {
-        OAuthEndpointResult.TransportFailure(retryable = error !is SSLException)
+        OAuthEndpointResult.TransportFailure(
+            retryable = error !is SSLException,
+            kind = error.toNetworkTransportFailureKind(),
+        )
     }
 
     private fun Request.Builder.oauthHeaders(): Request.Builder =

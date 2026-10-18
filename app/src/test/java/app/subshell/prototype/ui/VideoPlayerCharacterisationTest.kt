@@ -22,6 +22,7 @@ import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.Post
@@ -87,7 +88,7 @@ class VideoPlayerCharacterisationTest {
         releasedCoordinator: Boolean = false,
     ) {
         ensureWorkManagerInitialized(context)
-        val coordinator = VideoPlaybackCoordinator(context).apply { if (releasedCoordinator) release() }
+        val coordinator = testVideoPlaybackCoordinator(context).apply { if (releasedCoordinator) release() }
         // The progress poll never ends while a surface is selected; drive frames by hand.
         composeRule.mainClock.autoAdvance = false
         composeRule.setContent {

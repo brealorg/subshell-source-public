@@ -371,6 +371,7 @@ class SubshellHttpClient(
                     statusCode = response.code,
                     retryable = isRetryableHttpStatus(response.code),
                     metadata = metadata,
+                    providerReason = if (readsProviderReason(response.code)) response.forbiddenReasonOrNull() else null,
                 )
             }
         }
@@ -451,7 +452,7 @@ class SubshellHttpClient(
                 statusCode = code,
                 retryable = isRetryableHttpStatus(code),
                 metadata = metadata,
-                providerReason = if (code == 403 || code == 404) forbiddenReasonOrNull() else null,
+                providerReason = if (readsProviderReason(code)) forbiddenReasonOrNull() else null,
             )
         }
 
@@ -582,15 +583,32 @@ private fun String.toRetryAfterMs(nowEpochMs: Long): Long? {
 private fun IOException.toTransportFailureKind(): NetworkTransportFailureKind =
     toNetworkTransportFailureKind()
 
-/** Reddit's reason from a 403 body, lowercase letters/digits/underscore, ≤ 32 chars; else null. */
+// DIAG04_REDDIT_ERROR_CODE_ON_400_V1: a refused request (400, 403, 404, 409,
+// 422) says why in its body; the reason is read for each of them, from both
+// the write and the read path, so diagnostics can tell "too old" from "locked".
+private fun readsProviderReason(code: Int): Boolean = code == 400 || code == 403 || code == 404 || code == 409 || code == 422
+
+/**
+ * Reddit's reason from a refused request's body, as a lowercase token
+ * (letters, digits, underscore, ≤ 32 chars); else null. Reddit answers
+ * {"reason": "quarantined"} (403/404), {"json": {"errors": [["TOO_OLD", "…", "parent"]]}}
+ * or {"error": "THREAD_LOCKED"}; only the code is kept, never the message.
+ */
 internal fun forbiddenReasonFromBody(text: String): String? {
     val root = runCatching { Json.parseToJsonElement(text) }.getOrNull()
         as? kotlinx.serialization.json.JsonObject ?: return null
-    val reason = (root["reason"] as? kotlinx.serialization.json.JsonPrimitive)
-        ?.takeIf { it.isString }
-        ?.content
-        ?.trim()
-        ?.lowercase()
-        ?: return null
+    val firstJsonError = ((root["json"] as? kotlinx.serialization.json.JsonObject)?.get("errors")
+        as? kotlinx.serialization.json.JsonArray)
+        ?.firstOrNull()
+        .let { it as? kotlinx.serialization.json.JsonArray }
+        ?.firstOrNull()
+    return listOfNotNull(root["reason"], firstJsonError, root["error"])
+        .firstNotNullOfOrNull { element -> element.reasonTokenOrNull() }
+}
+
+private fun kotlinx.serialization.json.JsonElement.reasonTokenOrNull(): String? {
+    val primitive = this as? kotlinx.serialization.json.JsonPrimitive ?: return null
+    if (!primitive.isString) return null
+    val reason = primitive.content.trim().lowercase()
     return reason.takeIf { it.isNotEmpty() && it.length <= 32 && it.all { c -> c.isLetterOrDigit() || c == '_' } }
 }

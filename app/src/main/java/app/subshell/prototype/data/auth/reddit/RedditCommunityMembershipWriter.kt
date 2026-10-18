@@ -147,6 +147,7 @@ internal class ConfiguredRedditCommunityMembershipWriter(
                                 result.statusCode,
                                 false,
                                 result.metadata,
+                                providerReason = result.providerReason,
                             ),
                         )
                     } else {
@@ -158,6 +159,7 @@ internal class ConfiguredRedditCommunityMembershipWriter(
                                 result.statusCode,
                                 result.retryable,
                                 result.metadata,
+                                providerReason = result.providerReason,
                             ),
                         )
                     }

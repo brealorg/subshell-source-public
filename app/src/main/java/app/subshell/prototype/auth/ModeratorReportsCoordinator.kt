@@ -71,7 +71,7 @@ internal class ModeratorReportsCoordinator(
         if (activeAccountStableId() != accountStableId) return
         generation += 1
         val token = generation
-        mutableState.value = before.copy(item = null, loading = true, revision = token, notice = null)
+        mutableState.value = before.copy(item = null, loading = true, revision = token, notice = null, failureDetails = null)
         try {
             val result = read(accountStableId, target)
             if (!isCurrent(token, accountStableId)) return
@@ -91,7 +91,7 @@ internal class ModeratorReportsCoordinator(
             val desired = confirmation.action.desiredReportsIgnored() ?: return
             generation += 1 // Consume this confirmation before the first suspension.
             val token = generation
-            mutableState.value = mutableState.value.copy(mutating = true, revision = token, notice = null)
+            mutableState.value = mutableState.value.copy(mutating = true, revision = token, notice = null, failureDetails = null)
             val request = RedditModeratorActionRequest(
                 accountStableId = confirmation.accountStableId,
                 communityName = requireNotNull(confirmation.target.communityName),
@@ -150,6 +150,7 @@ internal class ModeratorReportsCoordinator(
                     } else {
                         mutableState.value = mutableState.value.copy(
                             item = null, mutating = false,
+                            failureDetails = result.failureDetails,
                             notice = when (result.kind) {
                                 RedditModeratorActionFailureKind.ALREADY_MUTATING -> ModeratorReportsNotice.BUSY
                                 RedditModeratorActionFailureKind.ACCOUNT_CHANGED -> ModeratorReportsNotice.ACCOUNT_CHANGED
@@ -239,7 +240,9 @@ internal class ModeratorReportsCoordinator(
                 )
             }
             AuthenticatedRedditReportTargetResult.NotFound -> current.copy(item = null, loading = false, notice = ModeratorReportsNotice.NOT_FOUND)
-            is AuthenticatedRedditReportTargetResult.Failed -> current.copy(item = null, loading = false, notice = ModeratorReportsNotice.READ_FAILED)
+            is AuthenticatedRedditReportTargetResult.Failed -> current.copy(
+                item = null, loading = false, notice = ModeratorReportsNotice.READ_FAILED, failureDetails = result.details,
+            )
         }
     }
 }

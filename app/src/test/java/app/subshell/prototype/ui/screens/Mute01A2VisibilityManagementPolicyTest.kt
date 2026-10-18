@@ -1,5 +1,6 @@
 package app.subshell.prototype.ui.screens
 
+import app.subshell.prototype.ui.symbols.Symbols
 import java.io.File
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -74,18 +75,10 @@ class Mute01A2VisibilityManagementPolicyTest {
             source("ui/screens/CommunityScreen.kt"),
         )
 
-        assertTrue(sources.all { source ->
-            !source.contains("Icons.Rounded.VolumeOff") &&
-                !source.contains("Icons.Rounded.VolumeUp") &&
-                !source.contains("material.icons.rounded.VolumeOff") &&
-                !source.contains("material.icons.rounded.VolumeUp")
-        })
-        assertTrue(sources.any { source ->
-            source.contains("Icons.AutoMirrored.Rounded.VolumeOff")
-        })
-        assertTrue(sources.any { source ->
-            source.contains("Icons.AutoMirrored.Rounded.VolumeUp")
-        })
+        // MATERIALSYMBOLS01: the volume symbols mirror in right-to-left layouts.
+        assertTrue(Symbols.VolumeOff.autoMirror && Symbols.VolumeUp.autoMirror)
+        assertTrue(sources.any { source -> source.contains("Symbols.VolumeOff") })
+        assertTrue(sources.any { source -> source.contains("Symbols.VolumeUp") })
     }
 
     @Test

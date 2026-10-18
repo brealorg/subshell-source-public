@@ -10,6 +10,7 @@ import app.subshell.prototype.data.error.redditWriteHttpFailureDetails
 import app.subshell.prototype.data.error.SafeFailureText
 import app.subshell.prototype.data.error.redditWriteProtocolFailureDetails
 import app.subshell.prototype.data.error.redditWriteProviderFailureDetails
+import app.subshell.prototype.data.error.redditWriteRetryAfterMs
 import app.subshell.prototype.data.error.redditWriteTransportFailureDetails
 import app.subshell.prototype.data.network.NetworkClock
 import app.subshell.prototype.data.network.NetworkEndpoint
@@ -269,7 +270,7 @@ internal class ConfiguredRedditCommentSubmitter(
                         else -> AuthenticatedCommentSubmitFailureKind.HTTP
                     },
                     retryable = result.retryable,
-                    retryAfterMs = result.metadata.retryAfterMs ?: result.metadata.rateLimit.resetAfterMs,
+                    retryAfterMs = redditWriteRetryAfterMs(result.metadata, rateLimited = result.statusCode == 429),
                     statusCode = result.statusCode,
                 )
                 is app.subshell.prototype.data.network.NetworkResult.TransportFailure -> return mediaFailed(
@@ -278,6 +279,8 @@ internal class ConfiguredRedditCommentSubmitter(
                 )
                 is app.subshell.prototype.data.network.NetworkResult.ProtocolFailure -> return mediaFailed(
                     AuthenticatedCommentSubmitFailureKind.API,
+                    // DIAG04_JSON_PATH_REACHES_THE_REPORT_V1
+                    failureDetails = redditWriteProtocolFailureDetails(result.kind, result.jsonPath),
                 )
             }
             when (val result = mediaNetwork.upload(lease, staged)) {
@@ -326,12 +329,13 @@ internal class ConfiguredRedditCommentSubmitter(
         retryable: Boolean = false,
         retryAfterMs: Long? = null,
         statusCode: Int? = null,
+        failureDetails: FailureDetails? = null,
     ): CommentSubmitMediaResolution.Failed = CommentSubmitMediaResolution.Failed(
         failed(
             kind = kind,
             retryable = retryable,
             retryAfterMs = retryAfterMs,
-            failureDetails = statusCode?.let { code ->
+            failureDetails = failureDetails ?: statusCode?.let { code ->
                 FailureDetails(httpStatusCode = code, retryable = retryable)
             },
         ),
@@ -370,8 +374,7 @@ internal class ConfiguredRedditCommentSubmitter(
         result: RedditCommentSubmitNetworkResult.ApiFailure,
     ): AuthenticatedCommentSubmitResult.Failed {
         val kinds = result.errors.map { error -> error.kind }.toSet()
-        val retryAfterMs = result.metadata.retryAfterMs
-            ?: result.metadata.rateLimit.resetAfterMs
+        val retryAfterMs = redditWriteRetryAfterMs(result.metadata, rateLimited = RedditCommentApiErrorKind.RATE_LIMIT in kinds)
         val failureDetails = redditWriteProviderFailureDetails(
             code = result.errors.firstOrNull()?.code,
             retryAfterMs = retryAfterMs,
@@ -411,12 +414,12 @@ internal class ConfiguredRedditCommentSubmitter(
     private fun mapHttpFailure(
         result: RedditCommentSubmitNetworkResult.HttpFailure,
     ): AuthenticatedCommentSubmitResult.Failed {
-        val retryAfterMs = result.metadata.retryAfterMs
-            ?: result.metadata.rateLimit.resetAfterMs
+        val retryAfterMs = redditWriteRetryAfterMs(result.metadata, rateLimited = result.statusCode == 429)
         val details = redditWriteHttpFailureDetails(
             statusCode = result.statusCode,
             retryable = result.retryable,
             metadata = result.metadata,
+            providerReason = result.providerReason,
         )
         return when {
             result.statusCode == 429 -> failed(

@@ -23,6 +23,7 @@ import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.ui.components.PostCard
@@ -73,7 +74,7 @@ class Step3A11yLargeTextComposeTest {
         val state = signedInState()
         SettingsBackupRepository(context, appVersion = "test").dismissFolderOnboarding()
         composeRule.setContent {
-            SubshellApp(videoPlaybackCoordinator = VideoPlaybackCoordinator(context), state = state)
+            SubshellApp(videoPlaybackCoordinator = testVideoPlaybackCoordinator(context), state = state)
         }
         composeRule.waitForIdle()
         return state
@@ -123,7 +124,7 @@ class Step3A11yLargeTextComposeTest {
         ensureWorkManagerInitialized(context)
         val state = signedInState()
         val post = SampleData.posts.first().copy(id = "t3_targets", score = 5, vote = 0)
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         composeRule.setContent {
             SubshellTheme {
                 CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {

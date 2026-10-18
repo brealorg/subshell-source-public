@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.lifecycle.Lifecycle
 import app.subshell.prototype.applock.LocalAppLocked
 import app.subshell.prototype.applock.LocalAppLockedNow
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.ui.SubshellState
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -37,7 +38,7 @@ class Media07AppLockVideoResumeComposeTest {
                 LocalAppLocked provides locked.value,
                 LocalAppLockedNow provides { locked.value },
             ) {
-                ProvideVideoPlaybackCoordinator(state, VideoPlaybackCoordinator(composeRule.activity)) {}
+                ProvideVideoPlaybackCoordinator(state, testVideoPlaybackCoordinator(composeRule.activity)) {}
             }
         }
         composeRule.waitForIdle()

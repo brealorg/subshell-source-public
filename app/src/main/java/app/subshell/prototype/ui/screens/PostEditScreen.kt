@@ -1,5 +1,8 @@
 package app.subshell.prototype.ui.screens
 
+import app.subshell.prototype.ui.components.postBodyMentions
+import app.subshell.prototype.ui.components.MentionSuggestions
+import app.subshell.prototype.data.account.RedditPeopleSearchUiState
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
@@ -9,8 +12,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -63,6 +64,7 @@ import androidx.compose.foundation.BorderStroke
 import app.subshell.prototype.ui.components.rememberRouteTopBarScrollBehavior
 import app.subshell.prototype.ui.error.ErrorActionKind
 import app.subshell.prototype.ui.error.postEditErrorPresentation
+import app.subshell.prototype.ui.symbols.Symbols
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,6 +80,9 @@ fun PostEditScreen(
     onClose: () -> Unit,
     onCheckAgain: () -> Unit = {},
     modifier: Modifier = Modifier,
+    // ISSUE229_POST_BODY_MENTIONS_V1
+    mentionSearchState: RedditPeopleSearchUiState = RedditPeopleSearchUiState(),
+    onSearchMentions: (String) -> Unit = {},
 ) {
     val accountStableId = state.activeAccountId
     val postFullname = normalizePostEditFullname(post.id)
@@ -192,7 +197,7 @@ fun PostEditScreen(
                         onClick = ::requestClose,
                     ) {
                         Icon(
-                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            Symbols.ArrowBack,
                             contentDescription = "Close post editor",
                         )
                     }
@@ -211,15 +216,30 @@ fun PostEditScreen(
             )
         },
         bottomBar = {
-            ComposerFormattingDock(
-                state = editor,
-                onFormat = ::applyFormat,
-                onReturnToEditor = {
-                    previewVisible = false
-                    focusRequester.requestFocus()
-                },
-                enabled = !inputLocked,
-            )
+            Column {
+                // ISSUE229_POST_BODY_MENTIONS_V1
+                if (!inputLocked) {
+                    MentionSuggestions(
+                        state = editor,
+                        mentions = postBodyMentions(
+                            accountStableId = accountStableId,
+                            authenticated = state.activeAccountIsAuthenticated,
+                            searchState = mentionSearchState,
+                            onSearch = onSearchMentions,
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                ComposerFormattingDock(
+                    state = editor,
+                    onFormat = ::applyFormat,
+                    onReturnToEditor = {
+                        previewVisible = false
+                        focusRequester.requestFocus()
+                    },
+                    enabled = !inputLocked,
+                )
+            }
         },
     ) { padding ->
         Column(

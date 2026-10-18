@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.subshell.prototype.data.account.AccountSessionSource
 import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.applock.LocalAppLocked
@@ -50,7 +51,7 @@ internal fun AppSheetsHost(
     val accountSessionDirectoryRevision =
         accountSessionDirectory
             ?.revision
-            ?.collectAsState()
+            ?.collectAsStateWithLifecycle()
             ?.value
             ?: 0L
     LaunchedEffect(accountSessionDirectoryRevision) {

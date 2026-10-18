@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.network.reddit
 
+import app.subshell.prototype.data.network.NetworkProtocolFailureKind
 import app.subshell.prototype.data.account.ModeratorInviteFailureKind
 import app.subshell.prototype.data.account.ModeratorUserManagementFailureKind
 import app.subshell.prototype.data.account.RedditModeratorInviteRequest
@@ -36,21 +37,27 @@ class ModWrite01OutcomeUnknownTest {
                 httpStatusCode = answer.code.takeIf { it != 200 },
             )
             // Undo writes read only the status, so an unreadable 200 body is still a success there.
+            // DIAG04_JSON_PATH_REACHES_THE_REPORT_V1: an unreadable body also says what it was.
+            fun outcome(result: RedditModeratorUserMutationNetworkResult) =
+                (result as? RedditModeratorUserMutationNetworkResult.Failed)?.copy(failureDetails = null) ?: result
             for (on in if (answer.code == 200) listOf(true) else listOf(true, false)) {
-                assertEquals(
-                    "ban=$on $answer",
-                    expected,
-                    source.setBanned(RedditModeratorUserBanRequest(account, "subshell", "bob", banned = on)),
-                )
+                val banned = source.setBanned(RedditModeratorUserBanRequest(account, "subshell", "bob", banned = on))
+                assertEquals("ban=$on $answer", expected, outcome(banned))
+                if (answer.code == 200) {
+                    assertEquals(
+                        NetworkProtocolFailureKind.UNEXPECTED_CONTENT_TYPE,
+                        (banned as RedditModeratorUserMutationNetworkResult.Failed).failureDetails?.protocolKind,
+                    )
+                }
                 assertEquals(
                     "mute=$on $answer",
                     expected,
-                    source.setMuted(RedditModeratorUserMuteRequest(account, "subshell", "bob", muted = on)),
+                    outcome(source.setMuted(RedditModeratorUserMuteRequest(account, "subshell", "bob", muted = on))),
                 )
                 assertEquals(
                     "approve=$on $answer",
                     expected,
-                    source.setApproved(RedditModeratorUserApprovalRequest(account, "subshell", "bob", approved = on)),
+                    outcome(source.setApproved(RedditModeratorUserApprovalRequest(account, "subshell", "bob", approved = on))),
                 )
             }
         }

@@ -28,18 +28,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.Send
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.FormatQuote
-import androidx.compose.material.icons.rounded.FormatItalic
-import androidx.compose.material.icons.rounded.FormatBold
-import androidx.compose.material.icons.rounded.Code
-import androidx.compose.material.icons.rounded.ArrowDropDown
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.Badge
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -85,6 +73,7 @@ import app.subshell.prototype.data.account.RedditModmailMessage
 import app.subshell.prototype.data.account.RedditModmailParticipantMuteStatus
 import app.subshell.prototype.data.account.RedditModmailTriageAction
 import app.subshell.prototype.data.account.RedditModmailUiFailureKind
+import app.subshell.prototype.ui.symbols.Symbols
 import java.time.Duration
 import java.time.Instant
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -251,7 +240,7 @@ fun InboxModmailThreadHeader(
             if (showBackButton) {
                 IconButton(onClick = onBack) {
                     Icon(
-                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        Symbols.ArrowBack,
                         contentDescription = "Back to Modmail conversations",
                     )
                 }
@@ -320,7 +309,7 @@ fun InboxModmailThreadHeader(
                             onClick = { triageMenuExpanded = true },
                         ) {
                             Icon(
-                                Icons.Rounded.MoreVert,
+                                Symbols.MoreVert,
                                 contentDescription = "Modmail triage actions",
                             )
                         }
@@ -460,7 +449,7 @@ fun InboxModmailQueueFilters(
                 )
             }
             Icon(
-                imageVector = Icons.Rounded.ArrowDropDown,
+                imageVector = Symbols.ArrowDropDown,
                 contentDescription = "Choose Modmail queue",
             )
         }
@@ -568,7 +557,7 @@ fun InboxModmailQueueFilters(
                                     )
                                     if (selected) {
                                         Icon(
-                                            imageVector = Icons.Rounded.Check,
+                                            imageVector = Symbols.Check,
                                             contentDescription = null,
                                         )
                                     }
@@ -600,7 +589,7 @@ fun InboxModmailQueueFilters(
                                     style = MaterialTheme.typography.labelLarge,
                                 )
                                 Icon(
-                                    imageVector = Icons.Rounded.KeyboardArrowDown,
+                                    imageVector = Symbols.KeyboardArrowDown,
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp),
                                 )

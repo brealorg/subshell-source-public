@@ -17,6 +17,7 @@ import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.data.account.localFixtureAccountSummaries
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.PostKind
 import app.subshell.prototype.model.RemoteCommentMedia
@@ -67,7 +68,7 @@ class Step3MediaViewerSystemBarsComposeTest {
         state.updateThemeMode(ThemeMode.LIGHT)
         val portrait = Configuration(activity.resources.configuration)
         var configuration by mutableStateOf(portrait)
-        val coordinator = VideoPlaybackCoordinator(activity).apply { release() }
+        val coordinator = testVideoPlaybackCoordinator(activity).apply { release() }
         composeRule.setContent {
             CompositionLocalProvider(LocalConfiguration provides configuration) {
                 SubshellApp(videoPlaybackCoordinator = coordinator, state = state)

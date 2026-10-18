@@ -1,6 +1,7 @@
 package app.subshell.prototype.data.network.reddit
 
 import app.subshell.prototype.data.error.FailureDetails
+import app.subshell.prototype.data.error.failureDetailsOrNull
 import app.subshell.prototype.data.account.MODERATOR_BAN_NOTE_MAX_CHARS
 import app.subshell.prototype.data.account.MODERATOR_MUTE_NOTE_MAX_CHARS
 import app.subshell.prototype.data.account.ModeratorUserManagementFailureKind
@@ -99,6 +100,7 @@ internal class RedditModeratorUserManagementNetworkDataSource(
                 )
                 is NetworkResult.ProtocolFailure -> RedditModeratorUserMutationNetworkResult.Failed(
                     kind = ModeratorUserManagementFailureKind.OUTCOME_UNKNOWN,
+                    failureDetails = result.failureDetailsOrNull(),
                 )
             }
         } else {
@@ -113,6 +115,7 @@ internal class RedditModeratorUserManagementNetworkDataSource(
                 )
                 is NetworkResult.ProtocolFailure -> RedditModeratorUserMutationNetworkResult.Failed(
                     kind = ModeratorUserManagementFailureKind.OUTCOME_UNKNOWN,
+                    failureDetails = result.failureDetailsOrNull(),
                 )
             }
         }
@@ -153,6 +156,7 @@ internal class RedditModeratorUserManagementNetworkDataSource(
                 )
                 is NetworkResult.ProtocolFailure -> RedditModeratorUserMutationNetworkResult.Failed(
                     kind = ModeratorUserManagementFailureKind.OUTCOME_UNKNOWN,
+                    failureDetails = result.failureDetailsOrNull(),
                 )
             }
         } else {
@@ -171,6 +175,7 @@ internal class RedditModeratorUserManagementNetworkDataSource(
                 )
                 is NetworkResult.ProtocolFailure -> RedditModeratorUserMutationNetworkResult.Failed(
                     kind = ModeratorUserManagementFailureKind.OUTCOME_UNKNOWN,
+                    failureDetails = result.failureDetailsOrNull(),
                 )
             }
         }
@@ -211,6 +216,7 @@ internal class RedditModeratorUserManagementNetworkDataSource(
                 )
                 is NetworkResult.ProtocolFailure -> RedditModeratorUserMutationNetworkResult.Failed(
                     kind = ModeratorUserManagementFailureKind.OUTCOME_UNKNOWN,
+                    failureDetails = result.failureDetailsOrNull(),
                 )
             }
         } else {
@@ -229,6 +235,7 @@ internal class RedditModeratorUserManagementNetworkDataSource(
                 )
                 is NetworkResult.ProtocolFailure -> RedditModeratorUserMutationNetworkResult.Failed(
                     kind = ModeratorUserManagementFailureKind.OUTCOME_UNKNOWN,
+                    failureDetails = result.failureDetailsOrNull(),
                 )
             }
         }

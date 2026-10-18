@@ -250,13 +250,18 @@ internal class RedditCommentLoader(
                 is NetworkResult.HttpFailure -> AuthenticatedRedditCommentResult.Failed(
                     kind = AuthenticatedRedditCommentFailureKind.HTTP,
                     retryable = result.retryable,
+                    details = result.failureDetailsOrNull(),
                 )
                 is NetworkResult.TransportFailure -> AuthenticatedRedditCommentResult.Failed(
                     kind = AuthenticatedRedditCommentFailureKind.TRANSPORT,
                     retryable = result.retryable,
+                    details = result.failureDetailsOrNull(),
                 )
                 is NetworkResult.ProtocolFailure ->
-                    failed(AuthenticatedRedditCommentFailureKind.PROTOCOL)
+                    failed(
+                        kind = AuthenticatedRedditCommentFailureKind.PROTOCOL,
+                        details = result.failureDetailsOrNull(),
+                    )
             }
         }
     }
@@ -465,13 +470,18 @@ internal class RedditCommentLoader(
             is NetworkResult.HttpFailure -> AuthenticatedRedditCommentResult.Failed(
                 kind = AuthenticatedRedditCommentFailureKind.HTTP,
                 retryable = result.retryable,
+                details = result.failureDetailsOrNull(),
             )
             is NetworkResult.TransportFailure -> AuthenticatedRedditCommentResult.Failed(
                 kind = AuthenticatedRedditCommentFailureKind.TRANSPORT,
                 retryable = result.retryable,
+                details = result.failureDetailsOrNull(),
             )
             is NetworkResult.ProtocolFailure ->
-                failed(AuthenticatedRedditCommentFailureKind.PROTOCOL)
+                failed(
+                    kind = AuthenticatedRedditCommentFailureKind.PROTOCOL,
+                    details = result.failureDetailsOrNull(),
+                )
         }
     }
 

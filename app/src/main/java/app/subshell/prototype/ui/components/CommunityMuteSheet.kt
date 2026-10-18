@@ -11,9 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -31,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import app.subshell.prototype.ui.CommunityMute
 import app.subshell.prototype.ui.CommunityMutePreset
+import app.subshell.prototype.ui.symbols.Symbols
 import java.util.Calendar
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -157,7 +155,7 @@ fun CommunityMuteSheet(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.VolumeOff,
+                            imageVector = Symbols.VolumeOff,
                             contentDescription = null,
                             modifier = Modifier.size(22.dp),
                         )
@@ -242,7 +240,7 @@ fun CommunityMuteSheet(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     leadingContent = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
+                            imageVector = Symbols.VolumeUp,
                             contentDescription = null,
                         )
                     },

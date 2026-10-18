@@ -279,6 +279,7 @@ internal class ConfiguredRedditContentSafetyWriter(
                                 statusCode = result.statusCode,
                                 retryable = result.retryable,
                                 metadata = result.metadata,
+                                providerReason = result.providerReason,
                             ),
                         )
                     }
@@ -394,6 +395,7 @@ internal class ConfiguredRedditContentSafetyWriter(
                                 statusCode = result.statusCode,
                                 retryable = false,
                                 metadata = result.metadata,
+                                providerReason = result.providerReason,
                             ),
                         )
 
@@ -406,6 +408,7 @@ internal class ConfiguredRedditContentSafetyWriter(
                                 statusCode = result.statusCode,
                                 retryable = true,
                                 metadata = result.metadata,
+                                providerReason = result.providerReason,
                             ),
                         )
 
@@ -423,6 +426,7 @@ internal class ConfiguredRedditContentSafetyWriter(
                                 statusCode = result.statusCode,
                                 retryable = false,
                                 metadata = result.metadata,
+                                providerReason = result.providerReason,
                             ),
                         )
 
@@ -443,6 +447,7 @@ internal class ConfiguredRedditContentSafetyWriter(
                                     result.retryable
                                 },
                                 metadata = result.metadata,
+                                providerReason = result.providerReason,
                             ),
                         )
                 }

@@ -17,6 +17,7 @@ import app.subshell.prototype.data.account.AccountSessionSource
 import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.ui.app.AppFloatingActionButton
 import app.subshell.prototype.ui.theme.SubshellTheme
@@ -94,7 +95,7 @@ class Issue73And75ChromeAccessibilityComposeTest {
         val context = ApplicationProvider.getApplicationContext<Application>()
         ensureWorkManagerInitialized(context)
         composeRule.setContent {
-            SubshellApp(videoPlaybackCoordinator = VideoPlaybackCoordinator(context), state = state)
+            SubshellApp(videoPlaybackCoordinator = testVideoPlaybackCoordinator(context), state = state)
         }
         composeRule.waitForIdle()
         state.requestDrawer()

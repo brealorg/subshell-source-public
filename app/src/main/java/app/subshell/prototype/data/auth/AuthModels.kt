@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.auth
 
+import app.subshell.prototype.data.network.NetworkTransportFailureKind
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
@@ -205,6 +206,8 @@ internal sealed interface OAuthEndpointResult<out T> {
 
     data class TransportFailure(
         val retryable: Boolean,
+        // DIAG04_SIGN_IN_NETWORK_KIND_V1: what the sign-in service's connection failed on.
+        val kind: NetworkTransportFailureKind? = null,
     ) : OAuthEndpointResult<Nothing>
 
     data class ProtocolFailure(

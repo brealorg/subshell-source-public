@@ -186,6 +186,7 @@ internal class ConfiguredRedditModerationWriter(
                             statusCode = result.statusCode,
                             retryable = false,
                             metadata = result.metadata,
+                            providerReason = result.providerReason,
                         ),
                     )
                     result.statusCode == 429 -> failed(
@@ -196,6 +197,7 @@ internal class ConfiguredRedditModerationWriter(
                             statusCode = result.statusCode,
                             retryable = true,
                             metadata = result.metadata,
+                            providerReason = result.providerReason,
                         ),
                     )
                     result.statusCode == 408 ||
@@ -208,6 +210,7 @@ internal class ConfiguredRedditModerationWriter(
                                 statusCode = result.statusCode,
                                 retryable = false,
                                 metadata = result.metadata,
+                                providerReason = result.providerReason,
                             ),
                         )
                     else -> failed(
@@ -218,6 +221,7 @@ internal class ConfiguredRedditModerationWriter(
                             statusCode = result.statusCode,
                             retryable = result.retryable,
                             metadata = result.metadata,
+                            providerReason = result.providerReason,
                         ),
                     )
                 }

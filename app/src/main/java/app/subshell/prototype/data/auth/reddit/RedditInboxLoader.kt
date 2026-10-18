@@ -272,14 +272,17 @@ internal class RedditInboxLoader(
             is NetworkResult.HttpFailure -> AuthenticatedRedditInboxTargetResult.Failed(
                 kind = AuthenticatedRedditInboxFailureKind.HTTP,
                 retryable = result.retryable,
+                details = result.failureDetailsOrNull(),
             )
             is NetworkResult.TransportFailure -> AuthenticatedRedditInboxTargetResult.Failed(
                 kind = AuthenticatedRedditInboxFailureKind.TRANSPORT,
                 retryable = result.retryable,
+                details = result.failureDetailsOrNull(),
             )
             is NetworkResult.ProtocolFailure -> AuthenticatedRedditInboxTargetResult.Failed(
                 kind = AuthenticatedRedditInboxFailureKind.PROTOCOL,
                 retryable = false,
+                details = result.failureDetailsOrNull(),
             )
         }
     }

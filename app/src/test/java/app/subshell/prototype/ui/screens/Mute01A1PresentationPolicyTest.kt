@@ -38,7 +38,8 @@ class Mute01A1PresentationPolicyTest {
     fun homeProjectionFiltersBeforeLazyItemsAndRefreshesAtExpiry() {
         val source = source("ui/screens/HomeScreen.kt")
         val projection = source.indexOf("filterMutedCommunityPosts(")
-        val lazyItems = source.indexOf("items(visiblePosts, key = Post::id)")
+        // ISSUE234_FEED_POST_LAYOUTS_V1: the posts are emitted through feedPostItems now.
+        val lazyItems = source.indexOf("feedPostItems(visiblePosts")
 
         assertTrue(projection >= 0)
         assertTrue(lazyItems > projection)

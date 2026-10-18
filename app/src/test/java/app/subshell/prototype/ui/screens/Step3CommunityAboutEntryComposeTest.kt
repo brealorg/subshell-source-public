@@ -21,6 +21,7 @@ import app.subshell.prototype.data.account.RedditCommunityInfoUiFailureKind
 import app.subshell.prototype.data.account.RedditCommunityInfoUiState
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.CommunityInfoSnapshot
@@ -75,7 +76,7 @@ class Step3CommunityAboutEntryComposeTest {
 
     @Composable
     private fun Screen(state: SubshellState, info: RedditCommunityInfoUiState) {
-        val coordinator = VideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
+        val coordinator = testVideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
         CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
             CommunityScreen(
                 communityName = "android",

@@ -87,7 +87,7 @@ pass COMMENT_AVATARS_STAY_OUT_OF_MODEL_AND_CODEC
 
 # From subs04a0: the activity wires community membership (state, action and
 # authorization); a JVM test does not start MainActivity.
-grep -Fq 'communityMembershipUiState.collectAsState()' "$M/MainActivity.kt" &&
+grep -Fq 'communityMembershipUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
 grep -Fq 'authConnectViewModel::updateCommunityMembership' "$M/MainActivity.kt" &&
 grep -Fq '::launchCommunityMembershipAuthorization' "$M/MainActivity.kt" &&
 grep -Fq 'beginCommunityMembershipAuthorization()' "$M/MainActivity.kt" ||
@@ -98,7 +98,7 @@ pass ACTIVITY_WIRES_COMMUNITY_MEMBERSHIP
 # loader) to SubshellApp; CommunitiesScreen and CommunityEntryPoints default
 # both, so the compiler does not prove it, and a JVM test does not start
 # MainActivity.
-rg -U -q 'redditCommunityDiscoveryState by\s*authConnectViewModel\.redditCommunityDiscoveryUiState\.collectAsState\(\)' \
+rg -U -q 'redditCommunityDiscoveryState by\s*authConnectViewModel\.redditCommunityDiscoveryUiState\.collectAsStateWithLifecycle\(\)' \
     "$M/MainActivity.kt" &&
 grep -Fq 'redditCommunityDiscoveryState = redditCommunityDiscoveryState,' "$M/MainActivity.kt" &&
 grep -Fq 'authConnectViewModel::loadRedditCommunityDiscovery' "$M/MainActivity.kt" ||
@@ -122,7 +122,7 @@ pass ACTIVITY_WIRES_MODERATOR_TEAM
 # Publish and dropping a review to SubshellApp; every field of
 # PostComposerWriteRuntimeEntryPoints has a default, so the compiler does not
 # prove it.
-grep -Fq 'authConnectViewModel.crosspostReviewUiState.collectAsState()' "$M/MainActivity.kt" &&
+grep -Fq 'authConnectViewModel.crosspostReviewUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
 grep -Fq 'authConnectViewModel::reviewCrosspostDraft,' "$M/MainActivity.kt" &&
 grep -Fq 'authConnectViewModel::publishReviewedCrosspost,' "$M/MainActivity.kt" &&
 grep -Fq 'authConnectViewModel::invalidateCrosspostReview,' "$M/MainActivity.kt" ||
@@ -259,7 +259,7 @@ pass MESSAGE_REPLIES_USE_ONLY_THE_OAUTH_API
 # From messages02c: the activity hands the reply state, the send and its reset
 # to SubshellApp; MessagingEntryPoints' fields have defaults, so the compiler
 # does not prove the wiring.
-grep -Fq 'authConnectViewModel.messageReplyUiState.collectAsState()' "$M/MainActivity.kt" &&
+grep -Fq 'authConnectViewModel.messageReplyUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
 grep -Fq 'onSendRedditMessageReply = authConnectViewModel::sendRedditMessageReply,' "$M/MainActivity.kt" &&
 grep -Fq 'authConnectViewModel::resetRedditMessageReplyState,' "$M/MainActivity.kt" ||
     fail ACTIVITY_WIRES_MESSAGE_REPLY
@@ -344,11 +344,21 @@ pass ACTIVITY_WIRES_COMMUNITY_WIKI
 # does not prove the wiring).
 ! grep -rq 'CommunityInfo' "$M/data/cache" || fail COMMUNITY_INFO_IS_NOT_PERSISTED
 pass COMMUNITY_INFO_IS_NOT_PERSISTED
-grep -Fq 'authConnectViewModel.redditCommunityInfoUiState.collectAsState()' "$M/MainActivity.kt" &&
+grep -Fq 'authConnectViewModel.redditCommunityInfoUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
 grep -Fq 'redditCommunityInfoState = redditCommunityInfoState,' "$M/MainActivity.kt" &&
 grep -Fq 'authConnectViewModel::loadRedditCommunityInfo' "$M/MainActivity.kt" ||
     fail ACTIVITY_WIRES_COMMUNITY_INFO
 pass ACTIVITY_WIRES_COMMUNITY_INFO
+
+# ISSUE230_PINNED_POSTS_FIRST_V1 (owner 2026-10-16): the pinned-posts read
+# reaches both community panes; every link has a default, so the compiler does
+# not prove it (Issue230PinnedPostsComposeTest drives CommunityScreen directly).
+grep -Fq 'authConnectViewModel.redditCommunityPinnedPostsUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
+grep -Fq 'onLoadRedditPinnedPosts = authConnectViewModel::loadRedditCommunityPinnedPosts,' "$M/MainActivity.kt" &&
+[[ "$(grep -Fc 'onLoadRedditPinnedPosts = redditCommunity.onLoadRedditPinnedPosts,' "$M/ui/app/CommunityRouteHost.kt")" -eq 2 ]] &&
+[[ "$(grep -Fc 'redditPinnedPostsState = redditCommunity.redditPinnedPostsState,' "$M/ui/app/CommunityRouteHost.kt")" -eq 2 ]] ||
+    fail ACTIVITY_WIRES_COMMUNITY_PINNED_POSTS
+pass ACTIVITY_WIRES_COMMUNITY_PINNED_POSTS
 
 # From settings02c, widened to the backup package: settings backups are local
 # files and the chosen folder; no process and no network.
@@ -406,7 +416,7 @@ pass ACTIVITY_ASKS_FOR_THE_NOTIFICATION_PERMISSION
 # read state, triage, authorization, the notification target) to SubshellApp;
 # every field of ModmailEntryPoints has a default, so the compiler does not
 # prove it.
-grep -Fq 'authConnectViewModel.redditModmailUiState.collectAsState()' "$M/MainActivity.kt" &&
+grep -Fq 'authConnectViewModel.redditModmailUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
 grep -Fq 'redditModmail = ModmailEntryPoints(' "$M/MainActivity.kt" &&
 grep -Fq 'onLoadRedditModmail = authConnectViewModel::loadRedditModmail,' "$M/MainActivity.kt" &&
 grep -Fq 'onAppendRedditModmail = authConnectViewModel::appendRedditModmail,' "$M/MainActivity.kt" &&
@@ -428,9 +438,9 @@ pass ACTIVITY_WIRES_MODMAIL
 # retries, removal reasons and their authorizations) to SubshellApp; every
 # field of ModerationQueueEntryPoints has a default.
 grep -Fq 'redditModeration = ModerationQueueEntryPoints(' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel.redditModerationUiState.collectAsState()' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel.moderationActionUiState.collectAsState()' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel.removalReasonUiState.collectAsState()' "$M/MainActivity.kt" &&
+grep -Fq 'authConnectViewModel.redditModerationUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
+grep -Fq 'authConnectViewModel.moderationActionUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
+grep -Fq 'authConnectViewModel.removalReasonUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
 grep -Fq 'authConnectViewModel::loadRedditModQueue' "$M/MainActivity.kt" &&
 grep -Fq 'authConnectViewModel::appendRedditModQueue' "$M/MainActivity.kt" &&
 grep -Fq 'authConnectViewModel::resolveRedditModerationTarget' "$M/MainActivity.kt" &&
@@ -452,8 +462,8 @@ pass MODMAIL_WRITER_HAS_NO_RETRY_LOOP
 # From profile01a6/savedcomments01a3: the activity hands the account's post
 # history (upvoted, downvoted, hidden), its saved history, the saved-comment
 # target and the profile-history authorization to SubshellApp.
-grep -Fq 'authConnectViewModel.redditAccountHistoryUiState.collectAsState()' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel.redditSavedHistoryUiState.collectAsState()' "$M/MainActivity.kt" &&
+grep -Fq 'authConnectViewModel.redditAccountHistoryUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
+grep -Fq 'authConnectViewModel.redditSavedHistoryUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
 grep -Fq 'authConnectViewModel::refreshRedditAccountHistory,' "$M/MainActivity.kt" &&
 grep -Fq 'authConnectViewModel::appendRedditAccountHistory,' "$M/MainActivity.kt" &&
 grep -Fq 'authConnectViewModel::refreshRedditSavedHistory,' "$M/MainActivity.kt" &&
@@ -540,7 +550,7 @@ pass VIDEO_CACHE_STAYS_OUT_OF_BACKUPS
 # From safety01a3: the activity hands Hide/Unhide, Report, the safety state,
 # its retry and its authorization to SubshellApp (the SubshellApp parameters
 # default to {}, so the compiler does not prove this wiring).
-grep -Fq 'authConnectViewModel.contentSafetyUiState.collectAsState()' "$M/MainActivity.kt" &&
+grep -Fq 'authConnectViewModel.contentSafetyUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
 grep -Fq 'onSetPostHidden = authConnectViewModel::setPostHidden,' "$M/MainActivity.kt" &&
 grep -Fq 'onReportContent = authConnectViewModel::reportContent,' "$M/MainActivity.kt" &&
 grep -Fq 'onRetryContentSafety = authConnectViewModel::retryContentSafetyMutation,' "$M/MainActivity.kt" &&
@@ -713,6 +723,8 @@ READ_LISTING_SOURCES=(
     "$M/data/auth/reddit/RedditCommunityDiscoveryLoader.kt"
     "$M/data/network/reddit/RedditCommentNetworkDataSource.kt"
     "$M/data/auth/reddit/RedditCommentLoader.kt"
+    # ISSUE230_PINNED_POSTS_FIRST_V1
+    "$M/data/auth/reddit/RedditCommunityPinnedPostsLoader.kt"
 )
 for file in "${READ_LISTING_SOURCES[@]}"; do
     [[ -f "$file" ]] || fail "READ_LISTING_SOURCE_MISSING_${file#"$ROOT"/}"
@@ -845,10 +857,17 @@ pass NO_OAUTH_CLIENT_VALUES_IN_SOURCE
 # From #229: the activity hands the composer's mention search (its own
 # state and the search) to SubshellApp, and the post route asks it for the
 # active account; every link has a default, so the compiler does not prove it.
-grep -Fq 'authConnectViewModel.redditMentionSearchUiState.collectAsState()' "$M/MainActivity.kt" &&
+grep -Fq 'authConnectViewModel.redditMentionSearchUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
 grep -Fq 'onSearchMentions = authConnectViewModel::loadRedditMentionSearch,' "$M/MainActivity.kt" &&
 grep -Fq 'mentionSearchState = redditCommunity.redditMentionSearchState,' "$M/ui/app/PostRouteHost.kt" &&
-grep -Fq 'redditCommunity.onSearchMentions(state.activeAccountId, query)' "$M/ui/app/PostRouteHost.kt" ||
+grep -Fq 'redditCommunity.onSearchMentions(state.activeAccountId, query)' "$M/ui/app/PostRouteHost.kt" &&
+# ISSUE229_POST_BODY_MENTIONS_V1: Create post and a post edit get the same search.
+grep -F -A4 '// ISSUE229_POST_BODY_MENTIONS_V1' "$M/ui/SubshellApp.kt" |
+    grep -Fq 'mentionSearchState = redditCommunity.redditMentionSearchState,' &&
+grep -F -A4 '// ISSUE229_POST_BODY_MENTIONS_V1' "$M/ui/SubshellApp.kt" |
+    grep -Fq 'redditCommunity.onSearchMentions(state.activeAccountId, query)' &&
+grep -F -A2 'onCheckAgain = onCheckPostEdit,' "$M/ui/screens/PostScreen.kt" |
+    grep -Fq 'mentionSearchState = mentionSearchState,' ||
     fail ACTIVITY_WIRES_MENTION_SEARCH
 pass ACTIVITY_WIRES_MENTION_SEARCH
 

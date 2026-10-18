@@ -30,8 +30,8 @@ internal class RedditAccountHistoryNetworkDataSource(
                 kind = kind,
                 request = request,
             ),
-            deserializer = RedditListingDto.serializer(),
-        ).map { listing -> listing.toNetworkPage(clock.epochSeconds()) }
+            deserializer = RedditReadListingDto.serializer(),
+        ).map { listing -> listing.toNetworkPage(SubshellNetworkJson.providerJson, clock.epochSeconds()) }
     }
 
     suspend fun comments(

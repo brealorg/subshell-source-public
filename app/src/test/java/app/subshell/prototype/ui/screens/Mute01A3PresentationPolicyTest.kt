@@ -1,7 +1,7 @@
 package app.subshell.prototype.ui.screens
 
+import app.subshell.prototype.ui.symbols.Symbols
 import java.io.File
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -10,8 +10,8 @@ class Mute01A3PresentationPolicyTest {
     fun joinedRowsExposeDedicatedMuteAction() {
         val source = File("src/main/java/app/subshell/prototype/ui/screens/CommunitiesScreen.kt").readText()
         assertTrue(source.contains("state.requestCommunityMuteEditor(community.name)"))
-        assertTrue(source.contains("Icons.AutoMirrored.Rounded.VolumeOff"))
-        assertTrue(source.contains("Icons.AutoMirrored.Rounded.VolumeUp"))
+        assertTrue(source.contains("Symbols.VolumeOff"))
+        assertTrue(source.contains("Symbols.VolumeUp"))
         // Community navigation is owned by NEXT01A5; MUTE01A3 only owns the dedicated mute affordance.
     }
 
@@ -41,7 +41,8 @@ class Mute01A3PresentationPolicyTest {
         assertTrue(preview.contains("AnimatedContent("))
         assertTrue(preview.contains("label = \"muted-community-direct-view-preview\""))
         assertTrue(preview.contains("Posts hidden while muted"))
-        assertFalse(preview.contains("Icons.Rounded.VolumeOff"))
-        assertFalse(preview.contains("Icons.Rounded.VolumeUp"))
+        // MATERIALSYMBOLS01: the preview's volume symbols mirror in right-to-left
+        // layouts (it once used the non-mirrored Material icons).
+        assertTrue(Symbols.VolumeOff.autoMirror && Symbols.VolumeUp.autoMirror)
     }
 }

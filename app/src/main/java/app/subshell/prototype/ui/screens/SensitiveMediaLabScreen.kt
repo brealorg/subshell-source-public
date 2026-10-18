@@ -16,9 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -45,6 +42,7 @@ import app.subshell.prototype.ui.SubshellState
 import app.subshell.prototype.ui.components.PostCard
 import app.subshell.prototype.ui.components.RouteTopBar
 import app.subshell.prototype.ui.components.rememberRouteTopBarScrollBehavior
+import app.subshell.prototype.ui.symbols.Symbols
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,7 +68,7 @@ fun SensitiveMediaLabScreen(
             title = { Text("Sensitive media Reddit lab") },
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                    Icon(Symbols.ArrowBack, contentDescription = "Back")
                 }
             },
             scrollBehavior = routeTopBarScroll,
@@ -89,7 +87,7 @@ fun SensitiveMediaLabScreen(
                 ) {
                     Column(Modifier.padding(14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.Science, contentDescription = null)
+                            Icon(Symbols.Science, contentDescription = null)
                             Spacer(Modifier.width(10.dp))
                             Text(
                                 "Production Reddit mapping",

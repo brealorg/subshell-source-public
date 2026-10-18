@@ -18,6 +18,7 @@ import app.subshell.prototype.data.account.RedditInboxUiState
 import app.subshell.prototype.data.account.RedditModerationUiState
 import app.subshell.prototype.data.account.RedditModmailUiState
 import app.subshell.prototype.data.account.RedditModmailUnreadCounts
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.ui.app.InboxEntryPoints
 import app.subshell.prototype.ui.app.ModerationQueueEntryPoints
 import app.subshell.prototype.ui.app.ModmailEntryPoints
@@ -82,7 +83,7 @@ class Step3NewMessageButtonGateComposeTest {
         // The first-run backup folder prompt would cover the screen.
         SettingsBackupRepository(context, appVersion = "test").dismissFolderOnboarding()
         composeRule.setContent {
-            SubshellApp(videoPlaybackCoordinator = VideoPlaybackCoordinator(context), state = state)
+            SubshellApp(videoPlaybackCoordinator = testVideoPlaybackCoordinator(context), state = state)
         }
         composeRule.waitForIdle()
         return composeRule.onAllNodesWithText("Message", useUnmergedTree = true).fetchSemanticsNodes().size
@@ -124,7 +125,7 @@ class Step3NewMessageButtonGateComposeTest {
         val context = ApplicationProvider.getApplicationContext<Application>()
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 redditModeration = ModerationQueueEntryPoints(
                     redditModerationState = RedditModerationUiState(
@@ -161,7 +162,7 @@ class Step3NewMessageButtonGateComposeTest {
         )
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 redditInbox = InboxEntryPoints(
                     redditInboxState = RedditInboxUiState(

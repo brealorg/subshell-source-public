@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -23,6 +21,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import app.subshell.prototype.ui.ChromeBehavior
+import app.subshell.prototype.ui.symbols.Symbols
 
 // M3223_ONE_ROUTE_TOP_BAR_V1 (#223): every route screen (post, community, profile,
 // settings, help, composers …) uses this one Material top app bar. It draws
@@ -121,7 +120,7 @@ internal fun RouteTopBar(
                 navigationIcon()
             } else if (onBack != null) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                    Icon(Symbols.ArrowBack, contentDescription = "Back")
                 }
             }
         },

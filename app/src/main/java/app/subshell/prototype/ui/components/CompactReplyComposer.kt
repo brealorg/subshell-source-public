@@ -11,15 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Send
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.EditNote
-import androidx.compose.material.icons.rounded.GifBox
-import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material.icons.rounded.OpenInFull
-import androidx.compose.material.icons.rounded.TextFormat
-import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.AppBarRow
 import androidx.compose.material3.AppBarRowScope
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -53,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import app.subshell.prototype.ui.ComposerMediaAttachment
 import app.subshell.prototype.ui.MarkdownAction
 import app.subshell.prototype.ui.applyMarkdownAction
+import app.subshell.prototype.ui.symbols.Symbols
 
 /** Lines the quick reply grows to before it scrolls; Expand opens the long reply. */
 internal const val QUICK_REPLY_MAX_LINES = 4
@@ -128,7 +120,7 @@ fun CompactReplyComposer(
             enabled = sendEnabled && !overLimit,
             onClick = onSend,
         ) {
-            Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = sendContentDescription)
+            Icon(Symbols.Send, contentDescription = sendContentDescription)
         }
     }
 
@@ -136,7 +128,7 @@ fun CompactReplyComposer(
     // away with the formatting actions open too.
     val expandButton: @Composable () -> Unit = {
         IconButton(onClick = { longReply = true }) {
-            Icon(Icons.Rounded.OpenInFull, contentDescription = "Expand")
+            Icon(Symbols.OpenInFull, contentDescription = "Expand")
         }
     }
 
@@ -173,7 +165,7 @@ fun CompactReplyComposer(
                     if (onDismissContext != null) {
                         // ISSUE219_SMALL_ICON_BUTTONS_KEEP_48_DP_V1: no size override.
                         IconButton(onClick = onDismissContext) {
-                            Icon(Icons.Rounded.Close, contentDescription = "Close composer")
+                            Icon(Symbols.Close, contentDescription = "Close composer")
                         }
                     }
                 }
@@ -294,13 +286,13 @@ private fun AppBarRowScope.composerMediaItems(
 ) {
     clickableItem(
         onClick = onPickImage,
-        icon = { Icon(Icons.Rounded.Image, contentDescription = "Image") },
+        icon = { Icon(Symbols.Image, contentDescription = "Image") },
         label = "Image",
         enabled = imageEnabled,
     )
     clickableItem(
         onClick = onPickGif,
-        icon = { Icon(Icons.Rounded.GifBox, contentDescription = "GIF") },
+        icon = { Icon(Symbols.GifBox, contentDescription = "GIF") },
         label = "GIF",
         enabled = gifEnabled,
     )
@@ -388,9 +380,9 @@ private fun ComposerLongReply(
             // read in the thread, markers gone; a second tap returns to editing.
             IconToggleButton(checked = preview, onCheckedChange = { on -> preview = on }) {
                 if (preview) {
-                    Icon(Icons.Rounded.EditNote, contentDescription = "Edit")
+                    Icon(Symbols.EditNote, contentDescription = "Edit")
                 } else {
-                    Icon(Icons.Rounded.Visibility, contentDescription = "Preview")
+                    Icon(Symbols.Visibility, contentDescription = "Preview")
                 }
             }
             TextButton(enabled = sendEnabled, onClick = onSend) { Text(sendLabel) }
@@ -511,7 +503,7 @@ private fun AppBarRowScope.formattingToggleItem(
     toggleableItem(
         checked = formatting,
         onCheckedChange = onFormattingChange,
-        icon = { Icon(Icons.Rounded.TextFormat, contentDescription = "Formatting") },
+        icon = { Icon(Symbols.TextFormat, contentDescription = "Formatting") },
         label = "Formatting",
         enabled = enabled,
     )

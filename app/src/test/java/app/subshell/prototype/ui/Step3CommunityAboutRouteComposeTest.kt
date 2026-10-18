@@ -17,6 +17,7 @@ import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.data.account.RedditCommunityInfoUiState
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.CommunityInfoSnapshot
 import app.subshell.prototype.model.CommunityModerator
@@ -74,7 +75,7 @@ class Step3CommunityAboutRouteComposeTest {
         )
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 redditCommunity = CommunityEntryPoints(
                     redditCommunityInfoState = info,

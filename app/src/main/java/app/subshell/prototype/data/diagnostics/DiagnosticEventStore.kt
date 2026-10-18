@@ -13,9 +13,12 @@ internal class DiagnosticEventStore internal constructor(
     private val directory: File,
     private val maxEvents: Int = DEFAULT_MAX_DIAGNOSTIC_EVENTS,
     private val maxBytes: Int = DEFAULT_MAX_DIAGNOSTIC_BYTES,
+    // DIAG04_NETWORK_STATE_V1: read when a background failure is recorded without one.
+    private val networkState: () -> DiagnosticNetworkState? = { null },
 ) {
     constructor(context: Context) : this(
         directory = File(context.applicationContext.noBackupFilesDir, DIAGNOSTIC_DIRECTORY_NAME),
+        networkState = { currentDiagnosticNetworkState(context.applicationContext) },
     )
 
     init {
@@ -34,6 +37,7 @@ internal class DiagnosticEventStore internal constructor(
                 subsystem = diagnosticSubsystemForScope(scopeKey),
                 scopeFingerprint = scopeFingerprint(scopeKey),
                 details = details,
+                action = diagnosticActionForScope(scopeKey),
                 nowEpochMs = nowEpochMs,
             ),
         )
@@ -52,6 +56,7 @@ internal class DiagnosticEventStore internal constructor(
                 scopeFingerprint = scopeFingerprint(scopeKey),
                 presentationKind = presentationKind,
                 details = details,
+                action = diagnosticActionForScope(scopeKey),
                 nowEpochMs = nowEpochMs,
             ),
         )
@@ -60,17 +65,19 @@ internal class DiagnosticEventStore internal constructor(
     fun recordBackgroundFailure(
         scopeKey: String,
         details: FailureDetails?,
+        network: DiagnosticNetworkState? = null,
         nowEpochMs: Long = System.currentTimeMillis(),
     ): DiagnosticSnapshot = recordingSafely {
         require(scopeKey.isNotBlank())
-        recordLocked(
-            DiagnosticEvents.backgroundFailure(
-                subsystem = diagnosticSubsystemForScope(scopeKey),
-                scopeFingerprint = scopeFingerprint(scopeKey),
-                details = details,
-                nowEpochMs = nowEpochMs,
-            ),
+        val event = DiagnosticEvents.backgroundFailure(
+            subsystem = diagnosticSubsystemForScope(scopeKey),
+            scopeFingerprint = scopeFingerprint(scopeKey),
+            details = details,
+            action = diagnosticActionForScope(scopeKey),
+            nowEpochMs = nowEpochMs,
         )
+        val seen = network ?: runCatching { networkState() }.getOrNull()
+        recordLocked(event.copy(failure = event.failure.withNetworkState(seen)))
     }
 
     fun recordBackgroundAuthorizationRequired(
@@ -82,6 +89,7 @@ internal class DiagnosticEventStore internal constructor(
             DiagnosticEvents.backgroundAuthorizationRequired(
                 subsystem = diagnosticSubsystemForScope(scopeKey),
                 scopeFingerprint = scopeFingerprint(scopeKey),
+                action = diagnosticActionForScope(scopeKey),
                 nowEpochMs = nowEpochMs,
             ),
         )
@@ -98,6 +106,7 @@ internal class DiagnosticEventStore internal constructor(
                 subsystem = diagnosticSubsystemForScope(scopeKey),
                 scopeFingerprint = scopeFingerprint(scopeKey),
                 details = details,
+                action = diagnosticActionForScope(scopeKey),
                 nowEpochMs = nowEpochMs,
             ),
         )
@@ -111,6 +120,32 @@ internal class DiagnosticEventStore internal constructor(
 
     fun record(event: DiagnosticEvent): DiagnosticSnapshot = recordingSafely {
         recordLocked(event)
+    }
+
+    /**
+     * DIAG04_APP_UPDATED_EVENT_V1: the session start, preceded by APP_UPDATED
+     * when the last start ran another version code, so the timeline shows
+     * which version each later event came from. A first start (no record yet)
+     * only writes the record.
+     */
+    fun recordAppSessionStarted(
+        versionCode: Long,
+        nowEpochMs: Long = System.currentTimeMillis(),
+    ): DiagnosticSnapshot = recordingSafely {
+        val previous = readLastVersionCode()
+        if (previous != null && previous != versionCode) {
+            recordLocked(DiagnosticEvents.appUpdated(previous, versionCode, nowEpochMs))
+        }
+        if (previous != versionCode) writeLastVersionCode(versionCode)
+        recordLocked(DiagnosticEvents.appSessionStarted(nowEpochMs))
+    }
+
+    /** DIAG04_LISTING_SKIP_EVENT_V1 */
+    fun recordListingPostSkipped(
+        jsonPath: String?,
+        nowEpochMs: Long = System.currentTimeMillis(),
+    ): DiagnosticSnapshot = recordingSafely {
+        recordLocked(DiagnosticEvents.listingPostSkipped(jsonPath, nowEpochMs))
     }
 
     private fun recordLocked(event: DiagnosticEvent): DiagnosticSnapshot {
@@ -220,6 +255,27 @@ internal class DiagnosticEventStore internal constructor(
 
     private val saltFile: File
         get() = File(directory, DIAGNOSTIC_SALT_FILE_NAME)
+
+    private val lastVersionFile: File
+        get() = File(directory, DIAGNOSTIC_LAST_VERSION_FILE_NAME)
+
+    private fun readLastVersionCode(): Long? = runCatching {
+        lastVersionFile.takeIf { it.isFile && it.length() in 1..32 }
+            ?.readText(Charsets.UTF_8)
+            ?.trim()
+            ?.toLongOrNull()
+            ?.takeIf { it >= 0L }
+    }.getOrNull()
+
+    private fun writeLastVersionCode(versionCode: Long) {
+        if (!directory.exists() && !directory.mkdirs()) return
+        val temp = File(directory, "$DIAGNOSTIC_LAST_VERSION_FILE_NAME.tmp")
+        FileOutputStream(temp).use { output ->
+            output.write(versionCode.toString().toByteArray(Charsets.UTF_8))
+            output.fd.sync()
+        }
+        if (!temp.renameTo(lastVersionFile)) temp.delete()
+    }
 
     private fun scopeFingerprint(scopeKey: String): String {
         val salt = readOrCreateInstallSalt()
@@ -343,7 +399,22 @@ internal class DiagnosticEventStore internal constructor(
         // DIAG03_JSON_FIELD_PATH_V1: appended last; a line without it is the
         // older 16-field shape and still reads (no path).
         event.failure?.jsonPath?.let(::encodeSafeText) ?: NULL_TOKEN,
+        // DIAG04_EVENT_FIELDS_APPENDED_V1: appended after the path; a 16- or
+        // 17-field line from before reads with these empty.
+        event.action ?: NULL_TOKEN,
+        event.failure?.exceptionClass ?: NULL_TOKEN,
+        event.failure?.networkValidated.encodeBoolean(),
+        event.failure?.networkMetered.encodeBoolean(),
+        event.failure?.deviceIdle.encodeBoolean(),
+        event.appVersionFrom?.toString() ?: NULL_TOKEN,
+        event.appVersionTo?.toString() ?: NULL_TOKEN,
     ).joinToString(separator = "|")
+
+    private fun Boolean?.encodeBoolean(): String = when (this) {
+        null -> NULL_TOKEN
+        true -> TRUE_TOKEN
+        false -> FALSE_TOKEN
+    }
 
     private fun decodeEvent(line: String): DiagnosticEvent? {
         if (line.length > MAX_DIAGNOSTIC_RECORD_CHARS) return null
@@ -360,6 +431,10 @@ internal class DiagnosticEventStore internal constructor(
                 mediaCode = parts[13].nullableSafeText(),
                 localKind = parts[14].nullableToken(),
                 jsonPath = parts.getOrNull(16)?.nullableSafeText(),
+                exceptionClass = parts.getOrNull(18)?.nullableToken(),
+                networkValidated = parts.getOrNull(19)?.nullableBoolean(),
+                networkMetered = parts.getOrNull(20)?.nullableBoolean(),
+                deviceIdle = parts.getOrNull(21)?.nullableBoolean(),
             ).takeUnless { it == DiagnosticFailureSnapshot() }
 
             DiagnosticEvent(
@@ -371,6 +446,9 @@ internal class DiagnosticEventStore internal constructor(
                 outcome = DiagnosticOutcome.valueOf(parts[6]),
                 failure = failure,
                 scopeFingerprint = parts[15].takeUnless { it == NULL_TOKEN },
+                action = parts.getOrNull(17)?.nullableToken(),
+                appVersionFrom = parts.getOrNull(22)?.nullableLong(),
+                appVersionTo = parts.getOrNull(23)?.nullableLong(),
             )
         }.getOrNull()
     }
@@ -450,12 +528,13 @@ internal const val DEFAULT_MAX_DIAGNOSTIC_BYTES = 1024 * 1024
 private const val DIAGNOSTIC_DIRECTORY_NAME = "diagnostics"
 private const val DIAGNOSTIC_FILE_NAME = "events-v1.log"
 private const val DIAGNOSTIC_SALT_FILE_NAME = "scope-salt-v1.bin"
+private const val DIAGNOSTIC_LAST_VERSION_FILE_NAME = "last-version-code-v1.txt"
 private const val DIAGNOSTIC_SALT_BYTES = 32
 private const val SCOPE_FINGERPRINT_BYTES = 8
 private const val DIAGNOSTIC_HEADER_PREFIX = "SUBSHELL_DIAGNOSTICS_V1"
 private const val EVENT_PREFIX = "E"
 private const val LEGACY_EVENT_FIELD_COUNT = 16
-private const val EVENT_FIELD_COUNT = 17
+private const val EVENT_FIELD_COUNT = 24
 private const val NULL_TOKEN = "-"
 private const val TRUE_TOKEN = "1"
 private const val FALSE_TOKEN = "0"

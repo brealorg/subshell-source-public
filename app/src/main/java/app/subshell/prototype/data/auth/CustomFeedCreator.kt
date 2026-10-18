@@ -200,14 +200,14 @@ internal class ConfiguredCustomFeedCreator(
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 failed(
                     kind = CustomFeedCreateFailureKind.OUTCOME_UNKNOWN,
                     retryable = false,
                     failureDetails = FailureDetails(
                         retryable = false,
                         localKind = LocalFailureKind.UNKNOWN,
-                    ),
+                    ).withExceptionClass(error),
                 )
             }
         }
@@ -279,14 +279,14 @@ internal class ConfiguredCustomFeedCreator(
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (_: Exception) {
+        } catch (error: Exception) {
             CustomFeedManageResult.Failed(
                 kind = CustomFeedManageFailureKind.OUTCOME_UNKNOWN,
                 retryable = false,
                 failureDetails = FailureDetails(
                     retryable = false,
                     localKind = LocalFailureKind.UNKNOWN,
-                ),
+                ).withExceptionClass(error),
             )
         }
     }
@@ -327,14 +327,14 @@ internal class ConfiguredCustomFeedCreator(
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (_: Exception) {
+        } catch (error: Exception) {
             CustomFeedManageResult.Failed(
                 kind = CustomFeedManageFailureKind.OUTCOME_UNKNOWN,
                 retryable = false,
                 failureDetails = FailureDetails(
                     retryable = false,
                     localKind = LocalFailureKind.UNKNOWN,
-                ),
+                ).withExceptionClass(error),
             )
         }
     }

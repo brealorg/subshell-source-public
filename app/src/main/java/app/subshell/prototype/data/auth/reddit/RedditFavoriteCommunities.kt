@@ -169,6 +169,7 @@ internal class ConfiguredRedditFavoriteCommunityWriter(
                                 result.statusCode,
                                 false,
                                 result.metadata,
+                                providerReason = result.providerReason,
                             ),
                         )
                     else -> RedditFavoriteWriteResult.Failed(
@@ -178,6 +179,7 @@ internal class ConfiguredRedditFavoriteCommunityWriter(
                             result.statusCode,
                             result.retryable,
                             result.metadata,
+                            providerReason = result.providerReason,
                         ),
                     )
                 }

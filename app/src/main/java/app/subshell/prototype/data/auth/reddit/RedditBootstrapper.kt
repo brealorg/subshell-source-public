@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.auth.reddit
 
+import app.subshell.prototype.data.error.SafeFailureText
 import app.subshell.prototype.data.RepositoryLoadOperation
 import app.subshell.prototype.data.RedditFeedSort
 import app.subshell.prototype.data.account.AccountSessionSource
@@ -104,14 +105,26 @@ internal class RedditBootstrapper(
             is PostFeedSyncResult.HttpFailure -> AuthenticatedRedditBootstrapResult.Failed(
                 kind = AuthenticatedRedditBootstrapFailureKind.HTTP,
                 retryable = result.retryable,
+                details = FailureDetails(
+                    httpStatusCode = result.statusCode.takeIf { it in 100..599 },
+                    retryAfterMs = result.retryAfterMs?.coerceAtLeast(0L),
+                    retryable = result.retryable,
+                    providerCode = SafeFailureText.fromUntrusted(result.providerReason),
+                ),
             )
             is PostFeedSyncResult.TransportFailure -> AuthenticatedRedditBootstrapResult.Failed(
                 kind = AuthenticatedRedditBootstrapFailureKind.TRANSPORT,
                 retryable = result.retryable,
+                details = FailureDetails(transportKind = result.kind, retryable = result.retryable),
             )
             is PostFeedSyncResult.ProtocolFailure -> AuthenticatedRedditBootstrapResult.Failed(
                 kind = AuthenticatedRedditBootstrapFailureKind.PROTOCOL,
                 retryable = false,
+                details = FailureDetails(
+                    retryable = false,
+                    protocolKind = result.kind,
+                    jsonPath = safeJsonPathText(result.jsonPath),
+                ),
             )
             is PostFeedSyncResult.PreconditionFailure -> AuthenticatedRedditBootstrapResult.Failed(
                 kind = AuthenticatedRedditBootstrapFailureKind.PROTOCOL,

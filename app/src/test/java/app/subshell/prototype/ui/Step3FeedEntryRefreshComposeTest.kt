@@ -10,6 +10,7 @@ import app.subshell.prototype.data.account.AccountSessionSource
 import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.ui.screens.CommunityScreen
@@ -68,7 +69,7 @@ class Step3FeedEntryRefreshComposeTest {
         assertTrue("posts should be cached", state.postPagingSnapshot(key).items.isNotEmpty())
         var refreshes = 0
         val shown = mutableStateOf(true)
-        val coordinator = VideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
+        val coordinator = testVideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
         composeRule.setContent {
             SubshellTheme {
                 CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
@@ -107,7 +108,7 @@ class Step3FeedEntryRefreshComposeTest {
         assertTrue("posts should be cached", state.postPagingSnapshot(key).items.isNotEmpty())
         var refreshes = 0
         val shown = mutableStateOf(true)
-        val coordinator = VideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
+        val coordinator = testVideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
         composeRule.setContent {
             SubshellTheme {
                 CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {

@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.subshell.prototype.ui.COMPOSER_FLAIR_TEXT_MAX_LENGTH
 import app.subshell.prototype.ui.ComposerFlair
+import app.subshell.prototype.ui.symbols.Symbols
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,7 +94,7 @@ internal fun PostFlairPickerSheet(
                                     fontWeight = FontWeight.Medium,
                                 )
                                 if (isSelected) {
-                                    Icon(Icons.Rounded.Check, contentDescription = null)
+                                    Icon(Symbols.Check, contentDescription = null)
                                 }
                             }
                             if (option.editable) {

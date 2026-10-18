@@ -119,10 +119,10 @@ internal class CommentWriteCoordinator(
                 )
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 AuthenticatedCommentSubmitResult.Failed(
                     kind = AuthenticatedCommentSubmitFailureKind.OUTCOME_UNKNOWN,
-                    failureDetails = FailureDetails(localKind = LocalFailureKind.UNKNOWN),
+                    failureDetails = FailureDetails(localKind = LocalFailureKind.UNKNOWN).withExceptionClass(error),
                 )
             }
             applySubmitResult(

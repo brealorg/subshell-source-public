@@ -14,6 +14,7 @@ import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.data.account.RedditCommentsUiState
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.Comment
@@ -95,7 +96,7 @@ class Step3DeepRepliesComposeTest {
             initialActiveAccountId = account.stableId,
             initialInteractionSideConfigured = true,
         )
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         composeRule.setContent {
             CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
                 PostScreen(

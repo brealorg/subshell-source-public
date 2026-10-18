@@ -19,6 +19,7 @@ internal sealed interface RedditModerationActionNetworkResult {
         val statusCode: Int,
         val retryable: Boolean,
         val metadata: NetworkResponseMetadata,
+        val providerReason: String? = null,
     ) : RedditModerationActionNetworkResult
 
     // CORRECT04_DISTINGUISH_READS_JSON_ERRORS_V1 (OCB-635): distinguish is sent
@@ -66,6 +67,7 @@ internal class RedditModerationActionNetworkDataSource(
                     statusCode = result.statusCode,
                     retryable = result.retryable,
                     metadata = result.metadata,
+                    providerReason = result.providerReason,
                 )
             is NetworkResult.TransportFailure ->
                 RedditModerationActionNetworkResult.TransportFailure(
@@ -95,6 +97,7 @@ internal class RedditModerationActionNetworkDataSource(
                 statusCode = result.statusCode,
                 retryable = result.retryable,
                 metadata = result.metadata,
+                providerReason = result.providerReason,
             )
         is NetworkResult.TransportFailure ->
             RedditModerationActionNetworkResult.TransportFailure(

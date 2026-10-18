@@ -20,6 +20,7 @@ import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.data.account.RedditCommentsUiState
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.Comment
@@ -72,7 +73,7 @@ class Composer14CommentEditKeptComposeTest {
         val post = state.posts.first()
         val mine = comment("My comment")
         val comments = mutableStateOf(listOf(mine))
-        val coordinator = VideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
+        val coordinator = testVideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
         composeRule.setContent {
             CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
                 PostScreen(

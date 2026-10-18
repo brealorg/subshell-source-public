@@ -43,6 +43,7 @@ import app.subshell.prototype.ui.app.ModmailEntryPoints
 import app.subshell.prototype.ui.app.RedditLinkUnavailable
 import app.subshell.prototype.ui.app.RedditLinkUnavailableNoticeEffect
 import app.subshell.prototype.ui.app.InboxNotificationPermissionEffect
+import app.subshell.prototype.ui.app.SystemMotionEffect
 import app.subshell.prototype.ui.app.RuntimeStateBridge
 import app.subshell.prototype.ui.app.rememberPostVisitPruningStateHolder
 import app.subshell.prototype.ui.app.CommunityRouteHost
@@ -325,6 +326,7 @@ fun SubshellApp(
     val onCancelConnectAccount = accountConnect.onCancelConnectAccount
     val onResetConnectAccount = accountConnect.onResetConnectAccount
     val redditLinkUnavailableState = remember { mutableStateOf<RedditLinkUnavailable?>(null) }
+    SystemMotionEffect(state)
     InboxNotificationPermissionEffect(
         state = state,
         onRequestPermission = onRequestInboxNotificationPermission,
@@ -475,6 +477,7 @@ fun SubshellApp(
             pureBlack = state.pureBlackDarkTheme,
             textScale = state.appTextScale.factor,
             codeFontFamily = state.codeFont.fontFamily,
+            reduceMotion = state.motionReduced,
             manageSystemBarContrast =
                 state.currentNavigationRoute !is SubshellRoute.Media &&
                     state.currentNavigationRoute !is SubshellRoute.CommentMedia,
@@ -698,6 +701,11 @@ fun SubshellApp(
                         onInvalidateCrosspostReview =
                             postComposerWriteRuntime.onInvalidateCrosspostReview,
                         composerPolicy = composerPolicy,
+                        // ISSUE229_POST_BODY_MENTIONS_V1
+                        mentionSearchState = redditCommunity.redditMentionSearchState,
+                        onSearchMentions = { query ->
+                            redditCommunity.onSearchMentions(state.activeAccountId, query)
+                        },
                         onLoadComposerPolicy = onLoadComposerPolicy,
                         composerCommunitySearch = composerCommunitySearch,
                         onSearchComposerCommunities = onSearchComposerCommunities,
@@ -1010,7 +1018,7 @@ fun SubshellApp(
                 modifier = Modifier.weight(1f).predictiveRouteBack(
                     state = predictiveRouteBackState,
                     backdrop = MaterialTheme.colorScheme.surfaceDim,
-                    reduceMotion = state.reduceMotion,
+                    reduceMotion = state.motionReduced,
                 ),
                 containerColor = MaterialTheme.colorScheme.background,
                 // M3223_CUTOUT_IS_SAFE_V1: content stays clear of a side display cutout.
@@ -1097,7 +1105,7 @@ fun SubshellApp(
                                 modifier = Modifier,
                                 uri = route.uri,
                                 onBack = { state.closeCommentMedia() },
-                                reduceMotion = state.reduceMotion,
+                                reduceMotion = state.motionReduced,
                             )
                         }
                         is SubshellRoute.Media -> {

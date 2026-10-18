@@ -9,6 +9,7 @@ import app.subshell.prototype.data.account.AccountSessionSource
 import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.ActivityKind
 import app.subshell.prototype.ui.app.InboxEntryPoints
@@ -56,7 +57,7 @@ class ConversationRouteHostComposeTest {
         ensureWorkManagerInitialized(context)
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 redditInbox = InboxEntryPoints(onMarkRedditInboxRead = { _, id -> readMutations += id }),
             )

@@ -27,12 +27,15 @@ internal val settingsSearchEntries: List<SettingsSearchEntry> = listOf(
     setting("accounts", "Accounts", "Reddit accounts current account switch add connect sign in log out manage"),
     setting("online-visibility", "Account privacy", "online status visibility show presence Reddit account privacy"),
 
+    // ISSUE234_FEED_POST_LAYOUTS_V1: the Thumbnail row shows only with List, so its words lead here.
+    setting("post-layout", "Feed", "post layout large compact list grid density cards size small dense columns view thumbnail left right"),
     setting("unread-marker", "Feed", "show unread marker post age dot read unread"),
     setting("show-nsfw-posts", "Feed", "show NSFW posts 18+ sensitive content"),
     setting("content-filters", "Feed", "content filters words communities domains users flair filter hide"),
     setting("filtered-posts-summary", "Feed", "filtered posts summary show hidden count reveal filter"),
     setting("scroll-position-indicator", "Feed", "scroll position indicator scrollbar bar where thread comments"),
     setting("random-nsfw-community", "Feed", "random nsfw community shuffle adult"),
+    setting("pinned-posts", "Feed", "pinned posts stickied sticky community highlights top"),
     // ISSUE116_EVERY_VISIBLE_SETTING_IS_SEARCHABLE_V1: these rows had no entry,
     // so a search for them found nothing.
     setting("muted-community-direct-view", "Feed", "muted communities mute opening a muted community direct visit show posts spoiler"),
@@ -80,6 +83,7 @@ internal val settingsSearchEntries: List<SettingsSearchEntry> = listOf(
     setting("video-speed-controls", "Media & links", "playback speed faster slower 2x 1.5x 0.5x"),
     setting("video-double-tap-seek", "Media & links", "double tap skip seek forward back 10 seconds"),
     setting("video-hold-double-speed", "Media & links", "hold press 2x double speed faster"),
+    setting("video-pinch-to-zoom", "Media & links", "pinch zoom video magnify enlarge closer look"),
     setting("video-rotate-fullscreen", "Media & links", "rotate landscape orientation wide video full screen turn"),
     setting("video-technical-details", "Media & links", "technical details codecs decoders dropped frames diagnostics developer"),
     setting("video-picture-in-picture", "Media & links", "picture in picture pip small window background floating"),
@@ -95,7 +99,7 @@ internal val settingsSearchEntries: List<SettingsSearchEntry> = listOf(
     setting("landscape-brightness-gesture", "Media & links", "brightness gesture fullscreen landscape swipe screen light"),
     setting("landscape-volume-gesture", "Media & links", "volume gesture fullscreen landscape swipe sound audio"),
 
-    setting("reduced-motion", "Accessibility", "reduce motion animation animations immediate state changes"),
+    setting("reduced-motion", "Accessibility", "reduce motion animation animations immediate state changes remove system android"),
 
     setting("feed-state", "Prototype states", "feed preview loading offline error empty content state prototype"),
 
@@ -124,7 +128,15 @@ internal val settingsSearchEntries: List<SettingsSearchEntry> = listOf(
     setting("redreader-compatibility", "Reddit connection", "RedReader compatibility OAuth client ID account encrypted connection"),
     setting("diagnostics", "Diagnostics", "diagnostics debug troubleshooting event history report share clear privacy"),
 
-    setting("backup", "Backup & restore", "saved setups backup restore snapshot import export automatic history"),
+    // SETTINGSREVIEW01_BACKUP_CHOICES_ARE_SEARCHABLE_V1: the Backup screen's own
+    // switches and retention choices lead to its row.
+    setting(
+        "backup",
+        "Backup & restore",
+        "saved setups backup restore snapshot import export automatic history folder " +
+            "include hidden communities muted communities post drafts saved moderator responses " +
+            "private notes tags retention safety snapshots",
+    ),
 
     setting(
         "about",

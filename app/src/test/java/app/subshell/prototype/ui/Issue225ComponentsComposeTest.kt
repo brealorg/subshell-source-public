@@ -38,6 +38,7 @@ import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.ui.components.AdaptiveFullScreenDialog
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
@@ -226,7 +227,7 @@ class Issue225ComponentsComposeTest {
             initialActiveAccountId = account.stableId,
             initialInteractionSideConfigured = true,
         )
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         composeRule.setContent {
             SubshellTheme {
                 CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
@@ -276,7 +277,7 @@ class Issue225ComponentsComposeTest {
             initialInteractionSideConfigured = true,
         )
         composeRule.setContent {
-            SubshellApp(videoPlaybackCoordinator = VideoPlaybackCoordinator(context), state = state)
+            SubshellApp(videoPlaybackCoordinator = testVideoPlaybackCoordinator(context), state = state)
         }
         composeRule.waitForIdle()
         composeRule.onNodeWithContentDescription("Inbox").performClick()

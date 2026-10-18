@@ -3,9 +3,6 @@ package app.subshell.prototype.ui.components
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.automirrored.rounded.Article
-import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -33,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import app.subshell.prototype.data.account.RedditCommunityWikiUiFailureKind
 import app.subshell.prototype.data.account.RedditCommunityWikiUiState
 import app.subshell.prototype.model.CommunityWikiPageRef
+import app.subshell.prototype.ui.symbols.Symbols
 
 // WIKI01A2_COMMUNITY_WIKI_FUNCTIONAL_PRESENTATION_V1
 // WIKI01A2R1_DEDICATED_WIKI_WORKSPACE_V1
@@ -311,13 +309,13 @@ private fun CommunityWikiPageRow(
             },
             leadingContent = {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.Article,
+                    imageVector = Symbols.Article,
                     contentDescription = null,
                 )
             },
             trailingContent = {
                 Icon(
-                    imageVector = Icons.Rounded.ChevronRight,
+                    imageVector = Symbols.ChevronRight,
                     contentDescription = null, // the row reads the page name (ISSUE219)
                 )
             },

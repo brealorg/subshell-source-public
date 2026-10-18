@@ -28,16 +28,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.FilterAlt
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -98,6 +88,7 @@ import app.subshell.prototype.data.diagnostics.shareDiagnosticReportByEmail
 import app.subshell.prototype.data.diagnostics.stageDiagnosticReport
 import app.subshell.prototype.ui.components.RouteTopBar
 import app.subshell.prototype.ui.components.rememberRouteTopBarScrollBehavior
+import app.subshell.prototype.ui.symbols.Symbols
 import app.subshell.prototype.ui.theme.groupedRowShape
 import java.text.DateFormat
 import java.util.Date
@@ -357,7 +348,7 @@ internal fun DiagnosticsScreen(
                 title = { Text("Diagnostics") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                        Icon(Symbols.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -366,7 +357,7 @@ internal fun DiagnosticsScreen(
                             onClick = { overflowVisible = true },
                             enabled = snapshot.events.isNotEmpty(),
                         ) {
-                            Icon(Icons.Rounded.MoreVert, contentDescription = "More options")
+                            Icon(Symbols.MoreVert, contentDescription = "More options")
                         }
                         DropdownMenu(
                             expanded = overflowVisible,
@@ -414,7 +405,7 @@ internal fun DiagnosticsScreen(
                             Spacer(Modifier.width(8.dp))
                         } else {
                             Icon(
-                                Icons.Rounded.History,
+                                Symbols.History,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
                             )
@@ -454,7 +445,7 @@ internal fun DiagnosticsScreen(
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Icon(
-                                    Icons.Rounded.ErrorOutline,
+                                    Symbols.Error,
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp),
                                 )
@@ -606,7 +597,7 @@ private fun DiagnosticsStatusCard(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            Icons.Rounded.Storage,
+                            Symbols.Storage,
                             contentDescription = null,
                             modifier = Modifier.size(22.dp),
                         )
@@ -721,7 +712,7 @@ private fun PrivacyBoundaryCard(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            Icons.Rounded.Info,
+                            Symbols.Info,
                             contentDescription = null,
                             modifier = Modifier.size(20.dp),
                         )
@@ -794,7 +785,7 @@ private fun SubsystemFilterSurface(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Icon(
-                Icons.Rounded.FilterAlt,
+                Symbols.FilterAlt,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp),
@@ -859,7 +850,7 @@ private fun DiagnosticsEmptyState(filtered: Boolean) {
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        if (filtered) Icons.Rounded.FilterAlt else Icons.Rounded.History,
+                        if (filtered) Symbols.FilterAlt else Symbols.History,
                         contentDescription = null,
                     )
                 }
@@ -914,8 +905,8 @@ private fun DiagnosticEventRow(
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = when (event.level) {
-                            DiagnosticLevel.INFO -> Icons.Rounded.Info
-                            DiagnosticLevel.WARNING, DiagnosticLevel.ERROR -> Icons.Rounded.ErrorOutline
+                            DiagnosticLevel.INFO -> Symbols.Info
+                            DiagnosticLevel.WARNING, DiagnosticLevel.ERROR -> Symbols.Error
                         },
                         contentDescription = diagnosticLevelLabel(event.level),
                         modifier = Modifier.size(17.dp),
@@ -960,10 +951,14 @@ private fun DiagnosticEventRow(
                         failure.protocolKind?.let { add("Response $it") }
                         failure.jsonPath?.let { add("Field $it") }
                         failure.localKind?.let { add("Local $it") }
+                        failure.exceptionClass?.let { add("Exception $it") }
                         failure.providerCode?.let { add("Provider $it") }
                         failure.mediaCode?.let { add("Media $it") }
                         failure.retryable?.let { add("Retryable $it") }
                         failure.retryAfterMs?.let { add("Retry after ${it}ms") }
+                        failure.networkValidated?.let { add("Network validated $it") }
+                        failure.networkMetered?.let { add("Metered $it") }
+                        failure.deviceIdle?.let { add("Device idle $it") }
                     }.joinToString(" · ")
                     if (detail.isNotBlank()) {
                         Text(
@@ -972,6 +967,18 @@ private fun DiagnosticEventRow(
                             color = levelColors.content,
                         )
                     }
+                }
+                // DIAG04_EVENT_FIELDS_APPENDED_V1
+                val eventDetail = listOfNotNull(
+                    event.action?.let { "Action $it" },
+                    event.appVersionFrom?.let { from -> event.appVersionTo?.let { to -> "Version $from → $to" } },
+                ).joinToString(" · ")
+                if (eventDetail.isNotBlank()) {
+                    Text(
+                        text = eventDetail,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 event.scopeFingerprint?.let { scope ->
                     Text(
@@ -1022,7 +1029,7 @@ private fun DiagnosticReportPreviewSheet(
                 )
             }
             IconButton(onClick = onClose) {
-                Icon(Icons.Rounded.Close, contentDescription = "Close")
+                Icon(Symbols.Close, contentDescription = "Close")
             }
         }
 
@@ -1079,7 +1086,7 @@ private fun DiagnosticReportPreviewSheet(
             shape = MaterialTheme.shapes.extraLarge,
         ) {
             Icon(
-                Icons.Rounded.ContentCopy,
+                Symbols.ContentCopy,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
             )
@@ -1095,7 +1102,7 @@ private fun DiagnosticReportPreviewSheet(
             shape = MaterialTheme.shapes.extraLarge,
         ) {
             Icon(
-                Icons.Rounded.Storage,
+                Symbols.Storage,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
             )
@@ -1142,6 +1149,8 @@ private fun diagnosticOperationLabel(event: DiagnosticEvent): String = when (eve
     DiagnosticOperation.APP_CRASHED -> "subshell closed unexpectedly"
     DiagnosticOperation.APP_NATIVE_CRASHED -> "subshell closed unexpectedly (native)"
     DiagnosticOperation.APP_NOT_RESPONDING -> "subshell stopped responding"
+    DiagnosticOperation.APP_UPDATED -> "subshell updated"
+    DiagnosticOperation.LISTING_POST_SKIPPED -> "Unreadable post left out"
 }
 
 private fun diagnosticLevelLabel(level: DiagnosticLevel): String = when (level) {

@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.account
 
+import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.normalizeRedditCommunityName
 
 // MODERATION02A4_MOD_LOG_UI_DOMAIN_V1
@@ -30,6 +31,8 @@ data class ModeratorLogUiState(
     val failureKind: RedditModerationUiFailureKind? = null,
     val failureRetryable: Boolean = false,
     val failureHttpStatusCode: Int? = null,
+    // DIAG05_PLAIN_NOTICES_ARE_RECORDED_V1
+    val failureDetails: FailureDetails? = null,
     val contentRevision: Long = 0L,
 ) {
     fun matches(accountStableId: String, rawCommunityName: String): Boolean {

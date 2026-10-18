@@ -53,14 +53,14 @@ internal class CommentDeleteCoordinator(
             val result = try {
                 configuredDeleter.delete(AuthenticatedCommentDeleteRequest(request.accountStableId, request.commentFullname))
             } catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) {
+            catch (error: Exception) {
                 AuthenticatedCommentDeleteResult.Failed(
                     kind = AuthenticatedCommentDeleteFailureKind.OUTCOME_NOT_CONFIRMED,
                     retryable = false,
                     failureDetails = FailureDetails(
                         retryable = false,
                         localKind = LocalFailureKind.UNKNOWN,
-                    ),
+                    ).withExceptionClass(error),
                 )
             }
             applyResult(request, result)

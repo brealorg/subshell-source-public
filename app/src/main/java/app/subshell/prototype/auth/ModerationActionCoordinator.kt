@@ -446,7 +446,7 @@ internal class ModerationActionCoordinator(
                     onRollback(request)
                 }
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 // LOW10_UNEXPECTED_WRITE_ERROR_IS_UNKNOWN_OUTCOME_V1 (OCB-589): the
                 // request may have reached Reddit; the queue is read back
                 // (reconciled), not rolled back, as report/content-control do.
@@ -456,7 +456,7 @@ internal class ModerationActionCoordinator(
                     failureDetails = FailureDetails(
                         retryable = false,
                         localKind = LocalFailureKind.UNKNOWN,
-                    ),
+                    ).withExceptionClass(error),
                 )
             }
             when (result) {

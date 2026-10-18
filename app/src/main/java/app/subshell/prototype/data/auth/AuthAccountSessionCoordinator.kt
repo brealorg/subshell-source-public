@@ -1,5 +1,7 @@
 package app.subshell.prototype.data.auth
 
+import app.subshell.prototype.data.error.LocalFailureKind
+import app.subshell.prototype.data.error.FailureDetails
 import kotlin.coroutines.cancellation.CancellationException
 import app.subshell.prototype.data.account.AccountSessionDirectory
 import app.subshell.prototype.data.account.AccountSessionDirectorySnapshot
@@ -64,7 +66,13 @@ internal class AuthAccountSessionCoordinator(
     private val clock: AuthClock = SystemAuthClock,
     private val refreshSkewMs: Long = OAuthSessionManager.DEFAULT_REFRESH_SKEW_MS,
     private val storageDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    // DIAG05_SIGN_IN_FAILURES_ARE_RECORDED_V1: the sign-in's identity read and
+    // first feed page fail without a screen of their own; they are recorded here.
+    private val recordFailure: (scopeKey: String, details: FailureDetails?) -> Unit = { _, _ -> },
 ) : AccountSessionDirectory, NetworkBearerTokenProvider {
+    /** DIAG05_SIGN_IN_FAILURES_ARE_RECORDED_V1: for the capability authorizers, which share this session. */
+    internal fun recordUnshownFailure(scopeKey: String, details: FailureDetails?) = recordFailure(scopeKey, details)
+
     private val localAccounts = localFixtureAccountSummaries(localFixtureUsernames)
     private val localUsernames = localAccounts.map { it.username.lowercase() }.toSet()
     private val fallbackLocalAccount =
@@ -182,6 +190,7 @@ internal class AuthAccountSessionCoordinator(
         val identity = when (val resolved = identityClient.resolve(exchanged)) {
             is AuthIdentityResult.Success -> resolved.identity.normalized()
             is AuthIdentityResult.Failure -> {
+                recordFailure("account_identity", resolved.details)
                 runCatching(store::deleteSession)
                 return AuthAccountRegistrationResult.Failed(
                     AuthAccountRegistrationFailureKind.IDENTITY,
@@ -236,11 +245,18 @@ internal class AuthAccountSessionCoordinator(
             // CONC01_BOOTSTRAP_RETHROWS_CANCELLATION_V1 (OCB-467): a failed first
             // sync does not stop the sign-in; a cancellation does.
             try {
-                bootstrapper.synchronize(authenticatedSession)
+                val bootstrap = bootstrapper.synchronize(authenticatedSession)
+                if (bootstrap is AuthenticatedRedditBootstrapResult.Failed) {
+                    recordFailure("account_first_feed", bootstrap.details)
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 // The account is registered without its first feed page.
+                recordFailure(
+                    "account_first_feed",
+                    FailureDetails(localKind = LocalFailureKind.UNKNOWN).withExceptionClass(error),
+                )
             }
         }
 

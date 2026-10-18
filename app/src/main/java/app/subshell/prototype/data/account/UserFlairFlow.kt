@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.account
 
+import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.model.FlairRichTextSegment
 
 // USERFLAIR01A1_OWN_COMMUNITY_FLAIR_DOMAIN_V1
@@ -77,6 +78,8 @@ data class UserFlairUiState(
     val authorizationRequired: Boolean = false,
     val failureKind: UserFlairFailureKind? = null,
     val failureHttpStatusCode: Int? = null,
+    // DIAG05_PLAIN_NOTICES_ARE_RECORDED_V1
+    val failureDetails: FailureDetails? = null,
     val contentRevision: Long = 0L,
     val completionRevision: Long = 0L,
 ) {

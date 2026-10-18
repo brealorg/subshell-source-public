@@ -14,6 +14,7 @@ import app.subshell.prototype.data.account.TextPostWritePhase
 import app.subshell.prototype.data.account.TextPostWriteUiState
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.Post
 import app.subshell.prototype.model.PostKind
@@ -95,7 +96,7 @@ class Step3PostPublishRebindBridgeComposeTest {
         requestKey = requireNotNull(state.postComposerDraft.crosspostRequestForIdentityOnly()).requestKey
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 postComposerWriteRuntime = PostComposerWriteRuntimeEntryPoints(
                     textPostWriteState = write,

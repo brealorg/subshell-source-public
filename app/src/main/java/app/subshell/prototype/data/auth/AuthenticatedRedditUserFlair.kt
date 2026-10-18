@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.auth
 
+import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.account.UserFlairFailureKind
 import app.subshell.prototype.data.account.UserFlairMutationRequest
 import app.subshell.prototype.data.account.UserFlairSnapshot
@@ -12,6 +13,8 @@ internal sealed interface AuthenticatedRedditUserFlairLoadResult {
         val kind: UserFlairFailureKind,
         val retryable: Boolean = false,
         val httpStatusCode: Int? = null,
+        // DIAG05_PLAIN_NOTICES_ARE_RECORDED_V1
+        val details: FailureDetails? = null,
     ) : AuthenticatedRedditUserFlairLoadResult
 }
 
@@ -22,6 +25,7 @@ internal sealed interface AuthenticatedRedditUserFlairMutationResult {
         val kind: UserFlairFailureKind,
         val retryable: Boolean = false,
         val httpStatusCode: Int? = null,
+        val details: FailureDetails? = null,
     ) : AuthenticatedRedditUserFlairMutationResult
 }
 

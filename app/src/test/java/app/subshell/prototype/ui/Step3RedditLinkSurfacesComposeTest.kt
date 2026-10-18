@@ -15,6 +15,7 @@ import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.CrosspostPreview
@@ -83,7 +84,7 @@ class Step3RedditLinkSurfacesComposeTest {
             ),
         )
         val before = state.currentNavigationRoute
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         composeRule.setContent {
             SubshellTheme {
                 CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
@@ -108,7 +109,7 @@ class Step3RedditLinkSurfacesComposeTest {
         val events = mutableListOf<String>()
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = signedIn(),
                 redditLinkHandlingState = RedditLinkHandlingState(
                     supported = true,
@@ -134,7 +135,7 @@ class Step3RedditLinkSurfacesComposeTest {
         ensureWorkManagerInitialized(context)
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = signedIn(),
                 redditLinkHandlingState = RedditLinkHandlingState(
                     supported = true,

@@ -75,6 +75,7 @@ class SettingsStateCharacterisationTest {
         Setter("updateVideoSpeedControls", listOf(true, false), { s, v -> s.updateVideoSpeedControls(v as Boolean) }, { it.videoSpeedControls }, { v -> SubshellSettings.VIDEO_SPEED_CONTROLS to v.toString() }),
         Setter("updateVideoDoubleTapSeek", listOf(true, false), { s, v -> s.updateVideoDoubleTapSeek(v as Boolean) }, { it.videoDoubleTapSeek }, { v -> SubshellSettings.VIDEO_DOUBLE_TAP_SEEK to v.toString() }),
         Setter("updateVideoHoldForDoubleSpeed", listOf(true, false), { s, v -> s.updateVideoHoldForDoubleSpeed(v as Boolean) }, { it.videoHoldForDoubleSpeed }, { v -> SubshellSettings.VIDEO_HOLD_FOR_DOUBLE_SPEED to v.toString() }),
+        Setter("updateVideoPinchToZoom", listOf(true, false), { s, v -> s.updateVideoPinchToZoom(v as Boolean) }, { it.videoPinchToZoom }, { v -> SubshellSettings.VIDEO_PINCH_TO_ZOOM to v.toString() }),
         Setter("updateVideoPictureInPicture", listOf(true, false), { s, v -> s.updateVideoPictureInPicture(v as Boolean) }, { it.videoPictureInPicture }, { v -> SubshellSettings.VIDEO_PICTURE_IN_PICTURE to v.toString() }),
         Setter("updateVideoRotateFullscreen", listOf(true, false), { s, v -> s.updateVideoRotateFullscreen(v as Boolean) }, { it.videoRotateFullscreen }, { v -> SubshellSettings.VIDEO_ROTATE_FULLSCREEN to v.toString() }),
         Setter("updateVideoTechnicalDetails", listOf(true, false), { s, v -> s.updateVideoTechnicalDetails(v as Boolean) }, { it.videoTechnicalDetails }, { v -> SubshellSettings.VIDEO_TECHNICAL_DETAILS to v.toString() }),
@@ -91,7 +92,7 @@ class SettingsStateCharacterisationTest {
 
     @Test
     fun everySetterUpdatesItsFieldAndPersistsExactlyOnePreferenceWithTheExpectedKeyAndValue() {
-        assertEquals(63, setters.size)
+        assertEquals(64, setters.size)
         setters.forEach { setter ->
             val writes = mutableListOf<Pair<String, String>>()
             val state = state(writes)

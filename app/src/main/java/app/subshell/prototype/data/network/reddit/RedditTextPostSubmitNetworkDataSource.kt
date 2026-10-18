@@ -66,6 +66,7 @@ internal sealed interface RedditTextPostSubmitNetworkResult {
         val statusCode: Int,
         val retryable: Boolean,
         val metadata: NetworkResponseMetadata,
+        val providerReason: String? = null,
     ) : RedditTextPostSubmitNetworkResult
 
     data class TransportFailure(
@@ -167,6 +168,7 @@ internal class RedditTextPostSubmitNetworkDataSource(
                 statusCode = result.statusCode,
                 retryable = result.retryable,
                 metadata = result.metadata,
+                providerReason = result.providerReason,
             )
 
             is NetworkResult.TransportFailure ->
@@ -240,6 +242,7 @@ internal class RedditTextPostSubmitNetworkDataSource(
                 statusCode = result.statusCode,
                 retryable = result.retryable,
                 metadata = result.metadata,
+                providerReason = result.providerReason,
             )
             is NetworkResult.TransportFailure ->
                 RedditTextPostSubmitNetworkResult.TransportFailure(

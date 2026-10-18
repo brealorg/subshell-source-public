@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -28,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import app.subshell.prototype.ui.error.LocalViewportErrorHostState
+import app.subshell.prototype.ui.symbols.Symbols
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -168,7 +167,7 @@ internal fun ComposerInlineMedia(
             ) {
                 IconButton(onClick = onRemove) {
                     Icon(
-                        Icons.Rounded.DeleteOutline,
+                        Symbols.Delete,
                         contentDescription = "Remove inline media",
                     )
                 }

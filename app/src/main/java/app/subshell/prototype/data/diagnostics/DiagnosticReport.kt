@@ -147,6 +147,10 @@ internal fun buildDiagnosticReport(
         append(" operation=${event.operation.name.lowercase(Locale.ROOT)}")
         append(" outcome=${event.outcome.name.lowercase(Locale.ROOT)}")
         event.scopeFingerprint?.let { append(" scope=$it") }
+        // DIAG04_EVENT_FIELDS_APPENDED_V1
+        event.action?.let { append(" action=$it") }
+        event.appVersionFrom?.let { append(" from_version_code=$it") }
+        event.appVersionTo?.let { append(" to_version_code=$it") }
         event.failure?.let { failure ->
             failure.httpStatusCode?.let { append(" http=$it") }
             failure.retryable?.let { append(" retryable=$it") }
@@ -155,8 +159,12 @@ internal fun buildDiagnosticReport(
             failure.protocolKind?.let { append(" protocol=$it") }
             failure.jsonPath?.let { append(" json_path=$it") }
             failure.localKind?.let { append(" local=$it") }
+            failure.exceptionClass?.let { append(" exception=$it") }
             failure.providerCode?.let { append(" provider_code=${reportToken(it)}") }
             failure.mediaCode?.let { append(" media_code=${reportToken(it)}") }
+            failure.networkValidated?.let { append(" network_validated=$it") }
+            failure.networkMetered?.let { append(" network_metered=$it") }
+            failure.deviceIdle?.let { append(" device_idle=$it") }
         }
         appendLine()
     }

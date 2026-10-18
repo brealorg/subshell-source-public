@@ -29,6 +29,7 @@ import app.subshell.prototype.data.diagnostics.DiagnosticEventStore
 import app.subshell.prototype.data.diagnostics.DiagnosticOperation
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.CommunityInfoSnapshot
 import app.subshell.prototype.model.CommunityModerator
@@ -120,7 +121,7 @@ class LowUi8aRecreationComposeTest {
         val state = signedIn(account, other)
         val restoration = StateRestorationTester(composeRule)
         restoration.setContent {
-            SubshellApp(videoPlaybackCoordinator = VideoPlaybackCoordinator(context), state = state)
+            SubshellApp(videoPlaybackCoordinator = testVideoPlaybackCoordinator(context), state = state)
         }
         composeRule.waitForIdle()
         composeRule.runOnIdle { state.navigate(MainDestination.INBOX) }
@@ -163,7 +164,7 @@ class LowUi8aRecreationComposeTest {
         val restoration = StateRestorationTester(composeRule)
         restoration.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 redditModeration = ModerationQueueEntryPoints(redditModerationState = moderation),
             )
@@ -231,7 +232,7 @@ class LowUi8aRecreationComposeTest {
         val state = signedIn()
         val restoration = StateRestorationTester(composeRule)
         restoration.setContent {
-            SubshellApp(videoPlaybackCoordinator = VideoPlaybackCoordinator(context), state = state)
+            SubshellApp(videoPlaybackCoordinator = testVideoPlaybackCoordinator(context), state = state)
         }
         composeRule.waitUntil(10_000) { diagnosticCount(DiagnosticOperation.APP_SESSION_STARTED) == before + 1 }
 

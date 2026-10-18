@@ -1,5 +1,6 @@
 package app.subshell.prototype.ui.screens
 
+import app.subshell.prototype.ui.symbols.Symbols
 import java.io.File
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -64,7 +65,8 @@ class UserStatus01A1AccountIdentityPresentationPolicyTest {
                 .substringBefore("account-privacy-title")
 
         assertTrue(logout.contains("DestructiveNavigationRow("))
-        assertTrue(logout.contains("Icons.AutoMirrored.Rounded.ExitToApp"))
+        assertTrue(logout.contains("Symbols.ExitToApp"))
+        assertTrue(Symbols.ExitToApp.autoMirror)
         assertTrue(settings.contains("private fun DestructiveNavigationRow("))
         // Successor-aware (#225, M3225_SETTINGS_ROWS_ARE_LIST_ITEMS_V1): the
         // destructive row is a list item in the error colour, not an

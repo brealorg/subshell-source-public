@@ -9,6 +9,7 @@ import app.subshell.prototype.data.RepositoryPageRequest
 import app.subshell.prototype.data.RepositoryResult
 import app.subshell.prototype.data.SampleData
 import app.subshell.prototype.data.SubshellRepository
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.model.Post
 import app.subshell.prototype.data.account.AccountSessionSource
 import app.subshell.prototype.data.account.AccountSessionState
@@ -62,7 +63,7 @@ class Step3PublicUserWorkspaceComposeTest {
         ensureWorkManagerInitialized(context)
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 onAppendRedditUserSubmitted = { _, username -> appends += username },
             )

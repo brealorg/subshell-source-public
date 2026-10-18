@@ -126,6 +126,7 @@ internal class ConfiguredRedditPostFollower(
                                 result.statusCode,
                                 result.retryable,
                                 result.metadata,
+                                providerReason = result.providerReason,
                             ),
                         )
                     }

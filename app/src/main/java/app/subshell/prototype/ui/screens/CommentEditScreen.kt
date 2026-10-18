@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fitInside
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -60,6 +58,7 @@ import app.subshell.prototype.ui.components.ComposerPrimaryAction
 import app.subshell.prototype.ui.components.ComposerContextNote
 import app.subshell.prototype.ui.components.ComposerDiscardChangesDialog
 import app.subshell.prototype.ui.components.editHasUnsavedChanges
+import app.subshell.prototype.ui.symbols.Symbols
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -175,7 +174,7 @@ internal fun CommentEditScreen(
                 navigationIcon = {
                     IconButton(onClick = ::requestClose) {
                         Icon(
-                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            Symbols.ArrowBack,
                             contentDescription = "Close comment editor",
                         )
                     }

@@ -4,11 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Bookmark
-import androidx.compose.material.icons.rounded.BookmarkBorder
-import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
@@ -40,6 +35,7 @@ import app.subshell.prototype.ui.PostSwipeAction
 import app.subshell.prototype.ui.SubshellState
 import app.subshell.prototype.ui.VoteColorPalette
 import app.subshell.prototype.ui.VoteControlMode
+import app.subshell.prototype.ui.symbols.Symbols
 import app.subshell.prototype.ui.theme.isDarkScheme
 import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
@@ -153,14 +149,14 @@ internal fun postSwipeActionVisual(
     )
     PostSwipeAction.SAVE -> SwipeActionVisual(
         label = postSwipeActionLabel(action, vote, saved, hidden),
-        icon = if (saved) Icons.Rounded.BookmarkBorder else Icons.Rounded.Bookmark,
+        icon = if (saved) Symbols.Bookmark else Symbols.BookmarkFilled,
         containerColor = MaterialTheme.colorScheme.tertiaryContainer,
         contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
         enabled = enabled,
     )
     PostSwipeAction.HIDE -> SwipeActionVisual(
         label = postSwipeActionLabel(action, vote, saved, hidden),
-        icon = if (hidden) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff,
+        icon = if (hidden) Symbols.Visibility else Symbols.VisibilityOff,
         containerColor = MaterialTheme.colorScheme.errorContainer,
         contentColor = MaterialTheme.colorScheme.onErrorContainer,
         enabled = enabled,

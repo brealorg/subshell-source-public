@@ -16,6 +16,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.subshell.prototype.R
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.ui.SubshellApp
 import app.subshell.prototype.ui.SubshellState
@@ -217,14 +218,19 @@ class Issue221ThemeFoundationsTest {
         var reported = SubshellThemeSettings()
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 onThemeSettingsChanged = { reported = it },
             )
         }
         composeRule.waitForIdle()
         assertEquals(
-            SubshellThemeSettings(mode = ThemeMode.DARK, pureBlack = true, textScale = AppTextScale.LARGER.factor),
+            SubshellThemeSettings(
+                mode = ThemeMode.DARK,
+                dynamicColor = false,
+                pureBlack = true,
+                textScale = AppTextScale.LARGER.factor,
+            ),
             reported,
         )
 

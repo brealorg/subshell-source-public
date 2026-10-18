@@ -12,6 +12,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.subshell.prototype.media.findActivity
 import app.subshell.prototype.media.findLifecycleOwner
 import android.content.Context
@@ -31,8 +32,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -58,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.subshell.prototype.BuildConfig
+import app.subshell.prototype.ui.symbols.Symbols
 
 @Composable
 internal fun UpdatePresentationHost(
@@ -70,7 +70,7 @@ internal fun UpdatePresentationHost(
     val store = remember(appContext) { UpdateStateStore(appContext) }
     val changelogLoad = rememberBundledChangelogLoad(appContext)
     val changelog = changelogLoad.document
-    val request by UpdatePresentationCoordinator.request.collectAsState()
+    val request by UpdatePresentationCoordinator.request.collectAsStateWithLifecycle()
     val notifyNextTime = rememberUpdateNotificationOptIn(store)
 
     var pendingWhatsNewVersion by remember(appContext) {
@@ -458,7 +458,7 @@ internal fun UpdateChangelogScreen(
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(
-                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        Symbols.ArrowBack,
                         contentDescription = "Back",
                     )
                 }

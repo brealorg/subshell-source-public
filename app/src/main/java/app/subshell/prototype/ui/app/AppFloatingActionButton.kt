@@ -1,9 +1,6 @@
 package app.subshell.prototype.ui.app
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Send
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -18,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import app.subshell.prototype.ui.SecondaryDestination
 import app.subshell.prototype.ui.SubshellState
+import app.subshell.prototype.ui.symbols.Symbols
 
 /**
  * The Scaffold's floating action button: "Create feed" while the custom
@@ -58,7 +56,7 @@ internal fun AppFloatingActionButton(
             },
             onClick = { customFeedCreateRequested = true },
             icon = {
-                Icon(Icons.Rounded.Add, contentDescription = null)
+                Icon(Symbols.Add, contentDescription = null)
             },
             text = { Text("Create feed") },
         )
@@ -80,7 +78,7 @@ internal fun AppFloatingActionButton(
             },
             icon = {
                 Icon(
-                    if (createPostButtonVisible) Icons.Rounded.Add else Icons.AutoMirrored.Rounded.Send,
+                    if (createPostButtonVisible) Symbols.Add else Symbols.Send,
                     contentDescription = null,
                 )
             },

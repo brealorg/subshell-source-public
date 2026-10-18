@@ -9,11 +9,6 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.windowInsetsTopHeight
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DoneAll
-import androidx.compose.material.icons.rounded.SelectAll
-import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,6 +33,7 @@ import app.subshell.prototype.ui.availableFeedSorts
 import app.subshell.prototype.ui.components.MainScreenHeader
 import app.subshell.prototype.ui.components.chromeHorizontalSides
 import app.subshell.prototype.ui.screens.InboxContextualSelection
+import app.subshell.prototype.ui.symbols.Symbols
 
 /**
  * The Scaffold's top bar: the inbox contextual-selection bar while activity
@@ -85,7 +81,7 @@ internal fun AppTopBar(
                         navigationIcon = {
                             IconButton(onClick = selection.onClose) {
                                 Icon(
-                                    Icons.Rounded.Close,
+                                    Symbols.Close,
                                     contentDescription = "Exit selection",
                                 )
                             }
@@ -96,19 +92,19 @@ internal fun AppTopBar(
                                 onClick = selection.onMarkRead,
                             ) {
                                 Icon(
-                                    Icons.Rounded.DoneAll,
+                                    Symbols.DoneAll,
                                     contentDescription = "Mark selected activity as read",
                                 )
                             }
                             IconButton(onClick = selection.onDismiss) {
                                 Icon(
-                                    Icons.Rounded.VisibilityOff,
+                                    Symbols.VisibilityOff,
                                     contentDescription = "Dismiss selected activity",
                                 )
                             }
                             IconButton(onClick = selection.onSelectAll) {
                                 Icon(
-                                    Icons.Rounded.SelectAll,
+                                    Symbols.SelectAll,
                                     contentDescription = if (
                                         selection.allVisibleSelected
                                     ) {
@@ -165,6 +161,9 @@ internal fun AppTopBar(
                         } else {
                             "Search"
                         },
+                        // ISSUE234_LAYOUT_CHOICE_BESIDE_THE_FEED_V1: Home and its custom feeds.
+                        postLayoutButton = state.destination == MainDestination.HOME &&
+                            state.selectedSubreddit == null,
                     )
                 }
             }

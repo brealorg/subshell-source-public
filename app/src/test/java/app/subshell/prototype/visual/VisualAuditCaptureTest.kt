@@ -22,10 +22,12 @@ import app.subshell.prototype.data.SampleData
 import app.subshell.prototype.data.account.RedditCommentsUiState
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.ActivityKind
 import app.subshell.prototype.model.PostKind
 import app.subshell.prototype.ui.MainDestination
+import app.subshell.prototype.ui.PostLayout
 import app.subshell.prototype.ui.SecondaryDestination
 import app.subshell.prototype.ui.SubshellApp
 import app.subshell.prototype.ui.SubshellState
@@ -112,7 +114,7 @@ class VisualAuditCaptureTest(
         var comments by mutableStateOf(RedditCommentsUiState())
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 redditFeed = FeedEntryPoints(redditSubscriptionsState = VisualFixtures.subscriptions),
                 redditAccountHistoryState = VisualFixtures.profileComments,
@@ -215,6 +217,14 @@ enum class VisualSurface(
     val scrolled: Boolean = false,
 ) {
     HOME("home", {}),
+    // ISSUE234_FEED_POST_LAYOUTS_V1: the other feed post layouts.
+    HOME_COMPACT("home-compact", { it.updatePostLayout(PostLayout.COMPACT) }),
+    HOME_LIST("home-list", { it.updatePostLayout(PostLayout.LIST) }),
+    HOME_GRID("home-grid", { it.updatePostLayout(PostLayout.GRID) }),
+    COMMUNITY_GRID("community-grid", {
+        it.updatePostLayout(PostLayout.GRID)
+        it.openSubreddit(SampleData.communities.first().name)
+    }),
     FIRST_RUN("first-run", {}, firstRunDialogs = true),
     DRAWER("drawer", { it.requestDrawer() }),
     ACCOUNT_SWITCHER("account-switcher", { it.requestAccountSwitcher() }),

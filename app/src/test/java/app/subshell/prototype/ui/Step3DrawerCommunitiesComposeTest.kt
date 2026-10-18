@@ -23,6 +23,7 @@ import app.subshell.prototype.data.account.CustomFeedsUiState
 import app.subshell.prototype.data.account.RedditSubscriptionsUiState
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.Community
 import app.subshell.prototype.ui.app.CustomFeedsEntryPoints
@@ -97,7 +98,7 @@ class Step3DrawerCommunitiesComposeTest {
         state.updateDrawerCommunitiesMode(mode)
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 customFeeds = CustomFeedsEntryPoints(
                     customFeedsState = CustomFeedsUiState(accountStableId = account.stableId, feeds = listOf(feed)),

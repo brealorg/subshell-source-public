@@ -22,6 +22,7 @@ import app.subshell.prototype.data.account.RedditFeedUiState
 import app.subshell.prototype.data.account.RedditSavedHistoryUiState
 import app.subshell.prototype.data.redditAccountHistoryQueryKey
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.model.ProfileCommentFixture
 import app.subshell.prototype.model.ThreadPlacement
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
@@ -143,7 +144,7 @@ class UserProfileContentComposeTest {
         if (commentsTab) state.selectUserProfileTab(username, 1)
         val context = ApplicationProvider.getApplicationContext<Application>()
         ensureWorkManagerInitialized(context)
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         composeRule.setContent {
             SubshellTheme {
                 CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {

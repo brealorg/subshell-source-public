@@ -66,6 +66,7 @@ internal sealed interface AuthenticatedRedditReportTargetResult {
     data class Failed(
         val kind: AuthenticatedRedditModerationFailureKind,
         val httpStatusCode: Int? = null,
+        val details: FailureDetails? = null,
     ) : AuthenticatedRedditReportTargetResult
 }
 

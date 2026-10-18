@@ -8,9 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.FactCheck
-import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import app.subshell.prototype.data.account.RedditModeratorQueueItem
 import app.subshell.prototype.data.account.RedditModeratorQueueKind
 import app.subshell.prototype.data.account.moderatorReportCountLabel
+import app.subshell.prototype.ui.symbols.Symbols
 
 // MODERATION02A2R3_SHARED_EXPRESSIVE_REVIEW_PRIMITIVES_V1
 // Presentation only: these components cannot issue reads or moderation writes.
@@ -80,7 +78,7 @@ internal fun ModeratorItemGlyph(isPost: Boolean, modifier: Modifier = Modifier) 
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
-                if (isPost) Icons.AutoMirrored.Rounded.FactCheck else Icons.Rounded.Forum,
+                if (isPost) Symbols.FactCheck else Symbols.Forum,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
             )

@@ -17,12 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material3.Badge
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -54,6 +48,7 @@ import app.subshell.prototype.ui.components.settingsRowBleed
 import app.subshell.prototype.ui.contentFilterDraftError
 import app.subshell.prototype.ui.contentFilterInputWithoutControlCharacters
 import app.subshell.prototype.ui.contentFilterSummary
+import app.subshell.prototype.ui.symbols.Symbols
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -100,7 +95,7 @@ fun ContentFiltersScreen(
             },
             navigationIcon = {
                 IconButton(onClick = ::navigateUp) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                    Icon(Symbols.ArrowBack, contentDescription = "Back")
                 }
             },
             scrollBehavior = routeTopBarScroll,
@@ -168,7 +163,7 @@ private fun ContentFilterOverview(
                     modifier = Modifier.padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Rounded.FilterAlt, contentDescription = null)
+                    Icon(Symbols.FilterAlt, contentDescription = null)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(
@@ -190,7 +185,7 @@ private fun ContentFilterOverview(
                     if (hasActiveFilters) {
                         Spacer(Modifier.width(10.dp))
                         Icon(
-                            Icons.AutoMirrored.Rounded.ArrowForward,
+                            Symbols.ArrowForward,
                             contentDescription = "Show all active filters",
                         )
                     }
@@ -243,7 +238,7 @@ private fun ContentFilterTypeRow(
                     }
                     Spacer(Modifier.width(10.dp))
                 }
-                Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null)
+                Icon(Symbols.ArrowForward, contentDescription = null)
             }
         },
     )
@@ -360,7 +355,7 @@ private fun ContentFilterEditor(
                         enabled = draft.isNotBlank() && draftError == null,
                         onClick = ::addDraft,
                     ) {
-                        Icon(Icons.Rounded.Add, contentDescription = "Add filter")
+                        Icon(Symbols.Add, contentDescription = "Add filter")
                     }
                 },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -430,7 +425,7 @@ private fun ContentFilterEntryRow(
         trailing = {
             IconButton(onClick = onRemove) {
                 Icon(
-                    Icons.Rounded.Delete,
+                    Symbols.Delete,
                     contentDescription = "Remove ${entry.label}",
                 )
             }

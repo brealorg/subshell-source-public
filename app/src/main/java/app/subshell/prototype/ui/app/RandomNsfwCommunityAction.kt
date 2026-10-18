@@ -2,8 +2,6 @@ package app.subshell.prototype.ui.app
 
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -24,6 +22,7 @@ import app.subshell.prototype.ui.SubshellState
 import app.subshell.prototype.ui.error.ErrorPresentation
 import app.subshell.prototype.ui.error.ErrorPresentationKind
 import app.subshell.prototype.ui.error.ViewportErrorHostState
+import app.subshell.prototype.ui.symbols.Symbols
 import kotlinx.coroutines.launch
 import app.subshell.prototype.ui.components.InlineProgressIndicator
 
@@ -110,7 +109,7 @@ internal fun RandomNsfwCommunityButton(
                 if (action.inProgress) {
                     InlineProgressIndicator()
                 } else {
-                    Icon(Icons.Rounded.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Symbols.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
                 }
             }
         },

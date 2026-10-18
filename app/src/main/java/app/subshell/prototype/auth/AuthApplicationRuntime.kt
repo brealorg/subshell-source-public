@@ -1,5 +1,7 @@
 package app.subshell.prototype.auth
 
+import app.subshell.prototype.data.diagnostics.recordFailureWithoutAScreen
+import app.subshell.prototype.data.auth.AuthenticatedRedditCommunityPinnedPostsLoader
 import app.subshell.prototype.data.auth.reddit.AuthenticatedCrosspostSourceLoader
 
 import app.subshell.prototype.data.auth.reddit.AuthenticatedRedditDirectChatStartWriter
@@ -121,6 +123,8 @@ internal data class AuthApplicationRuntime(
     val redditSubscriptionsLoader: AuthenticatedRedditSubscriptionsLoader?,
     val redditCommunityDiscoveryLoader: AuthenticatedRedditCommunityDiscoveryLoader?,
     val redditCommunityInfoLoader: AuthenticatedRedditCommunityInfoLoader? = null,
+    // ISSUE230_PINNED_POSTS_FIRST_V1
+    val redditCommunityPinnedPostsLoader: AuthenticatedRedditCommunityPinnedPostsLoader? = null,
     // WIKI01A1_RUNTIME_COMMUNITY_WIKI_READ_V1
     val communityWikiReadAuthorizer: AuthContextualCapabilityAuthorizer? = null,
     val communityWikiReadClientMode: OAuthClientMode? = null,
@@ -544,6 +548,7 @@ internal object AuthApplicationRuntimeFactory {
             localFixtureUsernames = createFixtureFreeLocalSubshellRepository()
                 .accounts()
                 .itemsOrEmpty(),
+            recordFailure = { scopeKey, details -> recordFailureWithoutAScreen(appContext, scopeKey, details) },
         )
         val profileHistoryCapability =
             profileHistorySelection?.let { historySelection ->
@@ -1388,6 +1393,7 @@ internal object AuthApplicationRuntimeFactory {
                 communityWikiReadSelection?.configuration?.clientMode,
             redditCommunityWikiLoader = readLoaders.redditCommunityWikiLoader,
             redditCommunityInfoLoader = readLoaders.redditCommunityInfoLoader,
+            redditCommunityPinnedPostsLoader = readLoaders.redditCommunityPinnedPostsLoader,
             // MOD01A1_RUNTIME_MODERATION_READ_WIRING_V1
             redditModerationLoader = moderation.redditModerationLoader,
             // MODERATION02A4_RUNTIME_MOD_LOG_READ_WIRING_V1

@@ -503,21 +503,16 @@ def load_changelog_releases(root: Path) -> list[dict]:
 # RELEASETOOL02E_PUBLIC_SOURCE_SNAPSHOTS_V1 (2026-10-16, owner-approved): the
 # source is published as one snapshot per release in a separate repository
 # (hard rule 7: private history never goes public). The public README must say
-# where the source is; the old "not published" sentence is accepted only until
-# the README has been updated, and is dropped after the first snapshot release.
+# where the source is. The old "not published" sentence was accepted until the
+# first snapshot release, 0.82-beta (2026-10-16); it is wrong now and refused.
 PUBLIC_SOURCE_SNAPSHOT_MARKER = (
     "The Android application source code is published separately in "
     "[brealorg/subshell-source-public]"
 )
-LEGACY_PRIVATE_SOURCE_MARKER = (
-    "The Android application source code is **not published in this repository"
-)
 
 
 def verify_public_copy_privacy_boundary(readme: str) -> None:
-    if PUBLIC_SOURCE_SNAPSHOT_MARKER in readme:
-        return
-    if LEGACY_PRIVATE_SOURCE_MARKER not in readme:
+    if PUBLIC_SOURCE_SNAPSHOT_MARKER not in readme:
         fail("PUBLIC_SOURCE_PRIVACY_BOUNDARY_MISSING")
 
 

@@ -120,6 +120,7 @@ internal class ConfiguredRedditPostVoter(
                                 result.statusCode,
                                 result.retryable,
                                 result.metadata,
+                                providerReason = result.providerReason,
                             ),
                         )
                     }

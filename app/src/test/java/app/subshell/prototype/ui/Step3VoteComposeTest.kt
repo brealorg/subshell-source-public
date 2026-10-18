@@ -26,6 +26,7 @@ import app.subshell.prototype.data.account.PostVoteRequest
 import app.subshell.prototype.data.account.RedditCommentsUiState
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.Comment
@@ -82,7 +83,7 @@ class Step3VoteComposeTest {
     private fun shown(text: String) = composeRule.onAllNodesWithText(text).fetchSemanticsNodes().size
 
     private fun card(state: SubshellState, post: app.subshell.prototype.model.Post) {
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         composeRule.setContent {
             SubshellTheme {
                 CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
@@ -135,7 +136,7 @@ class Step3VoteComposeTest {
             fullDiscussionLoaded = true,
             contentRevision = 1L,
         )
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         composeRule.setContent {
             CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
                 PostScreen(post = post, state = state, onBack = {}, redditCommentsState = comments)

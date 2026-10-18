@@ -13,6 +13,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.subshell.prototype.data.SampleData
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackProgress
@@ -54,7 +55,7 @@ class Video12FullscreenLayoutTest {
 
     private fun show(state: SubshellState) {
         ensureWorkManagerInitialized(context)
-        val coordinator = VideoPlaybackCoordinator(context).apply {
+        val coordinator = testVideoPlaybackCoordinator(context).apply {
             release()
             overrideProgressForTest(VideoPlaybackProgress(mediaId = video.id, positionMs = 12_000L, durationMs = 27_000L))
         }

@@ -10,6 +10,7 @@ import app.subshell.prototype.data.account.AccountSessionSource
 import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.ui.app.CustomFeedsEntryPoints
 import org.junit.Assert.assertEquals
@@ -55,7 +56,7 @@ class SubshellDrawerComposeTest {
 
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 customFeeds = CustomFeedsEntryPoints(onLoadCustomFeeds = { accountId, force -> customFeedLoads += accountId to force }),
             )

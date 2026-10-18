@@ -4,9 +4,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.material3.IconButton
-import androidx.compose.material.icons.automirrored.rounded.MenuBook
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -23,11 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -62,6 +54,7 @@ import app.subshell.prototype.model.CommunityModerator
 import app.subshell.prototype.model.UserFixture
 import app.subshell.prototype.ui.error.ErrorActionKind
 import app.subshell.prototype.ui.error.redditCommunityInfoErrorPresentation
+import app.subshell.prototype.ui.symbols.Symbols
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
@@ -232,7 +225,7 @@ fun CommunityAboutSheet(
                         IconButton(onClick = navigateWikiBack) {
                             Icon(
                                 imageVector =
-                                    Icons.AutoMirrored.Rounded.ArrowBack,
+                                    Symbols.ArrowBack,
                                 contentDescription =
                                     if (selectedWikiPagePath == null) {
                                         "Back to Community info"
@@ -377,13 +370,13 @@ fun CommunityAboutSheet(
                                 },
                                 leadingContent = {
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Rounded.MenuBook,
+                                        imageVector = Symbols.MenuBook,
                                         contentDescription = null,
                                     )
                                 },
                                 trailingContent = {
                                     Icon(
-                                        imageVector = Icons.Rounded.ChevronRight,
+                                        imageVector = Symbols.ChevronRight,
                                         contentDescription = "Open Wiki",
                                     )
                                 },
@@ -541,11 +534,9 @@ fun CommunityAboutSheet(
                                                         Icon(
                                                             imageVector =
                                                                 if (expanded) {
-                                                                    Icons.Rounded
-                                                                        .ExpandLess
+                                                                    Symbols.ExpandLess
                                                                 } else {
-                                                                    Icons.Rounded
-                                                                        .ExpandMore
+                                                                    Symbols.ExpandMore
                                                                 },
                                                             contentDescription =
                                                                 if (expanded) {
@@ -750,7 +741,7 @@ private fun CommunityAboutOverview(
                         },
                         leadingContent = {
                             Icon(
-                                imageVector = Icons.Rounded.Info,
+                                imageVector = Symbols.Info,
                                 contentDescription = null,
                             )
                         },
@@ -766,9 +757,9 @@ private fun CommunityAboutOverview(
                                 Spacer(Modifier.width(4.dp))
                                 Icon(
                                     imageVector = if (detailsExpanded) {
-                                        Icons.Rounded.ExpandLess
+                                        Symbols.ExpandLess
                                     } else {
-                                        Icons.Rounded.ExpandMore
+                                        Symbols.ExpandMore
                                     },
                                     contentDescription = if (detailsExpanded) {
                                         "Collapse community details"
@@ -869,7 +860,7 @@ private fun CommunitySectionUnavailable(
         )
         TextButton(onClick = onRetry) {
             Icon(
-                Icons.Rounded.Refresh,
+                Symbols.Refresh,
                 contentDescription = null,
                 modifier = Modifier.size(17.dp),
             )

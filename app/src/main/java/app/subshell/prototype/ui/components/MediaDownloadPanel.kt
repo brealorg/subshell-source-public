@@ -7,9 +7,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import app.subshell.prototype.ui.error.ErrorPresentation
 import app.subshell.prototype.ui.error.ErrorPresentationKind
 import app.subshell.prototype.ui.error.ViewportErrorHostState
+import app.subshell.prototype.ui.symbols.Symbols
 
 // ISSUE35_MEDIA_DOWNLOAD_V1: download progress and the saved confirmation
 // are shown where the download was started (the media actions sheet, or the
@@ -77,7 +75,7 @@ internal fun MediaDownloadPanel(
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
-                    if (state is MediaDownloadUiState.Saved) Icons.Rounded.CheckCircle else Icons.Rounded.Download,
+                    if (state is MediaDownloadUiState.Saved) Symbols.CheckCircle else Symbols.Download,
                     contentDescription = null,
                     modifier = Modifier.size(32.dp),
                 )

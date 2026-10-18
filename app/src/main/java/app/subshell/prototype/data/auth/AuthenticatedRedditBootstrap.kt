@@ -40,6 +40,8 @@ internal sealed interface AuthenticatedRedditBootstrapResult {
     data class Failed(
         val kind: AuthenticatedRedditBootstrapFailureKind,
         val retryable: Boolean,
+        // DIAG05_SIGN_IN_FAILURES_ARE_RECORDED_V1
+        val details: FailureDetails? = null,
     ) : AuthenticatedRedditBootstrapResult
 }
 

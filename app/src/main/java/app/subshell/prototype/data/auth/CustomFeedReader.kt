@@ -1,5 +1,8 @@
 package app.subshell.prototype.data.auth
 
+import app.subshell.prototype.data.error.FailureDetails
+import app.subshell.prototype.data.error.LocalFailureKind
+import app.subshell.prototype.data.error.failureDetailsOrNull
 import app.subshell.prototype.data.account.AccountSessionSource
 import app.subshell.prototype.data.account.CustomFeedFailureKind
 import app.subshell.prototype.data.account.CustomFeedSummary
@@ -11,6 +14,7 @@ import app.subshell.prototype.data.network.NetworkEndpoint
 import app.subshell.prototype.data.network.NetworkResult
 import app.subshell.prototype.data.network.SubshellHttpClient
 import app.subshell.prototype.data.network.SubshellNetworkJson
+import app.subshell.prototype.data.network.reddit.RedditReadListingDto
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -21,7 +25,6 @@ import kotlinx.serialization.builtins.ListSerializer
 import okhttp3.Call
 import app.subshell.prototype.data.account.CustomFeedPostsFailureKind
 import app.subshell.prototype.data.account.customFeedPathSegments
-import app.subshell.prototype.data.network.reddit.RedditListingDto
 import app.subshell.prototype.data.network.reddit.toNetworkPage
 import app.subshell.prototype.model.Post
 
@@ -47,6 +50,8 @@ internal sealed interface CustomFeedPostReadResult {
         val kind: CustomFeedPostsFailureKind,
         val retryable: Boolean = false,
         val statusCode: Int? = null,
+        // DIAG04_JSON_PATH_REACHES_THE_REPORT_V1
+        val details: FailureDetails? = null,
     ) : CustomFeedPostReadResult
 }
 
@@ -252,11 +257,11 @@ internal class ConfiguredCustomFeedReader(
                             }
                         },
                     ),
-                    deserializer = RedditListingDto.serializer(),
+                    deserializer = RedditReadListingDto.serializer(),
                 )
             ) {
                 is NetworkResult.Success -> result.value
-                    .toNetworkPage(System.currentTimeMillis() / 1_000L)
+                    .toNetworkPage(SubshellNetworkJson.providerJson, System.currentTimeMillis() / 1_000L)
                     .let { page ->
                         CustomFeedPostReadResult.Loaded(
                             posts = page.items,
@@ -267,19 +272,26 @@ internal class ConfiguredCustomFeedReader(
                     kind = CustomFeedPostsFailureKind.HTTP,
                     retryable = result.retryable,
                     statusCode = result.statusCode,
+                    details = result.failureDetailsOrNull(),
                 )
                 is NetworkResult.TransportFailure -> CustomFeedPostReadResult.Failed(
                     kind = CustomFeedPostsFailureKind.TRANSPORT,
                     retryable = result.retryable,
+                    details = result.failureDetailsOrNull(),
                 )
                 is NetworkResult.ProtocolFailure -> CustomFeedPostReadResult.Failed(
                     CustomFeedPostsFailureKind.PROTOCOL,
+                    details = result.failureDetailsOrNull(),
                 )
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (_: Exception) {
-            CustomFeedPostReadResult.Failed(CustomFeedPostsFailureKind.PROTOCOL)
+        } catch (error: Exception) {
+            CustomFeedPostReadResult.Failed(
+                CustomFeedPostsFailureKind.PROTOCOL,
+                details = FailureDetails(retryable = false, localKind = LocalFailureKind.UNKNOWN)
+                    .withExceptionClass(error),
+            )
         }
     }
 

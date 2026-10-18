@@ -19,7 +19,8 @@ class Settings02BRestorePreviewPolicyTest {
         val current = SubshellSettings()
         val target = current.copy(
             themeMode = ThemeMode.LIGHT,
-            dynamicColor = true,
+            // SETTINGSREVIEW01_DYNAMIC_COLOUR_ON_BY_DEFAULT_V1: on is the default now.
+            dynamicColor = false,
             voteColorPalette = VoteColorPalette.RED_BLUE,
             voteControlMode = VoteControlMode.COMPACT,
             showNsfwPosts = true,

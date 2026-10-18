@@ -19,6 +19,7 @@ import app.subshell.prototype.data.account.ConnectAccountPhase
 import app.subshell.prototype.data.account.ConnectAccountUiState
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.ui.SearchScope
@@ -96,7 +97,7 @@ class Issue111And112ComposeTest {
             submitSearch()
         }
         val postSearches = mutableListOf<String>()
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         composeRule.setContent {
             CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
                 SearchScreen(

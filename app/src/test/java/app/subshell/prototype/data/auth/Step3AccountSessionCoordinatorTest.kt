@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.auth
 
+import app.subshell.prototype.data.network.NetworkProtocolFailureKind
 import android.app.Application
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
@@ -174,10 +175,10 @@ class Step3AccountSessionCoordinatorTest {
         assertEquals("Bearer this-sign-in", request.header("Authorization"))
 
         identityBody = """{"id":"t2me","name":"me"}""" + " ".repeat(64 * 1024)
-        assertEquals(
-            AuthIdentityResult.Failure(AuthIdentityFailureKind.PROTOCOL, retryable = false),
-            client.resolve(session),
-        )
+        val failure = client.resolve(session) as AuthIdentityResult.Failure
+        assertEquals(AuthIdentityResult.Failure(AuthIdentityFailureKind.PROTOCOL, retryable = false), failure.copy(details = null))
+        // DIAG05_SIGN_IN_FAILURES_ARE_RECORDED_V1
+        assertEquals(NetworkProtocolFailureKind.BODY_TOO_LARGE, failure.details?.protocolKind)
     }
 
     @Test

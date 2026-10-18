@@ -22,6 +22,7 @@ import app.subshell.prototype.data.account.CustomFeedPostsUiState
 import app.subshell.prototype.data.account.CustomFeedSummary
 import app.subshell.prototype.data.account.localFixtureAccountSummaries
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.Post
@@ -186,7 +187,7 @@ class Feeds02KeysAndStateComposeTest {
 
     private fun renderCommunity(state: SubshellState): Int {
         var requests = 0
-        val coordinator = VideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
+        val coordinator = testVideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
         composeRule.setContent {
             SubshellTheme {
                 CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {

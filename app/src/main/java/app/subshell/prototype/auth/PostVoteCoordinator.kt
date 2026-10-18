@@ -95,14 +95,14 @@ internal class PostVoteCoordinator(
                 configuredWriter.vote(normalized)
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 AuthenticatedPostVoteResult.Failed(
                     kind = PostVoteFailureKind.TRANSPORT,
                     retryable = true,
                     failureDetails = FailureDetails(
                         retryable = true,
                         localKind = LocalFailureKind.UNKNOWN,
-                    ),
+                    ).withExceptionClass(error),
                 )
             }
 

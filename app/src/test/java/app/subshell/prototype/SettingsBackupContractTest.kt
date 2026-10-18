@@ -94,6 +94,7 @@ class SettingsBackupContractTest {
         videoSpeedControls = true,
         videoDoubleTapSeek = true,
         videoHoldForDoubleSpeed = true,
+        videoPinchToZoom = true,
         videoPictureInPicture = true,
         videoRotateFullscreen = true,
         videoTechnicalDetails = true,
@@ -125,6 +126,7 @@ class SettingsBackupContractTest {
                 SubshellSettings.VIDEO_SPEED_CONTROLS,
                 SubshellSettings.VIDEO_DOUBLE_TAP_SEEK,
                 SubshellSettings.VIDEO_HOLD_FOR_DOUBLE_SPEED,
+                SubshellSettings.VIDEO_PINCH_TO_ZOOM,
                 SubshellSettings.VIDEO_PICTURE_IN_PICTURE,
                 SubshellSettings.VIDEO_ROTATE_FULLSCREEN,
                 SubshellSettings.VIDEO_TECHNICAL_DETAILS,
@@ -166,6 +168,7 @@ class SettingsBackupContractTest {
         assertEquals(false, restored.videoSpeedControls)
         assertEquals(false, restored.videoDoubleTapSeek)
         assertEquals(false, restored.videoHoldForDoubleSpeed)
+        assertEquals(false, restored.videoPinchToZoom)
         assertEquals(false, restored.videoPictureInPicture)
         assertEquals(false, restored.videoRotateFullscreen)
         assertEquals(false, restored.videoTechnicalDetails)

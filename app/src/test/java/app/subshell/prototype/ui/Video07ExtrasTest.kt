@@ -22,6 +22,8 @@ import androidx.test.core.app.ApplicationProvider
 import app.subshell.prototype.data.SampleData
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.releaseWithoutHanging
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.ProvideVideoPlaybackCoordinator
 import app.subshell.prototype.media.VIDEO_UNRANKED
@@ -96,7 +98,7 @@ class Video07ExtrasTest {
 
     private fun showFullscreen(state: SubshellState, released: Boolean = true): VideoPlaybackCoordinator {
         ensureWorkManagerInitialized(context)
-        val coordinator = VideoPlaybackCoordinator(context).apply { if (released) release() }
+        val coordinator = testVideoPlaybackCoordinator(context).apply { if (released) release() }
         composeRule.mainClock.autoAdvance = false
         composeRule.setContent {
             CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
@@ -132,7 +134,7 @@ class Video07ExtrasTest {
     @Test
     fun speedIsPerVideoAndHoldingLendsTwoTimes() {
         ensureWorkManagerInitialized(context)
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         try {
             coordinator.attachForTest("t3_a")
             coordinator.choosePlaybackSpeed(1.5f)
@@ -147,7 +149,7 @@ class Video07ExtrasTest {
             assertEquals(1f, coordinator.playbackSpeed)
             assertEquals(1f, coordinator.player.playbackParameters.speed)
         } finally {
-            coordinator.release()
+            coordinator.releaseWithoutHanging()
         }
         assertEquals("Normal", videoSpeedLabel(1f))
         assertEquals("1.5×", videoSpeedLabel(1.5f))
@@ -252,7 +254,7 @@ class Video07ExtrasTest {
             frames(4)
             assertFalse(coordinator.holdingDoubleSpeed)
         } finally {
-            coordinator.release()
+            coordinator.releaseWithoutHanging()
         }
     }
 
@@ -279,7 +281,7 @@ class Video07ExtrasTest {
         val state = SubshellState()
         lateinit var activity: ComponentActivity
         ensureWorkManagerInitialized(context)
-        val coordinator = VideoPlaybackCoordinator(context).apply { release() }
+        val coordinator = testVideoPlaybackCoordinator(context).apply { release() }
         composeRule.setContent {
             activity = LocalContext.current as ComponentActivity
             ProvideVideoPlaybackCoordinator(state = state, coordinator = coordinator) {}

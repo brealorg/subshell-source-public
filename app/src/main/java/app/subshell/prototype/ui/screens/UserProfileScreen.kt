@@ -1,5 +1,6 @@
 package app.subshell.prototype.ui.screens
 
+import app.subshell.prototype.ui.error.ReportFailureDiagnostic
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.heightIn
@@ -35,20 +36,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.Article
-import androidx.compose.material.icons.rounded.Bookmark
-import androidx.compose.material.icons.rounded.BookmarkBorder
-import androidx.compose.material.icons.rounded.ChatBubbleOutline
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material.icons.rounded.FolderOpen
-import androidx.compose.material.icons.rounded.ThumbDown
-import androidx.compose.material.icons.rounded.ThumbUp
-import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -98,6 +85,7 @@ import app.subshell.prototype.ui.canAppendRedditFeed
 import app.subshell.prototype.ui.SubshellState
 import app.subshell.prototype.ui.FeedScrollAnchor
 import app.subshell.prototype.ui.rememberFeedScrollState
+import app.subshell.prototype.ui.symbols.Symbols
 import app.subshell.prototype.ui.uiDebugLog
 import app.subshell.prototype.ui.userFeedScrollKey
 import app.subshell.prototype.ui.userPostFeedQueryKey
@@ -126,6 +114,8 @@ import app.subshell.prototype.media.VideoVisibilityPolicy
 import app.subshell.prototype.model.PostKind
 import app.subshell.prototype.ui.ObserveFeedVideoViewport
 import app.subshell.prototype.ui.captureExactFeedReturnAnchor
+import app.subshell.prototype.ui.PostLayout
+import app.subshell.prototype.ui.forFeed
 import app.subshell.prototype.ui.captureFeedScrollAnchor
 import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.material3.TextButton
@@ -136,8 +126,6 @@ import app.subshell.prototype.ui.components.CommentContent
 import app.subshell.prototype.ui.components.CommunityAvatar
 import java.text.DateFormat
 import java.util.Date
-import androidx.compose.material.icons.rounded.Block
-import androidx.compose.material.icons.rounded.PersonOff
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -264,15 +252,15 @@ private fun profileDestinationLabel(tab: Int): String =
     PROFILE_OWN_DESTINATION_LABELS.getOrElse(tab) { "Posts" }
 
 private fun profileDestinationIcon(tab: Int): ImageVector = when (tab) {
-    PROFILE_POSTS_TAB -> Icons.AutoMirrored.Rounded.Article
-    PROFILE_COMMENTS_TAB -> Icons.Rounded.ChatBubbleOutline
-    PROFILE_SAVED_TAB -> Icons.Rounded.BookmarkBorder
-    PROFILE_UPVOTES_TAB -> Icons.Rounded.ThumbUp
-    PROFILE_DOWNVOTES_TAB -> Icons.Rounded.ThumbDown
-    PROFILE_HIDDEN_TAB -> Icons.Rounded.VisibilityOff
-    PROFILE_BLOCKED_TAB -> Icons.Rounded.PersonOff
-    PROFILE_DRAFTS_TAB -> Icons.Rounded.Edit
-    else -> Icons.AutoMirrored.Rounded.Article
+    PROFILE_POSTS_TAB -> Symbols.Article
+    PROFILE_COMMENTS_TAB -> Symbols.ChatBubble
+    PROFILE_SAVED_TAB -> Symbols.Bookmark
+    PROFILE_UPVOTES_TAB -> Symbols.ThumbUp
+    PROFILE_DOWNVOTES_TAB -> Symbols.ThumbDown
+    PROFILE_HIDDEN_TAB -> Symbols.VisibilityOff
+    PROFILE_BLOCKED_TAB -> Symbols.PersonOff
+    PROFILE_DRAFTS_TAB -> Symbols.Edit
+    else -> Symbols.Article
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1060,7 +1048,12 @@ fun UserProfileScreen(
     )
 
     val revealedMediaIds = state.revealedMediaIds.toSet()
+    // ISSUE234_FEED_POST_LAYOUTS_V1: profile lists mix posts with comments and
+    // keep exact return anchors per post, so Grid shows as List; only Large
+    // plays media.
+    val profileLayout = state.postLayout.forFeed(gridAllowed = false)
     val mediaPosts = when {
+        profileLayout != PostLayout.LARGE -> emptyList()
         tab == PROFILE_POSTS_TAB -> profilePosts
         authenticatedRedditMixedSaved -> savedHistoryMediaPosts(savedHistoryItems)
         tab in PROFILE_HISTORY_FIRST_TAB..PROFILE_HISTORY_LAST_TAB -> historyPosts
@@ -1271,7 +1264,7 @@ fun UserProfileScreen(
                                     contentPadding = PaddingValues(horizontal = 14.dp),
                                 ) {
                                     Icon(
-                                        Icons.Rounded.Check,
+                                        Symbols.Check,
                                         contentDescription = null,
                                         modifier = Modifier.size(17.dp),
                                     )
@@ -1286,7 +1279,7 @@ fun UserProfileScreen(
                                     contentPadding = PaddingValues(horizontal = 14.dp),
                                 ) {
                                     Icon(
-                                        Icons.Rounded.Block,
+                                        Symbols.Block,
                                         contentDescription = null,
                                         modifier = Modifier.size(17.dp),
                                     )
@@ -1302,7 +1295,7 @@ fun UserProfileScreen(
                                 contentPadding = PaddingValues(horizontal = 14.dp),
                             ) {
                                 Icon(
-                                    Icons.Rounded.Check,
+                                    Symbols.Check,
                                     contentDescription = null,
                                     modifier = Modifier.size(17.dp),
                                 )
@@ -1719,6 +1712,7 @@ fun UserProfileScreen(
                         PostCard(
                             post = post,
                             state = state,
+                            layout = profileLayout,
                             onOpen = {
                                 openContentSelection(
                                     post,
@@ -1914,6 +1908,7 @@ fun UserProfileScreen(
                                     PostCard(
                                         post = item.post,
                                         state = state,
+                                        layout = profileLayout,
                                         onOpen = {
                                             openContentSelection(
                                                 item.post,
@@ -1969,6 +1964,7 @@ fun UserProfileScreen(
                             PostCard(
                                 post = post,
                                 state = state,
+                                layout = profileLayout,
                                 onOpen = {
                                     openContentSelection(
                                         post,
@@ -2035,6 +2031,7 @@ fun UserProfileScreen(
                             PostCard(
                                 post = post,
                                 state = state,
+                                layout = profileLayout,
                                 onOpen = {
                                     openContentSelection(
                                         post,
@@ -2333,9 +2330,9 @@ private fun OwnProfileDestinationStrip(
                     icon = {
                         Icon(
                             imageVector = when (section) {
-                                0 -> Icons.AutoMirrored.Rounded.Article
-                                1 -> Icons.Rounded.ChatBubbleOutline
-                                else -> if (selected) Icons.Rounded.FolderOpen else Icons.Rounded.Folder
+                                0 -> Symbols.Article
+                                1 -> Symbols.ChatBubble
+                                else -> if (selected) Symbols.FolderOpen else Symbols.Folder
                             },
                             contentDescription = null,
                         )
@@ -2583,7 +2580,7 @@ private fun ProfileDraftCard(
                 }
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Rounded.DeleteOutline, contentDescription = "Delete draft")
+                Icon(Symbols.Delete, contentDescription = "Delete draft")
             }
         }
     }
@@ -2686,6 +2683,12 @@ private fun SavedHistoryStatus(
     onAuthorize: () -> Unit,
     onRetry: () -> Unit,
 ) {
+    // DIAG05_PLAIN_NOTICES_ARE_RECORDED_V1
+    ReportFailureDiagnostic(
+        scopeKey = "profile_saved_history",
+        active = state.failureKind != null,
+        failureDetails = state.failureDetails,
+    )
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
@@ -2984,7 +2987,7 @@ internal fun ProfileComment(
                 }
                 if (saved) {
                     Icon(
-                        imageVector = Icons.Rounded.Bookmark,
+                        imageVector = Symbols.BookmarkFilled,
                         contentDescription = "Saved comment",
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(18.dp),

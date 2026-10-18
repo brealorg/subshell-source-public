@@ -83,6 +83,7 @@ internal class UserFlairCoordinator(
                     loading = false,
                     failureKind = result.kind,
                     failureHttpStatusCode = result.httpStatusCode,
+                    failureDetails = result.details,
                 )
         }
     }
@@ -120,6 +121,7 @@ internal class UserFlairCoordinator(
                         mutating = false,
                         failureKind = result.kind,
                         failureHttpStatusCode = result.httpStatusCode,
+                        failureDetails = result.details,
                     )
             }
         }

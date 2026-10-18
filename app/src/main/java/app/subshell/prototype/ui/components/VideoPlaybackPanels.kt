@@ -14,11 +14,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
@@ -48,6 +43,7 @@ import app.subshell.prototype.media.videoSelectionSummary
 import app.subshell.prototype.media.videoSummary
 import app.subshell.prototype.media.VIDEO_SPEED_CHOICES
 import app.subshell.prototype.media.videoSpeedLabel
+import app.subshell.prototype.ui.symbols.Symbols
 
 internal fun playbackAudioChoiceOffered(options: PlaybackTrackOptions): Boolean = options.audio.size > 1
 
@@ -368,7 +364,7 @@ private fun PlaybackOptionNavigationRow(
                 )
             }
             Icon(
-                Icons.Rounded.ChevronRight,
+                Symbols.ChevronRight,
                 contentDescription = null, // the row reads its title (ISSUE219)
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -390,7 +386,7 @@ private fun PlaybackPanelHeader(
         if (onBack != null) {
             IconButton(onClick = onBack) {
                 Icon(
-                    Icons.AutoMirrored.Rounded.ArrowBack,
+                    Symbols.ArrowBack,
                     contentDescription = "Back to playback options",
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
@@ -410,7 +406,7 @@ private fun PlaybackPanelHeader(
         }
         IconButton(onClick = onDismiss) {
             Icon(
-                Icons.Rounded.Close,
+                Symbols.Close,
                 contentDescription = "Close playback options",
                 tint = MaterialTheme.colorScheme.onSurface,
             )
@@ -471,7 +467,7 @@ private fun PlaybackOptionRow(
             }
             if (selected) {
                 Icon(
-                    Icons.Rounded.Check,
+                    Symbols.Check,
                     // The row already says "selected" (ISSUE219).
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurface,

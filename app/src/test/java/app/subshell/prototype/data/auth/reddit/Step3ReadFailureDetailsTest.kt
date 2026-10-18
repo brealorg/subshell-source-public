@@ -187,6 +187,27 @@ class Step3ReadFailureDetailsTest {
         assertEquals(NetworkProtocolFailureKind.MALFORMED_JSON, commentsFailure(answering(200, body = "{broken"))?.protocolKind)
     }
 
+    // DIAG04_JSON_PATH_REACHES_THE_REPORT_V1: the focused-comment read kept no details at all.
+    @Test
+    fun aBrokenFocusedThreadAnswerKeepsItsResponseKind() = runBlocking {
+        val loader = RedditCommentLoader(
+            callFactory = answering(200, body = "{broken"),
+            endpoint = endpoint,
+            userAgent = "subshell-test",
+            configuration = configuration,
+            cacheStore = cacheStore,
+            accountCoordinator = coordinator(),
+            ioDispatcher = Dispatchers.Unconfined,
+        )
+        val result = loader.synchronizeFocused(account, "abc123", RedditCommentSort.BEST, "def456", context = 3)
+
+        assertTrue("$result", result is AuthenticatedRedditCommentResult.Failed)
+        assertEquals(
+            NetworkProtocolFailureKind.MALFORMED_JSON,
+            (result as AuthenticatedRedditCommentResult.Failed).details?.protocolKind,
+        )
+    }
+
     @Test
     fun aSessionThatCouldNotBeRefreshedSaysHowTheSignInServiceAnswered() = runBlocking {
         val unavailable = coordinator(expiresAt = 1L, tokenEndpoint = answering(503, type = "text/plain", body = "down"))

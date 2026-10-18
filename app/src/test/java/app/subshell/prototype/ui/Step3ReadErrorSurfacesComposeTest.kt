@@ -15,6 +15,7 @@ import app.subshell.prototype.data.account.RedditFeedUiFailureKind
 import app.subshell.prototype.data.account.RedditFeedUiState
 import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.ui.error.LocalViewportErrorHostState
@@ -86,7 +87,7 @@ class Step3ReadErrorSurfacesComposeTest {
         )
         state.ensurePostPaging(key)
         assertTrue("posts should be cached", state.postPagingSnapshot(key).items.isNotEmpty())
-        val coordinator = VideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
+        val coordinator = testVideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
         composeRule.setContent {
             SubshellTheme {
                 CompositionLocalProvider(
@@ -115,7 +116,7 @@ class Step3ReadErrorSurfacesComposeTest {
         )
         state.ensurePostPaging(key)
         assertTrue("posts should be cached", state.postPagingSnapshot(key).items.any { it.community == communityName })
-        val coordinator = VideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
+        val coordinator = testVideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
         composeRule.setContent {
             SubshellTheme {
                 CompositionLocalProvider(

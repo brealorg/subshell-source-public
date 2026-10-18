@@ -83,14 +83,14 @@ internal class CommunityMembershipCoordinator(
                 configuredWriter.update(normalized)
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 AuthenticatedCommunityMembershipResult.Failed(
                     kind = CommunityMembershipFailureKind.OUTCOME_UNKNOWN,
                     retryable = false,
                     failureDetails = FailureDetails(
                         retryable = false,
                         localKind = LocalFailureKind.UNKNOWN,
-                    ),
+                    ).withExceptionClass(error),
                 )
             }
 

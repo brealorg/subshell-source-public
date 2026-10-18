@@ -13,10 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CloudOff
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -51,6 +47,11 @@ import app.subshell.prototype.data.account.RedditFeedUiState
 import app.subshell.prototype.model.Post
 import app.subshell.prototype.model.PostKind
 import app.subshell.prototype.ui.FeedPostEntryTarget
+import app.subshell.prototype.ui.PostLayout
+import app.subshell.prototype.ui.feedItemSpacing
+import app.subshell.prototype.ui.feedPostItemKeys
+import app.subshell.prototype.ui.feedPostItems
+import app.subshell.prototype.ui.rememberFeedGridColumns
 import app.subshell.prototype.ui.ScreenMargin
 import app.subshell.prototype.ui.components.FilteredPostsSummaryRow
 import app.subshell.prototype.ui.isDeepForAutomaticRefresh
@@ -72,6 +73,7 @@ import app.subshell.prototype.ui.pagingFooterKey
 import app.subshell.prototype.ui.requireRedditMainFeed
 import app.subshell.prototype.ui.rememberFeedScrollState
 import app.subshell.prototype.ui.SubshellState
+import app.subshell.prototype.ui.symbols.Symbols
 import app.subshell.prototype.ui.toRedditFeedSort
 import app.subshell.prototype.ui.toRedditMainFeedOrNull
 import app.subshell.prototype.ui.supportsTimePeriod
@@ -484,9 +486,14 @@ fun HomeScreen(
         authenticatedLandingPending ||
             authenticatedHomeWithoutSubscriptions
     }
+    // ISSUE234_FEED_POST_LAYOUTS_V1
+    val postLayout = state.postLayout
+    val gridColumns = rememberFeedGridColumns()
     val feedItemKeys = remember(
         state.feedPreviewState,
         visiblePosts,
+        postLayout,
+        gridColumns.count,
         pagingFooterKey,
         authenticated,
         authenticatedRedditFeed,
@@ -503,7 +510,11 @@ fun HomeScreen(
                 FeedPreviewState.EMPTY -> add("empty-preview")
                 FeedPreviewState.CONTENT, FeedPreviewState.OFFLINE -> {
                     if (filteredSummaryVisible) add("filtered-summary")
-                    if (visiblePosts.isEmpty()) add("empty-results") else addAll(visiblePosts.map(Post::id))
+                    if (visiblePosts.isEmpty()) {
+                        add("empty-results")
+                    } else {
+                        addAll(feedPostItemKeys(visiblePosts, postLayout, gridColumns.count))
+                    }
                 }
             }
             pagingFooterKey?.let(::add)
@@ -558,8 +569,10 @@ fun HomeScreen(
     }
 
     val revealedMediaIds = state.revealedMediaIds.toSet()
-    val videoPostIds = remember(visiblePosts, revealedMediaIds) {
+    val videoPostIds = remember(visiblePosts, revealedMediaIds, postLayout) {
+        // ISSUE234_FEED_POST_LAYOUTS_V1: only Large plays media in the feed.
         visiblePosts
+            .filter { postLayout == PostLayout.LARGE }
             .filter { it.kind == PostKind.VIDEO && state.sensitiveMediaAutoplayAllowed(it) }
             .map(Post::id)
     }
@@ -570,8 +583,9 @@ fun HomeScreen(
 
     ObserveFeedVideoViewport(listState = listState, state = state)
 
-    val animatedPostIds = remember(visiblePosts, revealedMediaIds) {
+    val animatedPostIds = remember(visiblePosts, revealedMediaIds, postLayout) {
         visiblePosts
+            .filter { postLayout == PostLayout.LARGE }
             .filter {
                 it.kind in listOf(PostKind.GIF, PostKind.GALLERY) &&
                     state.sensitiveMediaAutoplayAllowed(it)
@@ -614,13 +628,14 @@ fun HomeScreen(
                     testTagsAsResourceId = true
                     benchmarkProbeDescription?.let { contentDescription = it }
                 }
-                .testTag(HOME_FEED_TEST_TAG),
+                .testTag(HOME_FEED_TEST_TAG)
+                .then(gridColumns.measureModifier),
             state = listState,
             // ISSUE205_PASSIVE_SCROLL_POSITION_INDICATOR_V1
             scrollPositionIndicator = state.scrollPositionIndicator,
             contentPadding = contentPadding,
             indicatorTopPadding = contentPadding.calculateTopPadding(),
-            verticalArrangement = Arrangement.spacedBy(9.dp),
+            verticalArrangement = Arrangement.spacedBy(feedItemSpacing(postLayout, 9.dp)),
             isRefreshing = if (
                 authenticatedRedditFeed &&
                 !authenticatedLandingPending &&
@@ -674,7 +689,7 @@ fun HomeScreen(
             if (state.feedPreviewState == FeedPreviewState.OFFLINE) {
                 item(key = "offline-banner") {
                     StatusBanner(
-                        icon = { Icon(Icons.Rounded.CloudOff, contentDescription = null) },
+                        icon = { Icon(Symbols.CloudOff, contentDescription = null) },
                         title = if (authenticated) {
                             "Offline · showing the cached Reddit page"
                         } else {
@@ -745,7 +760,7 @@ fun HomeScreen(
                         description = "A deterministic error state for retry and spacing checks.",
                         action = {
                             Button(onClick = { state.feedPreviewState = FeedPreviewState.CONTENT }) {
-                                Icon(Icons.Rounded.Refresh, contentDescription = null)
+                                Icon(Symbols.Refresh, contentDescription = null)
                                 Text("Retry", modifier = Modifier.padding(start = 8.dp))
                             }
                         },
@@ -852,10 +867,12 @@ fun HomeScreen(
                             )
                         }
                     } else {
-                        items(visiblePosts, key = Post::id) { post ->
+                        feedPostItems(visiblePosts, postLayout, gridColumns.count) { post, itemModifier ->
                             PostCard(
+                                modifier = itemModifier,
                                 post = post,
                                 state = state,
+                                layout = postLayout,
                                 onOpen = {
                                     // A11Y01A4_HOME_LIST_DETAIL_SELECTION_V1
                                     onOpenPostSelection?.invoke(

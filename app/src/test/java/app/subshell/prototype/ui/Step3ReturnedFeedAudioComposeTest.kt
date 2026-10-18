@@ -8,6 +8,8 @@ import androidx.test.core.app.ApplicationProvider
 import app.subshell.prototype.data.SampleData
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.releaseWithoutHanging
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.FeedViewportState
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.MediaPerformanceTrace
@@ -117,7 +119,7 @@ class Step3ReturnedFeedAudioComposeTest {
     @Test
     fun aReturningFeedPausesThePlayerItDoesNotOwn() {
         ensureWorkManagerInitialized(context)
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         // After the coordinator: its init installs the debug log sink.
         MediaPerformanceTrace.installTestSink(clockMs = { 0L }, eventSink = traceLines::add)
         try {
@@ -150,14 +152,14 @@ class Step3ReturnedFeedAudioComposeTest {
             coordinator.pauseForFeedVisibility("other")
             assertEquals(0, pausesOf("other"))
         } finally {
-            coordinator.release()
+            coordinator.releaseWithoutHanging()
         }
     }
 
     @Test
     fun aReturningFeedThatSelectsTheSameVideoKeepsItsPlayer() {
         ensureWorkManagerInitialized(context)
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         // After the coordinator: its init installs the debug log sink.
         MediaPerformanceTrace.installTestSink(clockMs = { 0L }, eventSink = traceLines::add)
         try {
@@ -181,7 +183,7 @@ class Step3ReturnedFeedAudioComposeTest {
 
             assertEquals(0, pausesOf("old"))
         } finally {
-            coordinator.release()
+            coordinator.releaseWithoutHanging()
         }
     }
 

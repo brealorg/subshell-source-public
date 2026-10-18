@@ -76,14 +76,14 @@ internal class PostFollowCoordinator(
                 configuredWriter.setFollowed(normalized)
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 AuthenticatedPostFollowResult.Failed(
                     kind = PostFollowFailureKind.TRANSPORT,
                     retryable = true,
                     failureDetails = FailureDetails(
                         retryable = true,
                         localKind = LocalFailureKind.UNKNOWN,
-                    ),
+                    ).withExceptionClass(error),
                 )
             }
 

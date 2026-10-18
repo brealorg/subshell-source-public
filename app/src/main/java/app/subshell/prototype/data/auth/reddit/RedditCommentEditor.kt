@@ -11,6 +11,7 @@ import app.subshell.prototype.data.error.redditWriteHttpFailureDetails
 import app.subshell.prototype.data.error.redditWriteProtocolFailureDetails
 import app.subshell.prototype.data.error.redditWriteProviderFailureDetails
 import app.subshell.prototype.data.error.isRedditWriteOutcomeUnknownStatus
+import app.subshell.prototype.data.error.redditWriteRetryAfterMs
 import app.subshell.prototype.data.error.redditWriteTransportFailureDetails
 import app.subshell.prototype.data.network.NetworkClock
 import app.subshell.prototype.data.network.NetworkEndpoint
@@ -135,8 +136,7 @@ internal class ConfiguredRedditCommentEditor(
                     val failureDetails = redditWriteProviderFailureDetails(
                         code = providerError?.code,
                         message = providerError?.message,
-                        retryAfterMs = result.metadata.retryAfterMs
-                            ?: result.metadata.rateLimit.resetAfterMs,
+                        retryAfterMs = redditWriteRetryAfterMs(result.metadata, rateLimited = providerCode == "RATELIMIT"),
                     )
                     when (providerCode) {
                         "RATELIMIT" -> failed(
@@ -169,6 +169,7 @@ internal class ConfiguredRedditCommentEditor(
                         statusCode = result.statusCode,
                         retryable = result.retryable,
                         metadata = result.metadata,
+                        providerReason = result.providerReason,
                     )
                     when {
                         result.statusCode == 401 || result.statusCode == 403 ->
@@ -180,8 +181,7 @@ internal class ConfiguredRedditCommentEditor(
                             failed(
                                 kind = AuthenticatedCommentEditFailureKind.RATE_LIMIT,
                                 retryable = true,
-                                retryAfterMs = result.metadata.retryAfterMs
-                                    ?: result.metadata.rateLimit.resetAfterMs,
+                                retryAfterMs = redditWriteRetryAfterMs(result.metadata, rateLimited = true),
                                 failureDetails = details.copy(retryable = true),
                             )
                         isRedditWriteOutcomeUnknownStatus(result.statusCode) ->

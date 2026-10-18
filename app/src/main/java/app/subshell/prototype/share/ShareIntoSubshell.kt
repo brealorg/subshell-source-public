@@ -106,7 +106,7 @@ internal fun readSharedPost(context: Context, intent: Intent): SharedPostContent
 }
 
 @Suppress("DEPRECATION")
-private fun sharedStreams(intent: Intent): List<Uri> = when (intent.action) {
+internal fun sharedStreams(intent: Intent): List<Uri> = when (intent.action) {
     Intent.ACTION_SEND_MULTIPLE -> if (Build.VERSION.SDK_INT >= 33) {
         intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java).orEmpty()
     } else {

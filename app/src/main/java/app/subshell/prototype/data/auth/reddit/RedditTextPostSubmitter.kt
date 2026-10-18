@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.auth.reddit
 
+import app.subshell.prototype.data.error.redditWriteRetryAfterMs
 import app.subshell.prototype.data.network.reddit.RedditSubmitReconciliationKind
 import app.subshell.prototype.data.network.reddit.RedditSubmitReconciliationDataSource
 import app.subshell.prototype.data.network.reddit.RedditSubmitReconciliationCandidate
@@ -490,8 +491,7 @@ internal class ConfiguredRedditTextPostSubmitter(
                     is NetworkResult.HttpFailure -> return mapPreSubmitHttpFailure(
                         statusCode = leaseResult.statusCode,
                         retryable = leaseResult.retryable,
-                        retryAfterMs = leaseResult.metadata.retryAfterMs
-                            ?: leaseResult.metadata.rateLimit.resetAfterMs,
+                        retryAfterMs = redditWriteRetryAfterMs(leaseResult.metadata, rateLimited = leaseResult.statusCode == 429),
                     )
                     is NetworkResult.TransportFailure -> return failed(
                         kind = AuthenticatedTextPostSubmitFailureKind.TRANSPORT,
@@ -657,8 +657,7 @@ internal class ConfiguredRedditTextPostSubmitter(
                 is NetworkResult.HttpFailure -> return mapPreSubmitHttpFailure(
                     statusCode = leaseResult.statusCode,
                     retryable = leaseResult.retryable,
-                    retryAfterMs = leaseResult.metadata.retryAfterMs
-                        ?: leaseResult.metadata.rateLimit.resetAfterMs,
+                    retryAfterMs = redditWriteRetryAfterMs(leaseResult.metadata, rateLimited = leaseResult.statusCode == 429),
                 )
                 is NetworkResult.TransportFailure -> return failed(
                     kind = AuthenticatedTextPostSubmitFailureKind.TRANSPORT,
@@ -668,13 +667,18 @@ internal class ConfiguredRedditTextPostSubmitter(
                         leaseResult.retryable,
                     ),
                 )
+                // DIAG04_JSON_PATH_REACHES_THE_REPORT_V1
                 is NetworkResult.ProtocolFailure -> return if (isVideo) {
                     mediaValidation(
                         "Reddit's video upload lease response could not be read " +
                             "(${leaseResult.kind.name}).",
+                        failureDetails = redditWriteProtocolFailureDetails(leaseResult.kind, leaseResult.jsonPath),
                     )
                 } else {
-                    failed(AuthenticatedTextPostSubmitFailureKind.API)
+                    failed(
+                        AuthenticatedTextPostSubmitFailureKind.API,
+                        failureDetails = redditWriteProtocolFailureDetails(leaseResult.kind, leaseResult.jsonPath),
+                    )
                 }
             }
             val mediaUrl = when (val upload = mediaNetwork.upload(lease, staged)) {
@@ -715,8 +719,7 @@ internal class ConfiguredRedditTextPostSubmitter(
                     is NetworkResult.HttpFailure -> return mapPreSubmitHttpFailure(
                         statusCode = leaseResult.statusCode,
                         retryable = leaseResult.retryable,
-                        retryAfterMs = leaseResult.metadata.retryAfterMs
-                            ?: leaseResult.metadata.rateLimit.resetAfterMs,
+                        retryAfterMs = redditWriteRetryAfterMs(leaseResult.metadata, rateLimited = leaseResult.statusCode == 429),
                     )
                     // LOW2_POSTER_FAILURES_KEEP_DETAILS_V1 (OCB-523)
                     is NetworkResult.TransportFailure -> return failed(
@@ -730,6 +733,7 @@ internal class ConfiguredRedditTextPostSubmitter(
                     is NetworkResult.ProtocolFailure -> return mediaValidation(
                         "Reddit's video preview-image lease response could not be read " +
                             "(${leaseResult.kind.name}).",
+                        failureDetails = redditWriteProtocolFailureDetails(leaseResult.kind, leaseResult.jsonPath),
                     )
                 }
                 when (val upload = mediaNetwork.upload(posterLease, stagedPoster)) {
@@ -907,9 +911,13 @@ internal class ConfiguredRedditTextPostSubmitter(
         }
     }
 
-    private fun mediaValidation(message: String): AuthenticatedTextPostSubmitResult.Failed =
+    private fun mediaValidation(
+        message: String,
+        failureDetails: FailureDetails? = null,
+    ): AuthenticatedTextPostSubmitResult.Failed =
         failed(
             kind = AuthenticatedTextPostSubmitFailureKind.VALIDATION,
+            failureDetails = failureDetails,
             validationIssues = listOf(
                 AuthenticatedTextPostValidationIssue(
                     field = AuthenticatedTextPostValidationField.MEDIA,
@@ -1004,8 +1012,7 @@ internal class ConfiguredRedditTextPostSubmitter(
                 .mapNotNull { error -> error.toAuthenticatedValidationIssue() }
                 .distinct()
         }
-        val retryAfterMs = result.metadata.retryAfterMs
-            ?: result.metadata.rateLimit.resetAfterMs
+        val retryAfterMs = redditWriteRetryAfterMs(result.metadata, rateLimited = RedditTextPostApiErrorKind.RATE_LIMIT in kinds)
         val providerError = result.errors.firstOrNull()
         val failureDetails = redditWriteProviderFailureDetails(
             code = providerError?.code,
@@ -1052,12 +1059,12 @@ internal class ConfiguredRedditTextPostSubmitter(
     private fun mapHttpFailure(
         result: RedditTextPostSubmitNetworkResult.HttpFailure,
     ): AuthenticatedTextPostSubmitResult.Failed {
-        val retryAfterMs = result.metadata.retryAfterMs
-            ?: result.metadata.rateLimit.resetAfterMs
+        val retryAfterMs = redditWriteRetryAfterMs(result.metadata, rateLimited = result.statusCode == 429)
         val details = redditWriteHttpFailureDetails(
             statusCode = result.statusCode,
             retryable = result.retryable,
             metadata = result.metadata,
+            providerReason = result.providerReason,
         )
         return when {
             result.statusCode == 429 -> failed(

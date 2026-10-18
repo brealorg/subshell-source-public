@@ -1,5 +1,8 @@
 package app.subshell.prototype.ui.screens
 
+import app.subshell.prototype.ui.communityFeedWithPinnedPosts
+import app.subshell.prototype.ui.CommunityFeedWithPinned
+import app.subshell.prototype.data.account.RedditCommunityPinnedPostsUiState
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
@@ -8,6 +11,7 @@ import app.subshell.prototype.ui.components.RouteTopBar
 import app.subshell.prototype.ui.components.rememberRouteTopBarScrollBehavior
 import app.subshell.prototype.ui.error.LocalViewportErrorHostState
 import app.subshell.prototype.ui.noticeFailure
+import app.subshell.prototype.ui.symbols.Symbols
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import app.subshell.prototype.ui.components.favoriteStarTint
@@ -32,20 +36,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.AdminPanelSettings
-import androidx.compose.material.icons.automirrored.rounded.AddToHomeScreen
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material.icons.rounded.StarBorder
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -99,6 +89,12 @@ import app.subshell.prototype.ui.communityFeedPostsInDisplayOrder
 import app.subshell.prototype.ui.communityPostFeedQueryKey
 import app.subshell.prototype.ui.pagingFooterKey
 import app.subshell.prototype.ui.rememberFeedScrollState
+import app.subshell.prototype.ui.PostLayout
+import app.subshell.prototype.ui.feedItemSpacing
+import app.subshell.prototype.ui.feedPostItemKeys
+import app.subshell.prototype.ui.feedPostItems
+import app.subshell.prototype.ui.rememberFeedGridColumns
+import app.subshell.prototype.ui.components.PostLayoutMenuButton
 import app.subshell.prototype.ui.ObserveFeedVideoViewport
 import app.subshell.prototype.ui.GoogleFeedVideoViewport
 import app.subshell.prototype.ui.ObserveLiveFeedAutoAppend
@@ -117,6 +113,7 @@ import app.subshell.prototype.ui.components.ErrorNotice
 import app.subshell.prototype.ui.components.PostCard
 import app.subshell.prototype.ui.components.RepositoryPagingFooter
 import app.subshell.prototype.ui.components.RefreshableLazyColumn
+import app.subshell.prototype.ui.components.CommunityHighlightsRow
 import app.subshell.prototype.ui.components.RemoteIdentityImage
 import app.subshell.prototype.ui.error.ErrorActionKind
 import app.subshell.prototype.ui.error.ErrorPresentationKind
@@ -142,7 +139,6 @@ import app.subshell.prototype.data.account.inProgressFor
 import app.subshell.prototype.data.account.projectedJoined
 import app.subshell.prototype.ui.components.MutedCommunityPostsHiddenCard
 import app.subshell.prototype.ui.components.UserFlairSheet
-import androidx.compose.material.icons.rounded.Person
 import app.subshell.prototype.ui.components.InlineProgressIndicator
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.semantics.semantics
@@ -176,6 +172,9 @@ fun CommunityScreen(
         RedditCommunityInfoUiState(),
     onLoadRedditCommunityInfo: (String, String, Boolean) -> Unit =
         { _, _, _ -> },
+    // ISSUE230_PINNED_POSTS_FIRST_V1
+    redditPinnedPostsState: RedditCommunityPinnedPostsUiState = RedditCommunityPinnedPostsUiState(),
+    onLoadRedditPinnedPosts: (String, String, Boolean) -> Unit = { _, _, _ -> },
     redditCommunityWikiState: RedditCommunityWikiUiState =
         RedditCommunityWikiUiState(),
     onLoadRedditCommunityWikiIndex: (String, String, Boolean) -> Unit =
@@ -441,6 +440,13 @@ fun CommunityScreen(
             }
         }
     }
+    // ISSUE230_PINNED_POSTS_FIRST_V1: the pinned posts are read once per visit
+    // and again on a pull to refresh.
+    LaunchedEffect(state.activeAccountId, community.name, authenticatedRedditFeed, mute01a3HidePosts) {
+        if (authenticatedRedditFeed && !mute01a3HidePosts) {
+            onLoadRedditPinnedPosts(state.activeAccountId, community.name, false)
+        }
+    }
     val pagingSnapshot = state.postPagingSnapshot(pagingKey)
     val allPosts = pagingSnapshot.items
     // CONTENTFILTER04_FILTERED_SUMMARY_V1
@@ -469,31 +475,45 @@ fun CommunityScreen(
     }
     val filteredSummaryVisible = state.filteredPostsSummary && filteredCount > 0
     val showFilteredPosts = filteredSummaryVisible && filteredRevealed
-    val visiblePosts by remember(
+    val pinnedPosts = if (authenticatedRedditFeed) {
+        redditPinnedPostsState.postsFor(state.activeAccountId, community.name)
+    } else {
+        emptyList()
+    }
+    val feedWithPinned by remember(
         allPosts,
+        pinnedPosts,
         community.name,
         state.communitySort,
         state.showNsfwPosts,
         state.contentFilters,
+        state.pinnedPostsPresentation,
         showFilteredPosts,
         mute01a3HidePosts,
     ) {
         derivedStateOf {
-            if (mute01a3HidePosts) return@derivedStateOf emptyList()
+            if (mute01a3HidePosts) return@derivedStateOf CommunityFeedWithPinned(emptyList(), emptyList())
             // CONTENTFILTER02_EVERY_FEED_SURFACE_V1
-            val posts = allPosts.filter {
-                communityNamesMatch(it.community, community.name) &&
-                    !it.isHiddenBy(hiddenIdentities) &&
-                    state.showsPost(it) &&
-                    (showFilteredPosts || !state.contentFilters.hidesOnCommunityPage(it, community.name))
+            val shown = { post: Post ->
+                communityNamesMatch(post.community, community.name) &&
+                    !post.isHiddenBy(hiddenIdentities) &&
+                    state.showsPost(post) &&
+                    (showFilteredPosts || !state.contentFilters.hidesOnCommunityPage(post, community.name))
             }
-            communityFeedPostsInDisplayOrder(
-                posts = posts,
+            val ordered = communityFeedPostsInDisplayOrder(
+                posts = allPosts.filter(shown),
                 sort = state.communitySort,
                 authenticatedRedditFeed = authenticatedRedditFeed,
             )
+            if (authenticatedRedditFeed) {
+                communityFeedWithPinnedPosts(ordered, pinnedPosts.filter(shown), state.pinnedPostsPresentation)
+            } else {
+                CommunityFeedWithPinned(emptyList(), ordered)
+            }
         }
     }
+    val visiblePosts = feedWithPinned.feed
+    val pinnedHighlights = feedWithPinned.highlights
     val contentFiltersHideAllPosts =
         visiblePosts.isEmpty() &&
             allPosts.any { post ->
@@ -650,8 +670,13 @@ fun CommunityScreen(
     }
 
     val pagingFooterKey = pagingSnapshot.pagingFooterKey
+    // ISSUE234_FEED_POST_LAYOUTS_V1
+    val postLayout = state.postLayout
+    val gridColumns = rememberFeedGridColumns()
     val feedItemKeys = remember(
         visiblePosts,
+        postLayout,
+        gridColumns.count,
         pagingFooterKey,
         showLivePagingStatus,
         filteredSummaryVisible,
@@ -665,8 +690,13 @@ fun CommunityScreen(
                 return@buildList
             }
             add("sort")
+            if (pinnedHighlights.isNotEmpty()) add("community-highlights")
             if (filteredSummaryVisible) add("filtered-summary")
-            if (visiblePosts.isEmpty()) add("empty") else addAll(visiblePosts.map(Post::id))
+            if (visiblePosts.isEmpty()) {
+                add("empty")
+            } else {
+                addAll(feedPostItemKeys(visiblePosts, postLayout, gridColumns.count))
+            }
             pagingFooterKey?.let(::add)
             if (showLivePagingStatus) add("reddit-paging")
         }
@@ -713,8 +743,10 @@ fun CommunityScreen(
     )
 
     val revealedMediaIds = state.revealedMediaIds.toSet()
-    val videoPostIds = remember(visiblePosts, revealedMediaIds) {
+    val videoPostIds = remember(visiblePosts, revealedMediaIds, postLayout) {
+        // ISSUE234_FEED_POST_LAYOUTS_V1: only Large plays media in the feed.
         visiblePosts
+            .filter { postLayout == PostLayout.LARGE }
             .filter { it.kind == PostKind.VIDEO && state.sensitiveMediaAutoplayAllowed(it) }
             .map(Post::id)
     }
@@ -725,8 +757,9 @@ fun CommunityScreen(
 
     ObserveFeedVideoViewport(listState = listState, state = state)
 
-    val animatedPostIds = remember(visiblePosts, revealedMediaIds) {
+    val animatedPostIds = remember(visiblePosts, revealedMediaIds, postLayout) {
         visiblePosts
+            .filter { postLayout == PostLayout.LARGE }
             .filter {
                 it.kind in listOf(PostKind.GIF, PostKind.GALLERY) &&
                     state.sensitiveMediaAutoplayAllowed(it)
@@ -779,7 +812,7 @@ fun CommunityScreen(
                 actions = {
                     IconButton(onClick = { state.openSearch() }) {
                         Icon(
-                            Icons.Rounded.Search,
+                            Symbols.Search,
                             contentDescription =
                                 "Search ${state.subredditLabel(community.name)}",
                         )
@@ -792,7 +825,7 @@ fun CommunityScreen(
                             },
                         ) {
                             Icon(
-                                Icons.Rounded.AdminPanelSettings,
+                                Symbols.AdminPanelSettings,
                                 contentDescription =
                                     "Mod tools for ${state.subredditLabel(community.name)}",
                                 tint = MaterialTheme.colorScheme.primary,
@@ -804,7 +837,7 @@ fun CommunityScreen(
                         onClick = { aboutSheetVisible.value = true },
                     ) {
                         Icon(
-                            Icons.Rounded.Info,
+                            Symbols.Info,
                             contentDescription =
                                 "About ${state.subredditLabel(community.name)}",
                         )
@@ -814,7 +847,7 @@ fun CommunityScreen(
                             onClick = { communityMenuExpanded.value = true },
                         ) {
                             Icon(
-                                Icons.Rounded.MoreVert,
+                                Symbols.MoreVert,
                                 contentDescription =
                                     "Actions for ${state.subredditLabel(community.name)}",
                             )
@@ -828,7 +861,7 @@ fun CommunityScreen(
                                 DropdownMenuItem(
                                     text = { Text("User flair") },
                                     leadingIcon = {
-                                        Icon(Icons.Rounded.Person, contentDescription = null)
+                                        Icon(Symbols.Person, contentDescription = null)
                                     },
                                     onClick = {
                                         communityMenuExpanded.value = false
@@ -865,7 +898,7 @@ fun CommunityScreen(
                                 DropdownMenuItem(
                                     text = { Text("Add to home screen") },
                                     leadingIcon = {
-                                        Icon(Icons.AutoMirrored.Rounded.AddToHomeScreen, contentDescription = null)
+                                        Icon(Symbols.AddToHomeScreen, contentDescription = null)
                                     },
                                     onClick = {
                                         communityMenuExpanded.value = false
@@ -889,12 +922,12 @@ fun CommunityScreen(
             modifier = Modifier.weight(1f).fillMaxWidth(),
         ) {
             RefreshableLazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().then(gridColumns.measureModifier),
                 state = listState,
                 // ISSUE205_PASSIVE_SCROLL_POSITION_INDICATOR_V1
                 scrollPositionIndicator = state.scrollPositionIndicator,
                 contentPadding = PaddingValues(top = 4.dp, bottom = 96.dp),
-                verticalArrangement = Arrangement.spacedBy(9.dp),
+                verticalArrangement = Arrangement.spacedBy(feedItemSpacing(postLayout, 9.dp)),
                 isRefreshing = if (authenticatedRedditFeed) {
                     activeRedditFeedState.refreshing
                 } else {
@@ -907,6 +940,7 @@ fun CommunityScreen(
                         if (!membershipTruthReady && liveSubscriptions?.loading != true) {
                             onLoadRedditSubscriptions(state.activeAccountId, true)
                         }
+                        onLoadRedditPinnedPosts(state.activeAccountId, community.name, true)
                         onRefreshRedditFeed(
                             state.activeAccountId,
                             community.name,
@@ -974,9 +1008,9 @@ fun CommunityScreen(
                             ) {
                                 Icon(
                                     imageVector = if (favorite) {
-                                        Icons.Rounded.Star
+                                        Symbols.StarFilled
                                     } else {
-                                        Icons.Rounded.StarBorder
+                                        Symbols.Star
                                     },
                                     contentDescription = if (favorite) {
                                         "Remove ${state.subredditLabel(community.name)} from favorites"
@@ -997,7 +1031,7 @@ fun CommunityScreen(
                                         Text("Leaving…")
                                     } else {
                                         Icon(
-                                            Icons.Rounded.Check,
+                                            Symbols.Check,
                                             contentDescription = null,
                                             modifier = Modifier.size(17.dp),
                                         )
@@ -1085,7 +1119,7 @@ fun CommunityScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Rounded.VolumeOff,
+                                        imageVector = Symbols.VolumeOff,
                                         contentDescription = null,
                                         modifier = Modifier.size(20.dp),
                                     )
@@ -1108,7 +1142,7 @@ fun CommunityScreen(
                                         )
                                     }
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                                        imageVector = Symbols.KeyboardArrowRight,
                                         contentDescription = "Open mute settings",
                                         modifier = Modifier.size(20.dp),
                                     )
@@ -1181,7 +1215,7 @@ fun CommunityScreen(
                                             contentDescription = "Sort posts: ${state.communitySort.label}"
                                         },
                                     )
-                                    Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null)
+                                    Icon(Symbols.KeyboardArrowDown, contentDescription = null)
                                 }
                                 DropdownMenu(
                                     expanded = sortMenuExpanded.value,
@@ -1192,7 +1226,7 @@ fun CommunityScreen(
                                             text = { Text(sort.label) },
                                             modifier = Modifier.semantics { selected = sort == state.communitySort },
                                             trailingIcon = if (sort == state.communitySort) {
-                                                { Icon(Icons.Rounded.Check, contentDescription = null) }
+                                                { Icon(Symbols.Check, contentDescription = null) }
                                             } else {
                                                 null
                                             },
@@ -1214,7 +1248,7 @@ fun CommunityScreen(
                                             },
                                         )
                                         Icon(
-                                            Icons.Rounded.KeyboardArrowDown,
+                                            Symbols.KeyboardArrowDown,
                                             contentDescription = "Choose listing time period",
                                         )
                                     }
@@ -1229,7 +1263,7 @@ fun CommunityScreen(
                                                     selected = timePeriod == state.listingTimePeriod
                                                 },
                                                 trailingIcon = if (timePeriod == state.listingTimePeriod) {
-                                                    { Icon(Icons.Rounded.Check, contentDescription = null) }
+                                                    { Icon(Symbols.Check, contentDescription = null) }
                                                 } else {
                                                     null
                                                 },
@@ -1242,6 +1276,22 @@ fun CommunityScreen(
                                     }
                                 }
                             }
+                            // ISSUE234_LAYOUT_CHOICE_BESIDE_THE_FEED_V1
+                            PostLayoutMenuButton(state)
+                        }
+                    }
+
+                    // ISSUE230_PINNED_POSTS_FIRST_V1
+                    if (pinnedHighlights.isNotEmpty()) {
+                        item("community-highlights") {
+                            CommunityHighlightsRow(
+                                posts = pinnedHighlights,
+                                onOpen = { post ->
+                                    captureCurrentScroll()
+                                    onOpenPostSelection?.invoke(post)
+                                        ?: state.openFromCommunity(post, communityName)
+                                },
+                            )
                         }
                     }
 
@@ -1356,17 +1406,23 @@ fun CommunityScreen(
                             }
                         }
                     } else {
-                        items(visiblePosts, key = Post::id) { post ->
+                        feedPostItems(
+                            posts = visiblePosts,
+                            layout = postLayout,
+                            columns = gridColumns.count,
+                            horizontalPadding = ScreenMargin,
+                        ) { post, itemModifier ->
                             PostCard(
                                 post = post,
                                 state = state,
+                                layout = postLayout,
                                 onOpen = {
                                     // NEXT01A1_COMMUNITY_LIST_DETAIL_SELECTION_V1
                                     onOpenPostSelection?.invoke(post)
                                         ?: state.openFromCommunity(post, communityName)
                                 },
                                 beforeNavigation = captureCurrentScroll,
-                                modifier = Modifier.padding(horizontal = ScreenMargin),
+                                modifier = itemModifier,
                             )
                         }
                     }

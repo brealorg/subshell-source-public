@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.auth
 
+import app.subshell.prototype.data.network.NetworkTransportFailureKind
 import app.subshell.prototype.data.auth.reddit.RedditOAuth
 import java.io.IOException
 import javax.net.ssl.SSLException
@@ -145,10 +146,17 @@ class Step3OAuthTokenEndpointTest {
     @Test
     fun aTlsFailureIsFinalAndALostConnectionMayBeRetried() = runBlocking {
         failure = SSLException("handshake")
-        assertEquals(OAuthEndpointResult.TransportFailure(retryable = false), client.refresh("refresh-1"))
+        // DIAG04_SIGN_IN_NETWORK_KIND_V1: the kind goes along for the diagnostics.
+        assertEquals(
+            OAuthEndpointResult.TransportFailure(retryable = false, kind = NetworkTransportFailureKind.IO),
+            client.refresh("refresh-1"),
+        )
 
         failure = IOException("connection reset")
-        assertEquals(OAuthEndpointResult.TransportFailure(retryable = true), client.refresh("refresh-1"))
+        assertEquals(
+            OAuthEndpointResult.TransportFailure(retryable = true, kind = NetworkTransportFailureKind.IO),
+            client.refresh("refresh-1"),
+        )
         assertEquals("each call is one request", 2, requests.size)
     }
 

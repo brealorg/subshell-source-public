@@ -1,6 +1,9 @@
 package app.subshell.prototype.data.network.reddit
 
+import app.subshell.prototype.data.diagnostics.ListingSkipReports
 import app.subshell.prototype.data.network.NetworkPage
+import app.subshell.prototype.data.network.safeJsonFieldPath
+import app.subshell.prototype.data.network.sanitizeJsonFieldPath
 import app.subshell.prototype.model.redGifsClipId
 import app.subshell.prototype.model.redGifsVideoUri
 import app.subshell.prototype.model.CrosspostPreview
@@ -13,10 +16,12 @@ import app.subshell.prototype.model.PostKind
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.nullable
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
@@ -70,7 +75,11 @@ internal data class RedditPostDataDto(
     @SerialName("media_metadata") val mediaMetadata: Map<String, RedditMediaMetadataDto> = emptyMap(),
     // EDITREADBACK01_EDITED_STAMP_V1: false, or epoch seconds of the last edit.
     val edited: JsonElement? = null,
-    @SerialName("poll_data") val pollData: RedditPollDataDto? = null,
+    // POLLDATA02_TOP_LEVEL_FALSE_IS_NO_POLL_V1: Reddit also sends false at the
+    // top level (an upvoted-history page failed whole on it, 2026-10-18).
+    @SerialName("poll_data")
+    @Serializable(with = RedditCrosspostPollDataSerializer::class)
+    val pollData: RedditPollDataDto? = null,
     val media: RedditSecureMediaDto? = null,
     @SerialName("secure_media") val secureMedia: RedditSecureMediaDto? = null,
     @SerialName("link_flair_text") val linkFlairText: String? = null,
@@ -272,6 +281,51 @@ internal data class RedditMediaImageSourceDto(
     @SerialName("x") val width: Int? = null,
     @SerialName("y") val height: Int? = null,
 )
+
+// LISTINGSKIP01_ONE_BAD_POST_DOES_NOT_FAIL_THE_PAGE_V1 (owner 2026-10-18): a
+// read listing (feeds, search, a user's posts, custom feeds, account history)
+// decodes each child on its own and leaves out one it cannot read, as the
+// saved history already did; one post with an unexpected shape (POLLDATA02)
+// failed the whole page. The envelope stays strict: a body that is not a
+// listing, or children that are not a list, is still MALFORMED_JSON. Read-backs
+// after a write and single-post lookups keep RedditListingDto, where a skipped
+// post would read as missing.
+@Serializable
+internal data class RedditReadListingDto(
+    val kind: String? = null,
+    val data: RedditReadListingDataDto = RedditReadListingDataDto(),
+)
+
+@Serializable
+internal data class RedditReadListingDataDto(
+    val after: String? = null,
+    val children: List<JsonElement> = emptyList(),
+)
+
+internal fun RedditReadListingDto.toNetworkPage(json: Json, nowEpochSeconds: Long): NetworkPage<Post> =
+    RedditListingDto(
+        kind = kind,
+        data = RedditListingDataDto(
+            after = data.after,
+            children = data.children.mapIndexedNotNull { index, child ->
+                try {
+                    json.decodeFromJsonElement(RedditThingDto.serializer(), child)
+                } catch (error: SerializationException) {
+                    reportSkippedChild(index, error)
+                    null
+                } catch (error: IllegalArgumentException) {
+                    reportSkippedChild(index, error)
+                    null
+                }
+            },
+        ),
+    ).toNetworkPage(nowEpochSeconds)
+
+// DIAG04_LISTING_SKIP_EVENT_V1: the skipped child's own field, under its place in the listing.
+private fun reportSkippedChild(index: Int, error: Throwable) {
+    val childPath = error.safeJsonFieldPath()?.removePrefix("$").orEmpty()
+    ListingSkipReports.report(sanitizeJsonFieldPath("$.data.children[$index]$childPath"))
+}
 
 internal fun RedditListingDto.toNetworkPage(nowEpochSeconds: Long): NetworkPage<Post> =
     NetworkPage(

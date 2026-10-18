@@ -8,11 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.KeyboardArrowUp
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +30,7 @@ import app.subshell.prototype.model.projectCommentContent
 import app.subshell.prototype.ui.components.markdownHighlightRanges
 import app.subshell.prototype.ui.components.markdownSearchableText
 import app.subshell.prototype.ui.components.SubshellSearchField
+import app.subshell.prototype.ui.symbols.Symbols
 
 // ISSUE29_THREAD_FIND_V1: find text in the loaded comments of a post. Only
 // what the reader sees in a comment body is searched (the same rendered text
@@ -145,13 +141,13 @@ internal fun ThreadFindBar(
             )
         }
         IconButton(onClick = onPrevious) {
-            Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = "Previous match")
+            Icon(Symbols.KeyboardArrowUp, contentDescription = "Previous match")
         }
         IconButton(onClick = onNext) {
-            Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "Next match")
+            Icon(Symbols.KeyboardArrowDown, contentDescription = "Next match")
         }
         IconButton(onClick = onClose) {
-            Icon(Icons.Rounded.Close, contentDescription = "Close find")
+            Icon(Symbols.Close, contentDescription = "Close find")
         }
     }
 }

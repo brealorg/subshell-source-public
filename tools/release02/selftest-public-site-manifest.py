@@ -51,7 +51,8 @@ module.validate_promotion_state(state)
 
 base = (
     "**Public beta available — 0.79.0-beta.9**\n"
-    "The Android application source code is **not published in this repository\n"
+    "The Android application source code is published separately in "
+    "[brealorg/subshell-source-public](https://github.com/brealorg/subshell-source-public)\n"
 )
 rewritten = module.rewrite_public_copy(
     base,
@@ -68,12 +69,17 @@ module.verify_public_copy_privacy_boundary(
     "[brealorg/subshell-source-public](https://github.com/brealorg/subshell-source-public), "
     "one snapshot per release.\n"
 )
-try:
-    module.verify_public_copy_privacy_boundary("**Public beta available — 0.80.0-beta.1**\n")
-except module.PromotionError as exc:
-    assert str(exc) == "PUBLIC_SOURCE_PRIVACY_BOUNDARY_MISSING", exc
-else:
-    raise AssertionError("a README without the source sentence must be refused")
+for stale in (
+    "**Public beta available — 0.80.0-beta.1**\n",
+    # The sentence before the first snapshot release is wrong now.
+    "The Android application source code is **not published in this repository\nat this stage**.\n",
+):
+    try:
+        module.verify_public_copy_privacy_boundary(stale)
+    except module.PromotionError as exc:
+        assert str(exc) == "PUBLIC_SOURCE_PRIVACY_BOUNDARY_MISSING", exc
+    else:
+        raise AssertionError("a README without the source sentence must be refused")
 
 release = {
     "versionCode": 300,
@@ -206,8 +212,8 @@ with tempfile.TemporaryDirectory() as temp:
     readme = repo / "README.md"
     base_text = (
         "**Public beta available — 0.79.0-beta.9**\n"
-        "The Android application source code is **not published in this repository\n"
-        "at this stage**.\n"
+        "The Android application source code is published separately in "
+        "[brealorg/subshell-source-public](https://github.com/brealorg/subshell-source-public).\n"
     )
     readme.write_text(base_text)
     module.run(["git", "add", "README.md"], cwd=repo)

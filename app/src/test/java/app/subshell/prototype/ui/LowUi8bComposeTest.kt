@@ -32,6 +32,7 @@ import app.subshell.prototype.data.account.RedditModeratorQueueKind
 import app.subshell.prototype.data.account.RedditRemovalMessage
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.Comment
@@ -109,7 +110,7 @@ class LowUi8bComposeTest {
     fun theKeyboardSearchRefusesWhatTheButtonRefuses() {
         ensureWorkManagerInitialized(context)
         val state = signedIn().apply { openSearch(refocus = false) }
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         composeRule.setContent {
             CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
                 SearchScreen(state = state, onBack = {})
@@ -151,7 +152,7 @@ class LowUi8bComposeTest {
             fullDiscussionLoaded = true,
             contentRevision = 1L,
         )
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         composeRule.setContent {
             CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
                 PostScreen(post = post, state = state, onBack = {}, redditCommentsState = comments)

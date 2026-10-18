@@ -13,6 +13,7 @@ import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.data.account.PostDeleteFailureKind
 import app.subshell.prototype.data.account.PostDeletePhase
 import app.subshell.prototype.data.account.PostDeleteUiState
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.ui.SubshellState
@@ -52,7 +53,7 @@ class H3PostDeleteOutcomeComposeTest {
         )
         val post = state.posts.first().copy(id = "t3_abc", author = "me")
         state.requestPostDelete(post.id)
-        val coordinator = VideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
+        val coordinator = testVideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
         composeRule.setContent {
             CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
                 PostScreen(

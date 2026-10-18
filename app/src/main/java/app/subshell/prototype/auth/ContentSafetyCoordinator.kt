@@ -498,14 +498,14 @@ internal class ContentSafetyCoordinator(
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 AuthenticatedContentSafetyResult.Failed(
                     kind = ContentSafetyFailureKind.TRANSPORT,
                     retryable = false,
                     failureDetails = FailureDetails(
                         retryable = false,
                         localKind = LocalFailureKind.UNKNOWN,
-                    ),
+                    ).withExceptionClass(error),
                 )
             }
 

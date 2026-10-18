@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.rounded.Inbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -209,7 +208,7 @@ Box(
             .fillMaxWidth(),
         targetState = route.destination,
     transitionSpec = {
-        if (state.reduceMotion) {
+        if (state.motionReduced) {
             EnterTransition.None togetherWith ExitTransition.None
         } else {
             fadeIn() togetherWith fadeOut()

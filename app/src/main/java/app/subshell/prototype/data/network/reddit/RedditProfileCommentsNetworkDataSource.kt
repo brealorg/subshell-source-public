@@ -4,8 +4,16 @@ import app.subshell.prototype.data.network.JsonGetRequest
 import app.subshell.prototype.data.network.NetworkPage
 import app.subshell.prototype.model.ProfileCommentFixture
 import app.subshell.prototype.model.ThreadPlacement
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonDecoder
 
 @Serializable
 internal data class RedditProfileCommentsListingDto(
@@ -16,8 +24,37 @@ internal data class RedditProfileCommentsListingDto(
 @Serializable
 internal data class RedditProfileCommentsListingDataDto(
     val after: String? = null,
+    // LISTINGSKIP02_ONE_BAD_COMMENT_DOES_NOT_FAIL_THE_PAGE_V1 (owner
+    // 2026-10-18): as LISTINGSKIP01 for posts, one comment that does not decode
+    // is left out instead of failing the profile's comment page.
+    @Serializable(with = RedditProfileCommentThingListSerializer::class)
     val children: List<RedditProfileCommentThingDto> = emptyList(),
 )
+
+/** Decodes each child on its own; children that are not a list still fail. */
+internal object RedditProfileCommentThingListSerializer : KSerializer<List<RedditProfileCommentThingDto>> {
+    private val delegate = ListSerializer(RedditProfileCommentThingDto.serializer())
+
+    override val descriptor: SerialDescriptor = delegate.descriptor
+
+    override fun deserialize(decoder: Decoder): List<RedditProfileCommentThingDto> {
+        val jsonDecoder = decoder as? JsonDecoder ?: return delegate.deserialize(decoder)
+        val children = jsonDecoder.decodeJsonElement() as? JsonArray
+            ?: throw SerializationException("Profile comment children are not a list")
+        return children.mapNotNull { child ->
+            try {
+                jsonDecoder.json.decodeFromJsonElement(RedditProfileCommentThingDto.serializer(), child)
+            } catch (_: SerializationException) {
+                null
+            } catch (_: IllegalArgumentException) {
+                null
+            }
+        }
+    }
+
+    override fun serialize(encoder: Encoder, value: List<RedditProfileCommentThingDto>) =
+        delegate.serialize(encoder, value)
+}
 
 @Serializable
 internal data class RedditProfileCommentThingDto(

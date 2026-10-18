@@ -1,5 +1,9 @@
 package app.subshell.prototype.data.auth.reddit
 
+import app.subshell.prototype.data.error.FailureDetails
+import app.subshell.prototype.data.error.SafeFailureText
+import app.subshell.prototype.data.error.isHttpStatusCodeInRange
+import app.subshell.prototype.data.error.safeJsonPathText
 import app.subshell.prototype.data.RedditAccountHistoryKind
 import app.subshell.prototype.data.RepositoryLoadOperation
 import app.subshell.prototype.data.RepositoryPageRequest
@@ -143,19 +147,36 @@ internal class RedditAccountHistoryUpdater(
                         storedItemCount = result.storedItemCount,
                         endReached = result.terminal,
                     )
+                // DIAG04_JSON_PATH_REACHES_THE_REPORT_V1: the history keeps the
+                // feed sync's details (status, reason, the field a decode failed on).
                 is PostFeedSyncResult.HttpFailure ->
                     failed(
                         kind = AuthenticatedRedditAccountHistoryFailureKind.HTTP,
                         retryable = result.retryable,
+                        details = FailureDetails(
+                            httpStatusCode = result.statusCode.takeIf(::isHttpStatusCodeInRange),
+                            retryAfterMs = result.retryAfterMs?.coerceAtLeast(0L),
+                            retryable = result.retryable,
+                            providerCode = SafeFailureText.fromUntrusted(result.providerReason),
+                        ),
                     )
                 is PostFeedSyncResult.TransportFailure ->
                     failed(
                         kind = AuthenticatedRedditAccountHistoryFailureKind.TRANSPORT,
                         retryable = result.retryable,
+                        details = FailureDetails(transportKind = result.kind, retryable = result.retryable),
                     )
-                is PostFeedSyncResult.ProtocolFailure,
-                is PostFeedSyncResult.PreconditionFailure,
-                -> failed(AuthenticatedRedditAccountHistoryFailureKind.PROTOCOL)
+                is PostFeedSyncResult.ProtocolFailure ->
+                    failed(
+                        kind = AuthenticatedRedditAccountHistoryFailureKind.PROTOCOL,
+                        details = FailureDetails(
+                            retryable = false,
+                            protocolKind = result.kind,
+                            jsonPath = safeJsonPathText(result.jsonPath),
+                        ),
+                    )
+                is PostFeedSyncResult.PreconditionFailure ->
+                    failed(AuthenticatedRedditAccountHistoryFailureKind.PROTOCOL)
                 PostFeedSyncResult.StorageFailure ->
                     failed(
                         kind = AuthenticatedRedditAccountHistoryFailureKind.STORAGE,
@@ -168,10 +189,12 @@ internal class RedditAccountHistoryUpdater(
     private fun failed(
         kind: AuthenticatedRedditAccountHistoryFailureKind,
         retryable: Boolean = false,
+        details: FailureDetails? = null,
     ): AuthenticatedRedditAccountHistoryUpdateResult.Failed =
         AuthenticatedRedditAccountHistoryUpdateResult.Failed(
             kind = kind,
             retryable = retryable,
+            details = details,
         )
 }
 

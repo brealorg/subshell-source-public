@@ -69,28 +69,45 @@ class RedditListingCrosspostPollToleranceTest {
         }
     }
 
+    /**
+     * POLLDATA02_TOP_LEVEL_FALSE_IS_NO_POLL_V1 (2026-10-18): Reddit sent false at
+     * the top level too; an upvoted-history page failed whole on one such post
+     * (was topLevelBooleanFalsePollDataRemainsRejected, written before a
+     * top-level case had been seen).
+     */
     @Test
-    fun topLevelBooleanFalsePollDataRemainsRejected() {
-        assertMalformed(
-            """
-            {
-              "kind": "Listing",
-              "data": {
-                "children": [
-                  {
-                    "kind": "t3",
-                    "data": {
-                      "id": "wrapper",
-                      "title": "Wrapper",
-                      "poll_data": false
-                    }
-                  }
-                ]
-              }
-            }
-            """.trimIndent(),
-        )
+    fun topLevelBooleanFalsePollDataDecodesAsNoPoll() {
+        val listing = decode(topLevelPollData("false"))
+
+        assertNull(listing.data.children.single().data.pollData)
+        assertEquals(1, listing.toNetworkPage(nowEpochSeconds = 1_700_000_000L).items.size)
     }
+
+    @Test
+    fun topLevelNonPollShapesRemainRejected() {
+        listOf("true", "1", "\"poll\"", "[]").forEach { shape ->
+            assertMalformed(topLevelPollData(shape))
+        }
+    }
+
+    private fun topLevelPollData(value: String) =
+        """
+        {
+          "kind": "Listing",
+          "data": {
+            "children": [
+              {
+                "kind": "t3",
+                "data": {
+                  "id": "wrapper",
+                  "title": "Wrapper",
+                  "poll_data": $value
+                }
+              }
+            ]
+          }
+        }
+        """.trimIndent()
 
     private fun decode(
         payload: String,

@@ -84,6 +84,7 @@ internal class ModeratorContentControlsCoordinator(
             loading = true,
             revision = token,
             notice = null,
+            failureDetails = null,
         )
         try {
             val result = read(accountStableId, target)
@@ -124,6 +125,7 @@ internal class ModeratorContentControlsCoordinator(
                 mutating = true,
                 revision = token,
                 notice = null,
+                failureDetails = null,
             )
             val request = RedditModeratorActionRequest(
                 accountStableId = confirmation.accountStableId,
@@ -243,6 +245,7 @@ internal class ModeratorContentControlsCoordinator(
                         mutableState.value = mutableState.value.copy(
                             item = null,
                             mutating = false,
+                            failureDetails = result.failureDetails,
                             notice = when (result.kind) {
                                 RedditModeratorActionFailureKind.ALREADY_MUTATING ->
                                     ModeratorContentControlsNotice.BUSY
@@ -372,6 +375,7 @@ internal class ModeratorContentControlsCoordinator(
                     item = null,
                     loading = false,
                     notice = ModeratorContentControlsNotice.READ_FAILED,
+                    failureDetails = result.details,
                 )
         }
     }

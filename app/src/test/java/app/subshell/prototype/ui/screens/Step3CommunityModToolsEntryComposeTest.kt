@@ -2,6 +2,7 @@ package app.subshell.prototype.ui.screens
 
 import android.app.Application
 import androidx.compose.runtime.CompositionLocalProvider
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.ui.components.ModeratorToolsWorkspaceDestination
 import app.subshell.prototype.ui.components.LocalModeratorToolsNavigation
 import app.subshell.prototype.ui.components.ModeratorToolsNavigationEntryPoints
@@ -94,7 +95,7 @@ class Step3CommunityModToolsEntryComposeTest {
         action: RedditModeratorActionUiState = RedditModeratorActionUiState(),
     ) {
         composeRule.setContent {
-            val coordinator = VideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
+            val coordinator = testVideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
             // The app hosts the sheet's navigation (ModeratorToolsRootEntryPoints); a
             // minimal stand-in here: one open community at the root.
             var openCommunity by remember { mutableStateOf<String?>(null) }

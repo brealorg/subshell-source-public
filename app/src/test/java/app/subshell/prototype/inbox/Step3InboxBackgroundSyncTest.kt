@@ -2,7 +2,6 @@ package app.subshell.prototype.inbox
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
-import androidx.work.NetworkType
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
@@ -39,7 +38,12 @@ class Step3InboxBackgroundSyncTest {
         InboxBackgroundSyncScheduler.schedule(context, "reddit:a")
         val second = activeWork().single()
 
-        assertEquals(NetworkType.CONNECTED, first.constraints.requiredNetworkType)
+        // BGSYNCDIAG01: on Android 9+ the network requirement is a validated
+        // internet network request (the type then reads NOT_REQUIRED).
+        assertTrue(
+            requireNotNull(first.constraints.requiredNetworkRequest)
+                .hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET),
+        )
         assertEquals(TimeUnit.MINUTES.toMillis(15), first.periodicityInfo?.repeatIntervalMillis)
         assertEquals(first.id, second.id)
     }

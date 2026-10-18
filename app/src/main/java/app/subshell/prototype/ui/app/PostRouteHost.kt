@@ -2,8 +2,6 @@ package app.subshell.prototype.ui.app
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Inbox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState

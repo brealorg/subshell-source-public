@@ -21,6 +21,7 @@ import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.Post
 import app.subshell.prototype.model.PostKind
@@ -74,7 +75,7 @@ class Issue223ChromeComposeTest {
         SettingsBackupRepository(context, appVersion = "test").dismissFolderOnboarding()
         configure(state)
         composeRule.setContent {
-            SubshellApp(videoPlaybackCoordinator = VideoPlaybackCoordinator(context), state = state)
+            SubshellApp(videoPlaybackCoordinator = testVideoPlaybackCoordinator(context), state = state)
         }
         composeRule.waitForIdle()
         return state
@@ -212,7 +213,9 @@ class Issue223ChromeComposeTest {
 
     @Test
     fun theAppNameIsLowercaseInEveryText() {
-        val literal = Regex(""""(?:[^"\\\n]|\\.)*"""")
+        // Unrolled (no alternation inside a repeated group), so a very long
+        // literal (the generated Material Symbols path data) cannot overflow the stack.
+        val literal = Regex(""""[^"\\\n]*+(?:\\.[^"\\\n]*+)*+"""")
         val offenders = File("src/main/java").walkTopDown()
             .filter { it.isFile && it.extension == "kt" && it.name != "SampleData.kt" }
             .flatMap { file ->

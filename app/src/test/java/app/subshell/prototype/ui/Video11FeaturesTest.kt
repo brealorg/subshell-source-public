@@ -27,6 +27,7 @@ import androidx.window.layout.FoldingFeature
 import app.subshell.prototype.data.SampleData
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.PICTURE_IN_PICTURE_PLAY_PAUSE_ACTION
 import app.subshell.prototype.media.ProvideVideoPlaybackCoordinator
@@ -85,7 +86,7 @@ class Video11FeaturesTest {
 
     private fun released(): VideoPlaybackCoordinator {
         ensureWorkManagerInitialized(context)
-        return VideoPlaybackCoordinator(context).apply { release() }
+        return testVideoPlaybackCoordinator(context).apply { release() }
     }
 
     private fun frames(count: Int = 30) {

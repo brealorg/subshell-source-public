@@ -574,6 +574,7 @@ internal class RedditProfileCommentsLoader(
                     kind =
                         AuthenticatedRedditProfileCommentsFailureKind.HTTP,
                     retryable = networkResult.retryable,
+                    details = networkResult.failureDetailsOrNull(),
                 )
 
             is NetworkResult.TransportFailure ->
@@ -581,12 +582,14 @@ internal class RedditProfileCommentsLoader(
                     kind =
                         AuthenticatedRedditProfileCommentsFailureKind.TRANSPORT,
                     retryable = networkResult.retryable,
+                    details = networkResult.failureDetailsOrNull(),
                 )
 
             is NetworkResult.ProtocolFailure ->
                 AuthenticatedRedditProfileCommentTargetResult.Failed(
                     kind =
                         AuthenticatedRedditProfileCommentsFailureKind.PROTOCOL,
+                    details = networkResult.failureDetailsOrNull(),
                 )
         }
     }

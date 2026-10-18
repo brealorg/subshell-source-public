@@ -38,6 +38,7 @@ import app.subshell.prototype.data.account.RedditPostVisibilityRequest
 import app.subshell.prototype.data.account.RedditCommentsUiState
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.Comment
@@ -100,7 +101,7 @@ class Step3PostActionsComposeTest {
     private fun shown(text: String) = composeRule.onAllNodesWithText(text).fetchSemanticsNodes().size
 
     private fun withVideo(content: @androidx.compose.runtime.Composable () -> Unit) {
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         composeRule.setContent {
             SubshellTheme { CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) { content() } }
         }

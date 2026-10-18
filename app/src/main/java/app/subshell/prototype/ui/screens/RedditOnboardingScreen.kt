@@ -19,14 +19,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -66,12 +58,13 @@ import app.subshell.prototype.ui.RedditLinkHandlingStatus
 import app.subshell.prototype.auth.RedditCompatibilityConfigurationController
 import app.subshell.prototype.data.account.ConnectAccountPhase
 import app.subshell.prototype.data.account.ConnectAccountUiState
+import app.subshell.prototype.ui.symbols.Symbols
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.subshell.prototype.ui.components.InlineProgressIndicator
-import androidx.compose.material.icons.rounded.VpnKey
 
 internal enum class RedditOnboardingEntry {
     CHECKING,
@@ -228,9 +221,7 @@ internal fun RedditOnboardingScreen(
                             },
                         ) {
                             Icon(
-                                Icons.AutoMirrored
-                                    .Rounded
-                                    .ArrowBack,
+                                Symbols.ArrowBack,
                                 contentDescription =
                                     "Back",
                             )
@@ -457,7 +448,7 @@ private fun RedditOnboardingIntro(
             ) {
                 Icon(
                     imageVector =
-                        Icons.Rounded.VpnKey,
+                        Symbols.VpnKey,
                     contentDescription = null,
                     modifier = Modifier.size(24.dp),
                     tint =
@@ -842,7 +833,7 @@ private fun RedditClientIdEntry(
         )
 
     Icon(
-        Icons.Rounded.Lock,
+        Symbols.Lock,
         contentDescription = null,
         modifier = Modifier.size(38.dp),
         tint = MaterialTheme.colorScheme.primary,
@@ -892,9 +883,9 @@ private fun RedditClientIdEntry(
             ) {
                 Icon(
                     if (visible) {
-                        Icons.Rounded.VisibilityOff
+                        Symbols.VisibilityOff
                     } else {
-                        Icons.Rounded.Visibility
+                        Symbols.Visibility
                     },
                     contentDescription =
                         if (visible) {
@@ -1025,24 +1016,26 @@ private fun RedditClientIdEntry(
             // LOWUI8_ONBOARDING_CLIENT_ID_SAVE_FINISHES_V1 (OCB-249): Back during
             // the save left the step and cancelled the reload after the ID was
             // stored; the save and its report finish anyway (as LOWUI6a's Settings).
-            scope.launch(NonCancellable) {
-                val result = runCatching {
-                    withContext(
-                        Dispatchers.IO,
-                    ) {
-                        configurationController
-                            .save(clientId)
+            scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                withContext(NonCancellable) {
+                    val result = runCatching {
+                        withContext(
+                            Dispatchers.IO,
+                        ) {
+                            configurationController
+                                .save(clientId)
+                        }
                     }
-                }
 
-                busy = false
+                    busy = false
 
-                result.onSuccess {
-                    draft = ""
-                    onSaved()
-                }.onFailure {
-                    failureMessage =
-                        "subshell couldn't save the Client ID."
+                    result.onSuccess {
+                        draft = ""
+                        onSaved()
+                    }.onFailure {
+                        failureMessage =
+                            "subshell couldn't save the Client ID."
+                    }
                 }
             }
         },
@@ -1101,7 +1094,7 @@ private fun RedditOnboardingReady(
     onShowGuide: () -> Unit,
 ) {
     Icon(
-        Icons.Rounded.Check,
+        Symbols.Check,
         contentDescription = null,
         modifier = Modifier.size(42.dp),
         tint = MaterialTheme.colorScheme.primary,
@@ -1360,7 +1353,7 @@ private fun RedditOnboardingConnected(
                         .primaryContainer,
             ) {
                 Icon(
-                    Icons.Rounded.Check,
+                    Symbols.Check,
                     contentDescription = null,
                     modifier = Modifier
                         .padding(18.dp)
@@ -1460,7 +1453,7 @@ internal fun RedditLinkHandlingOnboardingScreen(
                 color = MaterialTheme.colorScheme.primaryContainer,
             ) {
                 Icon(
-                    Icons.Rounded.Link,
+                    Symbols.Link,
                     contentDescription = null,
                     modifier = Modifier
                         .padding(18.dp)

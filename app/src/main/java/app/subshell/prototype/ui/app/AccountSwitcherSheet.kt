@@ -9,10 +9,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -34,6 +30,7 @@ import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.ui.SubshellState
 import app.subshell.prototype.ui.accountSwitcherSessionLabel
 import app.subshell.prototype.ui.accountSwitcherSessions
+import app.subshell.prototype.ui.symbols.Symbols
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -126,7 +123,7 @@ internal fun AccountSwitcherSheet(
                     trailingContent = if (selected) {
                         {
                             Icon(
-                                Icons.Rounded.Check,
+                                Symbols.Check,
                                 contentDescription = "Current account",
                             )
                         }
@@ -147,11 +144,11 @@ internal fun AccountSwitcherSheet(
                 content = { Text("Manage accounts") },
                 supportingContent = { Text("Accounts, privacy and connection") },
                 leadingContent = {
-                    Icon(Icons.Rounded.Settings, contentDescription = null)
+                    Icon(Symbols.Settings, contentDescription = null)
                 },
                 trailingContent = {
                     Icon(
-                        Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                        Symbols.KeyboardArrowRight,
                         contentDescription = null,
                     )
                 },

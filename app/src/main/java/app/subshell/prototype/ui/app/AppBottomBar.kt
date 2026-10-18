@@ -118,14 +118,14 @@ internal fun AppBottomBar(
                                 },
                             ) {
                                 Icon(
-                                    item.icon,
+                                    if (state.destination == item.destination) item.selectedIcon else item.icon,
                                     contentDescription =
                                         if (labelShown) null else navigationAccessibilityLabel,
                                 )
                             }
                         } else {
                             Icon(
-                                item.icon,
+                                if (state.destination == item.destination) item.selectedIcon else item.icon,
                                 contentDescription =
                                     if (labelShown) null else navigationAccessibilityLabel,
                             )

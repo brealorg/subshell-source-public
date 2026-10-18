@@ -1,5 +1,6 @@
 package app.subshell.prototype.ui.components
 
+import app.subshell.prototype.ui.error.ReportFailureDiagnostic
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -149,6 +150,11 @@ internal fun OnlineVisibilitySettingRow(
                 )
             }
             state.issue?.let { issue ->
+                ReportFailureDiagnostic(
+                    scopeKey = "online_visibility",
+                    active = issue != OnlineVisibilityIssue.CHANGED_ON_REDDIT,
+                    failureDetails = state.failureDetails,
+                )
                 Text(
                     onlineVisibilityIssueMessage(issue) +
                         (state.httpStatusCode?.let { " HTTP $it." } ?: ""),

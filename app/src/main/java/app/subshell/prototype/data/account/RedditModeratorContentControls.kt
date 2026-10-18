@@ -1,5 +1,7 @@
 package app.subshell.prototype.data.account
 
+import app.subshell.prototype.data.error.FailureDetails
+
 // MODERATION02A3_TYPED_LOCK_DISTINGUISH_STATE_V1
 data class RedditModeratorContentState(
     val locked: Boolean? = null,
@@ -31,6 +33,8 @@ data class ModeratorContentControlsUiState(
     val mutating: Boolean = false,
     val revision: Long = 0L,
     val notice: ModeratorContentControlsNotice? = null,
+    // DIAG05_PLAIN_NOTICES_ARE_RECORDED_V1: what Reddit answered for a failed read or write.
+    val failureDetails: FailureDetails? = null,
 ) {
     val busy: Boolean
         get() = loading || mutating

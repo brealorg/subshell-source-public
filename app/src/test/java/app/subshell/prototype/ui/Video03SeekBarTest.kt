@@ -5,9 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ThumbDown
-import androidx.compose.material.icons.rounded.ThumbUp
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +27,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.subshell.prototype.data.SampleData
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.PostKind
@@ -39,6 +37,7 @@ import app.subshell.prototype.ui.components.SwipeActionSurface
 import app.subshell.prototype.ui.components.SwipeActionVisual
 import app.subshell.prototype.ui.components.VideoTimeline
 import app.subshell.prototype.ui.components.videoTimelineStateDescription
+import app.subshell.prototype.ui.symbols.Symbols
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -65,7 +64,7 @@ class Video03SeekBarTest {
 
     private val action = SwipeActionVisual(
         label = "Vote",
-        icon = Icons.Rounded.ThumbUp,
+        icon = Symbols.ThumbUp,
         containerColor = Color.Blue,
         contentColor = Color.White,
         enabled = true,
@@ -86,7 +85,7 @@ class Video03SeekBarTest {
             SwipeActionSurface(
                 enabled = true,
                 leftAction = action,
-                rightAction = action.copy(icon = Icons.Rounded.ThumbDown),
+                rightAction = action.copy(icon = Symbols.ThumbDown),
                 onLeft = { recorded.swipes++ },
                 onRight = { recorded.swipes++ },
             ) { contentModifier ->
@@ -236,7 +235,7 @@ class Video03SeekBarTest {
         )
         state.playVideo(post.id)
         // Released: nothing the player does reaches the test.
-        val coordinator = VideoPlaybackCoordinator(context).apply { release() }
+        val coordinator = testVideoPlaybackCoordinator(context).apply { release() }
         composeRule.mainClock.autoAdvance = false
         composeRule.setContent {
             CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {

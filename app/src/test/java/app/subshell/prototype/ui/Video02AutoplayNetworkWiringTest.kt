@@ -5,6 +5,8 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.releaseWithoutHanging
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.ProvideVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoNetworkClass
 import app.subshell.prototype.media.VideoPlaybackCoordinator
@@ -31,7 +33,7 @@ class Video02AutoplayNetworkWiringTest {
     fun theSelectionKnowsWhetherTheNetworkIsUnmetered() {
         ensureWorkManagerInitialized(context)
         val state = SubshellState()
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         try {
             composeRule.setContent {
                 ProvideVideoPlaybackCoordinator(state = state, coordinator = coordinator) {}
@@ -43,7 +45,7 @@ class Video02AutoplayNetworkWiringTest {
                 state.videoNetworkUnmetered,
             )
         } finally {
-            coordinator.release()
+            coordinator.releaseWithoutHanging()
         }
     }
 }

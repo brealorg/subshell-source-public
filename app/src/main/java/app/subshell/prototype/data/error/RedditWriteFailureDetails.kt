@@ -8,7 +8,10 @@ internal fun redditWriteHttpFailureDetails(
     statusCode: Int,
     retryable: Boolean,
     metadata: NetworkResponseMetadata? = null,
+    // DIAG04_REDDIT_ERROR_CODE_ON_400_V1: Reddit's code from the refused answer (too_old, thread_locked …).
+    providerReason: String? = null,
 ): FailureDetails = FailureDetails(
+    providerCode = SafeFailureText.fromUntrusted(providerReason),
     // LOWCRASH01_UNTRUSTED_HEADER_VALUES_CLAMPED_V1 (OCB-627): a status a
     // proxy made up (600-999) is left out instead of failing FailureDetails' check.
     httpStatusCode = statusCode.takeIf(::isHttpStatusCodeInRange),
@@ -20,6 +23,16 @@ internal fun redditWriteHttpFailureDetails(
         )?.coerceAtLeast(0L),
     retryable = retryable,
 )
+
+/**
+ * LOW_ERROR_RATE_WINDOW_ONLY_FOR_429_V1 (OCB-532, extended by WRITEDIAG01
+ * 2026-10-18): Reddit's rate-window reset is a "retry after" only when the
+ * answer is a rate limit (HTTP 429 or a RATELIMIT error); a Retry-After header
+ * always counts. Before, the submit, edit, reply and manage paths put the
+ * reset on any failure (a 400 vote showed retry_after_ms in a report).
+ */
+internal fun redditWriteRetryAfterMs(metadata: NetworkResponseMetadata, rateLimited: Boolean): Long? =
+    metadata.retryAfterMs ?: metadata.rateLimit.resetAfterMs.takeIf { rateLimited }
 
 internal fun redditWriteTransportFailureDetails(
     kind: NetworkTransportFailureKind,

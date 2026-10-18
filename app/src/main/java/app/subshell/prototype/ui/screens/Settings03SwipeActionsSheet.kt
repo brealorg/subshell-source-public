@@ -13,11 +13,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -41,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.subshell.prototype.ui.CommentSwipeAction
 import app.subshell.prototype.ui.PostSwipeAction
+import app.subshell.prototype.ui.symbols.Symbols
 
 // ISSUE16_INLINE_EXPANDABLE_SWIPE_SETTINGS_V1
 // ISSUE16_M3_RADIO_SINGLE_CHOICE_SETTINGS_V1
@@ -90,7 +86,7 @@ internal fun SwipeActionsSettingsSummary(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.TouchApp,
+                    imageVector = Symbols.TouchApp,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -266,9 +262,9 @@ private fun SwipeSummaryRow(
         Spacer(Modifier.width(6.dp))
         Icon(
             imageVector = if (expanded) {
-                Icons.Rounded.ExpandLess
+                Symbols.ExpandLess
             } else {
-                Icons.Rounded.ExpandMore
+                Symbols.ExpandMore
             },
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -323,7 +319,7 @@ private fun SwipeActionValueRow(
                 )
                 Spacer(Modifier.width(6.dp))
                 Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                    imageVector = Symbols.KeyboardArrowRight,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -59,6 +57,7 @@ import app.subshell.prototype.ui.components.rememberRouteTopBarScrollBehavior
 import app.subshell.prototype.ui.error.ErrorActionKind
 import app.subshell.prototype.ui.error.postManageErrorPresentation
 import app.subshell.prototype.ui.components.InlineProgressIndicator
+import app.subshell.prototype.ui.symbols.Symbols
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -221,7 +220,7 @@ fun PostManageScreen(
                         },
                     ) {
                         Icon(
-                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            Symbols.ArrowBack,
                             contentDescription = "Back",
                         )
                     }

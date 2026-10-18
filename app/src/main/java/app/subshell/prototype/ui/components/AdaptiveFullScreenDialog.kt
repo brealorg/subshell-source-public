@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -32,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import app.subshell.prototype.ui.symbols.Symbols
 
 // M3225_FORM_DIALOGS_ARE_FULL_SCREEN_ON_PHONES_V1 (#225, foundations-14, reading-07,
 // modinbox-05/07, owner): a form or multi-step task opens as an M3 full-screen
@@ -66,7 +65,7 @@ internal fun AdaptiveFullScreenDialog(
                 title = { Text(title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = navigationIcon ?: {
                     IconButton(enabled = closeEnabled, onClick = onDismissRequest) {
-                        Icon(Icons.Rounded.Close, contentDescription = closeLabel)
+                        Icon(Symbols.Close, contentDescription = closeLabel)
                     }
                 },
                 actions = actions,

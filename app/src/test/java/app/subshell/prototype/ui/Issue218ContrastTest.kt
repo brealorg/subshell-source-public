@@ -1,17 +1,11 @@
 package app.subshell.prototype.ui
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ThumbDownOffAlt
-import androidx.compose.material.icons.outlined.ThumbUpOffAlt
-import androidx.compose.material.icons.rounded.ArrowCircleUp
-import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.ThumbDown
-import androidx.compose.material.icons.rounded.ThumbUp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import app.subshell.prototype.ui.components.voteStateIcon
 import app.subshell.prototype.ui.components.voteDirectionTint
 import app.subshell.prototype.ui.components.voteSwipeContentColor
+import app.subshell.prototype.ui.symbols.Symbols
 import app.subshell.prototype.ui.theme.DarkColors
 import app.subshell.prototype.ui.theme.LightColors
 import app.subshell.prototype.ui.theme.SubshellOrangeSoft
@@ -59,12 +53,12 @@ class Issue218ContrastTest {
 
     @Test
     fun aCastVoteIsAlsoAShapeNotOnlyAColour() {
-        assertEquals(Icons.Rounded.ThumbUp, voteStateIcon(1, VoteControlMode.COMFORTABLE, voted = true))
-        assertEquals(Icons.Outlined.ThumbUpOffAlt, voteStateIcon(1, VoteControlMode.COMFORTABLE, voted = false))
-        assertEquals(Icons.Rounded.ThumbDown, voteStateIcon(-1, VoteControlMode.COMFORTABLE, voted = true))
-        assertEquals(Icons.Outlined.ThumbDownOffAlt, voteStateIcon(-1, VoteControlMode.COMFORTABLE, voted = false))
-        assertEquals(Icons.Rounded.ArrowCircleUp, voteStateIcon(1, VoteControlMode.COMPACT, voted = true))
-        assertEquals(Icons.Rounded.ArrowUpward, voteStateIcon(1, VoteControlMode.COMPACT, voted = false))
+        assertEquals(Symbols.ThumbUpFilled, voteStateIcon(1, VoteControlMode.COMFORTABLE, voted = true))
+        assertEquals(Symbols.ThumbUp, voteStateIcon(1, VoteControlMode.COMFORTABLE, voted = false))
+        assertEquals(Symbols.ThumbDownFilled, voteStateIcon(-1, VoteControlMode.COMFORTABLE, voted = true))
+        assertEquals(Symbols.ThumbDown, voteStateIcon(-1, VoteControlMode.COMFORTABLE, voted = false))
+        assertEquals(Symbols.ArrowCircleUpFilled, voteStateIcon(1, VoteControlMode.COMPACT, voted = true))
+        assertEquals(Symbols.ArrowUpward, voteStateIcon(1, VoteControlMode.COMPACT, voted = false))
     }
 
     @Test

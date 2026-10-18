@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -67,6 +65,7 @@ import app.subshell.prototype.ui.crosspostRequestForIdentityOnly
 import app.subshell.prototype.ui.crosspostReviewIdentity
 import app.subshell.prototype.ui.crosspostWriteAllowsReview
 import app.subshell.prototype.ui.crosspostWriteStateForDraft
+import app.subshell.prototype.ui.symbols.Symbols
 import app.subshell.prototype.ui.validateCrosspostComposerDraftIssue
 import app.subshell.prototype.ui.withCrosspostDestination
 import app.subshell.prototype.ui.composerKnownCommunityOptions
@@ -185,7 +184,7 @@ internal fun CrosspostCreateScreen(
                 title = { Text("Crosspost") },
                 navigationIcon = {
                     IconButton(onClick = ::close) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Save crosspost draft and close")
+                        Icon(Symbols.ArrowBack, contentDescription = "Save crosspost draft and close")
                     }
                 },
                 actions = {

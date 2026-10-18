@@ -7,10 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
-import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -21,7 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import android.media.AudioManager
 import android.provider.Settings
-import androidx.compose.material.icons.rounded.Brightness6
+import app.subshell.prototype.ui.symbols.Symbols
 import kotlin.math.roundToInt
 
 internal enum class FullscreenVideoGesture {
@@ -120,8 +116,8 @@ internal fun FullscreenVideoGestureLevelOverlay(
         ) {
             Icon(
                 imageVector = when (overlay.gesture) {
-                    FullscreenVideoGesture.BRIGHTNESS -> Icons.Rounded.Brightness6
-                    FullscreenVideoGesture.VOLUME -> if (percent == 0) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp
+                    FullscreenVideoGesture.BRIGHTNESS -> Symbols.Brightness6
+                    FullscreenVideoGesture.VOLUME -> if (percent == 0) Symbols.VolumeOff else Symbols.VolumeUp
                 },
                 contentDescription = when (overlay.gesture) {
                     FullscreenVideoGesture.BRIGHTNESS -> "Brightness"

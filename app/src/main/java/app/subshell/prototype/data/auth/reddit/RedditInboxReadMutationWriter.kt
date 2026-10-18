@@ -10,6 +10,7 @@ import app.subshell.prototype.data.auth.isMissingIncrementalScopeAuthorization
 import app.subshell.prototype.data.auth.OAuthEndpointResult
 import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.error.redditWriteHttpFailureDetails
+import app.subshell.prototype.data.error.failureDetailsOrNull
 import app.subshell.prototype.data.cache.RoomSubshellCacheStore
 import app.subshell.prototype.data.network.NetworkEndpoint
 import app.subshell.prototype.data.network.NetworkResult
@@ -109,6 +110,7 @@ internal class RedditInboxReadMutationWriter(
                                 statusCode = result.statusCode,
                                 retryable = result.retryable,
                                 metadata = result.metadata,
+                                providerReason = result.providerReason,
                             ),
                         )
                     }
@@ -116,11 +118,13 @@ internal class RedditInboxReadMutationWriter(
                         return@withInboxAccountLock failed(
                             AuthenticatedRedditInboxFailureKind.TRANSPORT,
                             result.retryable,
+                            result.failureDetailsOrNull(),
                         )
                     }
                     is NetworkResult.ProtocolFailure -> {
                         return@withInboxAccountLock failed(
                             AuthenticatedRedditInboxFailureKind.PROTOCOL,
+                            details = result.failureDetailsOrNull(),
                         )
                     }
                 }

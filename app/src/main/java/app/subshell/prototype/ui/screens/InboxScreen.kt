@@ -37,13 +37,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Reply
-import androidx.compose.material.icons.rounded.AlternateEmail
-import androidx.compose.material.icons.rounded.DoneAll
-import androidx.compose.material.icons.rounded.MailOutline
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Checkbox
@@ -124,6 +117,7 @@ import app.subshell.prototype.ui.components.RefreshableLazyColumn
 import app.subshell.prototype.ui.error.ErrorActionKind
 import app.subshell.prototype.ui.error.ReportViewportError
 import app.subshell.prototype.ui.error.redditInboxErrorPresentation
+import app.subshell.prototype.ui.symbols.Symbols
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import app.subshell.prototype.ui.components.InlineProgressIndicator
@@ -1183,7 +1177,7 @@ fun InboxScreen(
                                     },
                                 ) {
                                     Icon(
-                                        Icons.Rounded.Refresh,
+                                        Symbols.Refresh,
                                         contentDescription = when (selectedModSection) {
                                             InboxModSection.QUEUE -> "Refresh moderation queue"
                                             InboxModSection.MODMAIL -> "Refresh Modmail"
@@ -1223,7 +1217,7 @@ fun InboxScreen(
                                     onClick = ::markAllVisibleActivityRead,
                                 ) {
                                     Icon(
-                                        Icons.Rounded.DoneAll,
+                                        Symbols.DoneAll,
                                         contentDescription =
                                             "Mark all activity as read",
                                     )
@@ -1239,7 +1233,7 @@ fun InboxScreen(
                                     onClick = ::markAllVisibleMessagesRead,
                                 ) {
                                     Icon(
-                                        Icons.Rounded.DoneAll,
+                                        Symbols.DoneAll,
                                         contentDescription =
                                             "Mark all messages as read",
                                     )
@@ -1727,14 +1721,14 @@ internal fun modmailCommunityCountLabel(count: Int): String = when (count) {
 }
 
 private fun InboxPrimaryTab.workspaceIcon(): ImageVector = when (this) {
-    InboxPrimaryTab.ACTIVITY -> Icons.Rounded.AlternateEmail
-    InboxPrimaryTab.MESSAGES -> Icons.Rounded.MailOutline
-    InboxPrimaryTab.MOD -> Icons.Rounded.Security
+    InboxPrimaryTab.ACTIVITY -> Symbols.AlternateEmail
+    InboxPrimaryTab.MESSAGES -> Symbols.Mail
+    InboxPrimaryTab.MOD -> Symbols.Security
 }
 
 private fun InboxModSection.workspaceIcon(): ImageVector = when (this) {
-    InboxModSection.QUEUE -> Icons.Rounded.Security
-    InboxModSection.MODMAIL -> Icons.Rounded.MailOutline
+    InboxModSection.QUEUE -> Symbols.Security
+    InboxModSection.MODMAIL -> Symbols.Mail
 }
 
 // M3225_INBOX_DESTINATIONS_ARE_M3_TABS_V1 (owner 2026-10-13, modinbox-14): the
@@ -2262,7 +2256,7 @@ private fun InboxMessageIdentity(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        Icons.Rounded.MailOutline,
+                        Symbols.Mail,
                         contentDescription = contentDescription,
                         modifier = Modifier.size(20.dp),
                     )
@@ -2287,7 +2281,7 @@ private fun InboxMessageIdentity(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        Icons.Rounded.MailOutline,
+                        Symbols.Mail,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp),
                     )
@@ -2355,10 +2349,10 @@ private fun InboxItem.activityContextLabel(): String? {
 private fun ActivityKind.icon(): ImageVector = when (this) {
     ActivityKind.REPLY,
     ActivityKind.POST_REPLY,
-    -> Icons.AutoMirrored.Rounded.Reply
-    ActivityKind.MENTION -> Icons.Rounded.AlternateEmail
-    ActivityKind.MESSAGE -> Icons.Rounded.MailOutline
-    ActivityKind.MOD -> Icons.Rounded.Security
+    -> Symbols.Reply
+    ActivityKind.MENTION -> Symbols.AlternateEmail
+    ActivityKind.MESSAGE -> Symbols.Mail
+    ActivityKind.MOD -> Symbols.Security
 }
 
 // NEXT01A3D_SHARED_MODMAIL_THREAD_SURFACE_V1

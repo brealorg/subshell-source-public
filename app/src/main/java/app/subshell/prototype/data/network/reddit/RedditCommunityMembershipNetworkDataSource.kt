@@ -18,6 +18,7 @@ internal sealed interface RedditCommunityMembershipNetworkResult {
         val statusCode: Int,
         val retryable: Boolean,
         val metadata: NetworkResponseMetadata,
+        val providerReason: String? = null,
     ) : RedditCommunityMembershipNetworkResult
 
     data class TransportFailure(
@@ -53,6 +54,7 @@ internal class RedditCommunityMembershipNetworkDataSource(
                 statusCode = result.statusCode,
                 retryable = result.retryable,
                 metadata = result.metadata,
+                providerReason = result.providerReason,
             )
 
         is NetworkResult.TransportFailure ->

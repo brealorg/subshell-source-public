@@ -130,12 +130,35 @@ internal fun isAllowedRemoteImageContentType(
         subtype.equals("octet-stream", ignoreCase = true)
 }
 
+/** MEDIAGONE01: a 404/410 source no longer exists (removed post, deleted upload). */
+internal fun FailureDetails.isRemoteMediaGone(): Boolean = httpStatusCode == 404 || httpStatusCode == 410
+
+/**
+ * MEDIAGONE01_MEDIA_SCOPE_NAMES_THE_SOURCE_V1: the diagnostic scope of an
+ * image or GIF failure names the kind of source (no address), so a report
+ * tells i.redd.it, previews, imgur and other hosts apart.
+ */
+internal fun remoteMediaDiagnosticScope(kind: String, uri: String?): String {
+    val host = remoteImageRequestUrl(uri.orEmpty())?.host?.lowercase().orEmpty()
+    val source = when {
+        host == "i.redd.it" -> "i_redd_it"
+        host == "preview.redd.it" -> "preview_redd_it"
+        host == "external-preview.redd.it" -> "external_preview"
+        host.endsWith("redditmedia.com") || host.endsWith("redditstatic.com") -> "redditmedia"
+        host == "imgur.com" || host.endsWith(".imgur.com") -> "imgur"
+        host.endsWith("giphy.com") -> "giphy"
+        else -> "other"
+    }
+    return "${kind}_$source"
+}
+
 internal object RemoteImageLoader {
     private val bitmapCache = object : LruCache<String, Bitmap>(REMOTE_IMAGE_MEMORY_CACHE_KB) {
         override fun sizeOf(key: String, value: Bitmap): Int =
             (value.allocationByteCount / 1_024).coerceAtLeast(1)
     }
 
+    private val goneCache = LruCache<String, FailureDetails>(REMOTE_GONE_CACHE_ENTRIES)
     private val encodedCache = object : LruCache<String, ByteArray>(REMOTE_IMAGE_ENCODED_CACHE_KB) {
         override fun sizeOf(key: String, value: ByteArray): Int =
             (value.size / 1_024).coerceAtLeast(1)
@@ -209,8 +232,14 @@ internal object RemoteImageLoader {
         return result
     }
 
-    suspend fun loadAnimated(uri: String): RemoteMediaLoadResult<RemoteAnimatedImage> {
-        val bytes = when (val result = loadEncodedBytes(uri)) {
+    suspend fun loadAnimated(
+        uri: String,
+        callFactory: Call.Factory = SubshellNetworkTransport.mediaReadCallFactory,
+    ): RemoteMediaLoadResult<RemoteAnimatedImage> {
+        // MEDIAGONE01_LARGE_GIFS_UP_TO_100_MB_V1 (owner 2026-10-18): a report
+        // showed a GIF over the 40 MB image limit; GIFs may be 100 MB. The bytes
+        // are held in memory; an out-of-memory decode still fails quietly.
+        val bytes = when (val result = loadEncodedBytes(uri, callFactory, REMOTE_GIF_MAX_BYTES)) {
             is RemoteMediaLoadResult.Ready -> result.value
             is RemoteMediaLoadResult.Failed -> return result
         }
@@ -243,8 +272,10 @@ internal object RemoteImageLoader {
     private suspend fun loadEncodedBytes(
         uri: String,
         callFactory: Call.Factory = SubshellNetworkTransport.mediaReadCallFactory,
+        maxBytes: Long = REMOTE_IMAGE_MAX_BYTES,
     ): RemoteMediaLoadResult<ByteArray> {
         encodedCache.get(uri)?.let { return RemoteMediaLoadResult.Ready(it) }
+        goneCache.get(uri)?.let { return RemoteMediaLoadResult.Failed(it) }
         val parsed = remoteImageRequestUrl(uri)
             ?: return RemoteMediaLoadResult.Failed(
                 FailureDetails(
@@ -263,7 +294,7 @@ internal object RemoteImageLoader {
 
         val result = try {
             withContext(Dispatchers.IO) {
-                loadEncodedBytesFromNetwork(parsed, callFactory = callFactory)
+                loadEncodedBytesFromNetwork(parsed, callFactory = callFactory, maxBytes = maxBytes)
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -280,6 +311,12 @@ internal object RemoteImageLoader {
 
         if (result is RemoteMediaLoadResult.Ready && shouldCacheEncodedImage(result.value.size)) {
             encodedCache.put(uri, result.value)
+        }
+        // MEDIAGONE01_A_GONE_SOURCE_IS_NOT_FETCHED_AGAIN_V1: a 404/410 source is
+        // remembered for the session, so scrolling back does not fetch (and
+        // report) the dead link again.
+        if (result is RemoteMediaLoadResult.Failed && result.details.isRemoteMediaGone()) {
+            goneCache.put(uri, result.details)
         }
         return result
     }
@@ -299,11 +336,12 @@ internal object RemoteImageLoader {
         initialUrl: HttpUrl,
         sink: File? = null,
         callFactory: Call.Factory = SubshellNetworkTransport.mediaReadCallFactory,
+        maxBytes: Long = REMOTE_IMAGE_MAX_BYTES,
     ): RemoteMediaLoadResult<ByteArray> {
         var currentUrl = initialUrl
         var followedRedirects = 0
         while (true) {
-            when (val outcome = executeRemoteImageRequest(currentUrl, sink, callFactory)) {
+            when (val outcome = executeRemoteImageRequest(currentUrl, sink, callFactory, maxBytes)) {
                 is RemoteImageHttpOutcome.Redirect -> {
                     if (followedRedirects >= REMOTE_IMAGE_MAX_TRUSTED_REDIRECTS) {
                         return RemoteMediaLoadResult.Failed(
@@ -325,6 +363,7 @@ internal object RemoteImageLoader {
         url: HttpUrl,
         sink: File? = null,
         callFactory: Call.Factory = SubshellNetworkTransport.mediaReadCallFactory,
+        maxBytes: Long = REMOTE_IMAGE_MAX_BYTES,
     ): RemoteImageHttpOutcome {
         // MEDIA02_CANCELLABLE_MEDIA_BODY_READS_V1: the body copy loops run on
         // a blocking IO thread; they stop as soon as this coroutine is
@@ -388,14 +427,14 @@ internal object RemoteImageLoader {
                             ),
                         )
                         sink == null &&
-                            response.body.contentLength() > REMOTE_IMAGE_MAX_BYTES -> RemoteMediaLoadResult.Failed(
+                            response.body.contentLength() > maxBytes -> RemoteMediaLoadResult.Failed(
                             FailureDetails(
                                 retryable = false,
                                 protocolKind = NetworkProtocolFailureKind.BODY_TOO_LARGE,
                             ),
                         )
                         sink != null -> streamImageBodyToFile(response, sink, stillWanted)
-                        else -> readBoundedImageBody(response, stillWanted)
+                        else -> readBoundedImageBody(response, stillWanted, maxBytes)
                     },
                 )
             }
@@ -405,12 +444,13 @@ internal object RemoteImageLoader {
     private fun readBoundedImageBody(
         response: Response,
         stillWanted: () -> Boolean,
+        maxBytes: Long,
     ): RemoteMediaLoadResult<ByteArray> {
         val bytes = response.body.byteStream().use { input ->
             readBoundedMediaBytes(
                 input = input,
                 declaredLength = response.body.contentLength(),
-                maxBytes = REMOTE_IMAGE_MAX_BYTES,
+                maxBytes = maxBytes,
                 stillWanted = stillWanted,
             )
         } ?: return RemoteMediaLoadResult.Failed(
@@ -537,6 +577,8 @@ internal object RemoteImageLoader {
     // Display only: the whole body is held in memory before a bounded decode.
     // Sharing and saving stream to a file instead (downloadToFile).
     private const val REMOTE_IMAGE_MAX_BYTES = 40L * 1_024L * 1_024L
+    private const val REMOTE_GIF_MAX_BYTES = 100L * 1_024L * 1_024L
+    private const val REMOTE_GONE_CACHE_ENTRIES = 256
     private const val REMOTE_MEDIA_LEADING_BYTES = 16
     private const val REMOTE_IMAGE_MAX_DIMENSION = 2_048
     private const val REMOTE_IMAGE_MEMORY_CACHE_KB = 24 * 1_024

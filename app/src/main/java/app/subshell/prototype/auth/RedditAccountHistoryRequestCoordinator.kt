@@ -1,5 +1,6 @@
 package app.subshell.prototype.auth
 
+import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.RedditAccountHistoryKind
 import app.subshell.prototype.data.RepositoryLoadOperation
 import app.subshell.prototype.data.RepositoryQueryKey
@@ -141,6 +142,7 @@ internal class RedditAccountHistoryRequestCoordinator(
         authorizationRequired: Boolean,
         failureKind: RedditAccountHistoryUiFailureKind? = null,
         failureRetryable: Boolean = false,
+        failureDetails: FailureDetails? = null,
     ) {
         val current = mutableUiState.value
         if (!current.matchesUser(accountStableId, username)) return
@@ -149,7 +151,7 @@ internal class RedditAccountHistoryRequestCoordinator(
             authorizationRequired = authorizationRequired,
             failureKind = failureKind,
             failureRetryable = failureRetryable,
-            failureDetails = null,
+            failureDetails = failureDetails,
         )
     }
 
@@ -240,7 +242,7 @@ internal class RedditAccountHistoryRequestCoordinator(
                         failedOperation = operation,
                         failureKind = result.kind.toUiFailureKind(),
                         failureRetryable = result.retryable,
-                        failureDetails = null,
+                        failureDetails = result.details,
                     )
             }
         }

@@ -23,6 +23,7 @@ import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.data.account.RedditCommunityDiscoveryUiState
 import app.subshell.prototype.data.account.RedditPeopleSearchUiState
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.Community
@@ -110,7 +111,7 @@ class Step3SearchResultsComposeTest {
             updateSearchQuery(query)
             if (submit) submitSearch()
         }
-        val coordinator = VideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
+        val coordinator = testVideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
         composeRule.setContent {
             CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
                 SearchScreen(state = state, redditCommunityDiscoveryState = answer, onBack = {})

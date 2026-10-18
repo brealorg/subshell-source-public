@@ -12,6 +12,7 @@ import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.ui.app.PredictiveRouteBackMinScale
 import org.junit.Assert.assertEquals
@@ -58,7 +59,7 @@ class PredictiveRouteBackComposeTest {
         lateinit var dispatcher: OnBackPressedDispatcher
         composeRule.setContent {
             dispatcher = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
-            SubshellApp(videoPlaybackCoordinator = VideoPlaybackCoordinator(context), state = state)
+            SubshellApp(videoPlaybackCoordinator = testVideoPlaybackCoordinator(context), state = state)
         }
         composeRule.waitForIdle()
         state.openSubreddit("android")

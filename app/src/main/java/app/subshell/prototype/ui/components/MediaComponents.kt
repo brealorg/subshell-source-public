@@ -5,10 +5,11 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.material3.SheetValue
 import androidx.compose.ui.text.style.TextDecoration
+import app.subshell.prototype.media.isRemoteMediaGone
+import app.subshell.prototype.media.remoteMediaDiagnosticScope
 import app.subshell.prototype.ui.mediaDownloadFolder
 import app.subshell.prototype.ui.downloadGalleryItems
 import app.subshell.prototype.ui.error.LocalViewportErrorHostState
-import androidx.compose.material.icons.rounded.PhotoLibrary
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -49,18 +50,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.rounded.Fullscreen
-import androidx.compose.material.icons.rounded.HideImage
-import androidx.compose.material.icons.rounded.VideocamOff
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Poll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -139,6 +128,7 @@ import app.subshell.prototype.ui.error.RemoteMediaKind
 import app.subshell.prototype.ui.error.mediaSourceHost
 import app.subshell.prototype.ui.error.remoteMediaErrorPresentation
 import app.subshell.prototype.ui.mediaActionsAtStart
+import app.subshell.prototype.ui.symbols.Symbols
 import java.net.URI
 import java.net.URLDecoder
 import kotlinx.coroutines.delay
@@ -433,9 +423,11 @@ fun PostMedia(
             post = post,
             preloaded = false,
             onReveal = { state.revealMedia(post) },
+            // ISSUE234_FEED_MEDIA_CAPPED_AT_4_5_V1: like feed images and the inline
+            // player, the cover is no taller than 4:5.
             modifier = modifier
                 .fillMaxWidth()
-                .aspectRatio(mediaAspectRatio(post)),
+                .aspectRatio(boundedInlineVideoAspectRatio(mediaAspectRatio(post))),
         )
         return
     }
@@ -516,7 +508,8 @@ fun PostMedia(
                             label = post.mediaLabel,
                             playing = state.activeAnimatedMediaId == post.id,
                             modifier = Modifier
-                                .aspectRatio(mediaAspectRatio(post))
+                                // ISSUE234_FEED_MEDIA_CAPPED_AT_4_5_V1
+                                .aspectRatio(boundedInlineVideoAspectRatio(mediaAspectRatio(post)))
                                 .combinedClickable(
                                     onClick = { state.openMedia(post) },
                                     onLongClick = showPostMediaActions,
@@ -552,7 +545,7 @@ fun PostMedia(
                                     contentColor = Color.White,
                                 ) {
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                                        imageVector = Symbols.OpenInNew,
                                         contentDescription = "Open external link",
                                         modifier = Modifier.padding(8.dp),
                                     )
@@ -646,7 +639,7 @@ fun PostMedia(
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
-                                if (videoShareTarget) Icons.Rounded.PlayArrow else Icons.Rounded.Share,
+                                if (videoShareTarget) Symbols.PlayArrowFilled else Symbols.Share,
                                 contentDescription = null,
                                 modifier = Modifier.size(32.dp),
                             )
@@ -691,7 +684,7 @@ fun PostMedia(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     content = { Text("Share media") },
                     leadingContent = {
-                        Icon(Icons.Rounded.Share, contentDescription = null)
+                        Icon(Symbols.Share, contentDescription = null)
                     },
                     modifier = Modifier.clickable {
                         // LOWUX2_EVERY_SHARE_SHOWS_ITS_PREPARATION_V1 (OCB-138): an
@@ -716,7 +709,7 @@ fun PostMedia(
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 content = { Text("Share post link") },
                 leadingContent = {
-                    Icon(Icons.Rounded.Link, contentDescription = null)
+                    Icon(Symbols.Link, contentDescription = null)
                 },
                 modifier = Modifier.clickable {
                     mediaActionTarget = null
@@ -727,7 +720,7 @@ fun PostMedia(
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 content = { Text("Download") },
                 leadingContent = {
-                    Icon(Icons.Rounded.Download, contentDescription = null)
+                    Icon(Symbols.Download, contentDescription = null)
                 },
                 modifier = Modifier.clickable {
                     mediaDownload = MediaDownloadUiState.Saving(done = 0, total = 1)
@@ -757,7 +750,7 @@ fun PostMedia(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     content = { Text("Download all ${galleryItems.size}") },
                     leadingContent = {
-                        Icon(Icons.Rounded.PhotoLibrary, contentDescription = null)
+                        Icon(Symbols.PhotoLibrary, contentDescription = null)
                     },
                     modifier = Modifier.clickable {
                         mediaDownload = MediaDownloadUiState.Saving(done = 0, total = galleryItems.size)
@@ -915,7 +908,7 @@ fun LocalUriMedia(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Icon(Icons.Rounded.HideImage, contentDescription = null)
+                    Icon(Symbols.HideImage, contentDescription = null)
                     Text(
                         "Preview unavailable",
                         modifier = Modifier.padding(top = 6.dp),
@@ -935,7 +928,7 @@ fun LocalUriMedia(
                 color = Color.Black.copy(alpha = 0.62f),
             ) {
                 Icon(
-                    Icons.Rounded.PlayArrow,
+                    Symbols.PlayArrowFilled,
                     contentDescription = "Video preview",
                     tint = Color.White,
                     modifier = Modifier.padding(10.dp).size(28.dp),
@@ -968,7 +961,7 @@ private fun SensitiveMediaCover(
             verticalArrangement = Arrangement.Center,
         ) {
             Icon(
-                if (post.kind == PostKind.VIDEO) Icons.Rounded.VideocamOff else Icons.Rounded.HideImage,
+                if (post.kind == PostKind.VIDEO) Symbols.VideocamOff else Symbols.HideImage,
                 contentDescription = null,
                 modifier = Modifier.size(28.dp),
                 tint = foreground,
@@ -1007,7 +1000,7 @@ private fun HiddenSensitiveMediaRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                if (post.kind == PostKind.VIDEO) Icons.Rounded.VideocamOff else Icons.Rounded.HideImage,
+                if (post.kind == PostKind.VIDEO) Symbols.VideocamOff else Symbols.HideImage,
                 contentDescription = null,
                 modifier = Modifier.size(28.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1059,10 +1052,13 @@ internal fun MediaFailurePlaceholder(
     modifier: Modifier = Modifier,
     sourceUri: String? = null,
 ) {
-    ReportErrorPresentationDiagnostic(
-        scopeKey = diagnosticScopeKey,
-        presentation = presentation,
-    )
+    val gone = presentation.failureDetails?.isRemoteMediaGone() == true
+    if (!gone) {
+        ReportErrorPresentationDiagnostic(
+            scopeKey = diagnosticScopeKey,
+            presentation = presentation,
+        )
+    }
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -1071,14 +1067,14 @@ internal fun MediaFailurePlaceholder(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
-            imageVector = Icons.Rounded.ErrorOutline,
+            imageVector = if (gone) Symbols.HideImage else Symbols.Error,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.error,
+            tint = if (gone) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
         )
         Text(
             text = presentation.title,
             style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.error,
+            color = if (gone) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
         )
         Text(
             text = presentation.message,
@@ -1182,13 +1178,13 @@ fun RemoteImage(
                             details = current.details,
                             sourceUri = uri,
                         ),
-                        diagnosticScopeKey = "media_image",
+                        diagnosticScopeKey = remoteMediaDiagnosticScope("media_image", uri),
                         onRetry = { retryNonce += 1 },
                         sourceUri = uri,
                     )
                 } else {
                     Icon(
-                        Icons.Rounded.HideImage,
+                        Symbols.HideImage,
                         contentDescription = "Image unavailable",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1286,7 +1282,7 @@ fun RemoteGifMedia(
                     details = current.details,
                     sourceUri = uri,
                 ),
-                diagnosticScopeKey = "media_gif",
+                diagnosticScopeKey = remoteMediaDiagnosticScope("media_gif", uri),
                 onRetry = { retryNonce += 1 },
                 sourceUri = uri,
             )
@@ -1330,7 +1326,7 @@ fun RemoteGifMedia(
                         color = Color.Black.copy(alpha = 0.68f),
                     ) {
                         Icon(
-                            Icons.Rounded.PlayArrow,
+                            Symbols.PlayArrowFilled,
                             contentDescription = "GIF paused",
                             modifier = Modifier.padding(11.dp),
                             tint = Color.White,
@@ -1453,7 +1449,7 @@ fun GifMedia(
                 color = Color.Black.copy(alpha = 0.68f),
             ) {
                 Icon(
-                    Icons.Rounded.PlayArrow,
+                    Symbols.PlayArrowFilled,
                     contentDescription = "GIF paused",
                     modifier = Modifier.padding(11.dp),
                     tint = Color.White,
@@ -1569,7 +1565,7 @@ internal fun GalleryMedia(
                 ),
             ) {
                 Icon(
-                    Icons.Rounded.Fullscreen,
+                    Symbols.Fullscreen,
                     contentDescription = "Open image ${activeIndex + 1} of ${post.gallery.size} full screen",
                 )
             }
@@ -1715,7 +1711,7 @@ private fun GalleryMetadataSurface(
                     // black was ~3:1 in light theme); on a surface it stays primary.
                     val linkColor = if (overlay) foreground else MaterialTheme.colorScheme.primary
                     Icon(
-                        Icons.AutoMirrored.Rounded.OpenInNew,
+                        Symbols.OpenInNew,
                         contentDescription = null,
                         tint = linkColor,
                         modifier = Modifier.size(16.dp),
@@ -1807,7 +1803,7 @@ private fun LinkPanel(
                 Text(post.domain ?: "External link", style = MaterialTheme.typography.labelLarge)
                 Text(post.mediaLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = "Open link preview")
+            Icon(Symbols.OpenInNew, contentDescription = "Open link preview")
         }
     }
 }
@@ -2243,7 +2239,7 @@ private fun PollPanel(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    Icons.Rounded.Poll,
+                    Symbols.Poll,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                 )
@@ -2300,7 +2296,7 @@ private fun PollPanel(
                                     style = MaterialTheme.typography.labelLarge,
                                 )
                                 selected -> Icon(
-                                    Icons.Rounded.Check,
+                                    Symbols.Check,
                                     contentDescription = if (selectable) null else "Selected",
                                     modifier = Modifier.size(18.dp),
                                 )

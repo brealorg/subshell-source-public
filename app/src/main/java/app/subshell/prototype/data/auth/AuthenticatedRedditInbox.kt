@@ -49,6 +49,8 @@ internal sealed interface AuthenticatedRedditInboxTargetResult {
     data class Failed(
         val kind: AuthenticatedRedditInboxFailureKind,
         val retryable: Boolean,
+        // DIAG05_TARGET_LOOKUP_FAILURE_IS_RECORDED_V1
+        val details: FailureDetails? = null,
     ) : AuthenticatedRedditInboxTargetResult
 }
 

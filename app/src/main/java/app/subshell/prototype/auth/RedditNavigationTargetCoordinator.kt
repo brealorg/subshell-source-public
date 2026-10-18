@@ -1,5 +1,7 @@
 package app.subshell.prototype.auth
 
+import app.subshell.prototype.data.error.LocalFailureKind
+import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.RedditAccountHistoryKind
 import app.subshell.prototype.data.account.RedditAccountHistoryUiFailureKind
 import app.subshell.prototype.data.auth.AuthenticatedRedditAccountHistoryCommentLoader
@@ -26,6 +28,8 @@ internal class RedditNavigationTargetCoordinator(
     private val commentLoader: AuthenticatedRedditAccountHistoryCommentLoader?,
     private val redditAccountHistoryCoordinator: RedditAccountHistoryRequestCoordinator,
     private val redditSavedHistoryCoordinator: RedditSavedHistoryRequestCoordinator,
+    // DIAG05_TARGET_LOOKUP_FAILURE_IS_RECORDED_V1
+    private val recordLookupFailure: (scopeKey: String, details: FailureDetails?) -> Unit = { _, _ -> },
 ) {
     fun resolveRedditNavigationTargetPost(
         accountStableId: String,
@@ -48,10 +52,12 @@ internal class RedditNavigationTargetCoordinator(
                 loader.resolveTargetPost(account, targetPostId)
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 AuthenticatedRedditInboxTargetResult.Failed(
                     kind = AuthenticatedRedditInboxFailureKind.STORAGE,
                     retryable = true,
+                    details = FailureDetails(retryable = true, localKind = LocalFailureKind.UNKNOWN)
+                        .withExceptionClass(error),
                 )
             }
             when (result) {
@@ -59,8 +65,11 @@ internal class RedditNavigationTargetCoordinator(
                     onResolved(result.post)
                 AuthenticatedRedditInboxTargetResult.AuthorizationRequired,
                 AuthenticatedRedditInboxTargetResult.NotFound,
-                is AuthenticatedRedditInboxTargetResult.Failed,
                 -> onResolved(null)
+                is AuthenticatedRedditInboxTargetResult.Failed -> {
+                    recordLookupFailure("link_target_post", result.details)
+                    onResolved(null)
+                }
             }
         }
     }
@@ -82,7 +91,7 @@ internal class RedditNavigationTargetCoordinator(
                 kind = RedditAccountHistoryKind.COMMENTS,
             )
         },
-        markHistory = { account, normalizedUsername, authorizationRequired, failureKind, failureRetryable ->
+        markHistory = { account, normalizedUsername, authorizationRequired, failureKind, failureRetryable, failureDetails ->
             redditAccountHistoryCoordinator.updateAuthorizationState(
                 accountStableId = account,
                 username = normalizedUsername,
@@ -90,6 +99,7 @@ internal class RedditNavigationTargetCoordinator(
                 authorizationRequired = authorizationRequired,
                 failureKind = failureKind,
                 failureRetryable = failureRetryable,
+                failureDetails = failureDetails,
             )
         },
     )
@@ -110,7 +120,7 @@ internal class RedditNavigationTargetCoordinator(
                 username = normalizedUsername,
             )
         },
-        markHistory = { account, normalizedUsername, authorizationRequired, failureKind, failureRetryable ->
+        markHistory = { account, normalizedUsername, authorizationRequired, failureKind, failureRetryable, failureDetails ->
             redditSavedHistoryCoordinator.updateAuthorizationState(
                 accountStableId = account,
                 username = normalizedUsername,
@@ -118,6 +128,7 @@ internal class RedditNavigationTargetCoordinator(
                 authorizationRequired = authorizationRequired,
                 failureKind = failureKind,
                 failureRetryable = failureRetryable,
+                failureDetails = failureDetails,
             )
         },
     )
@@ -139,6 +150,7 @@ internal class RedditNavigationTargetCoordinator(
             authorizationRequired: Boolean,
             failureKind: RedditAccountHistoryUiFailureKind?,
             failureRetryable: Boolean,
+            failureDetails: FailureDetails?,
         ) -> Unit,
     ) {
         val account = accountStableId.trim()
@@ -193,7 +205,7 @@ internal class RedditNavigationTargetCoordinator(
                     onResolved(result.post)
 
                 AuthenticatedRedditProfileCommentTargetResult.AuthorizationRequired -> {
-                    markHistory(account, normalizedUsername, true, null, false)
+                    markHistory(account, normalizedUsername, true, null, false, null)
                     onResolved(null)
                 }
 
@@ -207,6 +219,7 @@ internal class RedditNavigationTargetCoordinator(
                         false,
                         result.kind.toAccountHistoryUiFailureKind(),
                         result.retryable,
+                        result.details,
                     )
                     onResolved(null)
                 }

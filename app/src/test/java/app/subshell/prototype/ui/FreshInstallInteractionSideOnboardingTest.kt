@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -38,7 +39,7 @@ class FreshInstallInteractionSideOnboardingTest {
 
         composeRule.setContent {
             state = rememberSubshellState().also { current ->
-                SubshellApp(videoPlaybackCoordinator = VideoPlaybackCoordinator(context), state = current)
+                SubshellApp(videoPlaybackCoordinator = testVideoPlaybackCoordinator(context), state = current)
             }
         }
         composeRule.waitForIdle()

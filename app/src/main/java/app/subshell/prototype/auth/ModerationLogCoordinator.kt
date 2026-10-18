@@ -348,6 +348,7 @@ internal class ModerationLogCoordinator(
                     failureKind = result.kind.toUiFailureKind(),
                     failureRetryable = result.retryable,
                     failureHttpStatusCode = result.httpStatusCode,
+                    failureDetails = result.details,
                 )
             }
         }

@@ -32,6 +32,7 @@ import app.subshell.prototype.data.account.RedditCommentsUiState
 import app.subshell.prototype.data.redditAccountHistoryQueryKey
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.ActivityKind
@@ -181,7 +182,7 @@ class LowUi8cComposeTest {
     fun anInlineVideoFollowsNewSourcesForTheSamePost() {
         ensureWorkManagerInitialized(context)
         val state = signedIn()
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         val local = SampleData.posts.first().copy(
             id = "t3_v302",
             kind = PostKind.VIDEO,
@@ -266,7 +267,7 @@ class LowUi8cComposeTest {
         )
         var deleteState by mutableStateOf(CommentDeleteUiState())
         val refreshes = mutableListOf<String>()
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         composeRule.setContent {
             CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
                 PostScreen(

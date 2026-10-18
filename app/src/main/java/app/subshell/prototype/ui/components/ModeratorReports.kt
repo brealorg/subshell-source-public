@@ -1,5 +1,6 @@
 package app.subshell.prototype.ui.components
 
+import app.subshell.prototype.ui.error.ReportFailureDiagnostic
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -24,20 +25,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.FactCheck
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.NotificationsActive
-import androidx.compose.material.icons.rounded.NotificationsOff
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -88,6 +75,7 @@ import app.subshell.prototype.data.account.reportTarget
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.ui.graphics.Color
+import app.subshell.prototype.ui.symbols.Symbols
 
 // MODERATION02A2_ROOT_OWNED_REPORT_INSPECTOR_ENTRY_POINTS_V1
 // One root dialog survives removal of a queue row. No report bodies are put in
@@ -109,7 +97,7 @@ internal fun ModeratorReportLookupButton(communityName: String? = null) {
         onClick = { entries.open(null) },
         modifier = Modifier.heightIn(min = 48.dp),
     ) {
-        Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+        Icon(Symbols.Search, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Text("Find reports")
     }
@@ -125,7 +113,7 @@ internal fun ModeratorReportsButton(item: RedditModeratorQueueItem) {
         modifier = Modifier.padding(horizontal = 12.dp).heightIn(min = 48.dp),
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
     ) {
-        Icon(Icons.AutoMirrored.Rounded.FactCheck, contentDescription = null, modifier = Modifier.size(18.dp))
+        Icon(Symbols.FactCheck, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Text("View reports")
     }
@@ -138,7 +126,7 @@ internal fun ModeratorReportMenuItem(target: ModeratorReportTarget?, onDismissMe
     if (!entries.canInspect(community)) return
     DropdownMenuItem(
         text = { Text("Moderator reports") },
-        leadingIcon = { Icon(Icons.AutoMirrored.Rounded.FactCheck, contentDescription = null) },
+        leadingIcon = { Icon(Symbols.FactCheck, contentDescription = null) },
         onClick = {
             onDismissMenu()
             entries.open(target)
@@ -182,7 +170,7 @@ internal fun ModeratorReportsDialog(
         navigationIcon = if (state.target != null) {
             {
                 IconButton(onClick = { onOpen(null) }, enabled = !busy) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Choose another item")
+                    Icon(Symbols.ArrowBack, contentDescription = "Choose another item")
                 }
             }
         } else {
@@ -191,9 +179,9 @@ internal fun ModeratorReportsDialog(
         actions = {
             if (state.target != null) {
                 IconButton(onClick = onRefresh, enabled = !busy) {
-                    Icon(Icons.Rounded.Refresh, contentDescription = "Refresh reports")
+                    Icon(Symbols.Refresh, contentDescription = "Refresh reports")
                 }
-                IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, contentDescription = "Close reports") }
+                IconButton(onClick = onDismiss) { Icon(Symbols.Close, contentDescription = "Close reports") }
             }
         },
     ) {
@@ -248,9 +236,9 @@ internal fun ModeratorReportsDialog(
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Icon(Icons.Rounded.Link, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Symbols.Link, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                 Text("Open by link or ID", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                                Icon(if (lookupExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null)
+                                Icon(if (lookupExpanded) Symbols.ExpandLess else Symbols.ExpandMore, contentDescription = null)
                             }
                             if (lookupExpanded) {
                                 Column(
@@ -277,7 +265,7 @@ internal fun ModeratorReportsDialog(
                                         enabled = !busy && lookup.isNotBlank(),
                                         modifier = Modifier.align(Alignment.End).heightIn(min = 48.dp),
                                     ) {
-                                        Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Icon(Symbols.Search, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(Modifier.width(8.dp))
                                         Text("Open reports")
                                     }
@@ -316,6 +304,12 @@ internal fun ModeratorReportsDialog(
             state.notice?.let { notice ->
                 item("notice") {
                     ModeratorReportNotice(notice)
+                    ReportFailureDiagnostic(
+                        scopeKey = "moderator_reports",
+                        active = notice == ModeratorReportsNotice.READ_FAILED ||
+                            notice == ModeratorReportsNotice.WRITE_FAILED,
+                        failureDetails = state.failureDetails,
+                    )
                     if (notice == ModeratorReportsNotice.AUTHORIZATION_REQUIRED &&
                         actionState.request?.accountStableId == accountStableId &&
                         actionState.request.thingFullname == state.target?.fullname &&
@@ -376,7 +370,7 @@ internal fun ModeratorReportsDialog(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 OutlinedButton(onClick = { pending = confirmation }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) {
-                                    Icon(if (ignoring) Icons.Rounded.NotificationsOff else Icons.Rounded.NotificationsActive, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Icon(if (ignoring) Symbols.NotificationsOff else Symbols.NotificationsActive, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(8.dp))
                                     Text(if (ignoring) "Ignore reports…" else "Unignore reports…")
                                 }
@@ -394,7 +388,7 @@ internal fun ModeratorReportsDialog(
     // MODERATION02A2R3_TARGET_BOUND_COMPACT_CONFIRMATION_V1
     AlertDialog(
         onDismissRequest = { pending = null },
-        icon = { Icon(if (ignoring) Icons.Rounded.NotificationsOff else Icons.Rounded.NotificationsActive, contentDescription = null) },
+        icon = { Icon(if (ignoring) Symbols.NotificationsOff else Symbols.NotificationsActive, contentDescription = null) },
         title = { Text(if (ignoring) "Ignore reports?" else "Unignore reports?") },
         text = {
             Column(Modifier.heightIn(max = 280.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -462,7 +456,7 @@ private fun ModeratorReportTargetButton(
                 }
             },
             trailingContent = {
-                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null)
+                Icon(Symbols.KeyboardArrowRight, contentDescription = null)
             },
         )
     }
@@ -490,7 +484,7 @@ private fun ReportStatusBadge(ignored: Boolean?) {
         modifier = Modifier.semantics(mergeDescendants = true) { stateDescription = label },
     ) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(when (ignored) { null -> Icons.Rounded.Info; true -> Icons.Rounded.NotificationsOff; false -> Icons.Rounded.NotificationsActive }, contentDescription = null, modifier = Modifier.size(18.dp))
+            Icon(when (ignored) { null -> Symbols.Info; true -> Symbols.NotificationsOff; false -> Symbols.NotificationsActive }, contentDescription = null, modifier = Modifier.size(18.dp))
             Text(label, style = MaterialTheme.typography.labelLarge)
         }
     }
@@ -499,7 +493,7 @@ private fun ReportStatusBadge(ignored: Boolean?) {
 @Composable
 private fun ReportEmptySection(text: String, unavailable: Boolean) {
     Row(Modifier.padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Rounded.Info, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (unavailable) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(Symbols.Info, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (unavailable) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
         Text(text, style = MaterialTheme.typography.bodySmall, color = if (unavailable) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -528,7 +522,7 @@ private fun ModeratorReportNotice(notice: ModeratorReportsNotice) {
         modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
     ) {
         Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Icon(if (verified) Icons.Rounded.CheckCircle else Icons.Rounded.Info, contentDescription = null, modifier = Modifier.size(20.dp))
+            Icon(if (verified) Symbols.CheckCircle else Symbols.Info, contentDescription = null, modifier = Modifier.size(20.dp))
             Text(moderatorReportsNoticeText(notice), style = MaterialTheme.typography.bodySmall)
         }
     }

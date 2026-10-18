@@ -9,10 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import app.subshell.prototype.ui.CommunityMute
+import app.subshell.prototype.ui.symbols.Symbols
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,7 +71,7 @@ fun MutedCommunitiesSheet(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
+                        imageVector = Symbols.VolumeUp,
                         contentDescription = null,
                         modifier = Modifier.size(22.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -99,7 +96,7 @@ fun MutedCommunitiesSheet(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             leadingContent = {
                                 Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.VolumeOff,
+                                    imageVector = Symbols.VolumeOff,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
                                 )
@@ -132,7 +129,7 @@ fun MutedCommunitiesSheet(
                                         onClick = { onChange(mute.communityName) },
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Rounded.Edit,
+                                            imageVector = Symbols.Edit,
                                             contentDescription = null,
                                             modifier = Modifier.size(17.dp),
                                         )
@@ -145,7 +142,7 @@ fun MutedCommunitiesSheet(
                                         onClick = { onUnmute(mute.communityName) },
                                     ) {
                                         Icon(
-                                            imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
+                                            imageVector = Symbols.VolumeUp,
                                             contentDescription =
                                                 "Unmute ${communityLabel(mute.communityName)}",
                                         )

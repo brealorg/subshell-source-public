@@ -24,6 +24,7 @@ import app.subshell.prototype.data.search.TrendingSearchCache
 import app.subshell.prototype.data.search.TrendingSearchSeed
 import app.subshell.prototype.data.search.encodeTrendingSearchCache
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.Community
@@ -91,7 +92,7 @@ class Step3SearchWorkspaceComposeTest {
     }
 
     private fun show(state: SubshellState, discovery: RedditCommunityDiscoveryUiState = RedditCommunityDiscoveryUiState()) {
-        val coordinator = VideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
+        val coordinator = testVideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
         composeRule.setContent {
             CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
                 SearchScreen(

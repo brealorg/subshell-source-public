@@ -24,6 +24,8 @@ internal sealed interface AuthenticatedRedditProfileCommentTargetResult {
     data class Failed(
         val kind: AuthenticatedRedditProfileCommentsFailureKind,
         val retryable: Boolean = false,
+        // DIAG05_PLAIN_NOTICES_ARE_RECORDED_V1
+        val details: FailureDetails? = null,
     ) : AuthenticatedRedditProfileCommentTargetResult
 }
 

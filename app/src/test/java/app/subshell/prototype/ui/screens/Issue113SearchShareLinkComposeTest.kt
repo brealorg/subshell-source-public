@@ -13,6 +13,7 @@ import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.ui.SubshellState
@@ -64,7 +65,7 @@ class Issue113SearchShareLinkComposeTest {
             openSearch(refocus = false)
             updateSearchQuery("https://www.reddit.com/r/Android/s/AbC123")
         }
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         val uriHandler = object : UriHandler {
             override fun openUri(uri: String) {
                 openedLinks += uri

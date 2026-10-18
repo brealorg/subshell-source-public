@@ -12,9 +12,6 @@ import app.subshell.prototype.data.account.RedditRemovalStepOutcome
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Block
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -53,6 +50,7 @@ import app.subshell.prototype.data.account.RedditModeratorQueueItem
 import app.subshell.prototype.data.account.RedditModeratorQueueKind
 import app.subshell.prototype.data.account.RedditRemovalReasonPhase
 import app.subshell.prototype.data.account.RedditRemovalReasonUiState
+import app.subshell.prototype.ui.symbols.Symbols
 
 // MOD01A22_INBOX_MOD_QUEUE_PRESENTATION_V1
 // MODERATION02A2R3_COMPACT_INBOX_REVIEW_CARD_V1
@@ -100,7 +98,7 @@ internal fun InboxModeratorQueueItemCard(
                     },
                     enabled = !actionUiState.inProgress,
                 ) {
-                    ModeratorActionIcon(Icons.Rounded.Check)
+                    ModeratorActionIcon(Symbols.Check)
                     Spacer(Modifier.width(6.dp))
                     Text("Approve")
                 }
@@ -109,7 +107,7 @@ internal fun InboxModeratorQueueItemCard(
                     onClick = { onRequestRemove(item) },
                     enabled = !actionUiState.inProgress,
                 ) {
-                    ModeratorActionIcon(Icons.Rounded.Block)
+                    ModeratorActionIcon(Symbols.Block)
                     Spacer(Modifier.width(6.dp))
                     Text("Remove")
                 }

@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.auth.reddit
 
+import app.subshell.prototype.data.error.failureDetailsOrNull
 import app.subshell.prototype.data.auth.AuthAccountIdentity
 import app.subshell.prototype.data.auth.AuthIdentityFailureKind
 import app.subshell.prototype.data.auth.AuthIdentityResult
@@ -60,14 +61,17 @@ internal class RedditAccountIdentityClient(
             is NetworkResult.HttpFailure -> AuthIdentityResult.Failure(
                 kind = AuthIdentityFailureKind.HTTP,
                 retryable = result.retryable,
+                details = result.failureDetailsOrNull(),
             )
             is NetworkResult.TransportFailure -> AuthIdentityResult.Failure(
                 kind = AuthIdentityFailureKind.TRANSPORT,
                 retryable = result.retryable,
+                details = result.failureDetailsOrNull(),
             )
             is NetworkResult.ProtocolFailure -> AuthIdentityResult.Failure(
                 kind = AuthIdentityFailureKind.PROTOCOL,
                 retryable = false,
+                details = result.failureDetailsOrNull(),
             )
         }
     }

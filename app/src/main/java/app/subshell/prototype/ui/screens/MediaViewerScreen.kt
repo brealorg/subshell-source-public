@@ -11,6 +11,7 @@ import app.subshell.prototype.ui.downloadRemoteMedia
 import app.subshell.prototype.ui.mediaActionScope
 import app.subshell.prototype.ui.shareRemoteMedia
 import androidx.compose.runtime.Stable
+import app.subshell.prototype.ui.symbols.Symbols
 import kotlinx.coroutines.launch
 import app.subshell.prototype.ui.error.LocalViewportErrorHostState
 import app.subshell.prototype.ui.components.reportMediaActionFailure
@@ -24,9 +25,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Check
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
@@ -50,8 +48,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -151,7 +147,7 @@ fun MediaViewerScreen(
             }
         }
         val tabletopVideoHeight = rememberTabletopVideoHeight(videoActivity)
-        Box(modifier.fillMaxSize().predictiveMediaBackdrop(viewerBack, state.reduceMotion)) {
+        Box(modifier.fillMaxSize().predictiveMediaBackdrop(viewerBack, state.motionReduced)) {
             LocalVideoPlayer(
                 post = post,
                 state = state,
@@ -167,7 +163,7 @@ fun MediaViewerScreen(
                 tabletopVideoHeight = tabletopVideoHeight,
                 modifier = Modifier
                     .fillMaxSize()
-                    .predictiveMediaContent(viewerBack, state.reduceMotion),
+                    .predictiveMediaContent(viewerBack, state.motionReduced),
             )
         }
         return
@@ -201,13 +197,13 @@ fun MediaViewerScreen(
         post.kind == PostKind.GIF ||
         (post.kind == PostKind.GALLERY && viewerTarget.galleryItem != null)
 
-    Box(modifier.fillMaxSize().predictiveMediaBackdrop(viewerBack, state.reduceMotion)) {
+    Box(modifier.fillMaxSize().predictiveMediaBackdrop(viewerBack, state.motionReduced)) {
         // LOWUI7_AUTO_HIDE_FOLLOWS_THE_ACCESSIBILITY_TIMEOUT_V1 (OCB-318): the
         // hidden chrome can be brought back without a tap on the picture.
         Box(
             Modifier
                 .fillMaxSize()
-                .predictiveMediaContent(viewerBack, state.reduceMotion)
+                .predictiveMediaContent(viewerBack, state.motionReduced)
                 .semantics { onClick(label = VIEWER_TOGGLE_CONTROLS_LABEL) { toggleControls(); true } },
         ) {
             when (post.kind) {
@@ -320,7 +316,7 @@ private fun MediaViewerActionButtons(
 ) {
     val errorHost = LocalViewportErrorHostState.current
     FullscreenChromeAction(
-        icon = Icons.Rounded.Share,
+        icon = Symbols.Share,
         contentDescription = "Share media",
         busy = state.sharing,
         enabled = !state.busy,
@@ -340,7 +336,7 @@ private fun MediaViewerActionButtons(
     )
     val saved = state.download is MediaDownloadUiState.Saved
     FullscreenChromeAction(
-        icon = if (saved) Icons.Rounded.Check else Icons.Rounded.Download,
+        icon = if (saved) Symbols.Check else Symbols.Download,
         contentDescription = if (saved) "Saved" else "Download",
         busy = state.download is MediaDownloadUiState.Saving,
         enabled = !state.busy,
@@ -518,7 +514,7 @@ private fun FullscreenMediaTopChrome(
                     colors = mediaChromeIconButtonColors(),
                 ) {
                     Icon(
-                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        Symbols.ArrowBack,
                         contentDescription = "Back",
                     )
                 }

@@ -92,14 +92,14 @@ internal class PostManageCoordinator(
                 configuredManager.load(target)
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 AuthenticatedPostManageLoadResult.Failed(
                     kind = AuthenticatedPostManageFailureKind.TRANSPORT,
                     retryable = true,
                     failureDetails = FailureDetails(
                         retryable = true,
                         localKind = LocalFailureKind.UNKNOWN,
-                    ),
+                    ).withExceptionClass(error),
                 )
             }
             when (result) {
@@ -175,14 +175,14 @@ internal class PostManageCoordinator(
                 configuredManager.mutate(request)
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 AuthenticatedPostManageMutationResult.Failed(
                     kind = AuthenticatedPostManageFailureKind.TRANSPORT,
                     retryable = false,
                     failureDetails = FailureDetails(
                         retryable = false,
                         localKind = LocalFailureKind.UNKNOWN,
-                    ),
+                    ).withExceptionClass(error),
                 )
             }
             when (result) {

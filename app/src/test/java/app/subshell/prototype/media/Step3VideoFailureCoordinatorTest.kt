@@ -5,6 +5,8 @@ import android.os.Looper
 import androidx.media3.common.MimeTypes
 import androidx.test.core.app.ApplicationProvider
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.releaseWithoutHanging
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import com.sun.net.httpserver.HttpServer
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -56,12 +58,12 @@ class Step3VideoFailureCoordinatorTest {
             exchange.close()
         }
         server.start()
-        coordinator = VideoPlaybackCoordinator(application)
+        coordinator = testVideoPlaybackCoordinator(application)
     }
 
     @After
     fun stopServer() {
-        coordinator.release()
+        coordinator.releaseWithoutHanging()
         shadowOf(Looper.getMainLooper()).idle()
         server.stop(0)
     }

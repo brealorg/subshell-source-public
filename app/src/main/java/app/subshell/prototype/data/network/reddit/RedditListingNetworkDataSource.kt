@@ -2,6 +2,7 @@ package app.subshell.prototype.data.network.reddit
 
 import app.subshell.prototype.data.RepositoryPageRequest
 import app.subshell.prototype.data.RedditListingTimePeriod
+import app.subshell.prototype.data.network.SubshellNetworkJson
 import app.subshell.prototype.data.normalizeRedditSearchQuery
 import app.subshell.prototype.data.network.JsonGetRequest
 import app.subshell.prototype.data.network.NetworkPage
@@ -48,8 +49,8 @@ class RedditListingNetworkDataSource(
                 timePeriod = timePeriod,
                 request = request,
             ),
-            deserializer = RedditListingDto.serializer(),
-        ).map { listing -> listing.toNetworkPage(clock.epochSeconds()) }
+            deserializer = RedditReadListingDto.serializer(),
+        ).map { listing -> listing.toNetworkPage(SubshellNetworkJson.providerJson, clock.epochSeconds()) }
     }
 
     suspend fun searchPosts(
@@ -65,8 +66,8 @@ class RedditListingNetworkDataSource(
                 request = request,
                 includeOver18 = includeOver18,
             ),
-            deserializer = RedditListingDto.serializer(),
-        ).map { listing -> listing.toNetworkPage(clock.epochSeconds()) }
+            deserializer = RedditReadListingDto.serializer(),
+        ).map { listing -> listing.toNetworkPage(SubshellNetworkJson.providerJson, clock.epochSeconds()) }
             .let { result ->
                 // REDDITSEARCH01_REDIRECT_IS_NO_RESULTS_V1: Reddit answers some
                 // searches (URL-shaped queries seen on device) with a redirect
@@ -123,8 +124,8 @@ class RedditListingNetworkDataSource(
                 username = username,
                 request = request,
             ),
-            deserializer = RedditListingDto.serializer(),
-        ).map { listing -> listing.toNetworkPage(clock.epochSeconds()) }
+            deserializer = RedditReadListingDto.serializer(),
+        ).map { listing -> listing.toNetworkPage(SubshellNetworkJson.providerJson, clock.epochSeconds()) }
     }
 
     companion object {

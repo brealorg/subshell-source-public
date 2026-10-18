@@ -12,6 +12,7 @@ import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.data.account.localFixtureAccountSummaries
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.ui.app.AccountConnectEntryPoints
 import org.junit.Assert.assertEquals
@@ -60,7 +61,7 @@ class AccountSwitcherSheetComposeTest {
 
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 accountConnect = AccountConnectEntryPoints(
                     onResetConnectAccount = { events += "reset" },

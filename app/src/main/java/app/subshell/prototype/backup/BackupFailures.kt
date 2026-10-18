@@ -32,7 +32,10 @@ internal fun Throwable.toBackupFailureDetails(): FailureDetails {
         is IllegalStateException -> LocalFailureKind.STORAGE
             else -> LocalFailureKind.UNKNOWN
         },
-    )
+    ).let { details ->
+        // DIAG04_EXCEPTION_CLASS_V1
+        if (details.localKind == LocalFailureKind.UNKNOWN) details.withExceptionClass(this) else details
+    }
 }
 
 internal fun storedBackupFailureDetails(kindName: String?): FailureDetails? {

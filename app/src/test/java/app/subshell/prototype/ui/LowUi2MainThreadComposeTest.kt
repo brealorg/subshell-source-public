@@ -11,6 +11,7 @@ import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.data.createFixtureFreeLocalSubshellRepository
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.Post
 import app.subshell.prototype.model.PostKind
@@ -77,7 +78,7 @@ class LowUi2MainThreadComposeTest {
 
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 redditIntentLaunch = RedditIntentLaunch(
                     requestId = 1L,

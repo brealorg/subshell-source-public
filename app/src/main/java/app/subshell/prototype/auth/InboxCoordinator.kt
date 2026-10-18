@@ -1,5 +1,6 @@
 package app.subshell.prototype.auth
 
+import app.subshell.prototype.data.diagnostics.recordFailureWithoutAScreen
 import android.app.Application
 import app.subshell.prototype.data.account.AccountSessionDirectory
 import app.subshell.prototype.data.account.RedditInboxUiFailureKind
@@ -517,6 +518,7 @@ internal class InboxCoordinator(
                         "target failed account=$account post=$targetPostId " +
                             "kind=${result.kind.name.lowercase()} retryable=${result.retryable}",
                     )
+                    recordFailureWithoutAScreen(application, "inbox_target_post", result.details)
                     onResolved(null)
                 }
             }

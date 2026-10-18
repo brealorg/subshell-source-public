@@ -98,7 +98,7 @@ class Moderation02A5A6PresentationPolicyTest {
             .substringBefore("// MODERATION02A5A5_INVITE_EDITOR_V1")
 
         assertTrue(action.contains("Surface("))
-        assertTrue(action.contains("imageVector = Icons.Rounded.Edit"))
+        assertTrue(action.contains("imageVector = Symbols.Edit"))
         assertTrue(action.contains(".align(Alignment.Start)"))
         assertFalse(action.contains("modifier = Modifier.align(Alignment.End)"))
     }

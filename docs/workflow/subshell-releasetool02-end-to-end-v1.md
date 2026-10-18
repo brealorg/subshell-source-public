@@ -170,10 +170,10 @@ python3 tools/release02/publish-source-snapshot.py \
   SNAPSHOT_TREE_IDENTITY=PASS, PRIVATE_APP_SOURCE_PUBLIC=NO).
 - `tools/release02/selftest-source-snapshot.py` runs it against local
   repositories on every land (check-contract02-selftests).
-- Stage B's README fence accepts the sentence "The Android application source
-  code is published separately in [brealorg/subshell-source-public]". The old
-  "not published" sentence is accepted only until the public README has been
-  updated.
+- Stage B's README fence requires the sentence "The Android application source
+  code is published separately in [brealorg/subshell-source-public]" on one line.
+  The old "not published" sentence was accepted until the first snapshot release
+  (0.82-beta) and is refused now.
 
 ## Failure classification
 

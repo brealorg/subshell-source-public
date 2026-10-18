@@ -4,7 +4,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.Role
@@ -17,8 +16,8 @@ import app.subshell.prototype.ui.ScreenMargin
 import app.subshell.prototype.ui.components.RouteTopBar
 import app.subshell.prototype.ui.components.rememberRouteTopBarScrollBehavior
 import app.subshell.prototype.ui.error.TrayTone
+import app.subshell.prototype.ui.symbols.Symbols
 import app.subshell.prototype.ui.theme.AppTextScale
-import androidx.compose.material.icons.rounded.FormatSize
 import app.subshell.prototype.inbox.InboxNotificationCenter
 import app.subshell.prototype.inbox.InboxBackgroundSyncScheduler
 import app.subshell.prototype.inbox.InboxBackgroundEventStore
@@ -43,55 +42,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.automirrored.rounded.ExitToApp
-import androidx.compose.material.icons.automirrored.rounded.Label
-import androidx.compose.material.icons.automirrored.rounded.Sort
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
-import androidx.compose.material.icons.rounded.AccountCircle
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Backup
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.AccessibilityNew
-import androidx.compose.material.icons.rounded.CloudOff
-import androidx.compose.material.icons.rounded.Code
-import androidx.compose.material.icons.rounded.DarkMode
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.Forum
-import androidx.compose.material.icons.rounded.Groups
-import androidx.compose.material.icons.rounded.FilterAlt
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.automirrored.rounded.AddToHomeScreen
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.BookmarkBorder
-import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.UnfoldMore
-import androidx.compose.material.icons.rounded.Keyboard
-import androidx.compose.material.icons.rounded.Navigation
-import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material.icons.rounded.Storage
-import androidx.compose.material.icons.rounded.SignalCellularAlt
-import androidx.compose.material.icons.rounded.ClosedCaption
-import androidx.compose.material.icons.rounded.Speed
-import androidx.compose.material.icons.rounded.Forward10
-import androidx.compose.material.icons.rounded.FastForward
-import androidx.compose.material.icons.rounded.PictureInPicture
-import androidx.compose.material.icons.rounded.ScreenRotation
-import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.TouchApp
-import androidx.compose.material.icons.rounded.ThumbUp
-import androidx.compose.material.icons.rounded.VpnKey
-import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material.icons.rounded.WbSunny
-import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -178,16 +128,15 @@ import app.subshell.prototype.ui.legacyVideoDownloadSummary
 import app.subshell.prototype.ui.fontFamily
 import app.subshell.prototype.ui.formatVideoDownloadBytes
 import app.subshell.prototype.ui.ThemeChoice
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import androidx.compose.material.icons.rounded.Lock
 import app.subshell.prototype.applock.AppLockDelayDialog
 import app.subshell.prototype.applock.AppLockEntryPoints
 import app.subshell.prototype.applock.LocalAppLock
 import app.subshell.prototype.applock.appLockDelayLabel
-import androidx.compose.material.icons.rounded.Link
 import app.subshell.prototype.ui.components.MutedCommunityDirectViewSetting
 import app.subshell.prototype.ui.components.AccountSettingsRuntime
 import app.subshell.prototype.ui.components.OnlineVisibilitySettingRow
@@ -195,8 +144,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.material.icons.rounded.Brightness6
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import app.subshell.prototype.ui.components.SettingsListItem
 import app.subshell.prototype.ui.components.SettingsNavigationItem
 import app.subshell.prototype.ui.components.SettingsSegmentedChoice
@@ -699,6 +646,41 @@ fun SettingsScreen(
             },
             onDismiss = { choiceDialogKey = null },
         )
+        // ISSUE234_FEED_POST_LAYOUTS_V1
+        "post-layout" -> SettingsSingleChoiceDialog(
+            title = "Post layout",
+            options = app.subshell.prototype.ui.PostLayout.entries,
+            selected = state.postLayout,
+            label = { it.label },
+            onSelect = { layout ->
+                state.updatePostLayout(layout)
+                choiceDialogKey = null
+            },
+            onDismiss = { choiceDialogKey = null },
+        )
+        "list-thumbnail-side" -> SettingsSingleChoiceDialog(
+            title = "Thumbnail",
+            options = app.subshell.prototype.ui.ListThumbnailSide.entries,
+            selected = state.listThumbnailSide,
+            label = { it.label },
+            onSelect = { side ->
+                state.updateListThumbnailSide(side)
+                choiceDialogKey = null
+            },
+            onDismiss = { choiceDialogKey = null },
+        )
+        // ISSUE230_PINNED_POSTS_FIRST_V1
+        "pinned-posts" -> SettingsSingleChoiceDialog(
+            title = "Pinned posts",
+            options = app.subshell.prototype.ui.PinnedPostsPresentation.entries,
+            selected = state.pinnedPostsPresentation,
+            label = { it.label },
+            onSelect = { presentation ->
+                state.updatePinnedPostsPresentation(presentation)
+                choiceDialogKey = null
+            },
+            onDismiss = { choiceDialogKey = null },
+        )
         "feed-state" -> SettingsSingleChoiceDialog(
             title = "Feed preview",
             options = FeedPreviewState.entries,
@@ -940,22 +922,24 @@ fun SettingsScreen(
                                 // LOWUI6_CLIENT_CONFIG_CHANGE_FINISHES_V1 (OCB-324): a
                                 // recreation must not leave the file changed but the
                                 // runtime unreloaded.
-                                cacheScope.launch(NonCancellable) {
-                                    val result = runCatching {
-                                        withContext(Dispatchers.IO) {
-                                            redditCompatibilityConfiguration.remove()
+                                cacheScope.launch(start = CoroutineStart.UNDISPATCHED) {
+                                    withContext(NonCancellable) {
+                                        val result = runCatching {
+                                            withContext(Dispatchers.IO) {
+                                                redditCompatibilityConfiguration.remove()
+                                            }
                                         }
-                                    }
-                                    redReaderConfigurationBusy = false
-                                    result.onSuccess {
-                                        redReaderCompatibilityConfigured = false
-                                        redReaderConfigurationDialogVisible = false
-                                        redReaderClientIdDraft = ""
-                                        redReaderOperationMessage =
-                                            "Reddit connection configuration removed"
-                                        onRedditConfigurationChanged()
-                                    }.onFailure {
-                                        redReaderOperationMessage = "Couldn’t remove compatibility configuration"
+                                        redReaderConfigurationBusy = false
+                                        result.onSuccess {
+                                            redReaderCompatibilityConfigured = false
+                                            redReaderConfigurationDialogVisible = false
+                                            redReaderClientIdDraft = ""
+                                            redReaderOperationMessage =
+                                                "Reddit connection configuration removed"
+                                            onRedditConfigurationChanged()
+                                        }.onFailure {
+                                            redReaderOperationMessage = "Couldn’t remove compatibility configuration"
+                                        }
                                     }
                                 }
                             },
@@ -975,22 +959,24 @@ fun SettingsScreen(
                         }
                         redReaderConfigurationBusy = true
                         // LOWUI6_CLIENT_CONFIG_CHANGE_FINISHES_V1 (OCB-324)
-                        cacheScope.launch(NonCancellable) {
-                            val result = runCatching {
-                                withContext(Dispatchers.IO) {
-                                    redditCompatibilityConfiguration.save(redReaderClientIdDraft)
+                        cacheScope.launch(start = CoroutineStart.UNDISPATCHED) {
+                            withContext(NonCancellable) {
+                                val result = runCatching {
+                                    withContext(Dispatchers.IO) {
+                                        redditCompatibilityConfiguration.save(redReaderClientIdDraft)
+                                    }
                                 }
-                            }
-                            redReaderConfigurationBusy = false
-                            result.onSuccess {
-                                redReaderCompatibilityConfigured = true
-                                redReaderConfigurationDialogVisible = false
-                                redReaderClientIdDraft = ""
-                                redReaderOperationMessage =
-                                    "Reddit connection configuration saved"
-                                onRedditConfigurationChanged()
-                            }.onFailure {
-                                redReaderOperationMessage = "Couldn’t save compatibility configuration"
+                                redReaderConfigurationBusy = false
+                                result.onSuccess {
+                                    redReaderCompatibilityConfigured = true
+                                    redReaderConfigurationDialogVisible = false
+                                    redReaderClientIdDraft = ""
+                                    redReaderOperationMessage =
+                                        "Reddit connection configuration saved"
+                                    onRedditConfigurationChanged()
+                                }.onFailure {
+                                    redReaderOperationMessage = "Couldn’t save compatibility configuration"
+                                }
                             }
                         }
                     },
@@ -1125,7 +1111,7 @@ fun SettingsScreen(
                         }
                     },
                 ) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                    Icon(Symbols.ArrowBack, contentDescription = "Back")
                 }
             },
             scrollBehavior = routeTopBarScroll,
@@ -1248,7 +1234,7 @@ fun SettingsScreen(
                     }
                     item("account-add") {
                         NavigationRow(
-                            icon = Icons.Rounded.Add,
+                            icon = Symbols.Add,
                             title = if (
                                 accountConnectPresentation.action == AccountConnectAction.RESET
                             ) {
@@ -1282,7 +1268,7 @@ fun SettingsScreen(
                     if (activeProductAccount != null) {
                         item("account-logout") {
                             DestructiveNavigationRow(
-                                icon = Icons.AutoMirrored.Rounded.ExitToApp,
+                                icon = Symbols.ExitToApp,
                                 title = if (accountLogoutInProgress) {
                                     "Logging out…"
                                 } else {
@@ -1370,9 +1356,31 @@ fun SettingsScreen(
                         },
                     )
                 }
+                // ISSUE234_FEED_POST_LAYOUTS_V1
+                if (searchResult.isItemVisible("post-layout")) item("post-layout") {
+                    ValueSettingRow(
+                        icon = Symbols.ViewAgenda,
+                        title = "Post layout",
+                        description = "Large cards, compact cards, a list or a grid",
+                        value = state.postLayout.label,
+                        onClick = { choiceDialogKey = "post-layout" },
+                    )
+                }
+                if (
+                    state.postLayout == app.subshell.prototype.ui.PostLayout.LIST &&
+                    searchResult.isItemVisible("post-layout")
+                ) item("list-thumbnail-side") {
+                    ValueSettingRow(
+                        icon = Symbols.Image,
+                        title = "Thumbnail",
+                        description = "Which side of a list row shows the picture",
+                        value = state.listThumbnailSide.label,
+                        onClick = { choiceDialogKey = "list-thumbnail-side" },
+                    )
+                }
                 if (searchResult.isItemVisible("unread-marker")) item("unread-marker") {
                     ToggleRow(
-                        icon = Icons.Rounded.Visibility,
+                        icon = Symbols.Visibility,
                         title = "Show unread marker",
                         description = "Show a small dot after a post’s age until you open it",
                         checked = state.showUnreadMarker,
@@ -1381,17 +1389,27 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("show-nsfw-posts")) item("show-nsfw-posts") {
                     ToggleRow(
-                        icon = Icons.Rounded.Visibility,
+                        icon = Symbols.Visibility,
                         title = "Show NSFW posts",
                         description = "Show NSFW posts Reddit provides; also available in the navigation menu",
                         checked = state.showNsfwPosts,
                         onCheckedChange = state::updateShowNsfwPosts,
                     )
                 }
+                // ISSUE230_PINNED_POSTS_FIRST_V1
+                if (searchResult.isItemVisible("pinned-posts")) item("pinned-posts") {
+                    ValueSettingRow(
+                        icon = Symbols.PushPin,
+                        title = "Pinned posts",
+                        description = "How a community's pinned posts show at the top of its feed",
+                        value = state.pinnedPostsPresentation.label,
+                        onClick = { choiceDialogKey = "pinned-posts" },
+                    )
+                }
                 // ISSUE211_RANDOM_NSFW_COMMUNITY_V1: off by default, only while NSFW is shown.
                 if (state.showNsfwPosts && searchResult.isItemVisible("random-nsfw-community")) item("random-nsfw-community") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.Shuffle,
+                        icon = Symbols.Shuffle,
                         title = "Random NSFW community",
                         description = "Where a button opens a random NSFW community from Reddit's own listings",
                         value = state.randomNsfwCommunityPlacement.label,
@@ -1408,7 +1426,7 @@ fun SettingsScreen(
                 if (searchResult.isItemVisible("filtered-posts-summary")) item("filtered-posts-summary") {
                     // CONTENTFILTER04_FILTERED_SUMMARY_V1
                     ToggleRow(
-                        icon = Icons.Rounded.FilterAlt,
+                        icon = Symbols.FilterAlt,
                         title = "Show filtered post count",
                         description = "A row at the top of a feed says how many posts your filters hide, with a way to show them",
                         checked = state.filteredPostsSummary,
@@ -1418,7 +1436,7 @@ fun SettingsScreen(
                 // ISSUE205_PASSIVE_SCROLL_POSITION_INDICATOR_V1: off by default.
                 if (searchResult.isItemVisible("scroll-position-indicator")) item("scroll-position-indicator") {
                     ToggleRow(
-                        icon = Icons.Rounded.UnfoldMore,
+                        icon = Symbols.UnfoldMore,
                         title = "Scroll position indicator",
                         description = "A thin bar on the edge of feeds and comment threads shows where you are while you scroll",
                         checked = state.scrollPositionIndicator,
@@ -1427,7 +1445,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("content-filters")) item("content-filters") {
                     NavigationRow(
-                        icon = Icons.Rounded.FilterAlt,
+                        icon = Symbols.FilterAlt,
                         title = "Content filters",
                         description = contentFilterSummary(state.contentFilters),
                         onClick = {
@@ -1459,7 +1477,7 @@ fun SettingsScreen(
                             voteControlMode = state.voteControlMode,
                             voteColorPalette = state.voteColorPalette,
                             codeFont = state.codeFont,
-                            reduceMotion = state.reduceMotion,
+                            reduceMotion = state.motionReduced,
                             modifier = Modifier.padding(bottom = 9.dp),
                         )
                     }
@@ -1513,7 +1531,7 @@ fun SettingsScreen(
                 item("appearance-title") { SettingsSection(settingsSectionTitle(destination, "Appearance")) }
                 if (searchResult.isItemVisible("theme")) item("theme") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.Palette,
+                        icon = Symbols.Palette,
                         title = "Theme",
                         description = "Follow the system, or use light, dark or pure black",
                         value = state.themeChoice.label,
@@ -1522,16 +1540,23 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("dynamic")) item("dynamic") {
                     ToggleRow(
-                        icon = Icons.Rounded.Palette,
+                        icon = Symbols.Palette,
                         title = "Dynamic colour",
-                        description = "Use the device palette instead of subshell orange",
-                        checked = state.dynamicColor,
+                        // SETTINGSREVIEW01_DYNAMIC_COLOUR_ON_BY_DEFAULT_V1: the
+                        // device palette exists from Android 12.
+                        description = if (dynamicColorSupported()) {
+                            "Use the device palette instead of subshell orange"
+                        } else {
+                            "Needs Android 12 or later"
+                        },
+                        checked = state.dynamicColor && dynamicColorSupported(),
                         onCheckedChange = state::updateDynamicColor,
+                        enabled = dynamicColorSupported(),
                     )
                 }
                 if (searchResult.isItemVisible("text-size")) item("text-size") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.FormatSize,
+                        icon = Symbols.FormatSize,
                         title = "Text size",
                         description = "Scales all text in subshell, on top of the system font size",
                         value = state.appTextScale.label,
@@ -1540,7 +1565,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("vote-controls")) item("vote-controls") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.ThumbUp,
+                        icon = Symbols.ThumbUp,
                         title = "Vote controls",
                         description = "Comfortable thumbs with score, or compact arrow controls",
                         value = state.voteControlMode.label,
@@ -1549,7 +1574,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("vote-colours")) item("vote-colours") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.Palette,
+                        icon = Symbols.Palette,
                         title = "Vote colours",
                         description = "Theme accent, or red upvotes and blue downvotes",
                         value = state.voteColorPalette.label,
@@ -1558,7 +1583,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("code-font")) item("code-font") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.Code,
+                        icon = Symbols.Code,
                         title = "Code font",
                         description = "Used by inline code and fenced code blocks",
                         value = state.codeFont.typefaceName,
@@ -1588,7 +1613,7 @@ fun SettingsScreen(
                             commentSwipeRightAction = state.commentSwipeRightAction,
                             voteColorPalette = state.voteColorPalette,
                             voteControlMode = state.voteControlMode,
-                            reduceMotion = state.reduceMotion,
+                            reduceMotion = state.motionReduced,
                             previewContext = navigationPreviewContext,
                             pageScrolling = settingsListState.isScrollInProgress,
                             modifier = Modifier.padding(bottom = 9.dp),
@@ -1610,7 +1635,7 @@ fun SettingsScreen(
                 item("home-title") { SettingsSection(settingsSectionTitle(destination, "Home & feeds")) }
                 if (searchResult.isItemVisible("top-bar-behavior")) item("top-bar-behavior") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.Home,
+                        icon = Symbols.Home,
                         title = "Top bar",
                         description = "Behaviour while scrolling",
                         value = state.topBarBehavior.label,
@@ -1623,7 +1648,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("bottom-navigation-behavior")) item("bottom-navigation-behavior") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.Navigation,
+                        icon = Symbols.Swipe,
                         title = "Bottom navigation",
                         description = "Behaviour while scrolling",
                         value = state.bottomBarBehavior.label,
@@ -1649,7 +1674,7 @@ fun SettingsScreen(
                 if (query.isBlank() || searchResult.isItemVisible("tablet-layout-mode")) {
                     item("tablet-layout-mode") {
                         SettingsSegmentedChoice(
-                            icon = Icons.Rounded.Navigation,
+                            icon = Symbols.Swipe,
                             title = "Tablet mode",
                             description = "Choose how content is shown on wider screens",
                             options = TabletLayoutMode.entries,
@@ -1666,7 +1691,7 @@ fun SettingsScreen(
                 if (query.isBlank() || searchResult.isItemVisible("community-discovery-layout")) {
                     item("community-discovery-layout") {
                         SettingsSegmentedChoice(
-                            icon = Icons.Rounded.Groups,
+                            icon = Symbols.Groups,
                             title = "Community discovery",
                             description = "Choose how popular communities are shown",
                             options = CommunityDiscoveryLayout.entries,
@@ -1682,7 +1707,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("interaction-side")) item("interaction-side") {
                     SettingsSegmentedChoice(
-                        icon = Icons.Rounded.TouchApp,
+                        icon = Symbols.TouchApp,
                         title = "Interaction side",
                         description = "Preferred side for thumb controls and floating actions",
                         options = InteractionSide.entries,
@@ -1732,7 +1757,7 @@ fun SettingsScreen(
 
                 if (searchResult.isItemVisible("drawer-side")) item("drawer-side") {
                     SettingsSegmentedChoice(
-                        icon = Icons.Rounded.Navigation,
+                        icon = Symbols.Swipe,
                         title = "Side menu position",
                         description = "Choose which edge the side menu opens from",
                         options = selectableDrawerSidePreferences,
@@ -1748,7 +1773,7 @@ fun SettingsScreen(
 
                 if (searchResult.isItemVisible("subreddit-labels")) item("subreddit-labels") {
                     ValueSettingRow(
-                        icon = Icons.AutoMirrored.Rounded.Label,
+                        icon = Symbols.Label,
                         title = "Communities labels",
                         description = "How community names are written",
                         value = state.subredditLabelStyle.example,
@@ -1761,7 +1786,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("drawer-communities")) item("drawer-communities") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.Groups,
+                        icon = Symbols.Groups,
                         title = "Communities in drawer",
                         description = "Simple shortcut, dropdown, or full list",
                         value = state.drawerCommunitiesMode.label,
@@ -1774,7 +1799,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("drawer-recent-communities")) item("drawer-recent-communities") {
                     ToggleRow(
-                        icon = Icons.Rounded.History,
+                        icon = Symbols.History,
                         title = "Recent communities in drawer",
                         description = "Show up to five recently visited communities",
                         checked = state.drawerRecentCommunities,
@@ -1787,7 +1812,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("back-twice-to-exit")) item("back-twice-to-exit") {
                     ToggleRow(
-                        icon = Icons.AutoMirrored.Rounded.ExitToApp,
+                        icon = Symbols.ExitToApp,
                         title = "Press Back twice to exit",
                         description = "Ask for a second Back before leaving the app",
                         checked = state.backTwiceToExit,
@@ -1797,7 +1822,7 @@ fun SettingsScreen(
                 if (searchResult.isItemVisible("launcher-shortcuts")) item("launcher-shortcuts") {
                     // ISSUE37_LAUNCHER_SHORTCUTS_V1: device-local, off by default.
                     ToggleRow(
-                        icon = Icons.AutoMirrored.Rounded.AddToHomeScreen,
+                        icon = Symbols.AddToHomeScreen,
                         title = "Launcher shortcuts",
                         description = "Favorite communities on the app icon, and Add to home screen for a community",
                         checked = launcherShortcutsEnabled,
@@ -1809,7 +1834,7 @@ fun SettingsScreen(
                 if (searchResult.isItemVisible("reddit-favorite-sync")) item("reddit-favorite-sync") {
                     // REDDITFAV01_SHOW_REDDIT_FAVORITES_V1: device-local, off by default.
                     ToggleRow(
-                        icon = Icons.Rounded.Star,
+                        icon = Symbols.Star,
                         title = "Sync favorites with Reddit",
                         description = "Show your Reddit favorites, and star joined communities and your custom feeds on Reddit too",
                         checked = redditFavoriteSyncEnabled,
@@ -1830,7 +1855,7 @@ fun SettingsScreen(
                         }
                     }
                     ToggleRow(
-                        icon = Icons.Rounded.Share,
+                        icon = Symbols.Share,
                         title = "Share into subshell",
                         description = "Show subshell in Android's share menu to start a post from a link, text or images",
                         checked = shareIntoSubshellEnabled == true,
@@ -1848,7 +1873,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("navigation-labels")) item("navigation-labels") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.Navigation,
+                        icon = Symbols.Swipe,
                         title = "Navigation labels",
                         description = "All labels, selected only, or icons only",
                         value = state.navigationLabelMode.label,
@@ -1880,7 +1905,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("hidden-subscriptions-device-unlock")) item("hidden-subscriptions-device-unlock") {
                     ToggleRow(
-                        icon = Icons.Rounded.Lock,
+                        icon = Symbols.Lock,
                         title = "Require device unlock to view hidden communities",
                         // LOWUI8_HIDDEN_UNLOCK_NEEDS_A_SCREEN_LOCK_V1 (OCB-273): like
                         // Lock Subshell, it can be turned on only where there is a
@@ -1916,7 +1941,7 @@ fun SettingsScreen(
                 // ISSUE38_APP_LOCK_V1: off by default; turning it on asks for the unlock once.
                 if (appLock != null && searchResult.isItemVisible("app-lock")) item("app-lock") {
                     ToggleRow(
-                        icon = Icons.Rounded.Lock,
+                        icon = Symbols.Lock,
                         title = "Lock subshell",
                         description = if (appLock.deviceUnlockAvailable || appLock.settings.enabled) {
                             "Ask for biometrics or your device screen lock when you open subshell"
@@ -1948,7 +1973,7 @@ fun SettingsScreen(
                     searchResult.isItemVisible("app-lock-delay")
                 ) item("app-lock-delay") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.Schedule,
+                        icon = Symbols.Schedule,
                         title = "Lock after",
                         description = "How long subshell can be in the background before it locks",
                         value = appLockDelayLabel(appLock.settings.delayMinutes),
@@ -1961,7 +1986,7 @@ fun SettingsScreen(
                     searchResult.isItemVisible("app-lock-notifications")
                 ) item("app-lock-notifications") {
                     ToggleRow(
-                        icon = Icons.Rounded.Lock,
+                        icon = Symbols.Lock,
                         title = "Hide notification content",
                         description = "While the lock is on, notifications only say there is new activity",
                         checked = appLock.settings.hideNotificationContent,
@@ -1984,7 +2009,7 @@ fun SettingsScreen(
                 item("search-title") { SettingsSection(settingsSectionTitle(destination, "Search")) }
                 if (searchResult.isItemVisible("search-keyboard")) item("search-keyboard") {
                     ToggleRow(
-                        icon = Icons.Rounded.Keyboard,
+                        icon = Symbols.Keyboard,
                         title = "Open keyboard when entering Search",
                         description = "Explicit Search taps focus the field immediately",
                         checked = state.openKeyboardOnSearch,
@@ -1994,7 +2019,7 @@ fun SettingsScreen(
                 // ISSUE206_SAVED_SEARCHES_V1: off by default.
                 if (searchResult.isItemVisible("saved-searches")) item("saved-searches") {
                     ToggleRow(
-                        icon = Icons.Rounded.BookmarkBorder,
+                        icon = Symbols.Bookmark,
                         title = "Saved searches",
                         description = "Save a search to run it again from the Search screen; included in backups",
                         checked = state.savedSearchesEnabled,
@@ -2022,9 +2047,11 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("sensitive-media-previews")) item("sensitive-media-previews") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.Visibility,
+                        icon = Symbols.Visibility,
                         title = "Sensitive media previews",
-                        description = "Blur, load on tap, or hide",
+                        // SETTINGSREVIEW01_ROWS_USE_THE_DIALOG_WORDS_V1: Blurred
+                        // also loads the image, so the row says so.
+                        description = "Blurred (loaded in the background), load on tap, or hide",
                         value = state.sensitiveMediaPreviewMode.label,
                         onClick = { choiceDialogKey = "media-sensitive-previews" },
                     )
@@ -2032,7 +2059,7 @@ fun SettingsScreen(
                 if (BuildConfig.DEBUG && BuildConfig.DEBUG_SLOT == "dev2") {
                     if (searchResult.isItemVisible("sensitive-media-reddit-lab")) item("sensitive-media-reddit-lab") {
                         NavigationRow(
-                            icon = Icons.Rounded.Visibility,
+                            icon = Symbols.Visibility,
                             title = "Sensitive media Reddit lab",
                             description = "DEV2 only · raw Reddit JSON through the production mapper and media UI",
                             onClick = {
@@ -2043,7 +2070,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("media-autoplay")) item("media-autoplay") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.Image,
+                        icon = Symbols.Image,
                         title = "Autoplay videos and GIFs",
                         description = "Always, Wi-Fi only, or never",
                         value = state.videoAutoplay.label,
@@ -2071,7 +2098,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("media-muted")) item("media-muted") {
                     ToggleRow(
-                        icon = Icons.AutoMirrored.Rounded.VolumeOff,
+                        icon = Symbols.VolumeOff,
                         title = "Start videos muted",
                         description = "Begin playback without audio",
                         checked = state.startVideosMuted,
@@ -2080,7 +2107,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("media-loop")) item("media-loop") {
                     ToggleRow(
-                        icon = Icons.Rounded.History,
+                        icon = Symbols.History,
                         title = "Loop videos",
                         description = "Restart videos automatically after they finish",
                         checked = state.loopVideos,
@@ -2089,7 +2116,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("video-subtitle-default")) item("video-subtitle-default") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.ClosedCaption,
+                        icon = Symbols.ClosedCaption,
                         title = "Subtitles",
                         description = "Default for new videos",
                         value = state.videoSubtitleDefault.rowLabel,
@@ -2098,7 +2125,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("video-audio-default")) item("video-audio-default") {
                     ValueSettingRow(
-                        icon = Icons.AutoMirrored.Rounded.VolumeUp,
+                        icon = Symbols.VolumeUp,
                         title = "Audio language",
                         description = "When a video has several",
                         value = state.videoAudioDefault.rowLabel,
@@ -2107,7 +2134,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("playback-options-placement")) item("playback-options-placement") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.Tune,
+                        icon = Symbols.Tune,
                         title = "Playback options button",
                         description = "Quality, audio and subtitles",
                         value = state.playbackOptionsPlacement.rowLabel,
@@ -2116,7 +2143,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("video-timeline-size")) item("video-timeline-size") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.Tune,
+                        icon = Symbols.Tune,
                         title = "Video timeline size",
                         description = "Compact, standard, or large",
                         value = state.videoTimelineSize.label,
@@ -2125,7 +2152,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("video-quality-wifi")) item("video-quality-wifi") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.Wifi,
+                        icon = Symbols.Wifi,
                         title = "Video quality on Wi-Fi",
                         description = "Adaptive quality ceiling",
                         value = state.wifiVideoQuality.label,
@@ -2134,7 +2161,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("video-quality-mobile")) item("video-quality-mobile") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.SignalCellularAlt,
+                        icon = Symbols.SignalCellularAlt,
                         title = "Video quality on mobile data",
                         description = "Adaptive quality ceiling",
                         value = state.mobileVideoQuality.label,
@@ -2144,7 +2171,7 @@ fun SettingsScreen(
                 // VIDEO07 (#227, owner): each extra behind its own setting, off by default.
                 if (searchResult.isItemVisible("video-speed-controls")) item("video-speed-controls") {
                     ToggleRow(
-                        icon = Icons.Rounded.Speed,
+                        icon = Symbols.Speed,
                         title = "Playback speed",
                         description = "Full screen speed button, 0.25× to 2×",
                         checked = state.videoSpeedControls,
@@ -2153,7 +2180,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("video-double-tap-seek")) item("video-double-tap-seek") {
                     ToggleRow(
-                        icon = Icons.Rounded.Forward10,
+                        icon = Symbols.Forward10,
                         title = "Double-tap to skip",
                         description = "Full screen · left side back 10 s, right side forward",
                         checked = state.videoDoubleTapSeek,
@@ -2162,16 +2189,26 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("video-hold-double-speed")) item("video-hold-double-speed") {
                     ToggleRow(
-                        icon = Icons.Rounded.FastForward,
+                        icon = Symbols.FastForward,
                         title = "Hold for 2× speed",
                         description = "Full screen · press and hold the picture",
                         checked = state.videoHoldForDoubleSpeed,
                         onCheckedChange = state::updateVideoHoldForDoubleSpeed,
                     )
                 }
+                // ISSUE231_PINCH_TO_ZOOM_VIDEOS_V1 (owner): off by default.
+                if (searchResult.isItemVisible("video-pinch-to-zoom")) item("video-pinch-to-zoom") {
+                    ToggleRow(
+                        icon = Symbols.ZoomIn,
+                        title = "Pinch to zoom videos",
+                        description = "Full screen · pinch to zoom in, drag to look around",
+                        checked = state.videoPinchToZoom,
+                        onCheckedChange = state::updateVideoPinchToZoom,
+                    )
+                }
                 if (searchResult.isItemVisible("video-picture-in-picture")) item("video-picture-in-picture") {
                     ToggleRow(
-                        icon = Icons.Rounded.PictureInPicture,
+                        icon = Symbols.PictureInPicture,
                         title = "Picture-in-picture",
                         description = "A full-screen video keeps playing in a small window when you leave",
                         checked = state.videoPictureInPicture,
@@ -2180,7 +2217,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("video-rotate-fullscreen")) item("video-rotate-fullscreen") {
                     ToggleRow(
-                        icon = Icons.Rounded.ScreenRotation,
+                        icon = Symbols.ScreenRotation,
                         title = "Rotate for wide videos",
                         description = "Full screen turns a wide video to landscape",
                         checked = state.videoRotateFullscreen,
@@ -2189,7 +2226,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("video-technical-details")) item("video-technical-details") {
                     ToggleRow(
-                        icon = Icons.Rounded.Tune,
+                        icon = Symbols.Tune,
                         title = "Technical details",
                         description = "Codecs, decoders and dropped frames in playback options",
                         checked = state.videoTechnicalDetails,
@@ -2207,7 +2244,7 @@ fun SettingsScreen(
                     if (query.isBlank() || searchResult.isItemVisible("landscape-video-gestures")) {
                         item("landscape-video-gestures") {
                             ToggleRow(
-                                icon = Icons.Rounded.Tune,
+                                icon = Symbols.Tune,
                                 title = "Landscape swipe controls",
                                 description = "Swipe vertically while a video is fullscreen in landscape",
                                 checked = state.landscapeVideoGesturesEnabled,
@@ -2218,7 +2255,7 @@ fun SettingsScreen(
                     if (query.isBlank() || searchResult.isItemVisible("landscape-brightness-gesture")) {
                         item("landscape-brightness-gesture") {
                             ToggleRow(
-                                icon = Icons.Rounded.Brightness6,
+                                icon = Symbols.Brightness6,
                                 title = "Brightness gesture",
                                 description = "Left side · changes brightness for this window only",
                                 checked = state.landscapeBrightnessGestureEnabled,
@@ -2230,7 +2267,7 @@ fun SettingsScreen(
                     if (query.isBlank() || searchResult.isItemVisible("landscape-volume-gesture")) {
                         item("landscape-volume-gesture") {
                             ToggleRow(
-                                icon = Icons.AutoMirrored.Rounded.VolumeUp,
+                                icon = Symbols.VolumeUp,
                                 title = "Volume gesture",
                                 description = "Right side · changes media volume",
                                 checked = state.landscapeVolumeGestureEnabled,
@@ -2250,7 +2287,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("media-captions")) item("media-captions") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.Image,
+                        icon = Symbols.Image,
                         title = "Gallery captions",
                         description = "Overlay, below media, or hidden",
                         value = state.mediaCaptionMode.label,
@@ -2259,7 +2296,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("fullscreen-captions")) item("fullscreen-captions") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.Image,
+                        icon = Symbols.Image,
                         title = "Fullscreen gallery captions",
                         description = "With controls or always visible",
                         value = state.fullscreenCaptionMode.label,
@@ -2268,7 +2305,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("media-labels")) item("media-labels") {
                     ToggleRow(
-                        icon = Icons.Rounded.Image,
+                        icon = Symbols.Image,
                         title = "Media labels",
                         description = "Show short labels over images, GIFs and videos",
                         checked = state.mediaLabelsVisible,
@@ -2283,7 +2320,7 @@ fun SettingsScreen(
                     item("media-links-title") { SettingsSection("Links") }
                     item("reddit-link-handling") {
                         NavigationRow(
-                            icon = Icons.Rounded.Link,
+                            icon = Symbols.Link,
                             title = "Open Reddit links",
                             description = when (redditLinkHandlingState.status) {
                                 RedditLinkHandlingStatus.ENABLED ->
@@ -2309,7 +2346,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("media-cache")) item("media-cache") {
                     SettingSurface(
-                        icon = Icons.Rounded.Storage,
+                        icon = Symbols.Storage,
                         title = "Media cache",
                         description = when {
                             cacheClearInProgress -> "Clearing cached media…"
@@ -2330,7 +2367,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("video-cache-limit")) item("video-cache-limit") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.Storage,
+                        icon = Symbols.Storage,
                         title = "Video cache size",
                         description = if (videoCacheLimitPending) {
                             "Applies the next time subshell starts"
@@ -2350,7 +2387,7 @@ fun SettingsScreen(
                     (legacyDownloadStatus?.hasDownloads == true || downloadOperationMessage != null)
                 ) item("download-storage") {
                     SettingSurface(
-                        icon = Icons.Rounded.Storage,
+                        icon = Symbols.Storage,
                         title = "Downloaded videos",
                         description = when {
                             downloadDeleteInProgress -> "Deleting downloaded videos…"
@@ -2382,11 +2419,17 @@ fun SettingsScreen(
                 item("accessibility-title") { SettingsSection(settingsSectionTitle(destination, "Accessibility")) }
                 if (searchResult.isItemVisible("reduced-motion")) item("reduced-motion") {
                     ToggleRow(
-                        icon = Icons.Rounded.AccessibilityNew,
+                        icon = Symbols.AccessibilityNew,
                         title = "Reduce motion",
-                        description = "Prefer immediate state changes over decorative movement",
-                        checked = state.reduceMotion,
+                        // SETTINGSREVIEW01_REDUCE_MOTION_FOLLOWS_ANDROID_V1
+                        description = if (state.systemRemovesAnimations) {
+                            "On because Android's Remove animations is on"
+                        } else {
+                            "Prefer immediate state changes over decorative movement"
+                        },
+                        checked = state.motionReduced,
                         onCheckedChange = state::updateReduceMotion,
+                        enabled = !state.systemRemovesAnimations,
                     )
                 }
             }
@@ -2403,7 +2446,7 @@ fun SettingsScreen(
                 item("prototype-title") { SettingsSection(settingsSectionTitle(destination, "Prototype states")) }
                 if (searchResult.isItemVisible("feed-state")) item("feed-state") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.CloudOff,
+                        icon = Symbols.CloudOff,
                         title = "Feed preview",
                         description = "Inspect loading, offline, error and empty layouts",
                         value = state.feedPreviewState.label,
@@ -2455,13 +2498,11 @@ fun SettingsScreen(
                 ) {
                     item("comment-hierarchy-style") {
                         ValueSettingRow(
-                            icon = Icons.Rounded.Forum,
+                            icon = Symbols.Forum,
                             title = "Comment hierarchy",
                             description = "How replies connect to parent comments",
-                            value = when (state.commentHierarchyStyle) {
-                                CommentHierarchyStyle.GUIDE_LINES -> "Guides"
-                                CommentHierarchyStyle.PARENT_CONNECTORS -> "Connectors"
-                            },
+                            // SETTINGSREVIEW01_ROWS_USE_THE_DIALOG_WORDS_V1
+                            value = state.commentHierarchyStyle.label,
                             onClick = {
                                 choiceDialogKey = "comment-hierarchy-style"
                             },
@@ -2470,7 +2511,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("highlight-new-comments")) item("highlight-new-comments") {
                     ToggleRow(
-                        icon = Icons.Rounded.Forum,
+                        icon = Symbols.Forum,
                         title = "Highlight new comments",
                         description = "Mark replies added since your previous visit and reveal their parent path",
                         checked = state.highlightNewComments,
@@ -2480,7 +2521,7 @@ fun SettingsScreen(
                 // ISSUE22_COMMENT_AUTHOR_AVATARS_SETTING_V1
                 if (searchResult.isItemVisible("show-comment-avatars")) item("show-comment-avatars") {
                     ToggleRow(
-                        icon = Icons.Rounded.AccountCircle,
+                        icon = Symbols.AccountCircle,
                         title = "Show author avatars",
                         description = "Show each commenter's Reddit avatar instead of a letter",
                         checked = state.showCommentAvatars,
@@ -2489,7 +2530,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("top-level-comment-jump")) item("top-level-comment-jump") {
                     ToggleRow(
-                        icon = Icons.Rounded.KeyboardArrowDown,
+                        icon = Symbols.KeyboardArrowDown,
                         title = "Top-level comment jump button",
                         description = "Tap to jump to the next top-level comment, hold for the previous",
                         checked = state.topLevelCommentJumpButton,
@@ -2498,7 +2539,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("comment-actions")) item("comment-actions") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.Forum,
+                        icon = Symbols.Forum,
                         title = "Action placement",
                         description = "Place comment actions on the preferred side or balance them",
                         value = if (state.commentActionPreference == CommentActionPreference.FOLLOW) {
@@ -2511,7 +2552,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("comment-time-format")) item("comment-time-format") {
                     ValueSettingRow(
-                        icon = Icons.Rounded.Schedule,
+                        icon = Symbols.Schedule,
                         title = "Comment time",
                         description = "Relative age or a compact local timestamp",
                         value = state.commentTimeFormat.label,
@@ -2521,7 +2562,7 @@ fun SettingsScreen(
                 if (searchResult.isItemVisible("comment-collapse-mode")) {
                     item("comment-collapse-mode") {
                         SettingsSegmentedChoice(
-                            icon = Icons.Rounded.TouchApp,
+                            icon = Symbols.TouchApp,
                             title = "Collapse comments",
                             description = "Choose the tap target used to collapse a comment",
                             options = CommentCollapseMode.entries,
@@ -2540,7 +2581,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("use-suggested-comment-sort")) item("use-suggested-comment-sort") {
                     ToggleRow(
-                        icon = Icons.AutoMirrored.Rounded.Sort,
+                        icon = Symbols.Sort,
                         title = "Follow suggested comment sort",
                         description = "Use Reddit's suggested order when opening a post",
                         checked = state.useSuggestedCommentSort,
@@ -2607,7 +2648,7 @@ fun SettingsScreen(
                     item("notifications") {
                         // ISSUE219_INBOX_NOTIFICATIONS_ROW_IS_THE_SWITCH_V1: as ToggleRow (LOWUI7).
                         SettingsSwitchItem(
-                            icon = Icons.Rounded.Notifications,
+                            icon = Symbols.Notifications,
                             title = "Inbox notifications",
                             description = "Check Reddit every 15 minutes for new notifications",
                             checked = state.inboxNotificationsEnabled,
@@ -2620,7 +2661,7 @@ fun SettingsScreen(
                 if (notificationCategoryVisible) {
                     item("notification-types") {
                         NavigationRow(
-                            icon = Icons.Rounded.Tune,
+                            icon = Symbols.Tune,
                             title = "Notification types",
                             description = notificationTypeSummary,
                             onClick = {
@@ -2645,7 +2686,7 @@ fun SettingsScreen(
                 item("reddit-connection-title") { SettingsSection(settingsSectionTitle(destination, "Reddit connection")) }
                 if (searchResult.isItemVisible("redreader-compatibility")) item("redreader-compatibility") {
                     NavigationRow(
-                        icon = Icons.Rounded.VpnKey,
+                        icon = Symbols.VpnKey,
                         title = "RedReader compatibility",
                         description = redReaderOperationMessage ?: if (redReaderCompatibilityConfigured) {
                             "Configured locally · changes apply automatically"
@@ -2675,7 +2716,7 @@ fun SettingsScreen(
                 }
                 if (searchResult.isItemVisible("diagnostics")) item("diagnostics") {
                     NavigationRow(
-                        icon = Icons.Rounded.Info,
+                        icon = Symbols.Info,
                         title = "Diagnostics",
                         description = "Inspect local app events and create a privacy-safe report",
                         onClick = {
@@ -2697,7 +2738,7 @@ fun SettingsScreen(
                 item("backup-title") { SettingsSection(settingsSectionTitle(destination, "Backup & restore")) }
                 if (searchResult.isItemVisible("backup")) item("backup") {
                     NavigationRow(
-                        icon = Icons.Rounded.Backup,
+                        icon = Symbols.Backup,
                         title = "Saved setups",
                         description = when (backupRepository.status().protection) {
                             BackupProtection.PROTECTED -> "Automatic history is protected outside the app"
@@ -2726,7 +2767,7 @@ fun SettingsScreen(
                 item("about-title") { SettingsSection(settingsSectionTitle(destination, "About")) }
                 if (searchResult.isItemVisible("about")) item("about") {
                     NavigationRow(
-                        icon = Icons.Rounded.Info,
+                        icon = Symbols.Info,
                         title = "Help & about",
                         description = BuildConfig.VERSION_NAME,
                         onClick = {
@@ -2744,16 +2785,16 @@ fun SettingsScreen(
 
 private fun settingsDestinationIcon(destination: SettingsDestination): ImageVector =
     when (destination) {
-        SettingsDestination.ACCOUNTS -> Icons.Rounded.AccountCircle
-        SettingsDestination.APPEARANCE -> Icons.Rounded.Palette
-        SettingsDestination.NAVIGATION -> Icons.Rounded.Navigation
-        SettingsDestination.FEEDS -> Icons.Rounded.Home
-        SettingsDestination.MEDIA -> Icons.Rounded.Image
-        SettingsDestination.COMMENTS -> Icons.Rounded.Forum
-        SettingsDestination.BACKUP -> Icons.Rounded.Backup
-        SettingsDestination.ADVANCED -> Icons.Rounded.Tune
-        SettingsDestination.ABOUT -> Icons.Rounded.Info
-        else -> Icons.Rounded.Tune
+        SettingsDestination.ACCOUNTS -> Symbols.AccountCircle
+        SettingsDestination.APPEARANCE -> Symbols.Palette
+        SettingsDestination.NAVIGATION -> Symbols.Swipe
+        SettingsDestination.FEEDS -> Symbols.Home
+        SettingsDestination.MEDIA -> Symbols.Image
+        SettingsDestination.COMMENTS -> Symbols.Forum
+        SettingsDestination.BACKUP -> Symbols.Backup
+        SettingsDestination.ADVANCED -> Symbols.Tune
+        SettingsDestination.ABOUT -> Symbols.Info
+        else -> Symbols.Tune
     }
 
 @Composable
@@ -2783,7 +2824,7 @@ private fun SettingsDestinationRow(
             }
         },
         trailing = {
-            Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null)
+            Icon(Symbols.ArrowForward, contentDescription = null)
         },
         containerColor = if (selected) {
             MaterialTheme.colorScheme.secondaryContainer
@@ -2816,6 +2857,9 @@ private fun SettingsSection(title: String) {
         )
     }
 }
+
+private fun dynamicColorSupported(): Boolean =
+    android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S
 
 @Composable
 private fun ToggleRow(

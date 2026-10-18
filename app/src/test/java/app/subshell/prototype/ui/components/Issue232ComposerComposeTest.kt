@@ -35,6 +35,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.subshell.prototype.backup.SettingsBackupRepository
 import app.subshell.prototype.data.account.RedditCommentsUiState
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.PostKind
 import app.subshell.prototype.ui.SubshellApp
@@ -104,7 +105,7 @@ class Issue232ComposerComposeTest {
         composeRule.setContent {
             view = LocalView.current
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 redditFeed = FeedEntryPoints(redditSubscriptionsState = VisualFixtures.subscriptions),
                 redditComments = CommentLoadingEntryPoints(

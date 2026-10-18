@@ -54,6 +54,24 @@ data class ComposerMentions(
 
 internal const val MENTION_SEARCH_DEBOUNCE_MS = 300L
 
+/**
+ * ISSUE229_POST_BODY_MENTIONS_V1 (owner 2026-10-16): a post body has no thread,
+ * so it suggests only from the active account's people search; Reddit notifies
+ * a person named with u/ in a post body (not in messages or modmail, which get
+ * no suggestions). A search answer for another account is never shown.
+ */
+internal fun postBodyMentions(
+    accountStableId: String,
+    authenticated: Boolean,
+    searchState: RedditPeopleSearchUiState,
+    onSearch: (String) -> Unit,
+): ComposerMentions = ComposerMentions(
+    thread = emptyList(),
+    remote = searchState.takeIf { it.accountStableId == accountStableId } ?: RedditPeopleSearchUiState(),
+    searchEnabled = authenticated,
+    onSearch = onSearch,
+)
+
 @Composable
 internal fun MentionSuggestions(
     state: TextFieldState,

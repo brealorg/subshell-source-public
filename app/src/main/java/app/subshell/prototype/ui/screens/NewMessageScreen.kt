@@ -19,13 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.Send
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.Forum
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -73,6 +66,7 @@ import app.subshell.prototype.ui.components.CompactReplyComposer
 import app.subshell.prototype.ui.components.InlineErrorNotice
 import app.subshell.prototype.ui.components.RouteTopBar
 import app.subshell.prototype.ui.components.rememberRouteTopBarScrollBehavior
+import app.subshell.prototype.ui.symbols.Symbols
 import kotlinx.coroutines.flow.drop
 import app.subshell.prototype.ui.components.RemoteIdentityImage
 import app.subshell.prototype.ui.components.rememberComposerMediaPicker
@@ -259,7 +253,7 @@ fun NewMessageScreen(
                         onClick = { leave() },
                     ) {
                         Icon(
-                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            Symbols.ArrowBack,
                             contentDescription = "Back",
                         )
                     }
@@ -330,7 +324,7 @@ fun NewMessageScreen(
                                 MaterialTheme.colorScheme.onSecondaryContainer,
                         ) {
                             Icon(
-                                Icons.Rounded.Forum,
+                                Symbols.Forum,
                                 contentDescription = null,
                                 modifier = Modifier
                                     .padding(16.dp)
@@ -482,7 +476,7 @@ private fun RecipientSearchPhase(
                         onClick = { onQueryChange("") },
                     ) {
                         Icon(
-                            Icons.Rounded.Close,
+                            Symbols.Close,
                             contentDescription = "Clear recipient search",
                         )
                     }
@@ -608,7 +602,7 @@ private fun SelectedRecipientSurface(
                 onClick = onClear,
             ) {
                 Icon(
-                    Icons.Rounded.Close,
+                    Symbols.Close,
                     contentDescription = "Change recipient",
                 )
             }

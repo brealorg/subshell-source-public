@@ -12,6 +12,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.subshell.prototype.data.SampleData
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackFailure
@@ -81,7 +82,7 @@ class Step3VideoErrorNoticeComposeTest {
         ensureWorkManagerInitialized(context)
         val state = SubshellState()
         state.playVideo(video.id)
-        val coordinator = VideoPlaybackCoordinator(context).apply { release() }
+        val coordinator = testVideoPlaybackCoordinator(context).apply { release() }
         composeRule.mainClock.autoAdvance = false
         composeRule.setContent {
             CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {

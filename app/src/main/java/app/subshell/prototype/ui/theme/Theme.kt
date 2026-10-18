@@ -9,7 +9,8 @@ import androidx.compose.runtime.remember
 import android.content.Context
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -136,7 +137,7 @@ internal fun groupedRowShape(
 // window) uses the same theme, dynamic colour and text size.
 data class SubshellThemeSettings(
     val mode: ThemeMode = ThemeMode.SYSTEM,
-    val dynamicColor: Boolean = false,
+    val dynamicColor: Boolean = app.subshell.prototype.ui.DefaultSubshellSettings.dynamicColor,
     val pureBlack: Boolean = false,
     val textScale: Float = 1f,
 )
@@ -156,6 +157,7 @@ fun SubshellTheme(
     textScale: Float = 1f,
     codeFontFamily: FontFamily = FontFamily.Monospace,
     manageSystemBarContrast: Boolean = true,
+    reduceMotion: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val dark = when (mode) {
@@ -207,8 +209,13 @@ fun SubshellTheme(
         LocalCodeFontFamily provides codeFontFamily,
         LocalDensity provides scaledDensity,
     ) {
-        MaterialTheme(
+        // EXPRESSIVE01_SPRING_MOTION_V1 (owner 2026-10-18, test build): M3
+        // Expressive's spring motion scheme; the app's own colours, type and
+        // shapes stay. Reduce motion keeps the standard scheme, which does not
+        // overshoot.
+        MaterialExpressiveTheme(
             colorScheme = colors,
+            motionScheme = if (reduceMotion) MotionScheme.standard() else MotionScheme.expressive(),
             typography = SubshellTypography,
             shapes = SubshellShapes,
             content = content,

@@ -153,7 +153,7 @@ internal class TextPostWriteCoordinator(
             } catch (error: Exception) {
                 AuthenticatedTextPostSubmitResult.Failed(
                     kind = AuthenticatedTextPostSubmitFailureKind.OUTCOME_UNKNOWN,
-                    failureDetails = FailureDetails(localKind = LocalFailureKind.UNKNOWN),
+                    failureDetails = FailureDetails(localKind = LocalFailureKind.UNKNOWN).withExceptionClass(error),
                 )
             }
             applySubmitResult(request, result)
@@ -277,10 +277,10 @@ internal class TextPostWriteCoordinator(
                 )
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 AuthenticatedTextPostSubmitResult.Failed(
                     kind = AuthenticatedTextPostSubmitFailureKind.OUTCOME_UNKNOWN,
-                    failureDetails = FailureDetails(localKind = LocalFailureKind.UNKNOWN),
+                    failureDetails = FailureDetails(localKind = LocalFailureKind.UNKNOWN).withExceptionClass(error),
                 )
             }
             // CROSSPOST01A1B_RECONCILIATION_RESULT_FENCE_V1

@@ -1,5 +1,6 @@
 package app.subshell.prototype.ui.components
 
+import app.subshell.prototype.ui.symbols.Symbols
 import java.io.File
 import org.junit.Assert.*
 import org.junit.Test
@@ -37,10 +38,9 @@ class Moderation02A2ReportPresentationPolicyTest {
     }
     @Test fun reportMenuUsesAutoMirroredFactCheckWithoutWarningSuppression() {
         val ui = source("ui/components/ModeratorReports.kt")
-        assertTrue(ui.contains("import androidx.compose.material.icons.automirrored.rounded.FactCheck"))
-        assertTrue(ui.contains("Icons.AutoMirrored.Rounded.FactCheck"))
-        assertFalse(ui.contains("import androidx.compose.material.icons.rounded.FactCheck"))
-        assertFalse(ui.contains("Icons.Rounded.FactCheck"))
+        // MATERIALSYMBOLS01: the symbol itself mirrors in right-to-left layouts.
+        assertTrue(ui.contains("Symbols.FactCheck"))
+        assertTrue(Symbols.FactCheck.autoMirror)
         assertFalse(ui.contains("@Suppress"))
         assertFalse(ui.contains("@file:Suppress"))
     }
@@ -60,7 +60,7 @@ class Moderation02A2ReportPresentationPolicyTest {
         val lookup = ui.substringAfter("internal fun ModeratorReportLookupButton(").substringBefore("@Composable")
         val row = ui.substringAfter("internal fun ModeratorReportsButton(").substringBefore("@Composable")
         assertTrue(lookup.contains("FilledTonalButton("))
-        assertTrue(lookup.contains("Icons.Rounded.Search"))
+        assertTrue(lookup.contains("Symbols.Search"))
         assertTrue(lookup.contains("Text(\"Find reports\")"))
         assertTrue(row.contains("OutlinedButton("))
         assertTrue(row.contains("View reports"))

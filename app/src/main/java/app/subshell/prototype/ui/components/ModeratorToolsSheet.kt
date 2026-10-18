@@ -17,8 +17,6 @@ import app.subshell.prototype.data.account.RedditRemovalStepOutcome
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Block
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -30,9 +28,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AdminPanelSettings
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -72,6 +67,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.ui.graphics.Color
+import app.subshell.prototype.ui.symbols.Symbols
 
 // MODERATION02A5A1R3_MOD_TOOLS_WORKSPACE_NAVIGATION_V1
 enum class ModeratorToolsWorkspaceDestination {
@@ -242,7 +238,7 @@ fun ModeratorToolsSheet(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.AdminPanelSettings,
+                            imageVector = Symbols.AdminPanelSettings,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                         )
@@ -260,7 +256,7 @@ fun ModeratorToolsSheet(
                         }
                         TextButton(onClick = onRefresh) {
                             Icon(
-                                Icons.Rounded.Refresh,
+                                Symbols.Refresh,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
                             )
@@ -460,7 +456,7 @@ fun ModeratorToolsSheet(
                                     },
                                     enabled = !actionUiState.inProgress,
                                 ) {
-                                    ModeratorActionIcon(Icons.Rounded.Check)
+                                    ModeratorActionIcon(Symbols.Check)
                                     Spacer(Modifier.width(6.dp))
                                     Text("Approve")
                                 }
@@ -469,7 +465,7 @@ fun ModeratorToolsSheet(
                                     onClick = { pendingRemove = item },
                                     enabled = !actionUiState.inProgress,
                                 ) {
-                                    ModeratorActionIcon(Icons.Rounded.Block)
+                                    ModeratorActionIcon(Symbols.Block)
                                     Spacer(Modifier.width(6.dp))
                                     Text("Remove")
                                 }

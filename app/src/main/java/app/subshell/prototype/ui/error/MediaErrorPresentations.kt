@@ -2,6 +2,7 @@ package app.subshell.prototype.ui.error
 
 import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.error.LocalFailureKind
+import app.subshell.prototype.media.isRemoteMediaGone
 
 internal enum class RemoteMediaKind {
     IMAGE,
@@ -16,6 +17,16 @@ internal fun remoteMediaErrorPresentation(
     val noun = when (kind) {
         RemoteMediaKind.IMAGE -> "image"
         RemoteMediaKind.GIF -> "GIF"
+    }
+    // MEDIAGONE01_A_GONE_SOURCE_READS_REMOVED_V1 (owner 2026-10-18): a 404/410
+    // from the source means the media was removed; it is shown as such, without
+    // an action, and is not recorded as an error.
+    if (details.isRemoteMediaGone()) {
+        return ErrorPresentation(
+            kind = ErrorPresentationKind.INLINE,
+            title = if (kind == RemoteMediaKind.IMAGE) "Image removed" else "GIF removed",
+            message = "It is no longer available where it was posted.",
+        ).withFailureDetails(details)
     }
     val message = when {
         details.transportKind != null -> "subshell couldn't reach the $noun source."

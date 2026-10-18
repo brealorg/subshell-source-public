@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.auth.reddit
 
+import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.account.OnlineVisibilityConfirmation
 import app.subshell.prototype.data.account.OnlineVisibilityIssue
 import app.subshell.prototype.data.account.OnlineVisibilityResult
@@ -104,7 +105,7 @@ internal class ConfiguredRedditOnlineVisibilityService(
             if (!current(account, isCurrent)) return failed(OnlineVisibilityIssue.ACCOUNT_CHANGED)
             when (before) {
                 OnlineVisibilityResult.Unavailable -> return OnlineVisibilityWriteResult.Unavailable
-                is OnlineVisibilityResult.Failed -> return failed(before.issue, before.httpStatusCode)
+                is OnlineVisibilityResult.Failed -> return failed(before.issue, before.httpStatusCode, before.failureDetails)
                 is OnlineVisibilityResult.Known -> if (before.value != confirmation.expectedValue) {
                     return OnlineVisibilityWriteResult.Changed(before.value)
                 }
@@ -143,6 +144,7 @@ internal class ConfiguredRedditOnlineVisibilityService(
                 issue = OnlineVisibilityIssue.OUTCOME_UNKNOWN,
                 observedValue = (readback as? OnlineVisibilityResult.Known)?.value,
                 httpStatusCode = (response as? OnlineVisibilityResult.Failed)?.httpStatusCode,
+                failureDetails = (response as? OnlineVisibilityResult.Failed)?.failureDetails,
             )
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -158,8 +160,8 @@ internal class ConfiguredRedditOnlineVisibilityService(
 
     private fun changedAccountRead() =
         OnlineVisibilityResult.Failed(OnlineVisibilityIssue.ACCOUNT_CHANGED)
-    private fun failed(issue: OnlineVisibilityIssue, code: Int? = null) =
-        OnlineVisibilityWriteResult.Failed(issue, httpStatusCode = code)
+    private fun failed(issue: OnlineVisibilityIssue, code: Int? = null, details: FailureDetails? = null) =
+        OnlineVisibilityWriteResult.Failed(issue, httpStatusCode = code, failureDetails = details)
 }
 
 private fun OAuthEndpointResult<*>.isRetryableEndpointFailure(): Boolean =

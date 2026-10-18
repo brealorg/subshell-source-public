@@ -3,6 +3,7 @@ package app.subshell.prototype
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.subshell.prototype.auth.AuthConnectViewModel
 import app.subshell.prototype.ui.ModeratorTeamRuntimeEntryPoints
 import app.subshell.prototype.ui.app.ModeratorToolsEntryPoints
@@ -24,13 +25,13 @@ internal fun moderatorToolsEntryPoints(
     launchRedditModeratorUserManagementAuthorization: () -> Unit,
 ): ModeratorToolsEntryPoints {
     val moderatorReportsState by
-        authConnectViewModel.moderatorReportsUiState.collectAsState()
+        authConnectViewModel.moderatorReportsUiState.collectAsStateWithLifecycle()
     val moderatorContentControlsState by
-        authConnectViewModel.moderatorContentControlsUiState.collectAsState()
+        authConnectViewModel.moderatorContentControlsUiState.collectAsStateWithLifecycle()
     val moderatorLogState by
-        authConnectViewModel.moderatorLogUiState.collectAsState()
+        authConnectViewModel.moderatorLogUiState.collectAsStateWithLifecycle()
     val moderatorUserManagementState by
-        authConnectViewModel.moderatorUserManagementUiState.collectAsState()
+        authConnectViewModel.moderatorUserManagementUiState.collectAsStateWithLifecycle()
     return ModeratorToolsEntryPoints(
         onLoadRedditModeratorCommunities =
             authConnectViewModel::loadRedditModeratorCommunities,
@@ -96,11 +97,11 @@ internal fun moderatorTeamRuntimeEntryPoints(
     launchRedditModeratorRemovalAuthorization: () -> Unit,
 ): ModeratorTeamRuntimeEntryPoints {
     val moderatorInviteState by
-        authConnectViewModel.moderatorInviteUiState.collectAsState()
+        authConnectViewModel.moderatorInviteUiState.collectAsStateWithLifecycle()
     val moderatorPermissionUpdateState by
-        authConnectViewModel.moderatorPermissionUpdateUiState.collectAsState()
+        authConnectViewModel.moderatorPermissionUpdateUiState.collectAsStateWithLifecycle()
     val moderatorRemovalState by
-        authConnectViewModel.moderatorRemovalUiState.collectAsState()
+        authConnectViewModel.moderatorRemovalUiState.collectAsStateWithLifecycle()
     return ModeratorTeamRuntimeEntryPoints(
         moderatorInviteState = moderatorInviteState,
         onOpenModeratorInvite =

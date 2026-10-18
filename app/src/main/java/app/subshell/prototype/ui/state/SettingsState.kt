@@ -15,6 +15,7 @@ import app.subshell.prototype.ui.CommentTimeFormat
 import app.subshell.prototype.ui.CommunityDiscoveryLayout
 import app.subshell.prototype.ui.DrawerCommunitiesMode
 import app.subshell.prototype.ui.DrawerSidePreference
+import app.subshell.prototype.ui.explicitDrawerSidePreference
 import app.subshell.prototype.ui.FeedPreviewState
 import app.subshell.prototype.ui.FullscreenCaptionMode
 import app.subshell.prototype.ui.InteractionSide
@@ -84,6 +85,11 @@ internal class SettingsState(
     initialScrollPositionIndicator: Boolean = false,
     initialRandomNsfwCommunityPlacement: app.subshell.prototype.ui.RandomNsfwCommunityPlacement =
         app.subshell.prototype.ui.RandomNsfwCommunityPlacement.OFF,
+    initialPinnedPostsPresentation: app.subshell.prototype.ui.PinnedPostsPresentation =
+        app.subshell.prototype.ui.PinnedPostsPresentation.CARDS,
+    initialPostLayout: app.subshell.prototype.ui.PostLayout = app.subshell.prototype.ui.PostLayout.LARGE,
+    initialListThumbnailSide: app.subshell.prototype.ui.ListThumbnailSide =
+        app.subshell.prototype.ui.ListThumbnailSide.RIGHT,
     initialCommunityDiscoveryLayout: CommunityDiscoveryLayout,
     initialRequireDeviceUnlockForHiddenSubscriptions: Boolean,
     initialNavigationLabelMode: NavigationLabelMode,
@@ -107,6 +113,7 @@ internal class SettingsState(
     initialVideoSpeedControls: Boolean,
     initialVideoDoubleTapSeek: Boolean,
     initialVideoHoldForDoubleSpeed: Boolean,
+    initialVideoPinchToZoom: Boolean,
     initialVideoPictureInPicture: Boolean,
     initialVideoRotateFullscreen: Boolean,
     initialVideoTechnicalDetails: Boolean,
@@ -183,6 +190,12 @@ internal class SettingsState(
         internal set
     var randomNsfwCommunityPlacement by mutableStateOf(initialRandomNsfwCommunityPlacement)
         internal set
+    var pinnedPostsPresentation by mutableStateOf(initialPinnedPostsPresentation)
+        internal set
+    var postLayout by mutableStateOf(initialPostLayout)
+        internal set
+    var listThumbnailSide by mutableStateOf(initialListThumbnailSide)
+        internal set
     var communityDiscoveryLayout by mutableStateOf(initialCommunityDiscoveryLayout)
         internal set
     var requireDeviceUnlockForHiddenSubscriptions by mutableStateOf(
@@ -213,6 +226,7 @@ internal class SettingsState(
     var videoSpeedControls by mutableStateOf(initialVideoSpeedControls)
     var videoDoubleTapSeek by mutableStateOf(initialVideoDoubleTapSeek)
     var videoHoldForDoubleSpeed by mutableStateOf(initialVideoHoldForDoubleSpeed)
+    var videoPinchToZoom by mutableStateOf(initialVideoPinchToZoom)
     var videoPictureInPicture by mutableStateOf(initialVideoPictureInPicture)
     var videoRotateFullscreen by mutableStateOf(initialVideoRotateFullscreen)
     var videoTechnicalDetails by mutableStateOf(initialVideoTechnicalDetails)
@@ -223,6 +237,13 @@ internal class SettingsState(
     var landscapeVolumeGestureEnabled by mutableStateOf(initialLandscapeVolumeGestureEnabled)
         internal set
     var reduceMotion by mutableStateOf(initialReduceMotion)
+
+    // SETTINGSREVIEW01_REDUCE_MOTION_FOLLOWS_ANDROID_V1 (owner 2026-10-17): Android's
+    // "Remove animations" (animator duration scale 0) reduces motion in subshell
+    // too, whatever the reader's own switch says; read by SystemMotionEffect.
+    var systemRemovesAnimations by mutableStateOf(false)
+    val motionReduced: Boolean
+        get() = reduceMotion || systemRemovesAnimations
     var feedPreviewState by mutableStateOf(initialFeedPreviewState)
     val resolvedDrawerSide: InteractionSide
         get() = drawerSidePreference.resolve(interactionSide)
@@ -234,6 +255,10 @@ internal class SettingsState(
     }
 
     fun confirmInteractionSide() {
+        // SETTINGSREVIEW01_ONBOARDING_SIDE_MOVES_THE_MENU_V1: the launch-time
+        // migration made the drawer side explicit before the reader was asked,
+        // so the answer sets the menu side too, as the dialog promises.
+        drawerSidePreference = explicitDrawerSidePreference(DrawerSidePreference.FOLLOW, interactionSide)
         persistInteractionSidePreferences()
         commentActionOnboardingVisible = false
     }
@@ -428,6 +453,21 @@ internal class SettingsState(
         persistPreference(SubshellSettings.RANDOM_NSFW_COMMUNITY_PLACEMENT, placement.name)
     }
 
+    fun updatePinnedPostsPresentation(presentation: app.subshell.prototype.ui.PinnedPostsPresentation) {
+        pinnedPostsPresentation = presentation
+        persistPreference(SubshellSettings.PINNED_POSTS_PRESENTATION, presentation.name)
+    }
+
+    fun updatePostLayout(layout: app.subshell.prototype.ui.PostLayout) {
+        postLayout = layout
+        persistPreference(SubshellSettings.POST_LAYOUT, layout.name)
+    }
+
+    fun updateListThumbnailSide(side: app.subshell.prototype.ui.ListThumbnailSide) {
+        listThumbnailSide = side
+        persistPreference(SubshellSettings.LIST_THUMBNAIL_SIDE, side.name)
+    }
+
     fun updateBackTwiceToExit(enabled: Boolean) {
         backTwiceToExit = enabled
         persistPreference(SubshellSettings.BACK_TWICE_TO_EXIT, enabled.toString())
@@ -509,6 +549,11 @@ internal class SettingsState(
     fun updateVideoHoldForDoubleSpeed(enabled: Boolean) {
         videoHoldForDoubleSpeed = enabled
         persistPreference(SubshellSettings.VIDEO_HOLD_FOR_DOUBLE_SPEED, enabled.toString())
+    }
+
+    fun updateVideoPinchToZoom(enabled: Boolean) {
+        videoPinchToZoom = enabled
+        persistPreference(SubshellSettings.VIDEO_PINCH_TO_ZOOM, enabled.toString())
     }
 
     fun updateVideoPictureInPicture(enabled: Boolean) {

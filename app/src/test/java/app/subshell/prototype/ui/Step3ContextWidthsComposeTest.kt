@@ -24,6 +24,7 @@ import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.data.account.RedditInboxUiState
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.ActivityKind
 import app.subshell.prototype.model.InboxItem
@@ -96,7 +97,7 @@ class Step3ContextWidthsComposeTest {
         state.updateTabletLayoutMode(mode)
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 redditInbox = InboxEntryPoints(
                     redditInboxState = RedditInboxUiState(

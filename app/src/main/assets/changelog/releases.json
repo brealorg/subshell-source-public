@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "versionCode": 247,
+      "versionName": "0.83-beta",
+      "date": "2026-10-19",
+      "headline": "Subshell 0.83: choose how posts look, pinned posts first, and pinch to zoom videos",
+      "highlights": [
+        "Choose how posts look: Large, Compact, List or Grid, from the view button beside the feed (and in Settings).",
+        "A community's pinned posts now come first in every sort, as cards or as compact highlights.",
+        "Pinch to zoom videos in the full-screen player (turn it on in Settings).",
+        "A fresh look: Google's Material Symbols icons, Material 3 Expressive motion, and dynamic colour on by default.",
+        "More reliable: one unreadable post no longer breaks a whole feed, removed images say so instead of retrying, and the inbox sync retries on a shaky network."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v0.83-beta"
+    },
+    {
       "versionCode": 246,
       "versionName": "0.82-beta",
       "date": "2026-10-16",

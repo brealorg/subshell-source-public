@@ -14,6 +14,7 @@ import app.subshell.prototype.data.account.AccountSessionSource
 import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -60,7 +61,7 @@ class SubshellAppDraftsWorkspaceComposeTest {
         ensureWorkManagerInitialized(context)
 
         composeRule.setContent {
-            SubshellApp(videoPlaybackCoordinator = VideoPlaybackCoordinator(context), state = state)
+            SubshellApp(videoPlaybackCoordinator = testVideoPlaybackCoordinator(context), state = state)
         }
         composeRule.onNodeWithText(YOU_DRAFTS_WORKSPACE_PLACEHOLDER).assertIsDisplayed()
         // #224 (adapt-07): the Drafts tab names the list; no second pane header.

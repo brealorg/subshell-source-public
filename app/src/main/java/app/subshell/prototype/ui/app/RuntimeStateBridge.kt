@@ -38,7 +38,6 @@ import app.subshell.prototype.data.account.TextPostWritePhase
 import app.subshell.prototype.data.account.UserFlairMutationRequest
 import app.subshell.prototype.data.account.UserFlairUiState
 import app.subshell.prototype.data.diagnostics.DiagnosticEventStore
-import app.subshell.prototype.data.diagnostics.DiagnosticEvents
 import app.subshell.prototype.data.redditAccountHistoryPostQueryKey
 import app.subshell.prototype.model.Post
 import app.subshell.prototype.ui.DebugFocusedCommentLaunch
@@ -156,7 +155,7 @@ internal fun RuntimeStateBridge(
         if (!AppSessionStartRecord.claim()) return@LaunchedEffect
         withContext(Dispatchers.IO) {
             runCatching {
-                diagnosticEventStore.record(DiagnosticEvents.appSessionStarted())
+                diagnosticEventStore.recordAppSessionStarted(BuildConfig.VERSION_CODE.toLong())
             }
         }
     }

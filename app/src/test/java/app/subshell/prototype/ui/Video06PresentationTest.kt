@@ -19,6 +19,8 @@ import androidx.test.core.app.ApplicationProvider
 import app.subshell.prototype.data.SampleData
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.releaseWithoutHanging
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.FeedViewportState
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VIDEO_UNRANKED
@@ -90,7 +92,7 @@ class Video06PresentationTest {
     private fun showReleased(state: SubshellState, inPostDetail: Boolean) {
         ensureWorkManagerInitialized(context)
         // Released: only the state the test publishes reaches the frame.
-        val coordinator = VideoPlaybackCoordinator(context).apply { release() }
+        val coordinator = testVideoPlaybackCoordinator(context).apply { release() }
         composeRule.mainClock.autoAdvance = false
         composeRule.setContent {
             CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
@@ -175,7 +177,7 @@ class Video06PresentationTest {
     @Test
     fun aVideoWithoutSoundLoopsAndIsKnownAsSilent() {
         ensureWorkManagerInitialized(context)
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         try {
             coordinator.updateLoopVideos(false)
             coordinator.attach(
@@ -205,7 +207,7 @@ class Video06PresentationTest {
             assertNull(coordinator.silentMediaId)
             assertEquals(Player.REPEAT_MODE_OFF, coordinator.player.repeatMode)
         } finally {
-            coordinator.release()
+            coordinator.releaseWithoutHanging()
         }
     }
 

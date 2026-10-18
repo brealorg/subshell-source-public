@@ -18,6 +18,7 @@ import app.subshell.prototype.data.account.CustomFeedsUiState
 import app.subshell.prototype.data.account.RedditSubscriptionsUiState
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.share.ShareIntoSubshellLaunch
 import app.subshell.prototype.ui.app.CustomFeedsEntryPoints
@@ -74,7 +75,7 @@ class Issue66To68SubshellAppStateComposeTest {
         val state = signedIn()
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 customFeeds = CustomFeedsEntryPoints(
                     customFeedsState = CustomFeedsUiState(accountStableId = account.stableId, feeds = listOf(feed)),
@@ -106,7 +107,7 @@ class Issue66To68SubshellAppStateComposeTest {
         var consumed = 0
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 shareIntoSubshellLaunch = launch,
                 onShareIntoSubshellConsumed = {
@@ -133,7 +134,7 @@ class Issue66To68SubshellAppStateComposeTest {
         val restoration = StateRestorationTester(composeRule)
         restoration.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 redditFeed = FeedEntryPoints(
                     redditSubscriptionsState = RedditSubscriptionsUiState(

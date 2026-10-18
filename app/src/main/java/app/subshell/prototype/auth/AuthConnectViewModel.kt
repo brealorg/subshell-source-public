@@ -1,5 +1,7 @@
 package app.subshell.prototype.auth
 
+import app.subshell.prototype.data.diagnostics.recordFailureWithoutAScreen
+import app.subshell.prototype.data.account.RedditCommunityPinnedPostsUiState
 import app.subshell.prototype.ui.CrosspostReviewUiState
 import app.subshell.prototype.ui.PostComposerDraft
 import app.subshell.prototype.ui.crosspostDraftWriteAvailable
@@ -203,6 +205,11 @@ internal class AuthConnectViewModel internal constructor(
         infoLoader = runtime.redditCommunityInfoLoader,
         scope = viewModelScope,
     )
+    // ISSUE230_PINNED_POSTS_FIRST_V1
+    private val communityPinnedPostsCoordinator = CommunityPinnedPostsCoordinator(
+        loader = runtime.redditCommunityPinnedPostsLoader,
+        scope = viewModelScope,
+    )
     // WIKI01A2_VIEWMODEL_WIKI_STATE_V1
     // SUBSHELL_COMMUNITYWIKI01_COORDINATOR_V1: wiki reads and their read
     // authorization live in CommunityWikiCoordinator.
@@ -270,6 +277,7 @@ internal class AuthConnectViewModel internal constructor(
         commentLoader = runtime.redditAccountHistoryCommentLoader,
         redditAccountHistoryCoordinator = redditAccountHistoryCoordinator,
         redditSavedHistoryCoordinator = redditSavedHistoryCoordinator,
+        recordLookupFailure = { scopeKey, details -> recordFailureWithoutAScreen(application, scopeKey, details) },
     )
     private val redditFeedCoordinator = RedditFeedRequestCoordinator(
         scope = viewModelScope,
@@ -1112,6 +1120,13 @@ internal class AuthConnectViewModel internal constructor(
 
     fun loadRedditMentionSearch(accountStableId: String, query: String) =
         communityDiscoveryCoordinator.loadRedditMentionSearch(accountStableId, query)
+
+    // ISSUE230_PINNED_POSTS_FIRST_V1
+    val redditCommunityPinnedPostsUiState: StateFlow<RedditCommunityPinnedPostsUiState> =
+        communityPinnedPostsCoordinator.uiState
+
+    fun loadRedditCommunityPinnedPosts(accountStableId: String, communityName: String, forceRefresh: Boolean) =
+        communityPinnedPostsCoordinator.load(accountStableId, communityName, forceRefresh)
 
     // COMMUNITYINFO01A2_VIEWMODEL_LATEST_REQUEST_WIRING_V1
     fun loadRedditCommunityInfo(

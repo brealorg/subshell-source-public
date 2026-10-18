@@ -28,8 +28,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -49,6 +47,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import app.subshell.prototype.data.account.RedditReportTargetKind
 import app.subshell.prototype.ui.SubshellState
+import app.subshell.prototype.ui.symbols.Symbols
 
 // SAFETY01A3_SHARED_REDDIT_REPORT_DIALOG_V1
 @Composable
@@ -96,7 +95,7 @@ ModalBottomSheet(
                     color = MaterialTheme.colorScheme.secondaryContainer,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                 ) {
-                    Icon(Icons.Rounded.Flag, contentDescription = null, modifier = Modifier.padding(12.dp))
+                    Icon(Symbols.Flag, contentDescription = null, modifier = Modifier.padding(12.dp))
                 }
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text("Report $targetLabel", style = MaterialTheme.typography.headlineSmall)

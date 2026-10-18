@@ -73,7 +73,7 @@ internal class PostDeleteCoordinator(
                 )
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 // The request may already have reached Reddit.
                 AuthenticatedPostDeleteResult.Failed(
                     kind = AuthenticatedPostDeleteFailureKind.OUTCOME_UNKNOWN,
@@ -81,7 +81,7 @@ internal class PostDeleteCoordinator(
                     failureDetails = FailureDetails(
                         retryable = false,
                         localKind = LocalFailureKind.UNKNOWN,
-                    ),
+                    ).withExceptionClass(error),
                 )
             }
             applyResult(request, result)
@@ -114,10 +114,10 @@ internal class PostDeleteCoordinator(
                 )
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 AuthenticatedPostDeleteResult.Failed(
                     kind = AuthenticatedPostDeleteFailureKind.OUTCOME_UNKNOWN,
-                    failureDetails = FailureDetails(localKind = LocalFailureKind.UNKNOWN),
+                    failureDetails = FailureDetails(localKind = LocalFailureKind.UNKNOWN).withExceptionClass(error),
                 )
             }
             applyResult(request, result)

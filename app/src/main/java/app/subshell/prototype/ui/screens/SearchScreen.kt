@@ -7,9 +7,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import app.subshell.prototype.ui.RandomNsfwCommunityPlacement
 import app.subshell.prototype.ui.app.RandomNsfwCommunityButton
-import androidx.compose.material.icons.rounded.Bookmark
-import androidx.compose.material.icons.rounded.BookmarkBorder
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import app.subshell.prototype.ui.SavedSearch
@@ -35,11 +32,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -109,6 +101,12 @@ import app.subshell.prototype.ui.postIdOrNull
 import app.subshell.prototype.ui.rankSearchMatches
 import app.subshell.prototype.ui.rerankSearchProviderResults
 import app.subshell.prototype.ui.rememberFeedScrollState
+import app.subshell.prototype.ui.feedItemSpacing
+import app.subshell.prototype.ui.feedPostItemKeys
+import app.subshell.prototype.ui.feedPostItems
+import app.subshell.prototype.ui.forFeed
+import app.subshell.prototype.ui.rememberFeedGridColumns
+import app.subshell.prototype.ui.components.PostLayoutMenuButton
 import app.subshell.prototype.ui.searchFeedScrollKey
 import app.subshell.prototype.ui.searchPostFeedQueryKey
 import app.subshell.prototype.ui.hiddenPostIdentities
@@ -123,6 +121,7 @@ import app.subshell.prototype.ui.error.ErrorActionKind
 import app.subshell.prototype.ui.error.ReportViewportError
 import app.subshell.prototype.ui.error.redditFeedAppendErrorPresentation
 import app.subshell.prototype.ui.error.redditFeedErrorPresentation
+import app.subshell.prototype.ui.symbols.Symbols
 import kotlinx.coroutines.delay
 import app.subshell.prototype.ui.components.SubshellSearchField
 import app.subshell.prototype.ui.components.ListCard
@@ -917,7 +916,14 @@ val trendingSearchSeeds = if (zeroQueryActive) state.trendingSearchSeeds else em
     } else {
         null
     }
+    // ISSUE234_FEED_POST_LAYOUTS_V1: All mixes posts with people and
+    // communities, so Grid shows as List there.
+    val postsScopeLayout = state.postLayout
+    val allScopeLayout = state.postLayout.forFeed(gridAllowed = false)
+    val gridColumns = rememberFeedGridColumns()
     val searchItemKeys = remember(
+        postsScopeLayout,
+        gridColumns.count,
         query,
         submittedQuery,
         state.searchScope,
@@ -1073,14 +1079,14 @@ val trendingSearchSeeds = if (zeroQueryActive) state.trendingSearchSeeds else em
                                 add("submitted-results-title")
                                 if (filteredSummaryVisible) add("search-filtered-summary")
                                 if (postResults.isEmpty()) add("no-posts")
-                                else addAll(postResults.map { post -> "search-${post.id}" })
+                                else addAll(feedPostItemKeys(postResults, allScopeLayout, gridColumns.count, ::searchPostKey))
                             }
                         }
                         SearchScope.POSTS -> if (showSubmittedPostResults) {
                             add("submitted-results-title")
                             if (filteredSummaryVisible) add("search-filtered-summary")
                             if (postResults.isEmpty()) add("no-posts")
-                            else addAll(postResults.map { post -> "search-${post.id}" })
+                            else addAll(feedPostItemKeys(postResults, postsScopeLayout, gridColumns.count, ::searchPostKey))
                         }
                         SearchScope.COMMUNITIES -> if (showSubmittedCommunityResults) {
                             add("community-results-title")
@@ -1213,7 +1219,7 @@ val trendingSearchSeeds = if (zeroQueryActive) state.trendingSearchSeeds else em
             }
 
             RefreshableLazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().then(gridColumns.measureModifier),
                 state = resultsListState,
                 // ISSUE205_PASSIVE_SCROLL_POSITION_INDICATOR_V1
                 scrollPositionIndicator = state.scrollPositionIndicator,
@@ -1223,7 +1229,9 @@ val trendingSearchSeeds = if (zeroQueryActive) state.trendingSearchSeeds else em
                     end = 16.dp,
                     bottom = 36.dp,
                 ),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(
+                    if (state.searchScope == SearchScope.POSTS) feedItemSpacing(postsScopeLayout, 6.dp) else 6.dp,
+                ),
                 enabled = showSubmittedPostResults &&
                     !state.searchHasUnsubmittedChanges,
                 isRefreshing = if (authenticatedRedditSearch) {
@@ -1665,10 +1673,12 @@ val trendingSearchSeeds = if (zeroQueryActive) state.trendingSearchSeeds else em
                                         }
                                     }
                                 }
-                                items(postResults, key = { "search-${it.id}" }) { post ->
+                                feedPostItems(postResults, allScopeLayout, gridColumns.count, ::searchPostKey) { post, itemModifier ->
                                     PostCard(
                                         post,
                                         state,
+                                        modifier = itemModifier,
+                                        layout = allScopeLayout,
                                         onOpen = {
                                             // NEXT01A2_SEARCH_LIST_DETAIL_SELECTION_V1
                                             onOpenPostSelection?.invoke(post)
@@ -1686,6 +1696,8 @@ val trendingSearchSeeds = if (zeroQueryActive) state.trendingSearchSeeds else em
                                     } else {
                                         "Posts"
                                     },
+                                    // ISSUE234_LAYOUT_CHOICE_BESIDE_THE_FEED_V1
+                                    trailing = { PostLayoutMenuButton(state) },
                                 )
                             }
                             if (filteredSummaryVisible) {
@@ -1731,10 +1743,12 @@ val trendingSearchSeeds = if (zeroQueryActive) state.trendingSearchSeeds else em
                                     }
                                 }
                             }
-                            items(postResults, key = { "search-${it.id}" }) { post ->
+                            feedPostItems(postResults, postsScopeLayout, gridColumns.count, ::searchPostKey) { post, itemModifier ->
                                 PostCard(
                                     post,
                                     state,
+                                    modifier = itemModifier,
+                                    layout = postsScopeLayout,
                                     onOpen = {
                                         // NEXT01A2_SEARCH_LIST_DETAIL_SELECTION_V1
                                         onOpenPostSelection?.invoke(post)
@@ -1874,7 +1888,7 @@ private fun SearchWorkspaceTopBar(
                 leadingIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            Symbols.ArrowBack,
                             contentDescription = "Back",
                         )
                     }
@@ -1886,7 +1900,7 @@ private fun SearchWorkspaceTopBar(
                         enabled = query.trim().length >= 2,
                     ) {
                         Icon(
-                            Icons.Rounded.Search,
+                            Symbols.Search,
                             contentDescription = "Search",
                         )
                     }
@@ -1921,7 +1935,7 @@ private fun SearchContextFilters(
                 label = { Text(if (saved) "Saved" else "Save search") },
                 leadingIcon = {
                     Icon(
-                        if (saved) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                        if (saved) Symbols.BookmarkFilled else Symbols.Bookmark,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
@@ -1969,7 +1983,7 @@ private fun TrendingSearchResult(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                Icons.Rounded.Search,
+                Symbols.Search,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary,
@@ -2015,7 +2029,7 @@ private fun SavedSearchRow(
         onClickLabel = "Run search",
         leading = {
             Icon(
-                Icons.Rounded.Bookmark,
+                Symbols.BookmarkFilled,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
             )
@@ -2024,7 +2038,7 @@ private fun SavedSearchRow(
             Box {
                 IconButton(onClick = { menuOpen = true }) {
                     Icon(
-                        Icons.Rounded.MoreVert,
+                        Symbols.MoreVert,
                         contentDescription = "Options for saved search ${search.query}",
                     )
                 }
@@ -2073,7 +2087,7 @@ private fun RecentSearchChips(
                     },
                     leadingIcon = {
                         Icon(
-                            Icons.Rounded.History,
+                            Symbols.History,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                         )
@@ -2102,7 +2116,7 @@ private fun DirectSearchActionResult(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Rounded.Search, contentDescription = null)
+            Icon(Symbols.Search, contentDescription = null)
             Column(
                 modifier = Modifier
                     .padding(horizontal = 12.dp)
@@ -2119,7 +2133,7 @@ private fun DirectSearchActionResult(
                 )
             }
             Icon(
-                Icons.AutoMirrored.Rounded.ArrowForward,
+                Symbols.ArrowForward,
                 contentDescription = null,
             )
         }
@@ -2166,7 +2180,7 @@ private fun CompactCommunityResult(
             )
         },
         trailing = {
-            Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null)
+            Icon(Symbols.ArrowForward, contentDescription = null)
         },
     )
 }
@@ -2235,7 +2249,7 @@ private fun SearchWorkspaceEmptyState() {
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
-            Icons.Rounded.Search,
+            Symbols.Search,
             contentDescription = null,
             modifier = Modifier.size(32.dp),
             tint = MaterialTheme.colorScheme.primary,
@@ -2341,3 +2355,5 @@ internal fun resolvedTargetStillWanted(
     currentAccount: String,
     currentRoute: SubshellRoute,
 ): Boolean = dispatchAccount == currentAccount && dispatchRoute == currentRoute
+
+private fun searchPostKey(post: Post): String = "search-${post.id}"

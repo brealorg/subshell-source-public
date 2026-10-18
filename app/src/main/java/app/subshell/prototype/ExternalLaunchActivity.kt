@@ -1,11 +1,13 @@
 package app.subshell.prototype
 
 import android.app.Activity
+import android.content.ClipData
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import app.subshell.prototype.share.ShareIntoSubshellComponent
+import app.subshell.prototype.share.sharedStreams
 import java.util.UUID
 
 /**
@@ -52,5 +54,19 @@ internal fun externalLaunchForward(context: Context, source: Intent): Intent {
             Intent.FLAG_ACTIVITY_SINGLE_TOP or
             Intent.FLAG_GRANT_READ_URI_PERMISSION or
             (source.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY)
+        // SHAREGRANTS01_FORWARDED_SHARE_CARRIES_ITS_URIS_V1: the read grant
+        // travels with the intent's ClipData. Android has copied EXTRA_STREAM
+        // into it implicitly; from Android 18 it no longer does, so the forward
+        // names the shared files itself when the sender did not.
+        if (clipData == null) sharedStreamClipData(source)?.let { clipData = it }
+    }
+}
+
+internal fun sharedStreamClipData(source: Intent): ClipData? {
+    if (source.action != Intent.ACTION_SEND && source.action != Intent.ACTION_SEND_MULTIPLE) return null
+    val uris = sharedStreams(source)
+    if (uris.isEmpty()) return null
+    return ClipData.newRawUri(null, uris.first()).apply {
+        uris.drop(1).forEach { addItem(ClipData.Item(it)) }
     }
 }

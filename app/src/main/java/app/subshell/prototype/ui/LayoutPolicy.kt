@@ -1,15 +1,11 @@
 package app.subshell.prototype.ui
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Groups
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Inbox
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.subshell.prototype.ui.screens.InboxModSection
 import app.subshell.prototype.ui.screens.InboxPrimaryTab
+import app.subshell.prototype.ui.symbols.Symbols
 
 // #213: stateless layout policy moved verbatim out of SubshellApp.kt
 // (navigation items and bar sizes, the expanded list-detail rules).
@@ -23,13 +19,15 @@ internal val ScreenMargin: Dp = 16.dp
 internal data class NavItem(
     val destination: MainDestination,
     val icon: ImageVector,
+    // MATERIALSYMBOLS01: the selected destination shows the filled symbol.
+    val selectedIcon: ImageVector,
 )
 
 internal val navItems = listOf(
-    NavItem(MainDestination.HOME, Icons.Rounded.Home),
-    NavItem(MainDestination.SUBS, Icons.Rounded.Groups),
-    NavItem(MainDestination.INBOX, Icons.Rounded.Inbox),
-    NavItem(MainDestination.YOU, Icons.Rounded.Person),
+    NavItem(MainDestination.HOME, Symbols.Home, Symbols.HomeFilled),
+    NavItem(MainDestination.SUBS, Symbols.Groups, Symbols.GroupsFilled),
+    NavItem(MainDestination.INBOX, Symbols.Inbox, Symbols.InboxFilled),
+    NavItem(MainDestination.YOU, Symbols.Person, Symbols.PersonFilled),
 )
 
 private val CompactNavigationBarHeight = 64.dp

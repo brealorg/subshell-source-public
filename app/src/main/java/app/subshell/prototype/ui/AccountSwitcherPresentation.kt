@@ -1,6 +1,5 @@
 package app.subshell.prototype.ui
 
-import androidx.compose.material.icons.rounded.Add
 import app.subshell.prototype.data.account.AccountSessionSource
 import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.data.account.AccountSessionSummary

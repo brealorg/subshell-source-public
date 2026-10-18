@@ -84,6 +84,8 @@ data class CustomFeedPostsUiState(
     val failureKind: CustomFeedPostsFailureKind? = null,
     val failureRetryable: Boolean = false,
     val failureStatusCode: Int? = null,
+    // DIAG04_JSON_PATH_REACHES_THE_REPORT_V1
+    val failureDetails: FailureDetails? = null,
     // FEEDS01_CUSTOM_FEED_APPEND_FAILURE_V1: true when the failure belongs to
     // an append, so a retry continues from the same cursor instead of reloading.
     val failedAppend: Boolean = false,

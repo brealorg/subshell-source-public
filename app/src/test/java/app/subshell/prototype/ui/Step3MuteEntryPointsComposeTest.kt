@@ -17,6 +17,7 @@ import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.data.account.localFixtureAccountSummaries
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.Post
 import app.subshell.prototype.model.PostKind
@@ -114,7 +115,7 @@ class Step3MuteEntryPointsComposeTest {
         val joined = state.communities.filter { it.id in state.joinedCommunityIds }.minBy { it.name.lowercase() }.name
         state.muteCommunity(joined, null)
         composeRule.setContent {
-            SubshellApp(videoPlaybackCoordinator = VideoPlaybackCoordinator(context), state = state)
+            SubshellApp(videoPlaybackCoordinator = testVideoPlaybackCoordinator(context), state = state)
         }
         composeRule.waitForIdle()
         state.requestDrawer()

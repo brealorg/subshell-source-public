@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -79,7 +80,11 @@ internal fun ExpandedListDetailSurface(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(scaffoldPadding),
+            .padding(scaffoldPadding)
+            // DOCKINSETS01_ROUTES_SEE_THE_ROOT_PADDING_AS_CONSUMED_V1: the padding
+            // already leaves out the gesture bar; a bar inside that pads for the
+            // gesture bar or the keyboard must not count it again.
+            .consumeWindowInsets(scaffoldPadding),
         contentAlignment = Alignment.TopCenter,
     ) {
         // M3224_ONE_LIST_DETAIL_GEOMETRY_V1 (#224): one geometry on every window
@@ -153,14 +158,22 @@ internal fun ExpandedContextSurface(
     if (!expanded) {
         // M3224_READING_WIDTH_V1: a medium window (or a phone on its side) gets the
         // same reading width; on a phone it is the full width.
-        content(Modifier.padding(scaffoldPadding).readingColumn(maxWidth))
+        content(
+            Modifier
+                .padding(scaffoldPadding)
+                // DOCKINSETS01_ROUTES_SEE_THE_ROOT_PADDING_AS_CONSUMED_V1
+                .consumeWindowInsets(scaffoldPadding)
+                .readingColumn(maxWidth),
+        )
         return
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(scaffoldPadding),
+            .padding(scaffoldPadding)
+            // DOCKINSETS01_ROUTES_SEE_THE_ROOT_PADDING_AS_CONSUMED_V1
+            .consumeWindowInsets(scaffoldPadding),
         contentAlignment = Alignment.TopCenter,
     ) {
         content(
@@ -230,7 +243,7 @@ internal fun ExpandedMainNavigationRail(
                             },
                         ) {
                             Icon(
-                                item.icon,
+                                if (state.destination == item.destination) item.selectedIcon else item.icon,
                                 contentDescription =
                                     if (
                                         state.navigationLabelMode ==
@@ -244,7 +257,7 @@ internal fun ExpandedMainNavigationRail(
                         }
                     } else {
                         Icon(
-                            item.icon,
+                            if (state.destination == item.destination) item.selectedIcon else item.icon,
                             contentDescription =
                                 if (
                                     state.navigationLabelMode ==

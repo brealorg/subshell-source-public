@@ -13,6 +13,7 @@ import app.subshell.prototype.data.FakeSubshellRepository
 import app.subshell.prototype.data.SampleData
 import app.subshell.prototype.data.account.localFixtureAccountSummaries
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.ui.screens.CommunityScreen
@@ -56,7 +57,7 @@ class Step3RouteBarScrollComposeTest {
             timePeriod = state.listingTimePeriod,
         )
         state.ensurePostPaging(key)
-        val coordinator = VideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
+        val coordinator = testVideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
         composeRule.setContent {
             SubshellTheme {
                 CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {

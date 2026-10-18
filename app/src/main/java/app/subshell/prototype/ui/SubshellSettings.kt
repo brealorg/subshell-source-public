@@ -20,6 +20,26 @@ enum class RandomNsfwCommunityPlacement(val label: String) {
     MENU("Navigation menu"),
 }
 
+// ISSUE230_PINNED_POSTS_FIRST_V1 (owner 2026-10-16): how a community's pinned
+// posts show at the top of its feed in every sort; cards by default.
+enum class PinnedPostsPresentation(val label: String) {
+    CARDS("Cards at the top"),
+    HIGHLIGHTS("Compact highlights"),
+}
+
+// ISSUE234_FEED_POST_LAYOUTS_V1 (owner 2026-10-18): how feeds show posts.
+enum class PostLayout(val label: String) {
+    LARGE("Large"),
+    COMPACT("Compact"),
+    LIST("List"),
+    GRID("Grid"),
+}
+
+enum class ListThumbnailSide(val label: String) {
+    RIGHT("Right"),
+    LEFT("Left"),
+}
+
 enum class TabletLayoutMode(val label: String) {
     SPLIT("Split"),
     SINGLE("Single"),
@@ -99,7 +119,9 @@ internal val INBOX_NOTIFICATIONS_ON_BY_DEFAULT: Boolean =
 // DefaultSubshellSettings, so the defaults live in one place.
 data class SubshellSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val dynamicColor: Boolean = false,
+    // SETTINGSREVIEW01_DYNAMIC_COLOUR_ON_BY_DEFAULT_V1 (owner 2026-10-17): Material
+    // You colours by default, as on Google's own apps (Android 12+ only).
+    val dynamicColor: Boolean = true,
     val pureBlackDarkTheme: Boolean = false,
     val appTextScale: AppTextScale = AppTextScale.DEFAULT,
     val voteColorPalette: VoteColorPalette = VoteColorPalette.NEUTRAL,
@@ -145,6 +167,15 @@ data class SubshellSettings(
     val scrollPositionIndicator: Boolean = false,
     // ISSUE211_RANDOM_NSFW_COMMUNITY_V1: off by default; only while NSFW is shown.
     val randomNsfwCommunityPlacement: RandomNsfwCommunityPlacement = RandomNsfwCommunityPlacement.OFF,
+    // ISSUE230_PINNED_POSTS_FIRST_V1: backed up like the other display settings.
+    val pinnedPostsPresentation: PinnedPostsPresentation = PinnedPostsPresentation.CARDS,
+    // ISSUE234_FEED_POST_LAYOUTS_V1: backed up (owner); older backups leave them unchanged.
+    val postLayout: PostLayout = PostLayout.LARGE,
+    val listThumbnailSide: ListThumbnailSide = ListThumbnailSide.RIGHT,
+    // SETTINGSREVIEW01_MUTED_COMMUNITY_VIEW_IS_BACKED_UP_V1 (owner 2026-10-17): a
+    // reading preference, so it travels with the other settings; an older backup
+    // without it leaves the current choice unchanged.
+    val mutedCommunityDirectViewMode: MutedCommunityDirectViewMode = MutedCommunityDirectViewMode.SHOW_POSTS,
     val communityDiscoveryLayout: CommunityDiscoveryLayout = CommunityDiscoveryLayout.CAROUSEL,
     val navigationLabelMode: NavigationLabelMode = NavigationLabelMode.ON,
     val tabletLayoutMode: TabletLayoutMode = TabletLayoutMode.SPLIT,
@@ -167,6 +198,8 @@ data class SubshellSettings(
     val videoSpeedControls: Boolean = false,
     val videoDoubleTapSeek: Boolean = false,
     val videoHoldForDoubleSpeed: Boolean = false,
+    // ISSUE231_PINCH_TO_ZOOM_VIDEOS_V1 (owner): off by default, backed up.
+    val videoPinchToZoom: Boolean = false,
     val videoPictureInPicture: Boolean = false,
     val videoRotateFullscreen: Boolean = false,
     val videoTechnicalDetails: Boolean = false,
@@ -216,6 +249,10 @@ data class SubshellSettings(
         SAVED_SEARCHES_ENABLED to savedSearchesEnabled.toString(),
         SCROLL_POSITION_INDICATOR to scrollPositionIndicator.toString(),
         RANDOM_NSFW_COMMUNITY_PLACEMENT to randomNsfwCommunityPlacement.name,
+        PINNED_POSTS_PRESENTATION to pinnedPostsPresentation.name,
+        POST_LAYOUT to postLayout.name,
+        LIST_THUMBNAIL_SIDE to listThumbnailSide.name,
+        MUTED_COMMUNITY_DIRECT_VIEW_MODE to mutedCommunityDirectViewMode.name,
         COMMUNITY_DISCOVERY_LAYOUT to communityDiscoveryLayout.name,
         NAVIGATION_LABEL_MODE to navigationLabelMode.name,
         TABLET_LAYOUT_MODE to tabletLayoutMode.name,
@@ -238,6 +275,7 @@ data class SubshellSettings(
         VIDEO_SPEED_CONTROLS to videoSpeedControls.toString(),
         VIDEO_DOUBLE_TAP_SEEK to videoDoubleTapSeek.toString(),
         VIDEO_HOLD_FOR_DOUBLE_SPEED to videoHoldForDoubleSpeed.toString(),
+        VIDEO_PINCH_TO_ZOOM to videoPinchToZoom.toString(),
         VIDEO_PICTURE_IN_PICTURE to videoPictureInPicture.toString(),
         VIDEO_ROTATE_FULLSCREEN to videoRotateFullscreen.toString(),
         VIDEO_TECHNICAL_DETAILS to videoTechnicalDetails.toString(),
@@ -295,6 +333,10 @@ data class SubshellSettings(
         const val SAVED_SEARCHES_ENABLED = "saved_searches_enabled"
         const val SCROLL_POSITION_INDICATOR = "scroll_position_indicator"
         const val RANDOM_NSFW_COMMUNITY_PLACEMENT = "random_nsfw_community_placement"
+        const val PINNED_POSTS_PRESENTATION = "pinned_posts_presentation"
+        const val POST_LAYOUT = "post_layout"
+        const val LIST_THUMBNAIL_SIDE = "list_thumbnail_side"
+        const val MUTED_COMMUNITY_DIRECT_VIEW_MODE = MUTED_COMMUNITY_DIRECT_VIEW_MODE_KEY
         const val COMMUNITY_DISCOVERY_LAYOUT = "community_discovery_layout"
         const val NAVIGATION_LABEL_MODE = "navigation_label_mode"
         const val TABLET_LAYOUT_MODE = "tablet_layout_mode"
@@ -319,6 +361,7 @@ data class SubshellSettings(
         const val VIDEO_SPEED_CONTROLS = "video_speed_controls"
         const val VIDEO_DOUBLE_TAP_SEEK = "video_double_tap_seek"
         const val VIDEO_HOLD_FOR_DOUBLE_SPEED = "video_hold_for_double_speed"
+        const val VIDEO_PINCH_TO_ZOOM = "video_pinch_to_zoom"
         const val VIDEO_PICTURE_IN_PICTURE = "video_picture_in_picture"
         const val VIDEO_ROTATE_FULLSCREEN = "video_rotate_fullscreen"
         const val VIDEO_TECHNICAL_DETAILS = "video_technical_details"
@@ -383,6 +426,10 @@ data class SubshellSettings(
             SAVED_SEARCHES_ENABLED,
             SCROLL_POSITION_INDICATOR,
             RANDOM_NSFW_COMMUNITY_PLACEMENT,
+            PINNED_POSTS_PRESENTATION,
+            POST_LAYOUT,
+            LIST_THUMBNAIL_SIDE,
+            MUTED_COMMUNITY_DIRECT_VIEW_MODE,
             COMMUNITY_DISCOVERY_LAYOUT,
             NAVIGATION_LABEL_MODE,
             TABLET_LAYOUT_MODE,
@@ -405,6 +452,7 @@ data class SubshellSettings(
             VIDEO_SPEED_CONTROLS,
             VIDEO_DOUBLE_TAP_SEEK,
             VIDEO_HOLD_FOR_DOUBLE_SPEED,
+            VIDEO_PINCH_TO_ZOOM,
             VIDEO_PICTURE_IN_PICTURE,
             VIDEO_ROTATE_FULLSCREEN,
             VIDEO_TECHNICAL_DETAILS,
@@ -600,6 +648,26 @@ data class SubshellSettings(
                     compatibleValues,
                     RandomNsfwCommunityPlacement.entries,
                 ),
+                pinnedPostsPresentation = enumValue(
+                    PINNED_POSTS_PRESENTATION,
+                    compatibleValues,
+                    PinnedPostsPresentation.entries,
+                ),
+                postLayout = enumValue(
+                    POST_LAYOUT,
+                    compatibleValues,
+                    PostLayout.entries,
+                ),
+                listThumbnailSide = enumValue(
+                    LIST_THUMBNAIL_SIDE,
+                    compatibleValues,
+                    ListThumbnailSide.entries,
+                ),
+                mutedCommunityDirectViewMode = enumValue(
+                    MUTED_COMMUNITY_DIRECT_VIEW_MODE,
+                    compatibleValues,
+                    MutedCommunityDirectViewMode.entries,
+                ),
                 communityDiscoveryLayout = enumValue(
                     COMMUNITY_DISCOVERY_LAYOUT,
                     compatibleValues,
@@ -668,6 +736,7 @@ data class SubshellSettings(
                 videoSpeedControls = booleanValue(VIDEO_SPEED_CONTROLS, compatibleValues),
                 videoDoubleTapSeek = booleanValue(VIDEO_DOUBLE_TAP_SEEK, compatibleValues),
                 videoHoldForDoubleSpeed = booleanValue(VIDEO_HOLD_FOR_DOUBLE_SPEED, compatibleValues),
+                videoPinchToZoom = booleanValue(VIDEO_PINCH_TO_ZOOM, compatibleValues),
                 videoPictureInPicture = booleanValue(VIDEO_PICTURE_IN_PICTURE, compatibleValues),
                 videoRotateFullscreen = booleanValue(VIDEO_ROTATE_FULLSCREEN, compatibleValues),
                 videoTechnicalDetails = booleanValue(VIDEO_TECHNICAL_DETAILS, compatibleValues),

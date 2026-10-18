@@ -19,21 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.rounded.TrendingUp
-import androidx.compose.material.icons.automirrored.rounded.ViewList
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
-import androidx.compose.material.icons.rounded.Groups
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Inbox
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Public
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Badge
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -85,6 +70,7 @@ import app.subshell.prototype.ui.components.ScrollPositionIndicator
 import app.subshell.prototype.ui.components.SubshellWordmark
 import app.subshell.prototype.ui.ThemeChoice
 import app.subshell.prototype.ui.drawerThemeChoices
+import app.subshell.prototype.ui.symbols.Symbols
 import app.subshell.prototype.ui.toggleDrawerDynamicGroup
 import kotlinx.coroutines.delay
 
@@ -152,7 +138,7 @@ internal fun SubshellDrawer(
                 .firstOrNull { item -> item.key == "drawer-communities-header" }
                 ?.index
             if (headerIndex != null) {
-                if (state.reduceMotion) {
+                if (state.motionReduced) {
                     drawerListState.scrollToItem(headerIndex)
                 } else {
                     drawerListState.animateScrollToItem(headerIndex)
@@ -168,7 +154,7 @@ internal fun SubshellDrawer(
                 .firstOrNull { item -> item.key == "drawer-custom-feeds-header" }
                 ?.index
             if (headerIndex != null) {
-                if (state.reduceMotion) {
+                if (state.motionReduced) {
                     drawerListState.scrollToItem(headerIndex)
                 } else {
                     drawerListState.animateScrollToItem(headerIndex)
@@ -203,9 +189,9 @@ internal fun SubshellDrawer(
                 }
                 items(
                     items = listOf(
-                        Triple(FeedSource.HOME, Icons.Rounded.Home, "Home"),
-                        Triple(FeedSource.POPULAR, Icons.AutoMirrored.Rounded.TrendingUp, "Popular"),
-                        Triple(FeedSource.ALL, Icons.Rounded.Public, "All"),
+                        Triple(FeedSource.HOME, Symbols.Home, "Home"),
+                        Triple(FeedSource.POPULAR, Symbols.TrendingUp, "Popular"),
+                        Triple(FeedSource.ALL, Symbols.Public, "All"),
                     ),
                     key = { (source, _, _) -> "drawer-feed-${source.name}" },
                 ) { (source, icon, label) ->
@@ -227,7 +213,7 @@ internal fun SubshellDrawer(
                     item("drawer-custom-feeds-header") {
                         CompactDrawerItem(
                             label = "Custom feeds · ${drawerCustomFeeds.size}",
-                            icon = Icons.AutoMirrored.Rounded.ViewList,
+                            icon = Symbols.ViewList,
                             // LOWUX3_CUSTOM_FEEDS_HEADER_SELECTED_ONLY_ON_HOME_V1 (OCB-123):
                             // a remembered feed kept it lit next to Inbox or Profile.
                             selected = activeCustomFeedPath != null &&
@@ -246,9 +232,9 @@ internal fun SubshellDrawer(
                             trailing = {
                                 Icon(
                                     imageVector = if (customFeedsExpanded) {
-                                        Icons.Rounded.KeyboardArrowDown
+                                        Symbols.KeyboardArrowDown
                                     } else {
-                                        Icons.AutoMirrored.Rounded.KeyboardArrowRight
+                                        Symbols.KeyboardArrowRight
                                     },
                                     contentDescription = if (customFeedsExpanded) {
                                         "Collapse custom feeds"
@@ -270,7 +256,7 @@ internal fun SubshellDrawer(
                                 label = feed.displayName.ifBlank {
                                     feed.path.substringAfterLast('/')
                                 },
-                                icon = Icons.AutoMirrored.Rounded.ViewList,
+                                icon = Symbols.ViewList,
                                 selected = state.destination == MainDestination.HOME &&
                                     activeCustomFeedPath == feed.path,
                                 onClick = {
@@ -292,7 +278,7 @@ internal fun SubshellDrawer(
                         item("drawer-communities-current") {
                             CompactDrawerItem(
                                 label = "Communities",
-                                icon = Icons.Rounded.Groups,
+                                icon = Symbols.Groups,
                                 selected = state.destination == MainDestination.SUBS &&
                                     state.secondaryDestination == null &&
                                     state.selectedSubreddit == null,
@@ -304,7 +290,7 @@ internal fun SubshellDrawer(
                         item("drawer-communities-header") {
                             CompactDrawerItem(
                                 label = "Communities",
-                                icon = Icons.Rounded.Groups,
+                                icon = Symbols.Groups,
                                 selected = state.destination == MainDestination.SUBS &&
                                     state.secondaryDestination == null &&
                                     state.selectedSubreddit == null,
@@ -325,9 +311,9 @@ internal fun SubshellDrawer(
                                     ) {
                                         Icon(
                                             imageVector = if (communitiesExpanded) {
-                                                Icons.Rounded.KeyboardArrowDown
+                                                Symbols.KeyboardArrowDown
                                             } else {
-                                                Icons.AutoMirrored.Rounded.KeyboardArrowRight
+                                                Symbols.KeyboardArrowRight
                                             },
                                             contentDescription = if (communitiesExpanded) {
                                                 "Collapse communities"
@@ -353,7 +339,7 @@ internal fun SubshellDrawer(
                         item("drawer-communities-header") {
                             CompactDrawerItem(
                                 label = "Communities",
-                                icon = Icons.Rounded.Groups,
+                                icon = Symbols.Groups,
                                 selected = state.destination == MainDestination.SUBS &&
                                     state.secondaryDestination == null &&
                                     state.selectedSubreddit == null,
@@ -378,7 +364,7 @@ internal fun SubshellDrawer(
                 item("drawer-you-inbox") {
                     CompactDrawerItem(
                         label = "Inbox",
-                        icon = Icons.Rounded.Inbox,
+                        icon = Symbols.Inbox,
                         selected = state.destination == MainDestination.INBOX &&
                             state.secondaryDestination == null,
                         onClick = { onAction { state.navigate(MainDestination.INBOX) } },
@@ -387,7 +373,7 @@ internal fun SubshellDrawer(
                 item("drawer-you-profile") {
                     CompactDrawerItem(
                         label = "Profile",
-                        icon = Icons.Rounded.Person,
+                        icon = Symbols.Person,
                         selected = state.destination == MainDestination.YOU &&
                             state.secondaryDestination == null,
                         onClick = { onAction { state.navigate(MainDestination.YOU) } },
@@ -408,7 +394,7 @@ internal fun SubshellDrawer(
         if (activeCommunityMutes.isNotEmpty()) {
             CompactDrawerItem(
                 label = "Muted communities",
-                icon = Icons.AutoMirrored.Rounded.VolumeOff,
+                icon = Symbols.VolumeOff,
                 selected = false,
                 onClick = {
                     onAction { onOpenMutedCommunities() }
@@ -423,7 +409,7 @@ internal fun SubshellDrawer(
 
         CompactDrawerItem(
             label = "Show NSFW posts",
-            icon = if (state.showNsfwPosts) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff,
+            icon = if (state.showNsfwPosts) Symbols.Visibility else Symbols.VisibilityOff,
             selected = false,
             isDestination = false,
             onClick = { state.updateShowNsfwPosts(!state.showNsfwPosts) },
@@ -444,7 +430,7 @@ internal fun SubshellDrawer(
         if (state.offersRandomNsfwCommunity(app.subshell.prototype.ui.RandomNsfwCommunityPlacement.MENU) && onRandomNsfwCommunity != null) {
             CompactDrawerItem(
                 label = "Random NSFW community",
-                icon = Icons.Rounded.Shuffle,
+                icon = Symbols.Shuffle,
                 selected = false,
                 isDestination = false,
                 onClick = { onAction { onRandomNsfwCommunity() } },
@@ -453,7 +439,7 @@ internal fun SubshellDrawer(
 
         CompactDrawerItem(
             label = "Settings",
-            icon = Icons.Rounded.Settings,
+            icon = Symbols.Settings,
             selected = state.secondaryDestination == SecondaryDestination.SETTINGS,
             onClick = { onAction { state.openSecondary(SecondaryDestination.SETTINGS) } },
         )
@@ -660,7 +646,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.drawerCommunityItems(
                         },
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.VolumeOff,
+                            imageVector = Symbols.VolumeOff,
                             contentDescription =
                                 "Mute settings for r/${community.name}",
                             modifier = Modifier.size(18.dp),

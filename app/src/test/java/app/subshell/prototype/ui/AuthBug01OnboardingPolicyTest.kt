@@ -42,7 +42,7 @@ class AuthBug01OnboardingPolicyTest {
         // Owner 2026-10-13 (M3225_SETUP_CARD_IS_NOT_AN_ERROR_V1): the setup card is
         // neutral; no error icon, border or colour.
         assertTrue(intro.contains("M3225_SETUP_CARD_IS_NOT_AN_ERROR_V1"))
-        assertFalse(intro.contains("Icons.Rounded.ErrorOutline"))
+        assertFalse(intro.contains("Symbols.Error"))
         assertFalse(intro.contains(".error"))
 
         assertTrue(screen.contains("EXAMPLE ONLY — NOT A REAL EMAIL"))

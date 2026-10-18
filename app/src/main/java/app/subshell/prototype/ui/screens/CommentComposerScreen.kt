@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +39,7 @@ import app.subshell.prototype.data.account.CommentWriteUiState
 import app.subshell.prototype.data.account.RedditPeopleSearchUiState
 import app.subshell.prototype.model.Comment
 import app.subshell.prototype.model.Post
+import app.subshell.prototype.ui.symbols.Symbols
 import app.subshell.prototype.ui.threadMentionCandidates
 import app.subshell.prototype.ui.components.ComposerMentions
 import app.subshell.prototype.ui.CommentComposerDraft
@@ -361,7 +360,7 @@ internal fun CommentComposerLauncher(
                 style = MaterialTheme.typography.bodyLarge,
             )
             Icon(
-                Icons.AutoMirrored.Rounded.Send,
+                Symbols.Send,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )

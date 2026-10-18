@@ -119,6 +119,7 @@ internal class ConfiguredRedditPostSaver(
                                 result.statusCode,
                                 result.retryable,
                                 result.metadata,
+                                providerReason = result.providerReason,
                             ),
                         )
                     }

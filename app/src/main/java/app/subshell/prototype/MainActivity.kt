@@ -3,8 +3,10 @@ package app.subshell.prototype
 import androidx.core.app.ActivityCompat
 import android.content.pm.PackageManager
 import android.Manifest
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import app.subshell.prototype.data.diagnostics.CrashRecorder
+import app.subshell.prototype.data.diagnostics.ListingSkipReports
 import app.subshell.prototype.inbox.takeInboxNotificationTarget
 import app.subshell.prototype.inbox.takeModmailNotificationTarget
 import app.subshell.prototype.inbox.InboxNotificationTarget
@@ -407,6 +409,8 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
         // CRASH01_CRASHES_ARE_RECORDED_LOCALLY_V1: first, so a crash anywhere
         // after this point is recorded (once per process).
         CrashRecorder.install(applicationContext)
+        ListingSkipReports.install(applicationContext)
+        installDebugUriGrantCheck(BuildConfig.DEBUG)
         super.onCreate(savedInstanceState)
         deviceUnlockPrompt = BiometricPrompt(
             this,
@@ -472,77 +476,80 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
         )
 
         setContent {
-            val connectAccountState by authConnectViewModel.uiState.collectAsState()
-            val onlineVisibilityState by authConnectViewModel.onlineVisibilityUiState.collectAsState()
-            val customFeedsState by authConnectViewModel.customFeedsUiState.collectAsState()
-            val customFeedPostsState by authConnectViewModel.customFeedPostsUiState.collectAsState()
-            val redditFeedState by authConnectViewModel.redditFeedUiState.collectAsState()
+            val connectAccountState by authConnectViewModel.uiState.collectAsStateWithLifecycle()
+            val onlineVisibilityState by authConnectViewModel.onlineVisibilityUiState.collectAsStateWithLifecycle()
+            val customFeedsState by authConnectViewModel.customFeedsUiState.collectAsStateWithLifecycle()
+            val customFeedPostsState by authConnectViewModel.customFeedPostsUiState.collectAsStateWithLifecycle()
+            val redditFeedState by authConnectViewModel.redditFeedUiState.collectAsStateWithLifecycle()
             val redditAccountHistoryState by
-                authConnectViewModel.redditAccountHistoryUiState.collectAsState()
+                authConnectViewModel.redditAccountHistoryUiState.collectAsStateWithLifecycle()
             val redditSavedHistoryState by
-                authConnectViewModel.redditSavedHistoryUiState.collectAsState()
+                authConnectViewModel.redditSavedHistoryUiState.collectAsStateWithLifecycle()
             val redditCommentsState by
-                authConnectViewModel.redditCommentsUiState.collectAsState()
+                authConnectViewModel.redditCommentsUiState.collectAsStateWithLifecycle()
             val redditSubscriptionsState by
-                authConnectViewModel.redditSubscriptionsUiState.collectAsState()
+                authConnectViewModel.redditSubscriptionsUiState.collectAsStateWithLifecycle()
             val redditCommunityDiscoveryState by
-                authConnectViewModel.redditCommunityDiscoveryUiState.collectAsState()
+                authConnectViewModel.redditCommunityDiscoveryUiState.collectAsStateWithLifecycle()
             val redditMentionSearchState by
-                authConnectViewModel.redditMentionSearchUiState.collectAsState()
+                authConnectViewModel.redditMentionSearchUiState.collectAsStateWithLifecycle()
             val redditCommunityInfoState by
-                authConnectViewModel.redditCommunityInfoUiState.collectAsState()
+                authConnectViewModel.redditCommunityInfoUiState.collectAsStateWithLifecycle()
+            // ISSUE230_PINNED_POSTS_FIRST_V1
+            val redditPinnedPostsState by
+                authConnectViewModel.redditCommunityPinnedPostsUiState.collectAsStateWithLifecycle()
             val redditUserFlairState by
-                authConnectViewModel.userFlairUiState.collectAsState()
+                authConnectViewModel.userFlairUiState.collectAsStateWithLifecycle()
             val redditCommunityWikiState by
-                authConnectViewModel.redditCommunityWikiUiState.collectAsState()
+                authConnectViewModel.redditCommunityWikiUiState.collectAsStateWithLifecycle()
             val redditModerationState by
-                authConnectViewModel.redditModerationUiState.collectAsState()
+                authConnectViewModel.redditModerationUiState.collectAsStateWithLifecycle()
             val moderationActionState by
-                authConnectViewModel.moderationActionUiState.collectAsState()
+                authConnectViewModel.moderationActionUiState.collectAsStateWithLifecycle()
             val removalReasonState by
-                authConnectViewModel.removalReasonUiState.collectAsState()
+                authConnectViewModel.removalReasonUiState.collectAsStateWithLifecycle()
             val redditModmailState by
-                authConnectViewModel.redditModmailUiState.collectAsState()
+                authConnectViewModel.redditModmailUiState.collectAsStateWithLifecycle()
             val communityMembershipState by
-                authConnectViewModel.communityMembershipUiState.collectAsState()
+                authConnectViewModel.communityMembershipUiState.collectAsStateWithLifecycle()
             val redditFavoriteState by
-                authConnectViewModel.redditFavoriteUiState.collectAsState()
+                authConnectViewModel.redditFavoriteUiState.collectAsStateWithLifecycle()
             val postVoteState by
-                authConnectViewModel.postVoteUiState.collectAsState()
+                authConnectViewModel.postVoteUiState.collectAsStateWithLifecycle()
             val postSaveState by
-                authConnectViewModel.postSaveUiState.collectAsState()
+                authConnectViewModel.postSaveUiState.collectAsStateWithLifecycle()
             val postFollowState by
-                authConnectViewModel.postFollowUiState.collectAsState()
+                authConnectViewModel.postFollowUiState.collectAsStateWithLifecycle()
             val contentSafetyState by
-                authConnectViewModel.contentSafetyUiState.collectAsState()
+                authConnectViewModel.contentSafetyUiState.collectAsStateWithLifecycle()
             val commentWriteState by
-                authConnectViewModel.commentWriteUiState.collectAsState()
+                authConnectViewModel.commentWriteUiState.collectAsStateWithLifecycle()
             val commentMediaPolicies by
-                authConnectViewModel.commentMediaPolicies.collectAsState()
+                authConnectViewModel.commentMediaPolicies.collectAsStateWithLifecycle()
             val commentEditState by
-                authConnectViewModel.commentEditUiState.collectAsState()
+                authConnectViewModel.commentEditUiState.collectAsStateWithLifecycle()
             val commentDeleteState by
-                authConnectViewModel.commentDeleteUiState.collectAsState()
+                authConnectViewModel.commentDeleteUiState.collectAsStateWithLifecycle()
             val postEditState by
-                authConnectViewModel.postEditUiState.collectAsState()
+                authConnectViewModel.postEditUiState.collectAsStateWithLifecycle()
             val postDeleteState by
-                authConnectViewModel.postDeleteUiState.collectAsState()
+                authConnectViewModel.postDeleteUiState.collectAsStateWithLifecycle()
             val postManageState by
-                authConnectViewModel.postManageUiState.collectAsState()
+                authConnectViewModel.postManageUiState.collectAsStateWithLifecycle()
             val textPostWriteState by
-                authConnectViewModel.textPostWriteUiState.collectAsState()
-            val crosspostReviewState by authConnectViewModel.crosspostReviewUiState.collectAsState()
-            val composerPolicy by authConnectViewModel.composerPolicy.collectAsState()
+                authConnectViewModel.textPostWriteUiState.collectAsStateWithLifecycle()
+            val crosspostReviewState by authConnectViewModel.crosspostReviewUiState.collectAsStateWithLifecycle()
+            val composerPolicy by authConnectViewModel.composerPolicy.collectAsStateWithLifecycle()
             val composerCommunitySearch by
-                authConnectViewModel.composerCommunitySearch.collectAsState()
+                authConnectViewModel.composerCommunitySearch.collectAsStateWithLifecycle()
             val redditInboxState by
-                authConnectViewModel.redditInboxUiState.collectAsState()
+                authConnectViewModel.redditInboxUiState.collectAsStateWithLifecycle()
             val messageReplyState by
-                authConnectViewModel.messageReplyUiState.collectAsState()
+                authConnectViewModel.messageReplyUiState.collectAsStateWithLifecycle()
             val directChatStartState by
-                authConnectViewModel.directChatStartUiState.collectAsState()
+                authConnectViewModel.directChatStartUiState.collectAsStateWithLifecycle()
             val directChatLiveState by
-                authConnectViewModel.directChatLiveUiState.collectAsState()
+                authConnectViewModel.directChatLiveUiState.collectAsStateWithLifecycle()
             val platformUriHandler = androidx.compose.ui.platform.LocalUriHandler.current
             val inAppUriHandler = androidx.compose.runtime.remember(platformUriHandler) {
                 app.subshell.prototype.ui.InAppRedditUriHandler(platformUriHandler) { uri ->
@@ -659,6 +666,8 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
                         redditCommunityInfoState = redditCommunityInfoState,
                         onLoadRedditCommunityInfo =
                             authConnectViewModel::loadRedditCommunityInfo,
+                        redditPinnedPostsState = redditPinnedPostsState,
+                        onLoadRedditPinnedPosts = authConnectViewModel::loadRedditCommunityPinnedPosts,
                         communityMembershipState = communityMembershipState,
                         onChangeCommunityMembership =
                             authConnectViewModel::updateCommunityMembership,

@@ -312,6 +312,7 @@ internal class ConfiguredAuthCapabilityAuthorizer(
         val identity = when (val resolved = identityClient.resolve(exchanged)) {
             is AuthIdentityResult.Success -> resolved.identity
             is AuthIdentityResult.Failure -> {
+                accountCoordinator.recordUnshownFailure("capability_identity", resolved.details)
                 cleanupUnboundSession()
                 return failed(
                     AuthCapabilityAuthorizationFailureKind.IDENTITY,

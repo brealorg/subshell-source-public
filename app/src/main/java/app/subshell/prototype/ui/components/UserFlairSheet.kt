@@ -1,5 +1,6 @@
 package app.subshell.prototype.ui.components
 
+import app.subshell.prototype.ui.error.ReportFailureDiagnostic
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,8 +15,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -47,6 +46,7 @@ import app.subshell.prototype.data.account.USER_FLAIR_TEXT_MAX_CHARS
 import app.subshell.prototype.data.account.UserFlairOption
 import app.subshell.prototype.data.account.UserFlairUiState
 import app.subshell.prototype.ui.SubshellState
+import app.subshell.prototype.ui.symbols.Symbols
 
 // USERFLAIR01A1_MATERIAL3_OWN_COMMUNITY_FLAIR_SHEET_V1
 @OptIn(ExperimentalMaterial3Api::class)
@@ -100,7 +100,7 @@ fun UserFlairSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(Icons.Rounded.Person, contentDescription = null)
+                Icon(Symbols.Person, contentDescription = null)
                 Column {
                     Text("User flair", style = MaterialTheme.typography.headlineSmall)
                     Text(
@@ -286,6 +286,11 @@ fun UserFlairSheet(
                 }
             }
 
+            ReportFailureDiagnostic(
+                scopeKey = if (applyFailed) "user_flair_apply" else "user_flair_load",
+                active = uiState.failureKind != null,
+                failureDetails = uiState.failureDetails,
+            )
             if (applyFailed) {
                 Text(
                     text = when (uiState.failureKind) {

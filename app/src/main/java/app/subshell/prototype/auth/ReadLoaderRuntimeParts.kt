@@ -1,5 +1,7 @@
 package app.subshell.prototype.auth
 
+import app.subshell.prototype.data.auth.reddit.RedditCommunityPinnedPostsLoader
+import app.subshell.prototype.data.auth.AuthenticatedRedditCommunityPinnedPostsLoader
 import android.content.Context
 import app.subshell.prototype.data.auth.AuthAccountSessionCoordinator
 import app.subshell.prototype.data.auth.AuthContextualCapabilityAuthorizer
@@ -46,6 +48,8 @@ internal class ReadLoaderRuntimeParts(
     val redditCommunityDiscoveryLoader: AuthenticatedRedditCommunityDiscoveryLoader?,
     val redditCommunityWikiLoader: AuthenticatedRedditCommunityWikiLoader?,
     val redditCommunityInfoLoader: AuthenticatedRedditCommunityInfoLoader?,
+    // ISSUE230_PINNED_POSTS_FIRST_V1
+    val redditCommunityPinnedPostsLoader: AuthenticatedRedditCommunityPinnedPostsLoader?,
 )
 
 /**
@@ -159,6 +163,13 @@ internal fun readLoaderRuntimeParts(
                 }
             },
         redditCommunityInfoLoader = RedditCommunityInfoLoader(
+            callFactory = callFactory,
+            endpoint = NetworkEndpoint.https(RedditOAuth.apiEndpoint),
+            userAgent = selected.userAgent,
+            configuration = configuration,
+            accountCoordinator = coordinator,
+        ),
+        redditCommunityPinnedPostsLoader = RedditCommunityPinnedPostsLoader(
             callFactory = callFactory,
             endpoint = NetworkEndpoint.https(RedditOAuth.apiEndpoint),
             userAgent = selected.userAgent,

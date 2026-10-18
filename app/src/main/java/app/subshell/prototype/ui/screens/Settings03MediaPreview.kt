@@ -21,14 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
-import androidx.compose.material.icons.rounded.Brightness6
-import androidx.compose.material.icons.rounded.Fullscreen
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -52,6 +44,7 @@ import app.subshell.prototype.ui.MediaCaptionMode
 import app.subshell.prototype.ui.SensitiveMediaPreviewMode
 import app.subshell.prototype.ui.VideoAutoplay
 import app.subshell.prototype.ui.VideoTimelineSize
+import app.subshell.prototype.ui.symbols.Symbols
 
 @Composable
 internal fun MediaSettingsPreview(
@@ -229,7 +222,7 @@ private fun UnifiedMediaPreviewSample(
                                 horizontalArrangement = Arrangement.spacedBy(5.dp),
                             ) {
                                 Icon(
-                                    Icons.Rounded.Visibility,
+                                    Symbols.Visibility,
                                     contentDescription = null,
                                     modifier = Modifier.size(16.dp),
                                     tint = Color.White,
@@ -255,7 +248,7 @@ private fun UnifiedMediaPreviewSample(
                             verticalArrangement = Arrangement.spacedBy(3.dp),
                         ) {
                             Icon(
-                                Icons.Rounded.VisibilityOff,
+                                Symbols.VisibilityOff,
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp),
                                 tint = Color.White.copy(alpha = 0.82f),
@@ -288,7 +281,7 @@ private fun UnifiedMediaPreviewSample(
                         ),
                 ) {
                     GestureZoneHint(
-                        icon = Icons.Rounded.Brightness6,
+                        icon = Symbols.Brightness6,
                         label = "Brightness",
                         alpha = brightnessAlpha,
                         modifier = Modifier
@@ -296,7 +289,7 @@ private fun UnifiedMediaPreviewSample(
                             .fillMaxHeight(),
                     )
                     GestureZoneHint(
-                        icon = Icons.AutoMirrored.Rounded.VolumeUp,
+                        icon = Symbols.VolumeUp,
                         label = "Volume",
                         alpha = volumeAlpha,
                         modifier = Modifier
@@ -365,16 +358,16 @@ private fun UnifiedMediaPreviewSample(
                     ) {
                         Icon(
                             if (startVideosMuted) {
-                                Icons.AutoMirrored.Rounded.VolumeOff
+                                Symbols.VolumeOff
                             } else {
-                                Icons.AutoMirrored.Rounded.VolumeUp
+                                Symbols.VolumeUp
                             },
                             contentDescription = null,
                             modifier = Modifier.size(17.dp),
                             tint = Color.White,
                         )
                         Icon(
-                            Icons.Rounded.PlayArrow,
+                            Symbols.PlayArrowFilled,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                             tint = Color.White,
@@ -402,7 +395,7 @@ private fun UnifiedMediaPreviewSample(
                         }
 
                         Icon(
-                            Icons.Rounded.Fullscreen,
+                            Symbols.Fullscreen,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                             tint = Color.White,

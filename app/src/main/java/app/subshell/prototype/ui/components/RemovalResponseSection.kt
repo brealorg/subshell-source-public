@@ -24,8 +24,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,6 +50,7 @@ import app.subshell.prototype.data.account.RedditModeratorQueueKind
 import app.subshell.prototype.data.account.RedditRemovalMessage
 import app.subshell.prototype.data.account.RedditRemovalMessageType
 import app.subshell.prototype.data.account.RedditRemovalReason
+import app.subshell.prototype.ui.symbols.Symbols
 
 // MODRESPONSE01A2_REMOVAL_RESPONSE_DRAFT_V1
 /**
@@ -440,7 +439,7 @@ internal fun RemovalResponseEditor(
                                 )
                             }
                             IconButton(onClick = { pendingDelete = response }) {
-                                Icon(Icons.Rounded.Delete, contentDescription = "Delete ${response.title}")
+                                Icon(Symbols.Delete, contentDescription = "Delete ${response.title}")
                             }
                         }
                     }

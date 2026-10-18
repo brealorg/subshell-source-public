@@ -46,9 +46,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -105,6 +102,7 @@ import app.subshell.prototype.ui.components.RemoteIdentityImage
 import app.subshell.prototype.ui.components.RemoteImage
 import app.subshell.prototype.ui.components.rememberComposerMediaPicker
 import app.subshell.prototype.ui.error.presentNotice
+import app.subshell.prototype.ui.symbols.Symbols
 import app.subshell.prototype.ui.theme.groupedRowShape
 import java.time.Instant
 import java.time.ZoneId
@@ -115,8 +113,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.findViewTreeLifecycleOwner
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -761,7 +757,7 @@ fun ConversationScreen(
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(
-                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        Symbols.ArrowBack,
                         contentDescription = "Back",
                     )
                 }
@@ -1543,7 +1539,7 @@ private fun DirectChatMessage(
                                 InlineProgressIndicator()
                             } else {
                                 Icon(
-                                    imageVector = Icons.Rounded.MoreVert,
+                                    imageVector = Symbols.MoreVert,
                                     contentDescription = "Message actions",
                                     modifier = Modifier.size(16.dp),
                                 )
@@ -1575,7 +1571,7 @@ private fun DirectChatMessage(
                                     },
                                     leadingIcon = {
                                         Icon(
-                                            imageVector = Icons.Rounded.Delete,
+                                            imageVector = Symbols.Delete,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.error,
                                         )

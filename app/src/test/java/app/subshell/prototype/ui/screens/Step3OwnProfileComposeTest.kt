@@ -25,6 +25,7 @@ import app.subshell.prototype.data.account.RedditAccountHistoryUiState
 import app.subshell.prototype.data.redditAccountHistoryQueryKey
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.model.Community
 import app.subshell.prototype.model.ProfileCommentFixture
 import app.subshell.prototype.model.ThreadPlacement
@@ -112,7 +113,7 @@ class Step3OwnProfileComposeTest {
     fun theStripNamesTheOpenDestinationAndHiddenAndDownvotesReadTheirOwnHistory() {
         val state = signedIn(tab = 2)
         val refreshes = mutableListOf<RedditAccountHistoryKind>()
-        val coordinator = app.subshell.prototype.media.VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         composeRule.setContent {
             SubshellTheme {
                 androidx.compose.runtime.CompositionLocalProvider(app.subshell.prototype.media.LocalVideoPlaybackCoordinator provides coordinator) {

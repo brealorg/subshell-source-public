@@ -13,6 +13,7 @@ import app.subshell.prototype.data.account.RedditFeedUiState
 import app.subshell.prototype.data.FakeRepositoryMode
 import app.subshell.prototype.data.FakeSubshellRepository
 import app.subshell.prototype.data.error.FailureDetails
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.ui.SearchArea
@@ -75,7 +76,7 @@ class RedditSearch02CommunityNotFoundComposeTest {
     )
 
     private fun show(state: SubshellState, feed: RedditFeedUiState) {
-        val coordinator = VideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
+        val coordinator = testVideoPlaybackCoordinator(ApplicationProvider.getApplicationContext<Application>())
         composeRule.setContent {
             CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
                 SearchScreen(state = state, redditFeedState = feed, onBack = {})

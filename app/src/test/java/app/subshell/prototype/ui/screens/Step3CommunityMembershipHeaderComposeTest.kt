@@ -20,6 +20,7 @@ import app.subshell.prototype.data.account.CommunityMembershipUiState
 import app.subshell.prototype.data.account.RedditSubscriptionsUiState
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.ui.SubshellState
@@ -67,7 +68,7 @@ class Step3CommunityMembershipHeaderComposeTest {
             communities = SampleData.communities.filter { joined || it.name != "android" },
             loaded = true,
         )
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         composeRule.setContent {
             CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
                 CommunityScreen(

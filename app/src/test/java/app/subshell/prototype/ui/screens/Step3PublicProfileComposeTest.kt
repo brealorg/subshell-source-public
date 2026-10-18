@@ -30,6 +30,7 @@ import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.redditAccountHistoryQueryKey
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.Community
@@ -116,7 +117,7 @@ class Step3PublicProfileComposeTest {
     )
 
     private fun showProfile(state: SubshellState, username: () -> String = { "alice" }) {
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         composeRule.setContent {
             SubshellTheme {
                 CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
@@ -240,7 +241,7 @@ class Step3PublicProfileComposeTest {
     fun aPostsAuthorRowOpensTheProfileAndRecordsPostEvidence() {
         val state = signedIn()
         val post: Post = SampleData.posts.first { it.kind == PostKind.TEXT }.copy(author = "alice")
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         composeRule.setContent {
             SubshellTheme {
                 CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {

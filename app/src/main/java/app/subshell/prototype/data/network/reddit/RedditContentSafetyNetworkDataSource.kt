@@ -49,6 +49,7 @@ internal sealed interface RedditContentSafetyNetworkResult {
         val statusCode: Int,
         val retryable: Boolean,
         val metadata: NetworkResponseMetadata,
+        val providerReason: String? = null,
     ) : RedditContentSafetyNetworkResult
 
     data class TransportFailure(
@@ -83,6 +84,7 @@ internal class RedditContentSafetyNetworkDataSource(
                 statusCode = result.statusCode,
                 retryable = result.retryable,
                 metadata = result.metadata,
+                providerReason = result.providerReason,
             )
 
         is NetworkResult.TransportFailure ->
@@ -133,6 +135,7 @@ internal class RedditContentSafetyNetworkDataSource(
                         statusCode = result.statusCode,
                         retryable = result.retryable,
                         metadata = result.metadata,
+                        providerReason = result.providerReason,
                     )
 
                 is NetworkResult.TransportFailure ->
@@ -154,6 +157,7 @@ internal class RedditContentSafetyNetworkDataSource(
                         statusCode = result.statusCode,
                         retryable = result.retryable,
                         metadata = result.metadata,
+                        providerReason = result.providerReason,
                     )
 
                 is NetworkResult.TransportFailure ->
@@ -198,6 +202,7 @@ internal class RedditContentSafetyNetworkDataSource(
                 statusCode = result.statusCode,
                 retryable = result.retryable,
                 metadata = result.metadata,
+                providerReason = result.providerReason,
             )
 
         is NetworkResult.TransportFailure ->

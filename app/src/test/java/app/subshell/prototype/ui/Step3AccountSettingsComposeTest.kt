@@ -24,6 +24,7 @@ import app.subshell.prototype.data.account.ConnectAccountUiState
 import app.subshell.prototype.data.account.localFixtureAccountSummaries
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.ui.app.AccountConnectEntryPoints
 import app.subshell.prototype.ui.components.AccountSettingsRuntime
@@ -170,7 +171,7 @@ class Step3AccountSettingsComposeTest {
         }
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 accountConnect = AccountConnectEntryPoints(
                     accountSessionDirectory = directory,

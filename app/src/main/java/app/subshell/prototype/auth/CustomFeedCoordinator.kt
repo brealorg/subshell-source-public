@@ -496,6 +496,7 @@ internal class CustomFeedCoordinator(
                     failureKind = null,
                     failureRetryable = false,
                     failureStatusCode = null,
+                    failureDetails = null,
                     failedAppend = false,
                     contentRevision = latest.contentRevision + 1L,
                 )
@@ -505,6 +506,7 @@ internal class CustomFeedCoordinator(
                     failureKind = result.kind,
                     failureRetryable = result.retryable,
                     failureStatusCode = result.statusCode,
+                    failureDetails = result.details,
                     failedAppend = append,
                 )
             })

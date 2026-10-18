@@ -308,6 +308,7 @@ class AuthApplicationRuntimeFactoryTest {
         "redditCommentLoader=RedditCommentLoader",
         "redditCommunityDiscoveryLoader=RedditCommunityDiscoveryLoader",
         "redditCommunityInfoLoader=RedditCommunityInfoLoader",
+        "redditCommunityPinnedPostsLoader=RedditCommunityPinnedPostsLoader",
         "redditCommunityWikiLoader=RedditCommunityWikiLoader",
         "redditFavoriteCapability=OwnerBoundAuthCustomFeedWriteCapability",
         "redditFavoriteClientMode=REDREADER_COMPATIBILITY",

@@ -1,5 +1,6 @@
 package app.subshell.prototype.ui.app
 
+import app.subshell.prototype.data.account.RedditCommunityPinnedPostsUiState
 import app.subshell.prototype.data.RedditFeedSort
 import app.subshell.prototype.data.RedditListingTimePeriod
 import app.subshell.prototype.data.account.CommunityMembershipAction
@@ -41,6 +42,9 @@ data class CommunityEntryPoints(
         RedditCommunityInfoUiState(),
     val onLoadRedditCommunityInfo: (String, String, Boolean) -> Unit =
         { _, _, _ -> },
+    // ISSUE230_PINNED_POSTS_FIRST_V1
+    val redditPinnedPostsState: RedditCommunityPinnedPostsUiState = RedditCommunityPinnedPostsUiState(),
+    val onLoadRedditPinnedPosts: (String, String, Boolean) -> Unit = { _, _, _ -> },
     val communityMembershipState: CommunityMembershipUiState =
         CommunityMembershipUiState(),
     val onChangeCommunityMembership: (

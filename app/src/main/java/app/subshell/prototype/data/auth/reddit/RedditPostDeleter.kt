@@ -10,6 +10,7 @@ import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.error.redditWriteHttpFailureDetails
 import app.subshell.prototype.data.error.redditWriteProtocolFailureDetails
 import app.subshell.prototype.data.error.isRedditWriteOutcomeUnknownStatus
+import app.subshell.prototype.data.error.redditWriteRetryAfterMs
 import app.subshell.prototype.data.error.redditWriteTransportFailureDetails
 import app.subshell.prototype.data.network.NetworkClock
 import app.subshell.prototype.data.network.NetworkEndpoint
@@ -102,6 +103,7 @@ internal class ConfiguredRedditPostDeleter(
                         result.statusCode,
                         result.retryable,
                         result.metadata,
+                        providerReason = result.providerReason,
                     )
                     when {
                         result.statusCode == 401 || result.statusCode == 403 -> failed(
@@ -112,8 +114,7 @@ internal class ConfiguredRedditPostDeleter(
                         result.statusCode == 429 -> failed(
                             AuthenticatedPostDeleteFailureKind.RATE_LIMIT,
                             retryable = true,
-                            retryAfterMs = result.metadata.retryAfterMs
-                                ?: result.metadata.rateLimit.resetAfterMs,
+                            retryAfterMs = redditWriteRetryAfterMs(result.metadata, rateLimited = true),
                             httpStatusCode = result.statusCode,
                             failureDetails = details.copy(retryable = true),
                         )

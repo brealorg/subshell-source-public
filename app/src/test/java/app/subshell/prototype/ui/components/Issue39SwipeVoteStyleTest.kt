@@ -1,13 +1,9 @@
 package app.subshell.prototype.ui.components
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowDownward
-import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.ThumbDown
-import androidx.compose.material.icons.rounded.ThumbUp
 import app.subshell.prototype.ui.CommentSwipeAction
 import app.subshell.prototype.ui.VoteColorPalette
 import app.subshell.prototype.ui.VoteControlMode
+import app.subshell.prototype.ui.symbols.Symbols
 import app.subshell.prototype.ui.theme.SubshellOrangeSoft
 import app.subshell.prototype.ui.theme.SubshellVoteDown
 import app.subshell.prototype.ui.theme.SubshellVoteUp
@@ -56,19 +52,19 @@ class Issue39SwipeVoteStyleTest {
     @Test
     fun comfortableUsesThumbsAndCompactUsesArrows() {
         assertEquals(
-            Icons.Rounded.ThumbUp,
+            Symbols.ThumbUp,
             voteSwipe(1, VoteColorPalette.NEUTRAL, VoteControlMode.COMFORTABLE).icon,
         )
         assertEquals(
-            Icons.Rounded.ThumbDown,
+            Symbols.ThumbDown,
             voteSwipe(-1, VoteColorPalette.NEUTRAL, VoteControlMode.COMFORTABLE).icon,
         )
         assertEquals(
-            Icons.Rounded.ArrowUpward,
+            Symbols.ArrowUpward,
             voteSwipe(1, VoteColorPalette.NEUTRAL, VoteControlMode.COMPACT).icon,
         )
         assertEquals(
-            Icons.Rounded.ArrowDownward,
+            Symbols.ArrowDownward,
             voteSwipe(-1, VoteColorPalette.NEUTRAL, VoteControlMode.COMPACT).icon,
         )
     }
@@ -85,7 +81,7 @@ class Issue39SwipeVoteStyleTest {
 
         assertEquals("Downvote", down.label)
         assertEquals(SubshellVoteDown, down.containerColor)
-        assertEquals(Icons.Rounded.ArrowDownward, down.icon)
+        assertEquals(Symbols.ArrowDownward, down.icon)
         assertEquals(VoteSwipeContentColor, down.contentColor)
     }
 

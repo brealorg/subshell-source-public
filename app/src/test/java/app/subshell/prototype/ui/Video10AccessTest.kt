@@ -23,6 +23,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.subshell.prototype.data.SampleData
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackPhase
@@ -85,7 +86,7 @@ class Video10AccessTest {
         playingReady: Boolean = false,
     ): VideoPlaybackCoordinator {
         ensureWorkManagerInitialized(context)
-        val coordinator = VideoPlaybackCoordinator(context).apply { release() }
+        val coordinator = testVideoPlaybackCoordinator(context).apply { release() }
         if (playingReady) {
             coordinator.overrideUiStateForTest(
                 VideoPlaybackUiState(

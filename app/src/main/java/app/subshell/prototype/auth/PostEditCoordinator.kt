@@ -75,11 +75,11 @@ internal class PostEditCoordinator(
                 )
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 // The request may already have reached Reddit.
                 AuthenticatedPostEditResult.Failed(
                     kind = AuthenticatedPostEditFailureKind.OUTCOME_UNKNOWN,
-                    failureDetails = FailureDetails(localKind = LocalFailureKind.UNKNOWN),
+                    failureDetails = FailureDetails(localKind = LocalFailureKind.UNKNOWN).withExceptionClass(error),
                 )
             }
             applyResult(request, result)
@@ -118,10 +118,10 @@ internal class PostEditCoordinator(
                 )
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 AuthenticatedPostEditResult.Failed(
                     kind = AuthenticatedPostEditFailureKind.OUTCOME_UNKNOWN,
-                    failureDetails = FailureDetails(localKind = LocalFailureKind.UNKNOWN),
+                    failureDetails = FailureDetails(localKind = LocalFailureKind.UNKNOWN).withExceptionClass(error),
                 )
             }
             applyResult(request, result)

@@ -1,8 +1,13 @@
 package app.subshell.prototype.inbox
 
 import android.content.Context
+import android.database.SQLException
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import android.os.Build
 import android.util.Base64
 import android.util.Log
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.Data
@@ -20,12 +25,17 @@ import app.subshell.prototype.data.auth.AuthenticatedRedditModmailUnreadResult
 import app.subshell.prototype.data.diagnostics.DiagnosticEventStore
 import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.error.LocalFailureKind
+import app.subshell.prototype.data.network.toNetworkTransportFailureKind
 import app.subshell.prototype.model.ActivityKind
 import app.subshell.prototype.model.InboxItem
 import app.subshell.prototype.ui.INBOX_NOTIFICATIONS_ON_BY_DEFAULT
 import app.subshell.prototype.ui.SubshellSettings
+import java.io.IOException
+import java.security.GeneralSecurityException
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.serialization.SerializationException
 
 internal data class InboxBackgroundEventDecision(
     val initializedBefore: Boolean,
@@ -220,6 +230,26 @@ internal class InboxBackgroundEventStore(
         )
 }
 
+/**
+ * BGSYNCDIAG01_RUNS_ON_A_VALIDATED_NETWORK_V1: CONNECTED alone also accepts a
+ * network that cannot reach the internet yet (DNS failures in the reports);
+ * from Android 9 the work waits for one Android has validated.
+ */
+internal fun inboxBackgroundSyncConstraints(): Constraints =
+    Constraints.Builder().apply {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            setRequiredNetworkRequest(
+                NetworkRequest.Builder()
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                    .build(),
+                NetworkType.CONNECTED,
+            )
+        } else {
+            setRequiredNetworkType(NetworkType.CONNECTED)
+        }
+    }.build()
+
 internal object InboxBackgroundSyncScheduler {
     fun schedule(
         context: Context,
@@ -232,10 +262,11 @@ internal object InboxBackgroundSyncScheduler {
             INBOX_BACKGROUND_SYNC_INTERVAL_MINUTES,
             TimeUnit.MINUTES,
         )
-            .setConstraints(
-                Constraints.Builder()
-                    .setRequiredNetworkType(NetworkType.CONNECTED)
-                    .build(),
+            .setConstraints(inboxBackgroundSyncConstraints())
+            .setBackoffCriteria(
+                BackoffPolicy.EXPONENTIAL,
+                INBOX_BACKGROUND_RETRY_BACKOFF_SECONDS,
+                TimeUnit.SECONDS,
             )
             .setInputData(
                 Data.Builder()
@@ -315,6 +346,9 @@ internal class InboxBackgroundSyncWorker(
             return Result.success()
         }
         val eventStore = InboxBackgroundEventStore(applicationContext)
+        // BGSYNCDIAG01_TRANSIENT_NETWORK_FAILURE_RETRIES_V1: a network that was
+        // not usable yet is tried again with backoff instead of in 15 minutes.
+        var transientNetworkFailure = false
 
         val inboxLoader = runtime.redditInboxLoader
         if (inboxLoader == null) {
@@ -332,14 +366,16 @@ internal class InboxBackgroundSyncWorker(
                 inboxLoader.synchronize(account)
             }.onFailure { failure ->
                 if (failure is CancellationException) throw failure
-            }.getOrElse {
-                Log.d(INBOX_BACKGROUND_LOG_TAG, "inbox-sync-exception account=$account")
+            }.getOrElse { failure ->
+                Log.d(
+                    INBOX_BACKGROUND_LOG_TAG,
+                    "inbox-sync-exception account=$account class=${failure.javaClass.simpleName}",
+                )
+                val details = backgroundSyncFailureDetails(failure)
+                if (details.isTransientNetworkFailure()) transientNetworkFailure = true
                 diagnosticStore.recordBackgroundFailureSafely(
                     scopeKey = "inbox_background_sync",
-                    details = FailureDetails(
-                        retryable = true,
-                        localKind = LocalFailureKind.UNKNOWN,
-                    ),
+                    details = details,
                 )
                 null
             }
@@ -411,11 +447,13 @@ internal class InboxBackgroundSyncWorker(
                         INBOX_BACKGROUND_LOG_TAG,
                         "inbox-failed account=$account kind=${refreshed.kind.name.lowercase()}",
                     )
+                    val details = refreshed.details ?: FailureDetails(
+                        retryable = refreshed.retryable,
+                    )
+                    if (details.isTransientNetworkFailure()) transientNetworkFailure = true
                     diagnosticStore.recordBackgroundFailureSafely(
                         scopeKey = "inbox_background_sync",
-                        details = refreshed.details ?: FailureDetails(
-                            retryable = refreshed.retryable,
-                        ),
+                        details = details,
                     )
                 }
                 null -> Unit
@@ -441,14 +479,16 @@ internal class InboxBackgroundSyncWorker(
                 modmailLoader.loadUnread(account)
             }.onFailure { failure ->
                 if (failure is CancellationException) throw failure
-            }.getOrElse {
-                Log.d(INBOX_BACKGROUND_LOG_TAG, "modmail-sync-exception account=$account")
+            }.getOrElse { failure ->
+                Log.d(
+                    INBOX_BACKGROUND_LOG_TAG,
+                    "modmail-sync-exception account=$account class=${failure.javaClass.simpleName}",
+                )
+                val details = backgroundSyncFailureDetails(failure)
+                if (details.isTransientNetworkFailure()) transientNetworkFailure = true
                 diagnosticStore.recordBackgroundFailureSafely(
                     scopeKey = "modmail_background_sync",
-                    details = FailureDetails(
-                        retryable = true,
-                        localKind = LocalFailureKind.UNKNOWN,
-                    ),
+                    details = details,
                 )
                 null
             }
@@ -516,21 +556,54 @@ internal class InboxBackgroundSyncWorker(
                         INBOX_BACKGROUND_LOG_TAG,
                         "modmail-failed account=$account kind=${unreadResult.kind.name.lowercase()}",
                     )
+                    val details = unreadResult.details ?: FailureDetails(
+                        httpStatusCode = unreadResult.httpStatusCode,
+                        retryable = unreadResult.retryable,
+                    )
+                    if (details.isTransientNetworkFailure()) transientNetworkFailure = true
                     diagnosticStore.recordBackgroundFailureSafely(
                         scopeKey = "modmail_background_sync",
-                        details = unreadResult.details ?: FailureDetails(
-                            httpStatusCode = unreadResult.httpStatusCode,
-                            retryable = unreadResult.retryable,
-                        ),
+                        details = details,
                     )
                 }
                 null -> Unit
             }
         }
 
-        return Result.success()
+        return if (backgroundSyncRetries(transientNetworkFailure, runAttemptCount)) {
+            Log.d(INBOX_BACKGROUND_LOG_TAG, "retry account=$account attempt=$runAttemptCount")
+            Result.retry()
+        } else {
+            Result.success()
+        }
     }
 }
+
+/**
+ * BGSYNCDIAG01_EXCEPTIONS_ARE_CLASSIFIED_V1: an exception from a background
+ * sync step is recorded by what it is (network, storage, security, decoding)
+ * instead of "unknown", so a diagnostic report says what failed. A database
+ * error arrives wrapped in ExecutionException from the cache's executor.
+ */
+internal fun backgroundSyncFailureDetails(failure: Throwable): FailureDetails {
+    val cause = (failure as? ExecutionException)?.cause ?: failure
+    return when (cause) {
+        is IOException -> FailureDetails(retryable = true, transportKind = cause.toNetworkTransportFailureKind())
+        is SQLException -> FailureDetails(retryable = true, localKind = LocalFailureKind.STORAGE)
+        is GeneralSecurityException, is SecurityException ->
+            FailureDetails(retryable = true, localKind = LocalFailureKind.SECURITY)
+        is SerializationException -> FailureDetails(retryable = false, localKind = LocalFailureKind.DECODING)
+        // DIAG04_EXCEPTION_CLASS_V1: what it was, by class name only.
+        else -> FailureDetails(retryable = true, localKind = LocalFailureKind.UNKNOWN).withExceptionClass(cause)
+    }
+}
+
+/** A transient network failure is retried, at most [INBOX_BACKGROUND_TRANSIENT_RETRIES] times per period. */
+internal fun backgroundSyncRetries(transientNetworkFailure: Boolean, runAttemptCount: Int): Boolean =
+    transientNetworkFailure && runAttemptCount < INBOX_BACKGROUND_TRANSIENT_RETRIES
+
+internal fun FailureDetails.isTransientNetworkFailure(): Boolean =
+    transportKind != null && retryable != false
 
 private fun DiagnosticEventStore.recordBackgroundFailureSafely(
     scopeKey: String,
@@ -553,6 +626,8 @@ private fun DiagnosticEventStore.recordBackgroundAuthorizationRequiredSafely(
 }
 
 internal const val INBOX_BACKGROUND_SYNC_INTERVAL_MINUTES = 15L
+internal const val INBOX_BACKGROUND_TRANSIENT_RETRIES = 3
+internal const val INBOX_BACKGROUND_RETRY_BACKOFF_SECONDS = 30L
 internal const val INBOX_BACKGROUND_EVENT_HISTORY_LIMIT = 512
 internal const val INBOX_BACKGROUND_ACCOUNT_INPUT = "account_stable_id"
 internal const val INBOX_BACKGROUND_SYNC_TAG = "subshell-inbox-background-sync"

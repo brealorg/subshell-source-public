@@ -1,5 +1,6 @@
 package app.subshell.prototype.auth
 
+import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.account.ModeratorUserManagementFailureKind
 import app.subshell.prototype.data.account.ModeratorUserManagementFailureSection
 import app.subshell.prototype.data.account.ModeratorUserManagementUiState
@@ -954,6 +955,7 @@ internal class ModeratorUserManagementCoordinator(
         val kind: ModeratorUserManagementFailureKind,
         val retryable: Boolean,
         val httpStatusCode: Int?,
+        val details: FailureDetails? = null,
     )
     private var lastStatusReadFailure: StatusReadFailure? = null
 
@@ -963,7 +965,7 @@ internal class ModeratorUserManagementCoordinator(
             mutatingUsername = null,
             failureSection = section,
             failureKind = failure?.kind ?: ModeratorUserManagementFailureKind.PROTOCOL,
-            failureDetails = null,
+            failureDetails = failure?.details,
             failureRetryable = failure?.retryable ?: false,
             failureHttpStatusCode = failure?.httpStatusCode,
         )
@@ -993,7 +995,7 @@ internal class ModeratorUserManagementCoordinator(
                 AuthenticatedRedditBannedUsersResult.AuthorizationRequired ->
                     return BannedStatus.AUTHORIZATION_REQUIRED
                 is AuthenticatedRedditBannedUsersResult.Failed -> {
-                    lastStatusReadFailure = StatusReadFailure(result.kind, result.retryable, result.httpStatusCode)
+                    lastStatusReadFailure = StatusReadFailure(result.kind, result.retryable, result.httpStatusCode, result.details)
                     return BannedStatus.UNKNOWN
                 }
             }
@@ -1025,7 +1027,7 @@ internal class ModeratorUserManagementCoordinator(
                 AuthenticatedRedditMutedUsersResult.AuthorizationRequired ->
                     return MutedStatus.AUTHORIZATION_REQUIRED
                 is AuthenticatedRedditMutedUsersResult.Failed -> {
-                    lastStatusReadFailure = StatusReadFailure(result.kind, result.retryable, result.httpStatusCode)
+                    lastStatusReadFailure = StatusReadFailure(result.kind, result.retryable, result.httpStatusCode, result.details)
                     return MutedStatus.UNKNOWN
                 }
             }
@@ -1057,7 +1059,7 @@ internal class ModeratorUserManagementCoordinator(
                 AuthenticatedRedditApprovedUsersResult.AuthorizationRequired ->
                     return ApprovedStatus.AUTHORIZATION_REQUIRED
                 is AuthenticatedRedditApprovedUsersResult.Failed -> {
-                    lastStatusReadFailure = StatusReadFailure(result.kind, result.retryable, result.httpStatusCode)
+                    lastStatusReadFailure = StatusReadFailure(result.kind, result.retryable, result.httpStatusCode, result.details)
                     return ApprovedStatus.UNKNOWN
                 }
             }
@@ -1148,7 +1150,7 @@ internal class ModeratorUserManagementCoordinator(
                 loading = false,
                 authorizing = false,
                 failureKind = result.kind,
-                failureDetails = null,
+                failureDetails = result.details,
                 failureSection = ModeratorUserManagementFailureSection.BANNED,
                 failureRetryable = result.retryable,
                 failureHttpStatusCode = result.httpStatusCode,
@@ -1193,7 +1195,7 @@ internal class ModeratorUserManagementCoordinator(
                 approvedLoading = false,
                 authorizing = false,
                 failureKind = result.kind,
-                failureDetails = null,
+                failureDetails = result.details,
                 failureSection = ModeratorUserManagementFailureSection.APPROVED,
                 failureRetryable = result.retryable,
                 failureHttpStatusCode = result.httpStatusCode,
@@ -1238,7 +1240,7 @@ internal class ModeratorUserManagementCoordinator(
                 mutedLoading = false,
                 authorizing = false,
                 failureKind = result.kind,
-                failureDetails = null,
+                failureDetails = result.details,
                 failureSection = ModeratorUserManagementFailureSection.MUTED,
                 failureRetryable = result.retryable,
                 failureHttpStatusCode = result.httpStatusCode,

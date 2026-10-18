@@ -165,6 +165,36 @@ internal fun communityFeedPostsInDisplayOrder(
     sortCommunityPosts(posts, sort)
 }
 
+/** ISSUE230_PINNED_POSTS_FIRST_V1: the highlights row and the feed below it. */
+internal data class CommunityFeedWithPinned(
+    val highlights: List<Post>,
+    val feed: List<Post>,
+)
+
+/**
+ * ISSUE230_PINNED_POSTS_FIRST_V1 (owner 2026-10-16): the community's pinned posts
+ * come first, in Reddit's sticky order, whatever the sort, and never again
+ * further down (the list is keyed by post id). As cards they lead the feed; as
+ * highlights they move into the row above it. Without a pinned read the feed
+ * keeps its listing, and highlights fall back to the listing's own pinned posts.
+ */
+internal fun communityFeedWithPinnedPosts(
+    feed: List<Post>,
+    pinned: List<Post>,
+    presentation: PinnedPostsPresentation,
+): CommunityFeedWithPinned {
+    val pinnedIds = pinned.mapTo(HashSet()) { it.id }
+    return when (presentation) {
+        PinnedPostsPresentation.CARDS ->
+            CommunityFeedWithPinned(highlights = emptyList(), feed = pinned + feed.filterNot { it.id in pinnedIds })
+        PinnedPostsPresentation.HIGHLIGHTS -> {
+            val highlights = pinned.ifEmpty { feed.filter { it.pinned } }
+            val highlightIds = highlights.mapTo(HashSet()) { it.id }
+            CommunityFeedWithPinned(highlights = highlights, feed = feed.filterNot { it.id in highlightIds })
+        }
+    }
+}
+
 // FEEDS01_SEAMLESS_VIEWPORT_FILL_V1: the viewport fills itself. There is no
 // "paused" state and no tap-to-load control: the first
 // LIVE_FEED_AUTO_APPEND_BUDGET requests go out back to back; after that each

@@ -155,6 +155,8 @@ internal class CommentThreadCoordinator(
                         fullDiscussionLoading = false,
                         failureKind = refreshed.kind.toUiFailureKind(),
                         failureRetryable = refreshed.retryable,
+                        // COMMENTDIAG01_FAILURE_DETAILS_REACH_THE_REPORT_V1
+                        failureDetails = refreshed.details,
                     )
             }.also { completed ->
                 authDebugLog(
@@ -225,6 +227,8 @@ internal class CommentThreadCoordinator(
                         fullDiscussionLoading = false,
                         failureKind = cached.kind.toUiFailureKind(),
                         failureRetryable = cached.retryable,
+                        // COMMENTDIAG01_FAILURE_DETAILS_REACH_THE_REPORT_V1
+                        failureDetails = cached.details,
                     )
             }.also { completed ->
                 authDebugLog(
@@ -331,6 +335,8 @@ internal class CommentThreadCoordinator(
                         fullDiscussionLoading = false,
                         failureKind = refreshed.kind.toUiFailureKind(),
                         failureRetryable = refreshed.retryable,
+                        // COMMENTDIAG01_FAILURE_DETAILS_REACH_THE_REPORT_V1
+                        failureDetails = refreshed.details,
                     )
             }.also { completed ->
                 authDebugLog(

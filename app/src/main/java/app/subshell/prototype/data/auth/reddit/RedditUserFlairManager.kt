@@ -1,5 +1,8 @@
 package app.subshell.prototype.data.auth.reddit
 
+import app.subshell.prototype.data.error.failureDetailsOrNull
+import app.subshell.prototype.data.error.LocalFailureKind
+import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.account.UserFlairFailureKind
 import app.subshell.prototype.data.account.UserFlairMutationRequest
 import app.subshell.prototype.data.account.UserFlairOption
@@ -332,21 +335,27 @@ internal class RedditUserFlairManager(
                         UserFlairFailureKind.HTTP,
                         retryable = result.retryable,
                         httpStatusCode = result.statusCode,
+                        details = result.failureDetailsOrNull(),
                     )
                 is NetworkResult.TransportFailure ->
                     AuthenticatedRedditUserFlairLoadResult.Failed(
                         UserFlairFailureKind.TRANSPORT,
                         retryable = result.retryable,
+                        details = result.failureDetailsOrNull(),
                     )
                 is NetworkResult.ProtocolFailure ->
                     AuthenticatedRedditUserFlairLoadResult.Failed(
                         UserFlairFailureKind.PROTOCOL,
+                        details = result.failureDetailsOrNull(),
                     )
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (_: Exception) {
-            AuthenticatedRedditUserFlairLoadResult.Failed(UserFlairFailureKind.PROTOCOL)
+        } catch (error: Exception) {
+            AuthenticatedRedditUserFlairLoadResult.Failed(
+                UserFlairFailureKind.PROTOCOL,
+                details = FailureDetails(retryable = false, localKind = LocalFailureKind.UNKNOWN).withExceptionClass(error),
+            )
         }
     }
 
@@ -417,27 +426,35 @@ internal class RedditUserFlairManager(
                     if (result.value.apiErrors().isEmpty()) {
                         AuthenticatedRedditUserFlairMutationResult.Acknowledged
                     } else {
-                        AuthenticatedRedditUserFlairMutationResult.Failed(UserFlairFailureKind.HTTP)
+                        AuthenticatedRedditUserFlairMutationResult.Failed(
+                            UserFlairFailureKind.HTTP,
+                            details = FailureDetails(retryable = false)
+                                .withProviderDetails(code = result.value.apiErrors().firstOrNull()?.code),
+                        )
                     }
                 is NetworkResult.HttpFailure ->
                     AuthenticatedRedditUserFlairMutationResult.Failed(
                         UserFlairFailureKind.HTTP,
                         httpStatusCode = result.statusCode,
+                        details = result.failureDetailsOrNull(),
                     )
                 is NetworkResult.TransportFailure ->
                     AuthenticatedRedditUserFlairMutationResult.Failed(
                         UserFlairFailureKind.OUTCOME_UNKNOWN,
+                        details = result.failureDetailsOrNull(),
                     )
                 is NetworkResult.ProtocolFailure ->
                     AuthenticatedRedditUserFlairMutationResult.Failed(
                         UserFlairFailureKind.PROTOCOL,
+                        details = result.failureDetailsOrNull(),
                     )
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (_: Exception) {
+        } catch (error: Exception) {
             AuthenticatedRedditUserFlairMutationResult.Failed(
                 UserFlairFailureKind.OUTCOME_UNKNOWN,
+                details = FailureDetails(localKind = LocalFailureKind.UNKNOWN).withExceptionClass(error),
             )
         }
     }

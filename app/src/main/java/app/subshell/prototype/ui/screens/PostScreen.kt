@@ -6,18 +6,20 @@ import androidx.compose.ui.layout.WindowInsetsRulers
 import androidx.compose.foundation.layout.fitInside
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import app.subshell.prototype.data.error.FailureDetails
+import app.subshell.prototype.data.error.LocalFailureKind
 import app.subshell.prototype.ui.ScreenMargin
 import app.subshell.prototype.ui.components.RouteTopBar
 import app.subshell.prototype.ui.components.rememberRouteTopBarScrollBehavior
 import app.subshell.prototype.ui.error.LocalViewportErrorHostState
 import app.subshell.prototype.ui.noticeCopied
+import app.subshell.prototype.ui.symbols.Symbols
 import app.subshell.prototype.ui.theme.isDarkScheme
 import app.subshell.prototype.ui.theme.withMinContrast
 import app.subshell.prototype.ui.uiDebugLog
@@ -64,27 +66,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.Reply
-import androidx.compose.material.icons.automirrored.rounded.Send
-import androidx.compose.material.icons.rounded.Bookmark
-import androidx.compose.material.icons.rounded.BookmarkBorder
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.Flag
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import app.subshell.prototype.ui.components.ModeratorReportMenuItem
 import app.subshell.prototype.ui.components.ModeratorContentControlsMenuItem
 import app.subshell.prototype.data.account.ModeratorReportTarget
 import app.subshell.prototype.data.account.moderatorReportTargetOrNull
+import app.subshell.prototype.data.account.normalizeCommentEditFullname
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -201,7 +189,6 @@ import app.subshell.prototype.ui.components.commentSwipeActionVisual
 import app.subshell.prototype.ui.components.dispatchCommentSwipeAction
 import android.util.Log
 import androidx.activity.compose.BackHandler
-import androidx.compose.material.icons.rounded.Search
 import app.subshell.prototype.ui.components.MarkdownHighlight
 import app.subshell.prototype.ui.floatingActionAtStart
 import kotlinx.coroutines.CancellationException
@@ -286,6 +273,10 @@ internal fun commentTimeLabel(
     format: CommentTimeFormat,
     zoneId: ZoneId = ZoneId.systemDefault(),
     nowEpochSeconds: Long = Instant.now().epochSecond,
+    // LOCALE01_DATES_FOLLOW_THE_DEVICE_LANGUAGE_V1 (owner 2026-10-16): the app is
+    // English, but month names and AM/PM follow the device language, as the
+    // conversation, profile and backup dates already do.
+    locale: Locale = Locale.getDefault(),
 ): String {
     if (format == CommentTimeFormat.RELATIVE || createdEpochSeconds == null) {
         return relativeAge
@@ -296,7 +287,7 @@ internal fun commentTimeLabel(
         if (localTime.toLocalDate() != localNow.toLocalDate()) {
             val datePattern = if (localTime.year == localNow.year) "d MMM" else "d MMM yyyy"
             return@runCatching DateTimeFormatter
-                .ofPattern(datePattern, Locale.ENGLISH)
+                .ofPattern(datePattern, locale)
                 .format(localTime)
         }
         when (format) {
@@ -304,7 +295,7 @@ internal fun commentTimeLabel(
             CommentTimeFormat.LOCAL_24_HOUR ->
                 DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT).format(localTime)
             CommentTimeFormat.LOCAL_12_HOUR ->
-                DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH).format(localTime)
+                DateTimeFormatter.ofPattern("h:mm a", locale).format(localTime)
         }
     }.getOrDefault(relativeAge)
 }
@@ -1023,7 +1014,10 @@ fun PostScreen(
     ReportViewportError(
         scopeKey = "focused-comment:${post.id}",
         presentation = focusedLandingFailurePresentation,
-        failureDetails = null,
+        // COMMENTDIAG01_FAILURE_DETAILS_REACH_THE_REPORT_V1: a load failure
+        // keeps its details; a target the loaded thread does not show is local.
+        failureDetails = redditCommentsState.failureDetails.takeIf { redditCommentsState.failureKind != null }
+            ?: FailureDetails(retryable = true, localKind = LocalFailureKind.VALIDATION),
         onRetry = if (focusedLandingFailurePresentation != null) {
             {
                 focusedLandingFailedReason = null
@@ -1960,6 +1954,8 @@ fun PostScreen(
             onCancelAuthorization = onCancelPostEditAuthorization,
             onResetEditState = onResetPostEditState,
             onCheckAgain = onCheckPostEdit,
+            mentionSearchState = mentionSearchState,
+            onSearchMentions = onSearchMentions,
             onSaved = { editedBody ->
                 state.applyEditedPostBody(post.id, editedBody)
                 editingPost = false
@@ -2801,7 +2797,7 @@ fun PostScreen(
                                                 },
                                             )
                                             Icon(
-                                                Icons.Rounded.KeyboardArrowDown,
+                                                Symbols.KeyboardArrowDown,
                                                 contentDescription = null,
                                             )
                                         }
@@ -2816,7 +2812,7 @@ fun PostScreen(
                                                     text = { Text(option.label) },
                                                     modifier = Modifier.semantics { selected = option == sort },
                                                     trailingIcon = if (option == sort) {
-                                                        { Icon(Icons.Rounded.Check, contentDescription = null) }
+                                                        { Icon(Symbols.Check, contentDescription = null) }
                                                     } else {
                                                         null
                                                     },
@@ -2830,7 +2826,7 @@ fun PostScreen(
                                     }
                                     IconButton(onClick = openThreadFind) {
                                         Icon(
-                                            Icons.Rounded.Search,
+                                            Symbols.Search,
                                             contentDescription = THREAD_FIND_OPEN_LABEL,
                                         )
                                     }
@@ -2875,7 +2871,7 @@ fun PostScreen(
                             SwipeActionSurface(
                                 modifier = Modifier.fillMaxWidth(),
                                 enabled = state.swipeActionsEnabled,
-                                reduceMotion = state.reduceMotion,
+                                reduceMotion = state.motionReduced,
                                 shape = MaterialTheme.shapes.small,
                                 leftAction = commentSwipeActionVisual(
                                     action = state.commentSwipeLeftAction,
@@ -3065,7 +3061,7 @@ fun PostScreen(
                             onClick = onBack,
                             modifier = Modifier.align(Alignment.TopStart).padding(4.dp),
                         ) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                            Icon(Symbols.ArrowBack, contentDescription = "Back")
                         }
                         if (focusedOpeningIndicatorVisible) {
                             Column(
@@ -3285,6 +3281,12 @@ private fun CommentRow(
         author = comment.author,
         contentType = OwnContentType.COMMENT,
     )
+    // EDITCOMMENT01_EDIT_ONLY_A_REDDIT_COMMENT_V1: the editor needs a Reddit
+    // comment ID (CommentEditScreen draws nothing without one), so a comment
+    // without one (a local "local-comment-…" row) offers no Edit.
+    val hasRedditCommentId = remember(comment.id) {
+        runCatching { normalizeCommentEditFullname(comment.id) }.isSuccess
+    }
     val authorProfileTarget = commentAuthorProfileTarget(comment.author)
     var deletedAuthorUnavailableVisible by rememberSaveable(comment.id) {
         mutableStateOf(false)
@@ -3693,7 +3695,7 @@ private fun CommentRow(
                 modifier = Modifier.size(48.dp),
             ) {
                 Icon(
-                    if (collapsed) Icons.Rounded.ExpandMore else Icons.Rounded.ExpandLess,
+                    if (collapsed) Symbols.ExpandMore else Symbols.ExpandLess,
                     contentDescription = if (collapsed) "Expand thread" else "Collapse thread",
                     modifier = Modifier.size(19.dp),
                 )
@@ -3800,7 +3802,7 @@ private fun CommentRow(
                     saved = state.effectiveCommentSaved(comment),
                     saveEnabled = state.commentSaveControlEnabled(comment),
                     onSave = { state.toggleSaved(comment) },
-                    canEdit = state.activeAccountIsAuthenticated && ownActions.canEdit,
+                    canEdit = state.activeAccountIsAuthenticated && ownActions.canEdit && hasRedditCommentId,
                     onEdit = { onEdit(comment) },
                     canDelete = state.activeAccountIsAuthenticated && ownActions.canDelete,
                     onDelete = { onDelete(comment) },
@@ -4027,7 +4029,7 @@ private fun CodeBlock(sample: CodeSample) {
                     },
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                 ) {
-                    Icon(Icons.Rounded.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Symbols.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(5.dp))
                     Text("Copy")
                 }
@@ -4090,7 +4092,7 @@ private fun CommentActionRow(
             onDownvote = onDownvote,
         )
         SmallCommentAction(
-            icon = Icons.AutoMirrored.Rounded.Reply,
+            icon = Symbols.Reply,
             label = "Reply",
             contentDescription = "Reply",
             enabled = replyEnabled,
@@ -4106,7 +4108,7 @@ private fun CommentActionRow(
                 modifier = Modifier.size(48.dp),
             ) {
                 Icon(
-                    Icons.Rounded.MoreVert,
+                    Symbols.MoreVert,
                     contentDescription = "Comment options",
                     modifier = Modifier.size(19.dp),
                 )
@@ -4120,7 +4122,7 @@ private fun CommentActionRow(
                         text = { Text("Edit comment") },
                         leadingIcon = {
                             Icon(
-                                imageVector = Icons.Rounded.Edit,
+                                imageVector = Symbols.Edit,
                                 contentDescription = null,
                             )
                         },
@@ -4140,7 +4142,7 @@ private fun CommentActionRow(
                         },
                         leadingIcon = {
                             Icon(
-                                imageVector = Icons.Rounded.Delete,
+                                imageVector = Symbols.Delete,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.error,
                             )
@@ -4160,9 +4162,9 @@ private fun CommentActionRow(
                         leadingIcon = {
                             Icon(
                                 imageVector = if (saved) {
-                                    Icons.Rounded.Bookmark
+                                    Symbols.BookmarkFilled
                                 } else {
-                                    Icons.Rounded.BookmarkBorder
+                                    Symbols.Bookmark
                                 },
                                 contentDescription = null,
                                 tint = if (saved) {
@@ -4194,7 +4196,7 @@ private fun CommentActionRow(
                         text = { Text("Report comment") },
                         leadingIcon = {
                             Icon(
-                                imageVector = Icons.Rounded.Flag,
+                                imageVector = Symbols.Flag,
                                 contentDescription = null,
                             )
                         },
@@ -4209,7 +4211,7 @@ private fun CommentActionRow(
                     text = { Text("Share comment") },
                     leadingIcon = {
                         Icon(
-                            imageVector = Icons.Rounded.Share,
+                            imageVector = Symbols.Share,
                             contentDescription = null,
                         )
                     },
@@ -4222,7 +4224,7 @@ private fun CommentActionRow(
                     text = { Text("Copy text") },
                     leadingIcon = {
                         Icon(
-                            imageVector = Icons.Rounded.ContentCopy,
+                            imageVector = Symbols.ContentCopy,
                             contentDescription = null,
                         )
                     },
@@ -4236,7 +4238,7 @@ private fun CommentActionRow(
                     text = { Text("Collapse thread") },
                     leadingIcon = {
                         Icon(
-                            imageVector = Icons.Rounded.ExpandLess,
+                            imageVector = Symbols.ExpandLess,
                             contentDescription = null,
                         )
                     },

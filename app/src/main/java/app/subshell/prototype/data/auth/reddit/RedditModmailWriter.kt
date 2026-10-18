@@ -215,6 +215,7 @@ internal class ConfiguredRedditModmailWriter(
                                 result.statusCode,
                                 result.retryable,
                                 result.metadata,
+                                providerReason = result.providerReason,
                             ),
                             // DATALAYER07: the reply may have been stored.
                             outcomeUnknown = isRedditWriteOutcomeUnknownStatus(result.statusCode),
@@ -297,6 +298,7 @@ internal class ConfiguredRedditModmailWriter(
                             result.statusCode,
                             result.retryable,
                             result.metadata,
+                            providerReason = result.providerReason,
                         ),
                     )
                 }
@@ -393,6 +395,7 @@ internal class ConfiguredRedditModmailWriter(
                             result.statusCode,
                             result.retryable,
                             result.metadata,
+                            providerReason = result.providerReason,
                         ),
                     )
                 }
@@ -476,6 +479,7 @@ internal class ConfiguredRedditModmailWriter(
                                 result.statusCode,
                                 result.retryable,
                                 result.metadata,
+                                providerReason = result.providerReason,
                             ),
                         )
                     }

@@ -64,7 +64,7 @@ internal class OnlineVisibilityCoordinator(
         val token = ++generation
         mutableState.value = old.copy(
             phase = OnlineVisibilityPhase.LOADING, value = null, confirmation = null,
-            issue = null, httpStatusCode = null, notice = null, revision = ++revision,
+            issue = null, httpStatusCode = null, failureDetails = null, notice = null, revision = ++revision,
         )
         job = scope.launch {
             try {
@@ -80,6 +80,7 @@ internal class OnlineVisibilityCoordinator(
                     is OnlineVisibilityResult.Failed -> mutableState.value.copy(
                         value = null, phase = OnlineVisibilityPhase.FAILED,
                         issue = result.issue, httpStatusCode = result.httpStatusCode,
+                        failureDetails = result.failureDetails,
                     )
                 }
             } catch (cancelled: CancellationException) {
@@ -118,7 +119,7 @@ internal class OnlineVisibilityCoordinator(
         // Consume confirmation synchronously, before launching, so double taps cannot queue writes.
         mutableState.value = old.copy(
             phase = OnlineVisibilityPhase.SAVING, confirmation = null,
-            value = null, issue = null, httpStatusCode = null, notice = null, revision = ++revision,
+            value = null, issue = null, httpStatusCode = null, failureDetails = null, notice = null, revision = ++revision,
         )
         job = scope.launch {
             try {
@@ -141,6 +142,7 @@ internal class OnlineVisibilityCoordinator(
                         // An uncertain write must not project an old value as current state.
                         value = null, phase = OnlineVisibilityPhase.FAILED,
                         issue = result.issue, httpStatusCode = result.httpStatusCode,
+                        failureDetails = result.failureDetails,
                     )
                 }
             } catch (cancelled: CancellationException) {
@@ -155,7 +157,7 @@ internal class OnlineVisibilityCoordinator(
     private fun fail(issue: OnlineVisibilityIssue) {
         mutableState.value = mutableState.value.copy(
             value = null, phase = OnlineVisibilityPhase.FAILED, issue = issue,
-            confirmation = null, notice = null,
+            confirmation = null, notice = null, failureDetails = null,
         )
     }
 }

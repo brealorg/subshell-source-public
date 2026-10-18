@@ -5,8 +5,6 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -20,6 +18,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.indication
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.remember
+import app.subshell.prototype.ui.symbols.Symbols
 
 // ISSUE28_TOP_LEVEL_COMMENT_JUMP_V1: the post screen's jump button moves
 // between top-level rows of the visible comment rows. Collapsed replies are
@@ -145,7 +144,7 @@ internal fun TopLevelCommentJumpButton(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.KeyboardArrowDown,
+                    imageVector = Symbols.KeyboardArrowDown,
                     contentDescription = TOP_LEVEL_COMMENT_JUMP_NEXT_LABEL,
                 )
             }

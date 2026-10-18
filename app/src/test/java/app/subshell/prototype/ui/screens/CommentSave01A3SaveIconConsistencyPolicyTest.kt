@@ -33,10 +33,10 @@ class CommentSave01A3SaveIconConsistencyPolicyTest {
         )
 
         assertTrue(postScreen.contains("COMMENTSAVE01A3_COMMENT_SAVE_ICON_CONSISTENCY_V1"))
-        assertTrue(postScreen.contains("Icons.Rounded.Bookmark"))
-        assertTrue(postScreen.contains("Icons.Rounded.BookmarkBorder"))
+        assertTrue(postScreen.contains("Symbols.BookmarkFilled"))
+        assertTrue(postScreen.contains("Symbols.Bookmark"))
         assertTrue(postScreen.contains("leadingIcon ="))
-        assertTrue(common.contains("if (saved) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder"))
+        assertTrue(common.contains("if (saved) Symbols.BookmarkFilled else Symbols.Bookmark"))
     }
 
     @Test

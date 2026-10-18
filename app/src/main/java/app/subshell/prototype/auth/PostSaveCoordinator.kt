@@ -76,14 +76,14 @@ internal class PostSaveCoordinator(
                 configuredWriter.setSaved(normalized)
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 AuthenticatedPostSaveResult.Failed(
                     kind = PostSaveFailureKind.TRANSPORT,
                     retryable = true,
                     failureDetails = FailureDetails(
                         retryable = true,
                         localKind = LocalFailureKind.UNKNOWN,
-                    ),
+                    ).withExceptionClass(error),
                 )
             }
 

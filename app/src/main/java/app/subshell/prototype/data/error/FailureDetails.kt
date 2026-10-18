@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.error
 
+import app.subshell.prototype.data.diagnostics.diagnosticExceptionClass
 import app.subshell.prototype.data.network.NetworkProtocolFailureKind
 import app.subshell.prototype.data.network.NetworkResult
 import app.subshell.prototype.data.network.JSON_FIELD_PATH_MAX_CHARS
@@ -43,6 +44,11 @@ data class FailureDetails(
     val localKind: LocalFailureKind? = null,
     /** DIAG03_JSON_FIELD_PATH_V1: the response field a decode failed on. */
     val jsonPath: SafeFailureText? = null,
+    /**
+     * DIAG04_EXCEPTION_CLASS_V1: for a local failure of unknown kind, the
+     * exception's simple class name (never its message); diagnostics only.
+     */
+    val exceptionClass: String? = null,
 ) {
     init {
         require(httpStatusCode == null || isHttpStatusCodeInRange(httpStatusCode))
@@ -59,6 +65,9 @@ data class FailureDetails(
         ),
         providerMessage = SafeFailureText.fromUntrusted(message),
     )
+
+    fun withExceptionClass(error: Throwable): FailureDetails =
+        copy(exceptionClass = error.diagnosticExceptionClass())
 
     fun withMediaCode(code: String?): FailureDetails = copy(
         mediaCode = SafeFailureText.fromUntrusted(

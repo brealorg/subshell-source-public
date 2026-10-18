@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.auth
 
+import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.RedditAccountHistoryKind
 import app.subshell.prototype.data.RepositoryLoadOperation
 import app.subshell.prototype.data.RepositoryQueryKey
@@ -28,6 +29,7 @@ internal sealed interface AuthenticatedRedditAccountHistoryUpdateResult {
     data class Failed(
         val kind: AuthenticatedRedditAccountHistoryFailureKind,
         val retryable: Boolean,
+        val details: FailureDetails? = null,
     ) : AuthenticatedRedditAccountHistoryUpdateResult
 }
 

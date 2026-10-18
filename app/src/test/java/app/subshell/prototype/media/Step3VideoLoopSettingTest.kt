@@ -7,6 +7,8 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.test.core.app.ApplicationProvider
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.releaseWithoutHanging
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.ui.SubshellState
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -52,7 +54,7 @@ class Step3VideoLoopSettingTest {
     @Test
     fun loopingFollowsTheSettingForTheCurrentAndTheNextVideo() {
         ensureWorkManagerInitialized(application)
-        val coordinator = VideoPlaybackCoordinator(application)
+        val coordinator = testVideoPlaybackCoordinator(application)
         try {
             coordinator.attachMuted("t3_first")
             assertEquals(Player.REPEAT_MODE_OFF, coordinator.player.repeatMode)
@@ -66,7 +68,7 @@ class Step3VideoLoopSettingTest {
             coordinator.updateLoopVideos(false)
             assertEquals(Player.REPEAT_MODE_OFF, coordinator.player.repeatMode)
         } finally {
-            coordinator.release()
+            coordinator.releaseWithoutHanging()
             shadowOf(Looper.getMainLooper()).idle()
         }
     }
@@ -75,7 +77,7 @@ class Step3VideoLoopSettingTest {
     fun theLoopSettingReachesThePlayer() {
         ensureWorkManagerInitialized(application)
         val state = SubshellState()
-        val coordinator = VideoPlaybackCoordinator(application)
+        val coordinator = testVideoPlaybackCoordinator(application)
         try {
             composeRule.setContent {
                 ProvideVideoPlaybackCoordinator(state = state, coordinator = coordinator) {}
@@ -91,7 +93,7 @@ class Step3VideoLoopSettingTest {
             composeRule.waitForIdle()
             assertEquals(Player.REPEAT_MODE_OFF, coordinator.player.repeatMode)
         } finally {
-            coordinator.release()
+            coordinator.releaseWithoutHanging()
             shadowOf(Looper.getMainLooper()).idle()
         }
     }

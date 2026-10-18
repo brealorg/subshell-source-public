@@ -1,5 +1,6 @@
 package app.subshell.prototype.auth
 
+import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.account.RedditRemovalReasonFailureKind
 import app.subshell.prototype.data.account.RedditRemovalReasonPhase
 import app.subshell.prototype.data.account.RedditRemovalReasonUiState
@@ -228,6 +229,7 @@ internal class RemovalReasonCoordinator(
                     kind = result.kind,
                     retryable = result.retryable,
                     httpStatusCode = result.httpStatusCode,
+                    failureDetails = result.failureDetails,
                 )
             }
         }
@@ -272,6 +274,7 @@ internal class RemovalReasonCoordinator(
         kind: RedditRemovalReasonFailureKind,
         retryable: Boolean = false,
         httpStatusCode: Int? = null,
+        failureDetails: FailureDetails? = null,
     ) = RedditRemovalReasonUiState(
         phase = RedditRemovalReasonPhase.FAILED,
         accountStableId = accountStableId,
@@ -279,6 +282,7 @@ internal class RemovalReasonCoordinator(
         failureKind = kind,
         retryable = retryable,
         httpStatusCode = httpStatusCode,
+        failureDetails = failureDetails,
         contentRevision = mutableUiState.value.contentRevision,
     )
 }

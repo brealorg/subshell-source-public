@@ -200,14 +200,17 @@ internal class RedditModerationLoader(
                 is NetworkResult.Success -> result.value?.let {
                     AuthenticatedRedditReportTargetResult.Loaded(it)
                 } ?: AuthenticatedRedditReportTargetResult.NotFound
+                // DIAG05_PLAIN_NOTICES_ARE_RECORDED_V1
                 is NetworkResult.HttpFailure -> AuthenticatedRedditReportTargetResult.Failed(
-                    AuthenticatedRedditModerationFailureKind.HTTP, result.statusCode,
+                    AuthenticatedRedditModerationFailureKind.HTTP, result.statusCode, result.failureDetailsOrNull(),
                 )
                 is NetworkResult.TransportFailure -> AuthenticatedRedditReportTargetResult.Failed(
                     AuthenticatedRedditModerationFailureKind.TRANSPORT,
+                    details = result.failureDetailsOrNull(),
                 )
                 is NetworkResult.ProtocolFailure -> AuthenticatedRedditReportTargetResult.Failed(
                     AuthenticatedRedditModerationFailureKind.PROTOCOL,
+                    details = result.failureDetailsOrNull(),
                 )
             }
         }

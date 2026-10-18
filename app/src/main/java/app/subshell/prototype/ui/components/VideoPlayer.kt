@@ -8,6 +8,7 @@ import androidx.activity.compose.BackHandler
 import androidx.media3.ui.compose.ContentFrame
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
+import androidx.media3.ui.compose.state.rememberPresentationState
 import androidx.media3.ui.SubtitleView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -36,17 +37,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
-import androidx.compose.material.icons.rounded.Fullscreen
-import androidx.compose.material.icons.rounded.FullscreenExit
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -70,7 +60,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.material.icons.rounded.Speed
+import app.subshell.prototype.media.remoteMediaDiagnosticScope
 import app.subshell.prototype.ui.error.LocalViewportErrorHostState
 import app.subshell.prototype.ui.mediaDownloadFolder
 import app.subshell.prototype.ui.mediaActionScope
@@ -98,6 +88,11 @@ import app.subshell.prototype.ui.playbackOptionsButtonShown
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.ui.keepScreenOn
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.unit.toSize
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -145,6 +140,7 @@ import app.subshell.prototype.ui.error.remoteMediaErrorPresentation
 import app.subshell.prototype.ui.error.videoPlaybackErrorPresentation
 import app.subshell.prototype.ui.mediaActionsAtStart
 import app.subshell.prototype.ui.physicalLeftIsRowStart
+import app.subshell.prototype.ui.symbols.Symbols
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import android.content.res.Configuration
@@ -174,7 +170,7 @@ private fun MissingVideoSourcePlaceholder(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Icon(
-                imageVector = Icons.Rounded.ErrorOutline,
+                imageVector = Symbols.Error,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -247,7 +243,7 @@ private fun FullscreenControlButton(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                if (fullscreen) Symbols.FullscreenExit else Symbols.Fullscreen,
                 contentDescription = contentDescription,
                 tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(24.dp),
@@ -277,7 +273,7 @@ private fun FullscreenQuickControls(
             // Owner: an icon instead of "1×"; the value stays in the description.
             IconButton(onClick = onSpeed) {
                 Icon(
-                    Icons.Rounded.Speed,
+                    Symbols.Speed,
                     contentDescription = "Playback speed, $speedLabel",
                     tint = Color.White,
                 )
@@ -286,7 +282,7 @@ private fun FullscreenQuickControls(
         if (showMute) {
             IconButton(onClick = onToggleMute) {
                 Icon(
-                    if (muted) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp,
+                    if (muted) Symbols.VolumeOff else Symbols.VolumeUp,
                     contentDescription = if (muted) "Turn sound on" else "Mute video",
                     tint = Color.White,
                 )
@@ -333,7 +329,7 @@ private fun VideoTopActionCluster(
     val playbackOptionsAction: @Composable () -> Unit = {
         if (showPlaybackOptions) {
             VideoChromeIconButton(
-                icon = Icons.Rounded.Settings,
+                icon = Symbols.Settings,
                 contentDescription = "Playback options",
                 onClick = onPlaybackOptions,
             )
@@ -342,7 +338,7 @@ private fun VideoTopActionCluster(
     val muteAction: @Composable () -> Unit = {
         if (showMute) {
             VideoChromeIconButton(
-                icon = if (muted) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp,
+                icon = if (muted) Symbols.VolumeOff else Symbols.VolumeUp,
                 contentDescription = if (muted) "Turn sound on" else "Mute video",
                 onClick = onToggleMute,
             )
@@ -416,7 +412,7 @@ private fun VideoPosterFrame(
                             kind = RemoteMediaKind.IMAGE,
                             details = result.details,
                         ),
-                        diagnosticScopeKey = "media_image",
+                        diagnosticScopeKey = remoteMediaDiagnosticScope("media_image", remoteUri),
                         onRetry = feedImageState::retry,
                     )
                 }
@@ -673,7 +669,7 @@ fun LocalVideoPlayer(
                 onClick = { state.playVideo(post.id) },
             ) {
                 Icon(
-                    Icons.Rounded.PlayArrow,
+                    Symbols.PlayArrowFilled,
                     contentDescription = "Play video",
                     modifier = Modifier.padding(12.dp),
                     tint = Color.White,
@@ -699,6 +695,32 @@ fun LocalVideoPlayer(
     val modalVisible = playbackModal != null
     // VIDEO07_PICTURE_IN_PICTURE_V1: the small window shows the picture only.
     val inPictureInPicture = state.inPictureInPicture
+    // ISSUE231_PINCH_TO_ZOOM_VIDEOS_V1: full screen only, never in PiP; a new
+    // video, a rotation or leaving full screen starts again at 1×.
+    val pinchToZoom = fullscreen && state.videoPinchToZoom && !inPictureInPicture
+    // One state per video: the pinch detector keeps reading and writing this
+    // holder, so a rotation resets its value instead of replacing it (a new
+    // holder left the detector on the old one and the pinch did nothing).
+    var videoZoom by remember(post.id, presentation) { mutableStateOf(FullscreenVideoZoom()) }
+    LaunchedEffect(configuration.orientation) { videoZoom = FullscreenVideoZoom() }
+    var videoAreaSize by remember(post.id, presentation) { mutableStateOf(Size.Zero) }
+    // The picture's edges come from the decoded video, as ContentFrame fits it;
+    // Reddit's width and height can differ (a narrower video showed black edges
+    // when panned on the owner's phone), so they are only the fallback.
+    val zoomAspectRatio = if (fullscreen) {
+        fullscreenVideoZoomAspectRatio(
+            decodedVideoSize = rememberPresentationState(coordinator.player).videoSizeDp ?: Size.Unspecified,
+            fallback = aspectRatio,
+        )
+    } else {
+        aspectRatio
+    }
+    // The pinch detector lives as long as the video; it reads the shape as it is now.
+    val currentZoomAspectRatio by rememberUpdatedState(zoomAspectRatio)
+    LaunchedEffect(pinchToZoom) {
+        if (!pinchToZoom) videoZoom = FullscreenVideoZoom()
+    }
+    val videoZoomed = pinchToZoom && videoZoom.zoomed
     val showControls = videoTransportControlsVisible(
         requestedVisible = (controlsVisible || controlsMustRemainVisible) && !inPictureInPicture,
         modalVisible = modalVisible,
@@ -985,6 +1007,15 @@ fun LocalVideoPlayer(
                         true
                     }
                 }
+                // ISSUE231_PINCH_TO_ZOOM_VIDEOS_V1: zoom is touch-only; TalkBack can reset it.
+                if (videoZoomed) {
+                    customActions = listOf(
+                        CustomAccessibilityAction(FULLSCREEN_VIDEO_RESET_ZOOM_LABEL) {
+                            videoZoom = FullscreenVideoZoom()
+                            true
+                        },
+                    )
+                }
             }
             .pointerInput(longPress != null) {
                 detectTapGestures(
@@ -1022,7 +1053,11 @@ fun LocalVideoPlayer(
             // previous inline surface does not mean this fresh fullscreen TextureView has a frame.
             ContentFrame(
                 player = coordinator.player,
-                modifier = videoAreaModifier,
+                modifier = videoAreaModifier
+                    .onSizeChanged { videoAreaSize = it.toSize() }
+                    .clipToBounds()
+                    .fullscreenVideoZoomLayer { videoZoom }
+                    .testTag(FULLSCREEN_VIDEO_FRAME_TEST_TAG),
                 surfaceType = SURFACE_TYPE_TEXTURE_VIEW,
                 contentScale = ContentScale.Fit,
                 keepContentOnReset = false,
@@ -1098,11 +1133,20 @@ fun LocalVideoPlayer(
         // VIDEO07_DOUBLE_TAP_SEEK_V1 / VIDEO07_HOLD_FOR_DOUBLE_SPEED_V1: full screen,
         // each behind its own setting (default off), on the same layer as the
         // landscape swipes so one layer owns the gestures over the picture.
+        // ISSUE231_PINCH_TO_ZOOM_VIDEOS_V1: while zoomed, a double-tap resets the zoom
+        // and hold-for-2× and the swipes pause; at 1× they are back.
         val doubleTapSeek = fullscreen && state.videoDoubleTapSeek
-        val holdForDoubleSpeed = fullscreen && state.videoHoldForDoubleSpeed
-        val tapGesturesActive = doubleTapSeek || holdForDoubleSpeed
+        val holdForDoubleSpeed = fullscreen && state.videoHoldForDoubleSpeed && !videoZoomed
+        val swipeGesturesActive = landscapeGestureControlsActive && !videoZoomed
+        val tapGesturesActive = doubleTapSeek || holdForDoubleSpeed || videoZoomed
+        LaunchedEffect(videoZoomed) {
+            if (videoZoomed) {
+                fullscreenGestureOverlay = null
+                coordinator.holdDoubleSpeed(false)
+            }
+        }
         if (
-            (landscapeGestureControlsActive || tapGesturesActive) &&
+            (swipeGesturesActive || tapGesturesActive || pinchToZoom) &&
             !modalVisible && !isScrubbing && !inPictureInPicture
         ) {
             // LOWUX2_GESTURE_OVERLAY_LEAVES_WITH_ITS_LAYER_V1 (OCB-303): a drag
@@ -1118,8 +1162,26 @@ fun LocalVideoPlayer(
                 modifier = Modifier
                     .fillMaxSize()
                     .then(
+                        if (pinchToZoom) {
+                            Modifier.fullscreenVideoPinchToZoom(
+                                key = post.id,
+                                zoom = { videoZoom },
+                            ) { centroid, zoomChange, pan ->
+                                videoZoom = videoZoom.transformedBy(
+                                    centroid = centroid,
+                                    zoomChange = zoomChange,
+                                    pan = pan,
+                                    viewportSize = videoAreaSize,
+                                    contentAspectRatio = currentZoomAspectRatio,
+                                )
+                            }
+                        } else {
+                            Modifier
+                        },
+                    )
+                    .then(
                         if (tapGesturesActive) {
-                            Modifier.pointerInput(post.id, doubleTapSeek, holdForDoubleSpeed) {
+                            Modifier.pointerInput(post.id, doubleTapSeek, holdForDoubleSpeed, videoZoomed) {
                                 var heldForSpeed = false
                                 detectTapGestures(
                                     onPress = {
@@ -1134,7 +1196,9 @@ fun LocalVideoPlayer(
                                             coordinator.holdDoubleSpeed(false)
                                         }
                                     },
-                                    onDoubleTap = if (doubleTapSeek) {
+                                    onDoubleTap = if (videoZoomed) {
+                                        { videoZoom = FullscreenVideoZoom() }
+                                    } else if (doubleTapSeek) {
                                         { offset ->
                                             val deltaMs = doubleTapSeekDeltaMs(offset.x, size.width.toFloat())
                                             controlsVisible = true
@@ -1159,7 +1223,7 @@ fun LocalVideoPlayer(
                             Modifier
                         },
                     )
-                    .then(if (landscapeGestureControlsActive) Modifier.pointerInput(
+                    .then(if (swipeGesturesActive) Modifier.pointerInput(
                         post.id,
                         state.landscapeBrightnessGestureEnabled,
                         state.landscapeVolumeGestureEnabled,
@@ -1324,7 +1388,7 @@ fun LocalVideoPlayer(
                 if (fullscreen) {
                     IconButton(onClick = onExitFullscreen ?: state::closeMedia) {
                         Icon(
-                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            Symbols.ArrowBack,
                             contentDescription = "Exit full screen",
                             tint = Color.White,
                         )
@@ -1358,7 +1422,7 @@ fun LocalVideoPlayer(
                     ) {
                         // Owner: the gear, not three dots.
                         Icon(
-                            Icons.Rounded.Settings,
+                            Symbols.Settings,
                             contentDescription = "Playback options",
                             tint = Color.White,
                         )
@@ -1552,7 +1616,7 @@ fun LocalVideoPlayer(
                     },
                 ) {
                     Icon(
-                        Icons.Rounded.Refresh,
+                        Symbols.Refresh,
                         contentDescription = "Replay video",
                         modifier = Modifier.padding(12.dp),
                         tint = Color.White,
@@ -1570,7 +1634,7 @@ fun LocalVideoPlayer(
                         },
                     ) {
                         Icon(
-                            if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            if (playing) Symbols.PauseFilled else Symbols.PlayArrowFilled,
                             contentDescription = if (playing) "Pause video" else "Resume video",
                             modifier = Modifier.padding(12.dp),
                             tint = Color.White,
@@ -1757,6 +1821,8 @@ internal fun tabletopControlsAlignment(foldTopPx: Float, heightPx: Float): BiasA
 }
 
 internal const val INLINE_VIDEO_SURFACE_TEST_TAG = "inline-video-surface"
+internal const val FULLSCREEN_VIDEO_FRAME_TEST_TAG = "fullscreen-video-frame"
+internal const val FULLSCREEN_VIDEO_RESET_ZOOM_LABEL = "Reset zoom"
 
 internal fun boundedInlineVideoAspectRatio(aspectRatio: Float): Float =
     aspectRatio.coerceIn(4f / 5f, 16f / 9f).takeIf { aspectRatio > 0f } ?: 16f / 9f

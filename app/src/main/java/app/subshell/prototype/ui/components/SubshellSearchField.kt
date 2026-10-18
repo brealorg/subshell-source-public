@@ -6,9 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -16,6 +13,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,12 +30,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.LocalContentColor
+import app.subshell.prototype.ui.symbols.Symbols
 
 // M3225_ONE_SEARCH_FIELD_STYLE_V1 (#225, owner: one search-field style app-wide):
-// every search or filter field is the M3 search bar's input field
-// (SearchBarDefaults.InputField: pill shape, 56 dp, search IME action) on the
-// search bar container colour. The Search workspace and Communities discovery
-// use it as their search bar; lists and dialogs use it as an inline filter.
+// every search or filter field looks like the M3 search bar's input field
+// (pill shape, 56 dp, search IME action) on the search bar container colour.
+// The Search workspace and Communities discovery use it as their search bar;
+// lists and dialogs use it as an inline filter.
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,7 +48,7 @@ internal fun SubshellSearchField(
     onSearch: (String) -> Unit = {},
     enabled: Boolean = true,
     leadingIcon: (@Composable () -> Unit)? = {
-        Icon(Icons.Rounded.Search, contentDescription = null)
+        Icon(Symbols.Search, contentDescription = null)
     },
     trailingIcon: (@Composable () -> Unit)? = null,
     clearLabel: String = "Clear search",
@@ -97,19 +101,20 @@ private fun SearchInputSurface(
         shape = SearchBarDefaults.inputFieldShape,
         color = containerColor,
     ) {
-        // M3-15: material3 1.5 keeps only the SearchBarState field, which
-        // expands its search bar on focus (TalkBack: "suggestions available") and
-        // drops focus when it collapses. These fields have no search bar view to
-        // expand into, so they keep the query/expanded field Material deprecated.
-        @Suppress("DEPRECATION")
-        SearchBarDefaults.InputField(
-            query = query,
-            onQueryChange = onQueryChange,
-            onSearch = onSearch,
-            expanded = false,
-            onExpandedChange = {},
+        // SEARCHFIELD01_AN_M3_TEXT_FIELD_V1 (owner 2026-10-17): material3 1.5
+        // keeps only the search field tied to a SearchBarState, which expands a
+        // search view on focus. The owner tried that view on Search and Discover
+        // and chose the plain field, so every search field is an M3 TextField in
+        // the search field's shape, height, colours and Search key, described
+        // "Search" as Material's field was.
+        TextField(
+            value = query,
+            onValueChange = onQueryChange,
             enabled = enabled,
-            modifier = fieldModifier.fillMaxWidth(),
+            modifier = fieldModifier
+                .fillMaxWidth()
+                .semantics { contentDescription = "Search" },
+            textStyle = MaterialTheme.typography.bodyLarge,
             placeholder = {
                 Text(placeholder, maxLines = 1, overflow = TextOverflow.Ellipsis)
             },
@@ -117,12 +122,17 @@ private fun SearchInputSurface(
             trailingIcon = trailingIcon ?: if (query.isNotEmpty() && enabled) {
                 {
                     IconButton(onClick = { onQueryChange("") }) {
-                        Icon(Icons.Rounded.Close, contentDescription = clearLabel)
+                        Icon(Symbols.Close, contentDescription = clearLabel)
                     }
                 }
             } else {
                 null
             },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { onSearch(query) }),
+            shape = SearchBarDefaults.inputFieldShape,
+            colors = SearchBarDefaults.inputFieldColors(),
         )
     }
 }
@@ -152,7 +162,7 @@ internal fun SearchEntryBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                Icons.Rounded.Search,
+                Symbols.Search,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )

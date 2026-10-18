@@ -9,6 +9,7 @@ internal fun OAuthEndpointResult<*>.toFailureDetails(): FailureDetails = when (t
     )
     is OAuthEndpointResult.TransportFailure -> FailureDetails(
         retryable = retryable,
+        transportKind = kind,
     )
     is OAuthEndpointResult.ProtocolFailure -> FailureDetails(
         retryable = false,

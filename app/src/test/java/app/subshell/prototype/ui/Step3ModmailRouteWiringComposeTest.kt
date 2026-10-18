@@ -33,6 +33,7 @@ import app.subshell.prototype.data.account.RedditModmailTriageAction
 import app.subshell.prototype.data.account.RedditModmailUiState
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.ActivityKind
 import app.subshell.prototype.model.Post
@@ -115,7 +116,7 @@ class Step3ModmailRouteWiringComposeTest {
         val context = ApplicationProvider.getApplicationContext<Application>()
         composeRule.setContent {
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 redditModeration = ModerationQueueEntryPoints(
                     redditModerationState = RedditModerationUiState(

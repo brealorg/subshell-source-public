@@ -473,14 +473,14 @@ fun rememberSubshellState(
         val drawerSidePreference = enumValue(
             SubshellSettings.DRAWER_SIDE_PREFERENCE,
             DrawerSidePreference.entries,
-            DrawerSidePreference.FOLLOW,
+            DefaultSubshellSettings.drawerSidePreference,
         )
         val commentActionPreference = enumValue(
             SubshellSettings.COMMENT_ACTION_PREFERENCE,
             CommentActionPreference.entries,
             legacyCommentActionPreference(legacyCommentActionPlacement),
         )
-        val labelStyle = enumValue("subreddit_label_style", SubredditLabelStyle.entries, SubredditLabelStyle.MODERN)
+        val labelStyle = enumValue("subreddit_label_style", SubredditLabelStyle.entries, DefaultSubshellSettings.subredditLabelStyle)
         val oldBottomBehavior = preferences.getString("bottom_navigation_behavior", null)
         val bottomFallback = if (oldBottomBehavior == "STICKY") ChromeBehavior.ALWAYS_SHOW else ChromeBehavior.HIDE_ON_SCROLL
         val topFallback = if (preferences.getBoolean("home_header_visible", true)) {
@@ -492,7 +492,7 @@ fun rememberSubshellState(
         val legacyVideoQuality = enumValue(
             SubshellSettings.LEGACY_VIDEO_QUALITY,
             VideoQuality.entries,
-            VideoQuality.HIGH,
+            DefaultSubshellSettings.wifiVideoQuality,
         )
 
         val legacyNavigationLabelMode = if (
@@ -526,30 +526,30 @@ fun rememberSubshellState(
             initialModeratorSavedResponses = moderatorSavedResponseStore.load(),
             persistModeratorSavedResponses = moderatorSavedResponseStore::save,
             initialModeratorRemovalMessageTypes = loadModeratorRemovalMessageTypes(preferences),
-            initialDynamicColor = preferences.getBoolean("dynamic_color", false),
+            initialDynamicColor = preferences.getBoolean("dynamic_color", DefaultSubshellSettings.dynamicColor),
             initialPureBlackDarkTheme = preferences.getBoolean(
                 SubshellSettings.PURE_BLACK_DARK_THEME,
-                false,
+                DefaultSubshellSettings.pureBlackDarkTheme,
             ),
             initialAppTextScale = enumValue(
                 SubshellSettings.APP_TEXT_SCALE,
                 AppTextScale.entries,
-                AppTextScale.DEFAULT,
+                DefaultSubshellSettings.appTextScale,
             ),
             initialVoteColorPalette = enumValue(
                 SubshellSettings.VOTE_COLOR_PALETTE,
                 VoteColorPalette.entries,
-                VoteColorPalette.NEUTRAL,
+                DefaultSubshellSettings.voteColorPalette,
             ),
             initialVoteControlMode = enumValue(
                 SubshellSettings.VOTE_CONTROL_MODE,
                 VoteControlMode.entries,
-                VoteControlMode.COMFORTABLE,
+                DefaultSubshellSettings.voteControlMode,
             ),
             initialCodeFont = enumValue(
                 SubshellSettings.CODE_FONT,
                 CodeFont.entries,
-                CodeFont.JETBRAINS_MONO,
+                DefaultSubshellSettings.codeFont,
             ),
             initialCommentActionPlacement = legacyCommentActionPlacement,
             initialInteractionSide = interactionSide,
@@ -559,33 +559,33 @@ fun rememberSubshellState(
             initialCommentTimeFormat = enumValue(
                 SubshellSettings.COMMENT_TIME_FORMAT,
                 CommentTimeFormat.entries,
-                CommentTimeFormat.RELATIVE,
+                DefaultSubshellSettings.commentTimeFormat,
             ),
             initialCommentCollapseMode = enumValue(
                 SubshellSettings.COMMENT_COLLAPSE_MODE,
                 CommentCollapseMode.entries,
-                CommentCollapseMode.HEADER,
+                DefaultSubshellSettings.commentCollapseMode,
             ),
             initialCommentHierarchyStyle = enumValue(
                 SubshellSettings.COMMENT_HIERARCHY_STYLE,
                 CommentHierarchyStyle.entries,
-                CommentHierarchyStyle.GUIDE_LINES,
+                DefaultSubshellSettings.commentHierarchyStyle,
             ),
             initialHighlightNewComments = preferences.getBoolean(
                 SubshellSettings.HIGHLIGHT_NEW_COMMENTS,
-                true,
+                DefaultSubshellSettings.highlightNewComments,
             ),
             initialShowCommentAvatars = preferences.getBoolean(
                 SubshellSettings.SHOW_COMMENT_AVATARS,
-                true,
+                DefaultSubshellSettings.showCommentAvatars,
             ),
             initialTopLevelCommentJumpButton = preferences.getBoolean(
                 SubshellSettings.TOP_LEVEL_COMMENT_JUMP_BUTTON,
-                false,
+                DefaultSubshellSettings.topLevelCommentJumpButton,
             ),
             initialUseSuggestedCommentSort = preferences.getBoolean(
                 SubshellSettings.USE_SUGGESTED_COMMENT_SORT,
-                true,
+                DefaultSubshellSettings.useSuggestedCommentSort,
             ),
             initialCommentVisitHistoryToken = preferences.getString(
                 SubshellSettings.COMMENT_VISIT_HISTORY,
@@ -601,32 +601,32 @@ fun rememberSubshellState(
             ),
             initialNotifyReplies = preferences.getBoolean(
                 SubshellSettings.NOTIFY_REPLIES,
-                true,
+                DefaultSubshellSettings.notifyReplies,
             ),
             initialNotifyMentions = preferences.getBoolean(
                 SubshellSettings.NOTIFY_MENTIONS,
-                true,
+                DefaultSubshellSettings.notifyMentions,
             ),
             initialNotifyPrivateMessages = preferences.getBoolean(
                 SubshellSettings.NOTIFY_PRIVATE_MESSAGES,
-                true,
+                DefaultSubshellSettings.notifyPrivateMessages,
             ),
             initialNotifyRedditNotices = preferences.getBoolean(
                 SubshellSettings.NOTIFY_REDDIT_NOTICES,
-                true,
+                DefaultSubshellSettings.notifyRedditNotices,
             ),
             initialNotifyModmail = preferences.getBoolean(
                 SubshellSettings.NOTIFY_MODMAIL,
-                true,
+                DefaultSubshellSettings.notifyModmail,
             ),
             initialShowNsfwPosts = preferences.getBoolean(
                 SubshellSettings.SHOW_NSFW_POSTS,
-                false,
+                DefaultSubshellSettings.showNsfwPosts,
             ),
             initialSensitiveMediaPreviewMode = enumValue(
                 SubshellSettings.SENSITIVE_MEDIA_PREVIEW_MODE,
                 SensitiveMediaPreviewMode.entries,
-                SensitiveMediaPreviewMode.BLUR_AND_PRELOAD,
+                DefaultSubshellSettings.sensitiveMediaPreviewMode,
             ),
             initialContentFilters = ContentFilters.fromStorageMap(
                 ContentFilterType.entries.flatMap { type ->
@@ -643,42 +643,57 @@ fun rememberSubshellState(
             initialListingTimePeriod = enumValue(
                 SubshellSettings.LISTING_TIME_PERIOD,
                 RedditListingTimePeriod.entries,
-                RedditListingTimePeriod.ALL,
+                DefaultSubshellSettings.listingTimePeriod,
             ),
             initialDrawerCommunitiesMode = enumValue(
                 SubshellSettings.DRAWER_COMMUNITIES_MODE,
                 DrawerCommunitiesMode.entries,
-                DrawerCommunitiesMode.COLLAPSIBLE,
+                DefaultSubshellSettings.drawerCommunitiesMode,
             ),
             initialDrawerRecentCommunities = preferences.getBoolean(
                 SubshellSettings.DRAWER_RECENT_COMMUNITIES,
-                false,
+                DefaultSubshellSettings.drawerRecentCommunities,
             ),
             initialBackTwiceToExit = preferences.getBoolean(
                 SubshellSettings.BACK_TWICE_TO_EXIT,
-                false,
+                DefaultSubshellSettings.backTwiceToExit,
             ),
             initialFilteredPostsSummary = preferences.getBoolean(
                 SubshellSettings.FILTERED_POSTS_SUMMARY,
-                false,
+                DefaultSubshellSettings.filteredPostsSummary,
             ),
             initialSavedSearchesEnabled = preferences.getBoolean(
                 SubshellSettings.SAVED_SEARCHES_ENABLED,
-                false,
+                DefaultSubshellSettings.savedSearchesEnabled,
             ),
             initialScrollPositionIndicator = preferences.getBoolean(
                 SubshellSettings.SCROLL_POSITION_INDICATOR,
-                false,
+                DefaultSubshellSettings.scrollPositionIndicator,
             ),
             initialRandomNsfwCommunityPlacement = enumValue(
                 SubshellSettings.RANDOM_NSFW_COMMUNITY_PLACEMENT,
                 RandomNsfwCommunityPlacement.entries,
-                RandomNsfwCommunityPlacement.OFF,
+                DefaultSubshellSettings.randomNsfwCommunityPlacement,
+            ),
+            initialPinnedPostsPresentation = enumValue(
+                SubshellSettings.PINNED_POSTS_PRESENTATION,
+                PinnedPostsPresentation.entries,
+                DefaultSubshellSettings.pinnedPostsPresentation,
+            ),
+            initialPostLayout = enumValue(
+                SubshellSettings.POST_LAYOUT,
+                PostLayout.entries,
+                DefaultSubshellSettings.postLayout,
+            ),
+            initialListThumbnailSide = enumValue(
+                SubshellSettings.LIST_THUMBNAIL_SIDE,
+                ListThumbnailSide.entries,
+                DefaultSubshellSettings.listThumbnailSide,
             ),
             initialCommunityDiscoveryLayout = enumValue(
                 SubshellSettings.COMMUNITY_DISCOVERY_LAYOUT,
                 CommunityDiscoveryLayout.entries,
-                CommunityDiscoveryLayout.CAROUSEL,
+                DefaultSubshellSettings.communityDiscoveryLayout,
             ),
             initialRequireDeviceUnlockForHiddenSubscriptions = preferences.getBoolean(
                 REQUIRE_DEVICE_UNLOCK_HIDDEN_SUBSCRIPTIONS,
@@ -692,26 +707,26 @@ fun rememberSubshellState(
             initialTabletLayoutMode = enumValue(
                 SubshellSettings.TABLET_LAYOUT_MODE,
                 TabletLayoutMode.entries,
-                TabletLayoutMode.SPLIT,
+                DefaultSubshellSettings.tabletLayoutMode,
             ),
             initialTopBarBehavior = enumValue("top_bar_behavior", ChromeBehavior.entries, topFallback),
             initialBottomBarBehavior = enumValue("bottom_bar_behavior", ChromeBehavior.entries, bottomFallback),
-            initialMediaLabelsVisible = preferences.getBoolean("media_labels_visible", false),
+            initialMediaLabelsVisible = preferences.getBoolean("media_labels_visible", DefaultSubshellSettings.mediaLabelsVisible),
             initialMediaCaptionMode = enumValue(
                 SubshellSettings.MEDIA_CAPTION_MODE,
                 MediaCaptionMode.entries,
-                MediaCaptionMode.OVERLAY,
+                DefaultSubshellSettings.mediaCaptionMode,
             ),
             initialFullscreenCaptionMode = enumValue(
                 SubshellSettings.FULLSCREEN_CAPTION_MODE,
                 FullscreenCaptionMode.entries,
-                FullscreenCaptionMode.WITH_CONTROLS,
+                DefaultSubshellSettings.fullscreenCaptionMode,
             ),
             initialSubredditLabelStyle = labelStyle,
-            initialOpenKeyboardOnSearch = preferences.getBoolean("open_keyboard_on_search", true),
-            initialVideoAutoplay = enumValue("video_autoplay", VideoAutoplay.entries, VideoAutoplay.ALWAYS),
-            initialStartVideosMuted = preferences.getBoolean("start_videos_muted", true),
-            initialLoopVideos = preferences.getBoolean(SubshellSettings.LOOP_VIDEOS, false),
+            initialOpenKeyboardOnSearch = preferences.getBoolean("open_keyboard_on_search", DefaultSubshellSettings.openKeyboardOnSearch),
+            initialVideoAutoplay = enumValue("video_autoplay", VideoAutoplay.entries, DefaultSubshellSettings.videoAutoplay),
+            initialStartVideosMuted = preferences.getBoolean("start_videos_muted", DefaultSubshellSettings.startVideosMuted),
+            initialLoopVideos = preferences.getBoolean(SubshellSettings.LOOP_VIDEOS, DefaultSubshellSettings.loopVideos),
             initialWifiVideoQuality = enumValue(
                 SubshellSettings.VIDEO_QUALITY_WIFI,
                 VideoQuality.entries,
@@ -723,50 +738,51 @@ fun rememberSubshellState(
                 if (preferences.contains(SubshellSettings.LEGACY_VIDEO_QUALITY)) {
                     legacyVideoQuality
                 } else {
-                    VideoQuality.MEDIUM
+                    DefaultSubshellSettings.mobileVideoQuality
                 },
             ),
             initialVideoTimelineSize = enumValue(
                 SubshellSettings.VIDEO_TIMELINE_SIZE,
                 VideoTimelineSize.entries,
-                VideoTimelineSize.STANDARD,
+                DefaultSubshellSettings.videoTimelineSize,
             ),
             initialPlaybackOptionsPlacement = enumValue(
                 SubshellSettings.PLAYBACK_OPTIONS_PLACEMENT,
                 PlaybackOptionsPlacement.entries,
-                PlaybackOptionsPlacement.POST_AND_FULLSCREEN,
+                DefaultSubshellSettings.playbackOptionsPlacement,
             ),
             initialVideoSubtitleDefault = enumValue(
                 SubshellSettings.VIDEO_SUBTITLE_DEFAULT,
                 VideoSubtitleDefault.entries,
-                VideoSubtitleDefault.WHEN_MARKED,
+                DefaultSubshellSettings.videoSubtitleDefault,
             ),
             initialVideoAudioDefault = enumValue(
                 SubshellSettings.VIDEO_AUDIO_DEFAULT,
                 VideoAudioDefault.entries,
-                VideoAudioDefault.VIDEO_DEFAULT,
+                DefaultSubshellSettings.videoAudioDefault,
             ),
-            initialVideoSpeedControls = preferences.getBoolean(SubshellSettings.VIDEO_SPEED_CONTROLS, false),
-            initialVideoDoubleTapSeek = preferences.getBoolean(SubshellSettings.VIDEO_DOUBLE_TAP_SEEK, false),
-            initialVideoHoldForDoubleSpeed = preferences.getBoolean(SubshellSettings.VIDEO_HOLD_FOR_DOUBLE_SPEED, false),
-            initialVideoPictureInPicture = preferences.getBoolean(SubshellSettings.VIDEO_PICTURE_IN_PICTURE, false),
-            initialVideoRotateFullscreen = preferences.getBoolean(SubshellSettings.VIDEO_ROTATE_FULLSCREEN, false),
-            initialVideoTechnicalDetails = preferences.getBoolean(SubshellSettings.VIDEO_TECHNICAL_DETAILS, false),
+            initialVideoSpeedControls = preferences.getBoolean(SubshellSettings.VIDEO_SPEED_CONTROLS, DefaultSubshellSettings.videoSpeedControls),
+            initialVideoDoubleTapSeek = preferences.getBoolean(SubshellSettings.VIDEO_DOUBLE_TAP_SEEK, DefaultSubshellSettings.videoDoubleTapSeek),
+            initialVideoHoldForDoubleSpeed = preferences.getBoolean(SubshellSettings.VIDEO_HOLD_FOR_DOUBLE_SPEED, DefaultSubshellSettings.videoHoldForDoubleSpeed),
+            initialVideoPinchToZoom = preferences.getBoolean(SubshellSettings.VIDEO_PINCH_TO_ZOOM, DefaultSubshellSettings.videoPinchToZoom),
+            initialVideoPictureInPicture = preferences.getBoolean(SubshellSettings.VIDEO_PICTURE_IN_PICTURE, DefaultSubshellSettings.videoPictureInPicture),
+            initialVideoRotateFullscreen = preferences.getBoolean(SubshellSettings.VIDEO_ROTATE_FULLSCREEN, DefaultSubshellSettings.videoRotateFullscreen),
+            initialVideoTechnicalDetails = preferences.getBoolean(SubshellSettings.VIDEO_TECHNICAL_DETAILS, DefaultSubshellSettings.videoTechnicalDetails),
             initialLandscapeVideoGesturesEnabled = preferences.getBoolean(
                 SubshellSettings.LANDSCAPE_VIDEO_GESTURES_ENABLED,
-                true,
+                DefaultSubshellSettings.landscapeVideoGesturesEnabled,
             ),
             initialLandscapeBrightnessGestureEnabled = preferences.getBoolean(
                 SubshellSettings.LANDSCAPE_BRIGHTNESS_GESTURE_ENABLED,
-                true,
+                DefaultSubshellSettings.landscapeBrightnessGestureEnabled,
             ),
             initialLandscapeVolumeGestureEnabled = preferences.getBoolean(
                 SubshellSettings.LANDSCAPE_VOLUME_GESTURE_ENABLED,
-                true,
+                DefaultSubshellSettings.landscapeVolumeGestureEnabled,
             ),
             initialSwipeActionsEnabled = preferences.getBoolean(
                 SubshellSettings.SWIPE_ACTIONS_ENABLED,
-                false,
+                DefaultSubshellSettings.swipeActionsEnabled,
             ),
             initialPostSwipeLeftAction = enumValue(
                 SubshellSettings.POST_SWIPE_LEFT_ACTION,
@@ -788,7 +804,7 @@ fun rememberSubshellState(
                 app.subshell.prototype.ui.CommentSwipeAction.entries,
                 DefaultSubshellSettings.commentSwipeRightAction,
             ),
-            initialReduceMotion = preferences.getBoolean("reduce_motion", false),
+            initialReduceMotion = preferences.getBoolean("reduce_motion", DefaultSubshellSettings.reduceMotion),
             initialFeedPreviewState = enumValue(
                 "feed_preview_state",
                 FeedPreviewState.entries,

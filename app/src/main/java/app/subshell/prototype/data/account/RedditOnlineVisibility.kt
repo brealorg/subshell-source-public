@@ -1,5 +1,7 @@
 package app.subshell.prototype.data.account
 
+import app.subshell.prototype.data.error.FailureDetails
+
 /** USERSTATUS01A1: an account preference, never evidence of current activity. */
 enum class OnlineVisibilityPhase { IDLE, LOADING, READY, SAVING, UNAVAILABLE, FAILED }
 enum class OnlineVisibilityIssue {
@@ -21,6 +23,8 @@ data class OnlineVisibilityUiState(
     val phase: OnlineVisibilityPhase = OnlineVisibilityPhase.IDLE,
     val issue: OnlineVisibilityIssue? = null,
     val httpStatusCode: Int? = null,
+    // DIAG05_PLAIN_NOTICES_ARE_RECORDED_V1
+    val failureDetails: FailureDetails? = null,
     val notice: OnlineVisibilityNotice? = null,
     val confirmation: OnlineVisibilityConfirmation? = null,
     val revision: Long = 0L,
@@ -37,6 +41,7 @@ internal sealed interface OnlineVisibilityResult {
     data class Failed(
         val issue: OnlineVisibilityIssue,
         val httpStatusCode: Int? = null,
+        val failureDetails: FailureDetails? = null,
     ) : OnlineVisibilityResult
 }
 
@@ -52,6 +57,7 @@ internal sealed interface OnlineVisibilityWriteResult {
         val issue: OnlineVisibilityIssue,
         val observedValue: Boolean? = null,
         val httpStatusCode: Int? = null,
+        val failureDetails: FailureDetails? = null,
     ) : OnlineVisibilityWriteResult
 }
 

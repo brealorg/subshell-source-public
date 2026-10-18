@@ -5,9 +5,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -17,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.padding
+import app.subshell.prototype.ui.symbols.Symbols
 
 // COMPOSE01A1_SHARED_BODY_HEADER_V1
 /**
@@ -61,7 +59,7 @@ fun ComposerBodyHeader(
         if (onTogglePreview != null) {
             TextButton(onClick = onTogglePreview) {
                 Icon(
-                    if (previewVisible) Icons.Rounded.Edit else Icons.Rounded.Visibility,
+                    if (previewVisible) Symbols.Edit else Symbols.Visibility,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
                 )

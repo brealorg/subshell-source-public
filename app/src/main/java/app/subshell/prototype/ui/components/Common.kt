@@ -1,9 +1,5 @@
 package app.subshell.prototype.ui.components
 
-import androidx.compose.material.icons.outlined.ThumbDownOffAlt
-import androidx.compose.material.icons.outlined.ThumbUpOffAlt
-import androidx.compose.material.icons.rounded.ArrowCircleDown
-import androidx.compose.material.icons.rounded.ArrowCircleUp
 import androidx.compose.ui.graphics.compositeOver
 import app.subshell.prototype.ui.error.LocalViewportErrorHostState
 import app.subshell.prototype.ui.noticeInfo
@@ -41,26 +37,6 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.HelpOutline
-import androidx.compose.material.icons.rounded.Bookmark
-import androidx.compose.material.icons.rounded.BookmarkBorder
-import androidx.compose.material.icons.rounded.ArrowDownward
-import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.ChatBubbleOutline
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Explore
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.rounded.SwapHoriz
-import androidx.compose.material.icons.rounded.ThumbDown
-import androidx.compose.material.icons.rounded.ThumbUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -114,6 +90,7 @@ import app.subshell.prototype.data.account.ownContentActions
 import app.subshell.prototype.model.PostKind
 import app.subshell.prototype.ui.FeedSort
 import app.subshell.prototype.ui.ProfileActivityEvidence
+import app.subshell.prototype.ui.PostLayout
 import app.subshell.prototype.ui.SubshellState
 import app.subshell.prototype.ui.MainDestination
 import app.subshell.prototype.ui.SecondaryDestination
@@ -122,6 +99,7 @@ import app.subshell.prototype.ui.VoteControlMode
 import app.subshell.prototype.ui.copyPostLink
 import app.subshell.prototype.ui.sharePostLink
 import app.subshell.prototype.ui.supportsTimePeriod
+import app.subshell.prototype.ui.symbols.Symbols
 import app.subshell.prototype.ui.theme.SubshellOrange
 import app.subshell.prototype.ui.theme.SubshellOrangeSoft
 import app.subshell.prototype.ui.theme.SubshellVoteDown
@@ -642,6 +620,8 @@ fun MainScreenHeader(
     onExploreClick: (() -> Unit)? = null,
     onSearchClick: (() -> Unit)? = null,
     searchContentDescription: String = "Search",
+    // ISSUE234_LAYOUT_CHOICE_BESIDE_THE_FEED_V1
+    postLayoutButton: Boolean = false,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     var sortExpanded by remember { mutableStateOf(false) }
@@ -717,7 +697,7 @@ fun MainScreenHeader(
                             )
                             Spacer(Modifier.width(2.dp))
                             Icon(
-                                Icons.Rounded.KeyboardArrowDown,
+                                Symbols.KeyboardArrowDown,
                                 contentDescription = "Choose feed sorting",
                                 modifier = Modifier.size(16.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -733,7 +713,7 @@ fun MainScreenHeader(
                         DropdownMenuItem(
                             text = { Text(sort.label) },
                             trailingIcon = if (sort == feedSort) {
-                                { Icon(Icons.Rounded.Check, contentDescription = null) }
+                                { Icon(Symbols.Check, contentDescription = null) }
                             } else {
                                 null
                             },
@@ -752,7 +732,7 @@ fun MainScreenHeader(
                             text = { Text("Time period · ${listingTimePeriod.label}") },
                             trailingIcon = {
                                 Icon(
-                                    Icons.Rounded.KeyboardArrowDown,
+                                    Symbols.KeyboardArrowDown,
                                     contentDescription = null,
                                 )
                             },
@@ -769,7 +749,7 @@ fun MainScreenHeader(
                                 Text(if (hideReadPosts) "Show read posts" else "Hide read posts")
                             },
                             trailingIcon = if (hideReadPosts) {
-                                { Icon(Icons.Rounded.Check, contentDescription = null) }
+                                { Icon(Symbols.Check, contentDescription = null) }
                             } else {
                                 null
                             },
@@ -782,7 +762,7 @@ fun MainScreenHeader(
                         DropdownMenuItem(
                             text = { Text("Reset read markers") },
                             leadingIcon = {
-                                Icon(Icons.Rounded.Refresh, contentDescription = null)
+                                Icon(Symbols.Refresh, contentDescription = null)
                             },
                             enabled = hasReadPosts,
                             onClick = {
@@ -800,7 +780,7 @@ fun MainScreenHeader(
                         DropdownMenuItem(
                             text = { Text(timePeriod.label) },
                             trailingIcon = if (timePeriod == listingTimePeriod) {
-                                { Icon(Icons.Rounded.Check, contentDescription = null) }
+                                { Icon(Symbols.Check, contentDescription = null) }
                             } else {
                                 null
                             },
@@ -813,10 +793,13 @@ fun MainScreenHeader(
                 }
             }
         }
+        if (postLayoutButton) {
+            PostLayoutMenuButton(state)
+        }
         if (onExploreClick != null) {
             IconButton(onClick = onExploreClick) {
                 Icon(
-                    Icons.Rounded.Explore,
+                    Symbols.Explore,
                     contentDescription = "Explore communities",
                 )
             }
@@ -842,7 +825,7 @@ private fun HeaderDrawerButton(state: SubshellState) {
         Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) {
             SubshellMark(Modifier.size(SubshellLogoSize))
             Icon(
-                Icons.Rounded.KeyboardArrowDown,
+                Symbols.KeyboardArrowDown,
                 contentDescription = "Open navigation",
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -860,7 +843,7 @@ private fun HeaderSearchButton(
 ) {
     if (onSearchClick != null) {
         IconButton(onClick = onSearchClick) {
-            Icon(Icons.Rounded.Search, contentDescription = searchContentDescription)
+            Icon(Symbols.Search, contentDescription = searchContentDescription)
         }
     }
 }
@@ -885,7 +868,7 @@ private fun HeaderAccountMenu(
         ) {
             DropdownMenuItem(
                 text = { Text("Switch account") },
-                leadingIcon = { Icon(Icons.Rounded.SwapHoriz, contentDescription = null) },
+                leadingIcon = { Icon(Symbols.SwapHoriz, contentDescription = null) },
                 onClick = {
                     onExpandedChange(false)
                     state.requestAccountSwitcher()
@@ -893,7 +876,7 @@ private fun HeaderAccountMenu(
             )
             DropdownMenuItem(
                 text = { Text("View profile") },
-                leadingIcon = { Icon(Icons.Rounded.Person, contentDescription = null) },
+                leadingIcon = { Icon(Symbols.Person, contentDescription = null) },
                 onClick = {
                     onExpandedChange(false)
                     state.navigate(MainDestination.YOU)
@@ -901,7 +884,7 @@ private fun HeaderAccountMenu(
             )
             DropdownMenuItem(
                 text = { Text("Settings") },
-                leadingIcon = { Icon(Icons.Rounded.Settings, contentDescription = null) },
+                leadingIcon = { Icon(Symbols.Settings, contentDescription = null) },
                 onClick = {
                     onExpandedChange(false)
                     state.openSecondary(SecondaryDestination.SETTINGS)
@@ -910,7 +893,7 @@ private fun HeaderAccountMenu(
             DropdownMenuItem(
                 text = { Text("Help & about") },
                 leadingIcon = {
-                    Icon(Icons.AutoMirrored.Rounded.HelpOutline, contentDescription = null)
+                    Icon(Symbols.Help, contentDescription = null)
                 },
                 onClick = {
                     onExpandedChange(false)
@@ -1048,6 +1031,7 @@ fun PostCard(
     suppressWhenHiddenStateDiffers: Boolean = true,
     swipeActionsEnabled: Boolean = true,
     inPostDetail: Boolean = false,
+    layout: PostLayout = PostLayout.LARGE,
 ) {
     if (state.isPostDeleted(post.id)) return
     val vote = state.effectivePostVote(post)
@@ -1100,11 +1084,215 @@ fun PostCard(
     LaunchedEffect(post.id, knownHidden, state.activeAccountIsAuthenticated) {
         if (knownHidden) state.noteAuthoritativeHiddenPost(post.id)
     }
+    // ISSUE234_FEED_POST_LAYOUTS_V1: every layout shares the same post actions menu.
+    val postOverflowMenu: @Composable () -> Unit = {
+        Box {
+            IconButton(onClick = { overflowExpanded = true }) {
+                Icon(Symbols.MoreVert, contentDescription = "Post actions")
+            }
+            DropdownMenu(
+                expanded = overflowExpanded,
+                onDismissRequest = { overflowExpanded = false },
+            ) {
+                // CROSSPOST01A1E_SHARED_POST_ACTION_V1
+                if (state.canOpenCrosspostComposer(post)) {
+                    DropdownMenuItem(
+                        text = { Text("Crosspost") },
+                        onClick = {
+                            overflowExpanded = false
+                            beforeNavigation()
+                            state.openCrosspostComposer(post)
+                        },
+                    )
+                }
+                // FOLLOWPOST01A1B_SHARED_POST_OVERFLOW_V1
+                if (state.activeAccountIsAuthenticated) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                postFollowActionLabel(
+                                    state.effectivePostFollowed(
+                                        post,
+                                    ),
+                                ),
+                            )
+                        },
+                        enabled =
+                            state.postFollowControlEnabled(
+                                post,
+                            ),
+                        onClick = {
+                            overflowExpanded = false
+                            state.togglePostFollow(post)
+                        },
+                    )
+                }
+
+                if (
+                    state.activeAccountIsAuthenticated &&
+                    bodyEditEntryMode != null
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                        if (bodyEditEntryMode == PostBodyEditEntryMode.PROBE) {
+                            Text("Edit body (test)")
+                        } else {
+                            Text("Edit post")
+                        }
+                    },
+                        onClick = {
+                            overflowExpanded = false
+                            if (onEditPost != null) {
+                                onEditPost()
+                            } else {
+                                state.requestPostEdit(post.id)
+                                beforeNavigation()
+                                onOpen()
+                            }
+                        },
+                    )
+                }
+                if (
+                    state.activeAccountIsAuthenticated &&
+                    ownPostActions.canDelete
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Manage post") },
+                        onClick = {
+                            overflowExpanded = false
+                            if (onManagePost != null) {
+                                onManagePost()
+                            } else {
+                                state.requestPostManage(post.id)
+                                beforeNavigation()
+                                onOpen()
+                            }
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                "Delete post",
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        },
+                        onClick = {
+                            overflowExpanded = false
+                            if (onDeletePost != null) {
+                                onDeletePost()
+                            } else {
+                                state.requestPostDelete(post.id)
+                                beforeNavigation()
+                                onOpen()
+                            }
+                        },
+                    )
+                }
+                if (onRefreshComments != null) {
+                    DropdownMenuItem(
+                        text = { Text("Refresh comments") },
+                        onClick = {
+                            overflowExpanded = false
+                            onRefreshComments()
+                        },
+                    )
+                }
+                DropdownMenuItem(
+                    text = { Text("Go to ${state.subredditLabel(post.community)}") },
+                    onClick = {
+                        overflowExpanded = false
+                        beforeNavigation()
+                        state.openSubreddit(post.community)
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("About u/${post.author}") },
+                    onClick = {
+                        overflowExpanded = false
+                        beforeNavigation()
+                        state.openUser(post.author, ProfileActivityEvidence.POST)
+                    },
+                )
+                if (state.canTagUser(post.author)) {
+                    DropdownMenuItem(
+                        text = { Text("Private note on u/${post.author}") },
+                        onClick = {
+                            overflowExpanded = false
+                            userTagEditorVisible = true
+                        },
+                    )
+                }
+                // MODERATION02A2_POST_REPORT_REOPEN_OUTSIDE_QUEUE_V1
+                ModeratorReportMenuItem(
+                    target = app.subshell.prototype.data.account.moderatorReportTargetOrNull(
+                        if (post.id.startsWith("t3_")) post.id else "t3_${post.id}",
+                        post.community,
+                    ),
+                    onDismissMenu = { overflowExpanded = false },
+                )
+                // MODERATION02A3_POST_CONTENT_CONTROLS_REOPEN_V1
+                ModeratorContentControlsMenuItem(
+                    target = app.subshell.prototype.data.account.moderatorReportTargetOrNull(
+                        if (post.id.startsWith("t3_")) post.id else "t3_${post.id}",
+                        post.community,
+                    ),
+                    onDismissMenu = { overflowExpanded = false },
+                )
+                // SAFETY01A3_REAL_POST_HIDE_UNHIDE_REPORT_UI_V1
+                DropdownMenuItem(
+                    text = { Text(if (postHidden) "Unhide post" else "Hide post") },
+                    enabled = state.postVisibilityControlEnabled(post),
+                    onClick = {
+                        overflowExpanded = false
+                        state.togglePostHidden(post, knownHidden)
+                    },
+                )
+                if (state.activeAccountIsAuthenticated) {
+                    DropdownMenuItem(
+                        text = { Text("Report") },
+                        enabled = state.contentReportControlEnabled(),
+                        onClick = {
+                            overflowExpanded = false
+                            reportDialogVisible = true
+                        },
+                    )
+                }
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            if (communityMuted) {
+                                "Unmute ${state.subredditLabel(post.community)}"
+                            } else {
+                                "Mute ${state.subredditLabel(post.community)}…"
+                            },
+                        )
+                    },
+                    onClick = {
+                        overflowExpanded = false
+                        if (communityMuted) {
+                            state.unmuteCommunity(post.community)
+                            notices.noticeInfo("Unmuted ${state.subredditLabel(post.community)}", "Its posts show in your feeds again")
+                        } else {
+                            muteSheetVisible = true
+                        }
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("Copy link") },
+                    onClick = {
+                        overflowExpanded = false
+                        copyPostLink(context, post, notices)
+                    },
+                )
+            }
+        }
+    }
     // ISSUE16_POST_SWIPE_ACTION_SURFACE_V1
     SwipeActionSurface(
         modifier = modifier.fillMaxWidth(),
-        enabled = state.swipeActionsEnabled && swipeActionsEnabled,
-        reduceMotion = state.reduceMotion,
+        // ISSUE234_FEED_POST_LAYOUTS_V1: a half-width grid tile has no room to swipe.
+        enabled = state.swipeActionsEnabled && swipeActionsEnabled && layout != PostLayout.GRID,
+        reduceMotion = state.motionReduced,
         leftAction = postSwipeActionVisual(
             action = state.postSwipeLeftAction,
             vote = vote,
@@ -1140,7 +1328,30 @@ fun PostCard(
             )
         },
     ) { swipeContentModifier ->
-    Card(
+    if (layout != PostLayout.LARGE) {
+        FeedPostLayoutContent(
+            post = post,
+            state = state,
+            layout = layout,
+            vote = vote,
+            saved = saved,
+            read = read,
+            onOpen = {
+                beforeNavigation()
+                onOpen()
+            },
+            onComments = {
+                beforeNavigation()
+                (onComments ?: onOpen).invoke()
+            },
+            onOpenCommunity = {
+                beforeNavigation()
+                state.openSubreddit(post.community)
+            },
+            overflowMenu = postOverflowMenu,
+            modifier = swipeContentModifier,
+        )
+    } else Card(
         modifier = swipeContentModifier
             .fillMaxWidth()
             .clickable {
@@ -1256,206 +1467,7 @@ fun PostCard(
                             }
                         }
                     }
-                    Box {
-                        IconButton(onClick = { overflowExpanded = true }) {
-                            Icon(Icons.Rounded.MoreVert, contentDescription = "Post actions")
-                        }
-                        DropdownMenu(
-                            expanded = overflowExpanded,
-                            onDismissRequest = { overflowExpanded = false },
-                        ) {
-                            // CROSSPOST01A1E_SHARED_POST_ACTION_V1
-                            if (state.canOpenCrosspostComposer(post)) {
-                                DropdownMenuItem(
-                                    text = { Text("Crosspost") },
-                                    onClick = {
-                                        overflowExpanded = false
-                                        beforeNavigation()
-                                        state.openCrosspostComposer(post)
-                                    },
-                                )
-                            }
-                            // FOLLOWPOST01A1B_SHARED_POST_OVERFLOW_V1
-                            if (state.activeAccountIsAuthenticated) {
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            postFollowActionLabel(
-                                                state.effectivePostFollowed(
-                                                    post,
-                                                ),
-                                            ),
-                                        )
-                                    },
-                                    enabled =
-                                        state.postFollowControlEnabled(
-                                            post,
-                                        ),
-                                    onClick = {
-                                        overflowExpanded = false
-                                        state.togglePostFollow(post)
-                                    },
-                                )
-                            }
-
-                            if (
-                                state.activeAccountIsAuthenticated &&
-                                bodyEditEntryMode != null
-                            ) {
-                                DropdownMenuItem(
-                                    text = {
-                                    if (bodyEditEntryMode == PostBodyEditEntryMode.PROBE) {
-                                        Text("Edit body (test)")
-                                    } else {
-                                        Text("Edit post")
-                                    }
-                                },
-                                    onClick = {
-                                        overflowExpanded = false
-                                        if (onEditPost != null) {
-                                            onEditPost()
-                                        } else {
-                                            state.requestPostEdit(post.id)
-                                            beforeNavigation()
-                                            onOpen()
-                                        }
-                                    },
-                                )
-                            }
-                            if (
-                                state.activeAccountIsAuthenticated &&
-                                ownPostActions.canDelete
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Manage post") },
-                                    onClick = {
-                                        overflowExpanded = false
-                                        if (onManagePost != null) {
-                                            onManagePost()
-                                        } else {
-                                            state.requestPostManage(post.id)
-                                            beforeNavigation()
-                                            onOpen()
-                                        }
-                                    },
-                                )
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            "Delete post",
-                                            color = MaterialTheme.colorScheme.error,
-                                        )
-                                    },
-                                    onClick = {
-                                        overflowExpanded = false
-                                        if (onDeletePost != null) {
-                                            onDeletePost()
-                                        } else {
-                                            state.requestPostDelete(post.id)
-                                            beforeNavigation()
-                                            onOpen()
-                                        }
-                                    },
-                                )
-                            }
-                            if (onRefreshComments != null) {
-                                DropdownMenuItem(
-                                    text = { Text("Refresh comments") },
-                                    onClick = {
-                                        overflowExpanded = false
-                                        onRefreshComments()
-                                    },
-                                )
-                            }
-                            DropdownMenuItem(
-                                text = { Text("Go to ${state.subredditLabel(post.community)}") },
-                                onClick = {
-                                    overflowExpanded = false
-                                    beforeNavigation()
-                                    state.openSubreddit(post.community)
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("About u/${post.author}") },
-                                onClick = {
-                                    overflowExpanded = false
-                                    beforeNavigation()
-                                    state.openUser(post.author, ProfileActivityEvidence.POST)
-                                },
-                            )
-                            if (state.canTagUser(post.author)) {
-                                DropdownMenuItem(
-                                    text = { Text("Private note on u/${post.author}") },
-                                    onClick = {
-                                        overflowExpanded = false
-                                        userTagEditorVisible = true
-                                    },
-                                )
-                            }
-                            // MODERATION02A2_POST_REPORT_REOPEN_OUTSIDE_QUEUE_V1
-                            ModeratorReportMenuItem(
-                                target = app.subshell.prototype.data.account.moderatorReportTargetOrNull(
-                                    if (post.id.startsWith("t3_")) post.id else "t3_${post.id}",
-                                    post.community,
-                                ),
-                                onDismissMenu = { overflowExpanded = false },
-                            )
-                            // MODERATION02A3_POST_CONTENT_CONTROLS_REOPEN_V1
-                            ModeratorContentControlsMenuItem(
-                                target = app.subshell.prototype.data.account.moderatorReportTargetOrNull(
-                                    if (post.id.startsWith("t3_")) post.id else "t3_${post.id}",
-                                    post.community,
-                                ),
-                                onDismissMenu = { overflowExpanded = false },
-                            )
-                            // SAFETY01A3_REAL_POST_HIDE_UNHIDE_REPORT_UI_V1
-                            DropdownMenuItem(
-                                text = { Text(if (postHidden) "Unhide post" else "Hide post") },
-                                enabled = state.postVisibilityControlEnabled(post),
-                                onClick = {
-                                    overflowExpanded = false
-                                    state.togglePostHidden(post, knownHidden)
-                                },
-                            )
-                            if (state.activeAccountIsAuthenticated) {
-                                DropdownMenuItem(
-                                    text = { Text("Report") },
-                                    enabled = state.contentReportControlEnabled(),
-                                    onClick = {
-                                        overflowExpanded = false
-                                        reportDialogVisible = true
-                                    },
-                                )
-                            }
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        if (communityMuted) {
-                                            "Unmute ${state.subredditLabel(post.community)}"
-                                        } else {
-                                            "Mute ${state.subredditLabel(post.community)}…"
-                                        },
-                                    )
-                                },
-                                onClick = {
-                                    overflowExpanded = false
-                                    if (communityMuted) {
-                                        state.unmuteCommunity(post.community)
-                                        notices.noticeInfo("Unmuted ${state.subredditLabel(post.community)}", "Its posts show in your feeds again")
-                                    } else {
-                                        muteSheetVisible = true
-                                    }
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Copy link") },
-                                onClick = {
-                                    overflowExpanded = false
-                                    copyPostLink(context, post, notices)
-                                },
-                            )
-                        }
-                    }
+                    postOverflowMenu()
                 }
                 if (post.pinned || post.moderatorPost || post.flair != null || post.spoiler || post.nsfw) {
                     Row(
@@ -1685,20 +1697,20 @@ fun PostActionRow(
             )
         }
         CompactAction(
-            icon = Icons.Rounded.ChatBubbleOutline,
+            icon = Symbols.ChatBubble,
             label = compactNumber(comments),
             onClick = onComments,
         )
         Spacer(Modifier.weight(1f))
         IconButton(onClick = onSave, enabled = saveActionsEnabled) {
             Icon(
-                if (saved) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                if (saved) Symbols.BookmarkFilled else Symbols.Bookmark,
                 contentDescription = if (saved) "Unsave" else "Save",
                 tint = if (saved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         IconButton(onClick = onShare) {
-            Icon(Icons.Rounded.Share, contentDescription = "Share")
+            Icon(Symbols.Share, contentDescription = "Share")
         }
     }
 }
@@ -1824,9 +1836,9 @@ internal fun voteDirectionIcon(
     mode: VoteControlMode,
 ): androidx.compose.ui.graphics.vector.ImageVector = when (mode) {
     VoteControlMode.COMFORTABLE ->
-        if (direction > 0) Icons.Rounded.ThumbUp else Icons.Rounded.ThumbDown
+        if (direction > 0) Symbols.ThumbUp else Symbols.ThumbDown
     VoteControlMode.COMPACT ->
-        if (direction > 0) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward
+        if (direction > 0) Symbols.ArrowUpward else Symbols.ArrowDownward
 }
 
 /**
@@ -1840,12 +1852,12 @@ internal fun voteStateIcon(
     voted: Boolean,
 ): androidx.compose.ui.graphics.vector.ImageVector = when (mode) {
     VoteControlMode.COMFORTABLE -> when {
-        direction > 0 -> if (voted) Icons.Rounded.ThumbUp else Icons.Outlined.ThumbUpOffAlt
-        else -> if (voted) Icons.Rounded.ThumbDown else Icons.Outlined.ThumbDownOffAlt
+        direction > 0 -> if (voted) Symbols.ThumbUpFilled else Symbols.ThumbUp
+        else -> if (voted) Symbols.ThumbDownFilled else Symbols.ThumbDown
     }
     VoteControlMode.COMPACT -> when {
-        direction > 0 -> if (voted) Icons.Rounded.ArrowCircleUp else Icons.Rounded.ArrowUpward
-        else -> if (voted) Icons.Rounded.ArrowCircleDown else Icons.Rounded.ArrowDownward
+        direction > 0 -> if (voted) Symbols.ArrowCircleUpFilled else Symbols.ArrowUpward
+        else -> if (voted) Symbols.ArrowCircleDownFilled else Symbols.ArrowDownward
     }
 }
 
@@ -1903,7 +1915,7 @@ private fun LinkPanel(post: Post) {
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
-            Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null)
+            Icon(Symbols.KeyboardArrowDown, contentDescription = null)
         }
     }
 }

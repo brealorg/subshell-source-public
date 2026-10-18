@@ -10,6 +10,7 @@ import app.subshell.prototype.data.auth.toFailureDetails
 import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.error.redditWriteProtocolFailureDetails
 import app.subshell.prototype.data.error.redditWriteProviderFailureDetails
+import app.subshell.prototype.data.error.redditWriteRetryAfterMs
 import app.subshell.prototype.data.error.redditWriteTransportFailureDetails
 import app.subshell.prototype.data.network.NetworkClock
 import app.subshell.prototype.data.network.NetworkEndpoint
@@ -112,8 +113,7 @@ internal class ConfiguredRedditPostManager(
                     statusCode = result.statusCode,
                     retryable = result.retryable,
                     retryAfterMs =
-                        result.metadata.retryAfterMs
-                            ?: result.metadata.rateLimit.resetAfterMs,
+                        redditWriteRetryAfterMs(result.metadata, rateLimited = result.statusCode == 429),
                 )
             is RedditPostManageLoadNetworkResult.TransportFailure ->
                 failedLoad(
@@ -198,8 +198,7 @@ internal class ConfiguredRedditPostManager(
                         statusCode = result.statusCode,
                         retryable = result.retryable,
                         retryAfterMs =
-                            result.metadata.retryAfterMs
-                                ?: result.metadata.rateLimit.resetAfterMs,
+                            redditWriteRetryAfterMs(result.metadata, rateLimited = result.statusCode == 429),
                     )
                 is RedditPostManageMutationNetworkResult.TransportFailure ->
                     failedMutation(

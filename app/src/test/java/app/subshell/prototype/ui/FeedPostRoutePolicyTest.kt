@@ -9,6 +9,7 @@ import app.subshell.prototype.model.PostKind
 import app.subshell.prototype.ui.screens.commentTimeLabel
 import app.subshell.prototype.ui.screens.commentThreadInsetDp
 import java.time.ZoneId
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -42,6 +43,7 @@ class FeedPostRoutePolicyTest {
                 CommentTimeFormat.RELATIVE,
                 oslo,
                 nowEpochSeconds,
+                Locale.ENGLISH,
             ),
         )
         assertEquals(
@@ -52,6 +54,7 @@ class FeedPostRoutePolicyTest {
                 CommentTimeFormat.LOCAL_24_HOUR,
                 oslo,
                 nowEpochSeconds,
+                Locale.ENGLISH,
             ),
         )
         assertEquals(
@@ -62,6 +65,7 @@ class FeedPostRoutePolicyTest {
                 CommentTimeFormat.LOCAL_12_HOUR,
                 oslo,
                 nowEpochSeconds,
+                Locale.ENGLISH,
             ),
         )
         assertEquals(
@@ -72,6 +76,7 @@ class FeedPostRoutePolicyTest {
                 CommentTimeFormat.LOCAL_24_HOUR,
                 oslo,
                 nowEpochSeconds,
+                Locale.ENGLISH,
             ),
         )
         assertEquals(
@@ -82,6 +87,7 @@ class FeedPostRoutePolicyTest {
                 CommentTimeFormat.LOCAL_12_HOUR,
                 oslo,
                 nowEpochSeconds,
+                Locale.ENGLISH,
             ),
         )
         assertEquals(
@@ -92,7 +98,27 @@ class FeedPostRoutePolicyTest {
                 CommentTimeFormat.LOCAL_24_HOUR,
                 oslo,
                 nowEpochSeconds,
+                Locale.ENGLISH,
             ),
+        )
+    }
+
+    @Test
+    fun commentDatesAndTwelveHourTimesFollowTheDeviceLanguage() {
+        // LOCALE01_DATES_FOLLOW_THE_DEVICE_LANGUAGE_V1
+        val oslo = ZoneId.of("Europe/Oslo")
+        val now = java.time.ZonedDateTime.of(2026, 7, 30, 22, 20, 0, 0, oslo).toEpochSecond()
+        val evening = java.time.ZonedDateTime.of(2026, 7, 30, 20, 20, 0, 0, oslo).toEpochSecond()
+        val june = java.time.ZonedDateTime.of(2026, 6, 30, 12, 0, 0, 0, oslo).toEpochSecond()
+        val norwegian = Locale.forLanguageTag("nb-NO")
+        val german = Locale.GERMANY
+
+        assertEquals("30 juni", commentTimeLabel("1mo", june, CommentTimeFormat.LOCAL_24_HOUR, oslo, now, norwegian).trimEnd('.'))
+        assertEquals("30 Juni", commentTimeLabel("1mo", june, CommentTimeFormat.LOCAL_24_HOUR, oslo, now, german).trimEnd('.'))
+        assertEquals("20:20", commentTimeLabel("2h", evening, CommentTimeFormat.LOCAL_24_HOUR, oslo, now, norwegian))
+        assertTrue(
+            "12-hour time names the period in the device language",
+            !commentTimeLabel("2h", evening, CommentTimeFormat.LOCAL_12_HOUR, oslo, now, norwegian).endsWith("PM"),
         )
     }
 

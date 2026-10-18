@@ -18,6 +18,7 @@ import app.subshell.prototype.data.account.localFixtureAccountSummaries
 import app.subshell.prototype.data.redditAccountHistoryQueryKey
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.Post
@@ -143,7 +144,7 @@ class Step3ProfileCommentsComposeTest {
         state.vote(upvoted, 1)
         val user = state.activeAccountUsername
         state.selectUserProfileTab(user, 2)
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         composeRule.setContent {
             SubshellTheme {
                 CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
@@ -171,7 +172,7 @@ class Step3ProfileCommentsComposeTest {
         state.hidePost(hidden.id)
         val user = state.activeAccountUsername
         state.selectUserProfileTab(user, 5)
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         composeRule.setContent {
             SubshellTheme {
                 CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {

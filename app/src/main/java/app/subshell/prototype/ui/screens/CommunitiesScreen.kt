@@ -3,8 +3,6 @@ package app.subshell.prototype.ui.screens
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
@@ -40,14 +38,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -95,6 +85,9 @@ import app.subshell.prototype.model.CommunityDiscoveryItem
 import app.subshell.prototype.model.CommunityDiscoverySort
 import app.subshell.prototype.ui.CommunityDiscoveryLayout
 import app.subshell.prototype.ui.ObserveLiveFeedAutoAppend
+import app.subshell.prototype.ui.feedItemSpacing
+import app.subshell.prototype.ui.feedPostItems
+import app.subshell.prototype.ui.rememberFeedGridColumns
 import app.subshell.prototype.ui.RECENT_COMMUNITY_HISTORY_LIMIT
 import app.subshell.prototype.ui.SubshellState
 import app.subshell.prototype.ui.components.CommunityAvatar
@@ -118,12 +111,11 @@ import app.subshell.prototype.ui.noticeFailure
 import app.subshell.prototype.ui.shareCustomFeedLink
 import app.subshell.prototype.ui.hiddenPostIdentities
 import app.subshell.prototype.ui.isHiddenBy
+import app.subshell.prototype.ui.symbols.Symbols
 import kotlinx.coroutines.delay
 import app.subshell.prototype.data.account.CustomFeedSummary
 import app.subshell.prototype.data.account.CustomFeedsUiState
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.automirrored.rounded.ViewList
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.text.font.FontWeight
@@ -141,9 +133,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.runtime.DisposableEffect
 import app.subshell.prototype.data.account.CustomFeedFailureKind
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -153,14 +142,11 @@ import app.subshell.prototype.data.account.CustomFeedPostsUiState
 import app.subshell.prototype.data.account.CustomFeedUpdateRequest
 import app.subshell.prototype.data.account.customFeedCountLabel
 import app.subshell.prototype.ui.components.PostCard
-import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material.icons.rounded.VisibilityOff
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.view.WindowManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.material.icons.automirrored.rounded.AddToHomeScreen
 import app.subshell.prototype.shortcuts.AndroidLauncherShortcutPublisher
 import app.subshell.prototype.shortcuts.LauncherShortcutEntry
 import app.subshell.prototype.shortcuts.customFeedShortcutLabel
@@ -175,8 +161,6 @@ import app.subshell.prototype.data.account.blocksActionFor
 import app.subshell.prototype.data.account.communityMembershipActionForJoined
 import app.subshell.prototype.data.account.inProgressFor
 import app.subshell.prototype.data.account.projectedJoined
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import app.subshell.prototype.ui.components.SubshellSearchField
 import app.subshell.prototype.ui.components.SearchEntryBar
 import app.subshell.prototype.ui.components.SegmentedChoiceRow
@@ -716,7 +700,7 @@ fun ExploreCommunitiesScreen(
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(
-                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        Symbols.ArrowBack,
                         contentDescription = "Back to joined communities",
                     )
                 }
@@ -1326,7 +1310,7 @@ private fun InlineCommunityDiscoveryCard(
                     Text(if (joined) "Leaving…" else "Joining…")
                 } else if (joined) {
                     Icon(
-                        imageVector = Icons.Rounded.Check,
+                        imageVector = Symbols.Check,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
                     )
@@ -1334,7 +1318,7 @@ private fun InlineCommunityDiscoveryCard(
                     Text("Joined")
                 } else {
                     Icon(
-                        imageVector = Icons.Rounded.Add,
+                        imageVector = Symbols.Add,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
                     )
@@ -1421,7 +1405,7 @@ private fun InlineCommunityDiscoveryRow(
                     Text(if (joined) "Leaving…" else "Joining…")
                 } else if (joined) {
                     Icon(
-                        imageVector = Icons.Rounded.Check,
+                        imageVector = Symbols.Check,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
                     )
@@ -1429,7 +1413,7 @@ private fun InlineCommunityDiscoveryRow(
                     Text("Joined")
                 } else {
                     Icon(
-                        imageVector = Icons.Rounded.Add,
+                        imageVector = Symbols.Add,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
                     )
@@ -1457,7 +1441,7 @@ private fun HiddenSubscriptionsEntry(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = Icons.Rounded.VisibilityOff,
+                imageVector = Symbols.VisibilityOff,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -1679,7 +1663,7 @@ private fun ExploreCommunitiesContent(
                                 onClick = onClearDiscovery,
                             ) {
                                 Icon(
-                                    Icons.Rounded.Close,
+                                    Symbols.Close,
                                     contentDescription = "Clear community search",
                                 )
                             }
@@ -2737,6 +2721,9 @@ internal fun CustomFeedBrowser(
     val listState = rememberSaveable(accountStableId, feed.path, saver = LazyListState.Saver) {
         LazyListState()
     }
+    // ISSUE234_FEED_POST_LAYOUTS_V1
+    val postLayout = state.postLayout
+    val gridColumns = rememberFeedGridColumns()
     // CONTENTFILTER02_EVERY_FEED_SURFACE_V1: a custom feed honours hidden
     // posts, the NSFW setting and content filters like every other feed.
     // CONTENTFILTER04_FILTERED_SUMMARY_V1
@@ -2787,12 +2774,13 @@ internal fun CustomFeedBrowser(
                 statusCode = activeState.failureStatusCode,
                 retryable = activeState.failureRetryable,
                 append = activeState.failedAppend,
+                details = activeState.failureDetails,
             )
         }
     ReportViewportError(
         scopeKey = "custom-feed:$accountStableId:${feed.path}",
         presentation = degradedPostsPresentation,
-        failureDetails = null,
+        failureDetails = activeState.failureDetails,
         onRetry = if (degradedPostsPresentation != null) {
             if (activeState.failedAppend) onAppend else onRefresh
         } else {
@@ -2823,7 +2811,7 @@ internal fun CustomFeedBrowser(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back to custom feeds")
+                    Icon(Symbols.ArrowBack, contentDescription = "Back to custom feeds")
                 }
                 Column(Modifier.weight(1f)) {
                     Text(
@@ -2849,11 +2837,11 @@ internal fun CustomFeedBrowser(
             HorizontalDivider()
         }
         RefreshableLazyColumn(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).then(gridColumns.measureModifier),
             state = listState,
             contentPadding = contentPadding,
             indicatorTopPadding = contentPadding.calculateTopPadding(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(feedItemSpacing(postLayout, 8.dp)),
             isRefreshing = activeState.loading && activeState.posts.isNotEmpty(),
             onRefresh = {
                 refreshGeneration += 1
@@ -2899,11 +2887,13 @@ internal fun CustomFeedBrowser(
                         description = "Hidden posts, the NSFW setting or your content filters hide every post loaded so far.",
                     )
                 }
-                else -> items(visiblePosts, key = { post -> post.id }) { post ->
+                else -> feedPostItems(visiblePosts, postLayout, gridColumns.count) { post, itemModifier ->
                     PostCard(
                         post = post,
                         state = state,
+                        layout = postLayout,
                         onOpen = { state.openFromCustomFeed(post) },
+                        modifier = itemModifier,
                     )
                 }
             }
@@ -2927,7 +2917,7 @@ private fun CustomFeedsEmptyState(title: String) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Icon(
-            imageVector = Icons.AutoMirrored.Rounded.ViewList,
+            imageVector = Symbols.ViewList,
             contentDescription = null,
             modifier = Modifier.size(40.dp),
             tint = MaterialTheme.colorScheme.primary,
@@ -2963,7 +2953,7 @@ private fun FavoriteCustomFeedRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                Icons.AutoMirrored.Rounded.ViewList,
+                Symbols.ViewList,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
             )
@@ -2997,7 +2987,7 @@ private fun FavoriteCustomFeedRow(
             }
             IconButton(onClick = onToggleFavorite) {
                 Icon(
-                    Icons.Rounded.Star,
+                    Symbols.StarFilled,
                     contentDescription = "Remove ${feed.displayName} from favorites",
                     tint = favoriteStarTint(favorite = true),
                 )
@@ -3073,9 +3063,9 @@ private fun CustomFeedRow(
             IconButton(onClick = onToggleFavorite) {
                 Icon(
                     imageVector = if (favorite) {
-                        Icons.Rounded.Star
+                        Symbols.StarFilled
                     } else {
-                        Icons.Rounded.StarBorder
+                        Symbols.Star
                     },
                     contentDescription = if (favorite) {
                         "Remove ${feed.displayName} from favorites"
@@ -3087,7 +3077,7 @@ private fun CustomFeedRow(
             }
             Box {
                 IconButton(onClick = { menuExpanded = true }) {
-                    Icon(Icons.Rounded.MoreVert, contentDescription = "Manage ${feed.displayName}")
+                    Icon(Symbols.MoreVert, contentDescription = "Manage ${feed.displayName}")
                 }
                 DropdownMenu(
                     expanded = menuExpanded,
@@ -3095,7 +3085,7 @@ private fun CustomFeedRow(
                 ) {
                     DropdownMenuItem(
                         text = { Text("Edit feed") },
-                        leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null) },
+                        leadingIcon = { Icon(Symbols.Edit, contentDescription = null) },
                         onClick = {
                             menuExpanded = false
                             onEdit()
@@ -3105,7 +3095,7 @@ private fun CustomFeedRow(
                     if (customFeedLinkShareable(feed)) {
                         DropdownMenuItem(
                             text = { Text("Copy link") },
-                            leadingIcon = { Icon(Icons.Rounded.ContentCopy, contentDescription = null) },
+                            leadingIcon = { Icon(Symbols.ContentCopy, contentDescription = null) },
                             onClick = {
                                 menuExpanded = false
                                 copyCustomFeedLink(context, feed, userNotices)
@@ -3113,7 +3103,7 @@ private fun CustomFeedRow(
                         )
                         DropdownMenuItem(
                             text = { Text("Share link") },
-                            leadingIcon = { Icon(Icons.Rounded.Share, contentDescription = null) },
+                            leadingIcon = { Icon(Symbols.Share, contentDescription = null) },
                             onClick = {
                                 menuExpanded = false
                                 shareCustomFeedLink(context, feed, userNotices)
@@ -3125,7 +3115,7 @@ private fun CustomFeedRow(
                         DropdownMenuItem(
                             text = { Text("Add to home screen") },
                             leadingIcon = {
-                                Icon(Icons.AutoMirrored.Rounded.AddToHomeScreen, contentDescription = null)
+                                Icon(Symbols.AddToHomeScreen, contentDescription = null)
                             },
                             onClick = {
                                 menuExpanded = false
@@ -3137,7 +3127,7 @@ private fun CustomFeedRow(
                         text = { Text("Delete feed", color = MaterialTheme.colorScheme.error) },
                         leadingIcon = {
                             Icon(
-                                Icons.Rounded.Delete,
+                                Symbols.Delete,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.error,
                             )
@@ -3164,13 +3154,13 @@ private fun SearchAllCommunitiesRow(
         color = MaterialTheme.colorScheme.surfaceContainer,
         leading = {
             Icon(
-                Icons.Rounded.Search,
+                Symbols.Search,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
             )
         },
         trailing = {
-            Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null)
+            Icon(Symbols.ArrowForward, contentDescription = null)
         },
     )
 }
@@ -3387,9 +3377,9 @@ private fun CommunityRow(
                 ) {
                     Icon(
                         imageVector = if (communityMute != null) {
-                            Icons.AutoMirrored.Rounded.VolumeUp
+                            Symbols.VolumeUp
                         } else {
-                            Icons.AutoMirrored.Rounded.VolumeOff
+                            Symbols.VolumeOff
                         },
                         contentDescription = if (communityMute != null) {
                             "Edit mute for ${state.subredditLabel(community.name)}"
@@ -3411,9 +3401,9 @@ private fun CommunityRow(
                 ) {
                     Icon(
                         imageVector = if (favorite) {
-                            Icons.Rounded.Star
+                            Symbols.StarFilled
                         } else {
-                            Icons.Rounded.StarBorder
+                            Symbols.Star
                         },
                         contentDescription = if (favorite) {
                             "Remove ${state.subredditLabel(community.name)} from favorites"
@@ -3430,9 +3420,9 @@ private fun CommunityRow(
                 ) {
                     Icon(
                         imageVector = if (hidden) {
-                            Icons.Rounded.Visibility
+                            Symbols.Visibility
                         } else {
-                            Icons.Rounded.VisibilityOff
+                            Symbols.VisibilityOff
                         },
                         contentDescription = if (hidden) {
                             "Show ${state.subredditLabel(community.name)} in Joined"
@@ -3464,7 +3454,7 @@ private fun CommunityRow(
                         Text("Leaving…")
                     } else {
                         Icon(
-                            Icons.Rounded.Check,
+                            Symbols.Check,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
                         )
@@ -3609,7 +3599,7 @@ private fun CommunityStatusBadge(
         ) {
             if (showCheck) {
                 Icon(
-                    Icons.Rounded.Check,
+                    Symbols.Check,
                     contentDescription = null,
                     modifier = Modifier.size(14.dp),
                 )

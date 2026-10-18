@@ -15,6 +15,7 @@ import app.subshell.prototype.data.account.CustomFeedSummary
 import app.subshell.prototype.data.account.CustomFeedsUiState
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.ui.app.CustomFeedsEntryPoints
 import org.junit.Assert.assertEquals
@@ -72,7 +73,7 @@ class Issue25CustomFeedBackComposeTest {
         composeRule.setContent {
             dispatcher = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
             SubshellApp(
-                videoPlaybackCoordinator = VideoPlaybackCoordinator(context),
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
                 state = state,
                 customFeeds = CustomFeedsEntryPoints(
                     customFeedsState = CustomFeedsUiState(

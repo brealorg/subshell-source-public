@@ -28,6 +28,7 @@ import app.subshell.prototype.backup.SettingsBackupRepository
 import app.subshell.prototype.data.SampleData
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LEGACY_VIDEO_DOWNLOAD_DIRECTORY
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoMediaDataSource
@@ -86,7 +87,7 @@ class Step3MediaSettingsAndViewerComposeTest {
         ensureWorkManagerInitialized(context)
         val state = SubshellState()
         state.openMedia(video)
-        val coordinator = VideoPlaybackCoordinator(context).apply { release() }
+        val coordinator = testVideoPlaybackCoordinator(context).apply { release() }
         lateinit var activity: ComponentActivity
         lateinit var view: View
         var shown by mutableStateOf(true)

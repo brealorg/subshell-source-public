@@ -15,6 +15,8 @@ import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.releaseWithoutHanging
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VIDEO_UNRANKED
 import app.subshell.prototype.media.VideoMedia
@@ -118,7 +120,7 @@ class Video01PlatformHygieneTest {
     @Test
     fun theCoordinatorReportsASystemPauseUntilPlayIsAskedForAgain() {
         ensureWorkManagerInitialized(context)
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         val owner = Any()
         try {
             coordinator.attachForTest(owner, media("t3_a"), playWhenReady = true)
@@ -145,7 +147,7 @@ class Video01PlatformHygieneTest {
             coordinator.attachForTest(owner, media("t3_b"), playWhenReady = false)
             assertNull(coordinator.systemPause)
         } finally {
-            coordinator.release()
+            coordinator.releaseWithoutHanging()
         }
     }
 
@@ -177,7 +179,7 @@ class Video01PlatformHygieneTest {
         val state = signedIn()
         state.playVideo(video.id)
         // Released: attach does nothing, so only the state set below reaches the frame.
-        val coordinator = VideoPlaybackCoordinator(context).apply { release() }
+        val coordinator = testVideoPlaybackCoordinator(context).apply { release() }
         lateinit var hostView: View
         composeRule.mainClock.autoAdvance = false
         composeRule.setContent {

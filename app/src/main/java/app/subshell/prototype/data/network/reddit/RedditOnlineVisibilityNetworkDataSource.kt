@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.network.reddit
 
+import app.subshell.prototype.data.error.failureDetailsOrNull
 import app.subshell.prototype.data.account.OnlineVisibilityIssue
 import app.subshell.prototype.data.account.OnlineVisibilityResult
 import app.subshell.prototype.data.network.JsonGetRequest
@@ -59,9 +60,10 @@ internal fun NetworkResult<JsonElement>.toOnlineVisibilityResult(): OnlineVisibi
             issue = if (statusCode == 401) OnlineVisibilityIssue.AUTHORIZATION
                 else OnlineVisibilityIssue.HTTP,
             httpStatusCode = statusCode,
+            failureDetails = failureDetailsOrNull(),
         )
         is NetworkResult.TransportFailure ->
-            OnlineVisibilityResult.Failed(OnlineVisibilityIssue.TRANSPORT)
+            OnlineVisibilityResult.Failed(OnlineVisibilityIssue.TRANSPORT, failureDetails = failureDetailsOrNull())
         is NetworkResult.ProtocolFailure ->
-            OnlineVisibilityResult.Failed(OnlineVisibilityIssue.PROTOCOL)
+            OnlineVisibilityResult.Failed(OnlineVisibilityIssue.PROTOCOL, failureDetails = failureDetailsOrNull())
     }

@@ -3,6 +3,8 @@ package app.subshell.prototype.media
 import android.app.Application
 import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
+import app.subshell.prototype.harness.releaseWithoutHanging
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -25,13 +27,13 @@ import org.robolectric.annotation.Config
 @Config(sdk = [36])
 class Media04VideoOwnershipGuardsTest {
     private val application = ApplicationProvider.getApplicationContext<Application>()
-    private val coordinator = VideoPlaybackCoordinator(application)
+    private val coordinator = testVideoPlaybackCoordinator(application)
     private val owner = Any()
     private val stale = Any()
 
     @After
     fun releaseCoordinator() {
-        coordinator.release()
+        coordinator.releaseWithoutHanging()
         shadowOf(Looper.getMainLooper()).idle()
     }
 
@@ -79,7 +81,7 @@ class Media04VideoOwnershipGuardsTest {
     @Test
     fun aReleasedCoordinatorIgnoresLateCalls() {
         val media = media("t3_late")
-        coordinator.release()
+        coordinator.releaseWithoutHanging()
         coordinator.registerMedia(media, rank = 0)
         coordinator.attach(owner, media, muted = true, transitionId = 1L, rank = 0, playWhenReady = true)
         coordinator.detach(owner)

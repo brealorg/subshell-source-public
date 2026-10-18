@@ -1,7 +1,7 @@
 package app.subshell.prototype.ui.components
 
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 
+import app.subshell.prototype.ui.error.ReportFailureDiagnostic
 import androidx.activity.compose.BackHandler
 
 import androidx.compose.foundation.clickable
@@ -23,14 +23,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Block
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Group
-import androidx.compose.material.icons.rounded.PersonAdd
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -62,6 +54,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import app.subshell.prototype.ui.symbols.Symbols
 import kotlinx.coroutines.flow.first
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -124,7 +117,7 @@ fun ModeratorUserManagementButton(
         },
     ) {
         Icon(
-            imageVector = Icons.Rounded.Group,
+            imageVector = Symbols.Group,
             contentDescription = null,
             modifier = Modifier.size(18.dp),
         )
@@ -417,6 +410,11 @@ private fun ModeratorUserManagementOverview(
     embeddedInModToolsWorkspace: Boolean,
     onBackToModTools: () -> Unit,
 ) {
+    ReportFailureDiagnostic(
+        scopeKey = "moderator_user_management",
+        active = state.failureKind != null,
+        failureDetails = state.failureDetails,
+    )
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp),
@@ -432,7 +430,7 @@ private fun ModeratorUserManagementOverview(
                 if (embeddedInModToolsWorkspace) {
                     IconButton(onClick = onBackToModTools) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            imageVector = Symbols.ArrowBack,
                             contentDescription = "Back to Mod tools",
                         )
                     }
@@ -457,7 +455,7 @@ private fun ModeratorUserManagementOverview(
                     onClick = onRefresh,
                 ) {
                     Icon(
-                        Icons.Rounded.Refresh,
+                        Symbols.Refresh,
                         contentDescription = "Refresh user management",
                     )
                 }
@@ -561,7 +559,7 @@ private fun ModeratorUserManagementOverview(
                     enabled = !state.mutationInProgress,
                     onClick = onBan,
                 ) {
-                    Icon(Icons.Rounded.PersonAdd, null, Modifier.size(20.dp))
+                    Icon(Symbols.PersonAdd, null, Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("Ban user")
                 }
@@ -574,7 +572,7 @@ private fun ModeratorUserManagementOverview(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        Icons.Rounded.Block,
+                        Symbols.Block,
                         null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp),
@@ -649,7 +647,7 @@ private fun ModeratorUserManagementOverview(
                     enabled = !state.mutationInProgress,
                     onClick = onMute,
                 ) {
-                    Icon(Icons.AutoMirrored.Rounded.VolumeOff, null, Modifier.size(20.dp))
+                    Icon(Symbols.VolumeOff, null, Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("Mute user")
                 }
@@ -662,7 +660,7 @@ private fun ModeratorUserManagementOverview(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        Icons.AutoMirrored.Rounded.VolumeOff,
+                        Symbols.VolumeOff,
                         null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp),
@@ -744,7 +742,7 @@ private fun ModeratorUserManagementOverview(
                     enabled = !state.mutationInProgress,
                     onClick = onApprove,
                 ) {
-                    Icon(Icons.Rounded.PersonAdd, null, Modifier.size(20.dp))
+                    Icon(Symbols.PersonAdd, null, Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("Approve user")
                 }
@@ -757,7 +755,7 @@ private fun ModeratorUserManagementOverview(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        Icons.Rounded.PersonAdd,
+                        Symbols.PersonAdd,
                         null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp),
@@ -1092,7 +1090,7 @@ private fun ModeratorBanUserEditor(
             ) {
                 IconButton(onClick = onBack) {
                     Icon(
-                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        Symbols.ArrowBack,
                         contentDescription = "Back to User management",
                     )
                 }
@@ -1153,7 +1151,7 @@ private fun ModeratorBanUserEditor(
                                     onClick = { username = "" },
                                 ) {
                                     Icon(
-                                        Icons.Rounded.Close,
+                                        Symbols.Close,
                                         contentDescription = "Clear user search",
                                     )
                                 }
@@ -1283,7 +1281,7 @@ private fun ModeratorBanUserEditor(
                     },
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Block,
+                        imageVector = Symbols.Block,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
@@ -1349,7 +1347,7 @@ private fun ModeratorMuteUserEditor(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
                     Icon(
-                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        Symbols.ArrowBack,
                         contentDescription = "Back to User management",
                     )
                 }
@@ -1401,7 +1399,7 @@ private fun ModeratorMuteUserEditor(
                         trailingIcon = if (username.isNotEmpty()) {
                             {
                                 IconButton(enabled = !busy, onClick = { username = "" }) {
-                                    Icon(Icons.Rounded.Close, "Clear user search")
+                                    Icon(Symbols.Close, "Clear user search")
                                 }
                             }
                         } else null,
@@ -1464,7 +1462,7 @@ private fun ModeratorMuteUserEditor(
                         )
                     },
                 ) {
-                    Icon(Icons.AutoMirrored.Rounded.VolumeOff, null, Modifier.size(18.dp))
+                    Icon(Symbols.VolumeOff, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("Confirm mute")
                 }
@@ -1503,7 +1501,7 @@ private fun ModeratorSelectedMuteUser(
                 )
             }
             IconButton(enabled = enabled, onClick = onClear) {
-                Icon(Icons.Rounded.Close, "Change mute target")
+                Icon(Symbols.Close, "Change mute target")
             }
         }
     }
@@ -1556,7 +1554,7 @@ private fun ModeratorApproveUserEditor(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
                     Icon(
-                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        Symbols.ArrowBack,
                         contentDescription = "Back to User management",
                     )
                 }
@@ -1609,7 +1607,7 @@ private fun ModeratorApproveUserEditor(
                         trailingIcon = if (username.isNotEmpty()) {
                             {
                                 IconButton(enabled = !busy, onClick = { username = "" }) {
-                                    Icon(Icons.Rounded.Close, "Clear user search")
+                                    Icon(Symbols.Close, "Clear user search")
                                 }
                             }
                         } else null,
@@ -1659,7 +1657,7 @@ private fun ModeratorApproveUserEditor(
                         )
                     },
                 ) {
-                    Icon(Icons.Rounded.PersonAdd, null, Modifier.size(18.dp))
+                    Icon(Symbols.PersonAdd, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("Confirm approve")
                 }
@@ -1703,7 +1701,7 @@ private fun ModeratorSelectedApprovedUser(
                 )
             }
             IconButton(enabled = enabled, onClick = onClear) {
-                Icon(Icons.Rounded.Close, "Change approved-user target")
+                Icon(Symbols.Close, "Change approved-user target")
             }
         }
     }
@@ -1765,7 +1763,7 @@ private fun ModeratorSelectedBanUser(
                 )
             }
             IconButton(enabled = enabled, onClick = onClear) {
-                Icon(Icons.Rounded.Close, contentDescription = "Change ban target")
+                Icon(Symbols.Close, contentDescription = "Change ban target")
             }
         }
     }

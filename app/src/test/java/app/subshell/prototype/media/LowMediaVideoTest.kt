@@ -5,6 +5,8 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
+import app.subshell.prototype.harness.releaseWithoutHanging
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -29,12 +31,12 @@ import org.robolectric.shadows.ShadowNetworkCapabilities
 @Config(sdk = [36])
 class LowMediaVideoTest {
     private val application = ApplicationProvider.getApplicationContext<Application>()
-    private val coordinator = VideoPlaybackCoordinator(application)
+    private val coordinator = testVideoPlaybackCoordinator(application)
     private val owner = Any()
 
     @After
     fun releaseCoordinator() {
-        coordinator.release()
+        coordinator.releaseWithoutHanging()
         shadowOf(Looper.getMainLooper()).idle()
     }
 

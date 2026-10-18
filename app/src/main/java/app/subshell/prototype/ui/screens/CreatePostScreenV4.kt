@@ -1,5 +1,8 @@
 package app.subshell.prototype.ui.screens
 
+import app.subshell.prototype.ui.components.postBodyMentions
+import app.subshell.prototype.ui.components.MentionSuggestions
+import app.subshell.prototype.data.account.RedditPeopleSearchUiState
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.stateDescription
@@ -64,36 +67,6 @@ import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
-import androidx.compose.material.icons.automirrored.rounded.Label
-import androidx.compose.material.icons.automirrored.rounded.Redo
-import androidx.compose.material.icons.automirrored.rounded.Undo
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.AddLink
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Code
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.FormatBold
-import androidx.compose.material.icons.rounded.FormatItalic
-import androidx.compose.material.icons.rounded.FormatListNumbered
-import androidx.compose.material.icons.rounded.FormatQuote
-import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.Movie
-import androidx.compose.material.icons.rounded.PermMedia
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.StrikethroughS
-import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -225,6 +198,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import androidx.compose.ui.viewinterop.AndroidView
+import app.subshell.prototype.ui.symbols.Symbols
 import app.subshell.prototype.ui.validatePostComposerDraftIssue
 import app.subshell.prototype.ui.validateRemoteTextPostComposerDraftIssue
 import kotlinx.coroutines.Dispatchers
@@ -256,6 +230,9 @@ fun CreatePostScreen(
     onInvalidateCrosspostReview: () -> Unit = {},
     composerPolicy: ComposerPolicySnapshot = ComposerPolicySnapshot(),
     onLoadComposerPolicy: (String, String) -> Unit = { _, _ -> },
+    // ISSUE229_POST_BODY_MENTIONS_V1
+    mentionSearchState: RedditPeopleSearchUiState = RedditPeopleSearchUiState(),
+    onSearchMentions: (String) -> Unit = {},
     composerCommunitySearch: ComposerCommunitySearchSnapshot =
         ComposerCommunitySearchSnapshot(),
     onSearchComposerCommunities: (String, String) -> Unit = { _, _ -> },
@@ -955,7 +932,7 @@ fun CreatePostScreen(
                     navigationIcon = {
                         IconButton(onClick = state::closePostComposer) {
                             Icon(
-                                Icons.AutoMirrored.Rounded.ArrowBack,
+                                Symbols.ArrowBack,
                                 contentDescription = "Save draft and close",
                             )
                         }
@@ -984,11 +961,25 @@ fun CreatePostScreen(
             },
             bottomBar = {
                 if (policy.bodyAllowed && !pickerSheetVisible && !composerLocked) {
-                    ComposerFormattingDock(
-                        state = bodyState,
-                        onFormat = ::applyFormat,
-                        onReturnToEditor = { compactPreviewVisible = false },
-                    )
+                    Column {
+                        // ISSUE229_POST_BODY_MENTIONS_V1: above the dock, so the list
+                        // stays on the keyboard wherever the cursor is in a long body.
+                        MentionSuggestions(
+                            state = bodyState,
+                            mentions = postBodyMentions(
+                                accountStableId = state.activeAccountId,
+                                authenticated = authenticated,
+                                searchState = mentionSearchState,
+                                onSearch = onSearchMentions,
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        ComposerFormattingDock(
+                            state = bodyState,
+                            onFormat = ::applyFormat,
+                            onReturnToEditor = { compactPreviewVisible = false },
+                        )
+                    }
                 }
             },
         ) { padding ->
@@ -1604,7 +1595,7 @@ internal fun V4CommunitySelector(
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Search, contentDescription = null)
+                        Icon(Symbols.Search, contentDescription = null)
                     }
                 }
             }
@@ -1622,7 +1613,7 @@ internal fun V4CommunitySelector(
                     style = MaterialTheme.typography.titleMedium,
                 )
             }
-            Icon(Icons.Rounded.ExpandMore, contentDescription = "Choose community")
+            Icon(Symbols.ExpandMore, contentDescription = "Choose community")
         }
     }
 }
@@ -1707,7 +1698,7 @@ internal fun V4CommunitySheet(
                     )
                 }
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Rounded.Close, contentDescription = "Close community picker")
+                    Icon(Symbols.Close, contentDescription = "Close community picker")
                 }
             }
             SubshellSearchField(
@@ -1717,7 +1708,7 @@ internal fun V4CommunitySheet(
                 trailingIcon = if (query.isNotBlank()) {
                     {
                         IconButton(onClick = { onQueryChange("") }) {
-                            Icon(Icons.Rounded.Close, contentDescription = "Clear search")
+                            Icon(Symbols.Close, contentDescription = "Clear search")
                         }
                     }
                 } else {
@@ -1845,9 +1836,9 @@ private fun V4CommunityOptionRow(
                 }
             }
             if (selected) {
-                Icon(Icons.Rounded.Check, contentDescription = "Selected")
+                Icon(Symbols.Check, contentDescription = "Selected")
             } else {
-                Icon(Icons.Rounded.ChevronRight, contentDescription = null)
+                Icon(Symbols.ChevronRight, contentDescription = null)
             }
         }
     }
@@ -1913,7 +1904,7 @@ private fun V4FlairAction(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        Icons.AutoMirrored.Rounded.Label,
+                        Symbols.Label,
                         contentDescription = null,
                         modifier = Modifier.size(22.dp),
                     )
@@ -1978,7 +1969,7 @@ private fun V4FlairAction(
                 }
             }
             Icon(
-                if (loadFailed) Icons.Rounded.Refresh else Icons.Rounded.ChevronRight,
+                if (loadFailed) Symbols.Refresh else Symbols.ChevronRight,
                 contentDescription = when {
                     authorizationRequired -> "Allow access to post flairs"
                     loadFailed -> "Retry loading post flairs"
@@ -2046,7 +2037,7 @@ internal fun V4FlairSheet(
                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.AutoMirrored.Rounded.Label, contentDescription = null)
+                            Icon(Symbols.Label, contentDescription = null)
                         }
                     }
                     Column(modifier = Modifier.weight(1f)) {
@@ -2064,7 +2055,7 @@ internal fun V4FlairSheet(
                         }
                     }
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Rounded.Close, contentDescription = "Close flair picker")
+                        Icon(Symbols.Close, contentDescription = "Close flair picker")
                     }
                 }
 
@@ -2076,7 +2067,7 @@ internal fun V4FlairSheet(
                         trailingIcon = if (query.isNotEmpty()) {
                             {
                                 IconButton(onClick = { query = "" }) {
-                                    Icon(Icons.Rounded.Close, contentDescription = "Clear search")
+                                    Icon(Symbols.Close, contentDescription = "Clear search")
                                 }
                             }
                         } else {
@@ -2153,7 +2144,7 @@ private fun V4FlairChoiceChip(
             selected -> {
                 {
                     Icon(
-                        Icons.Rounded.Check,
+                        Symbols.Check,
                         contentDescription = "Selected",
                         modifier = Modifier.size(18.dp),
                     )
@@ -2162,7 +2153,7 @@ private fun V4FlairChoiceChip(
             flair == null -> {
                 {
                     Icon(
-                        Icons.Rounded.Close,
+                        Symbols.Close,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
@@ -2173,7 +2164,7 @@ private fun V4FlairChoiceChip(
         trailingIcon = if (flair?.editable == true) {
             {
                 Icon(
-                    Icons.Rounded.Edit,
+                    Symbols.Edit,
                     contentDescription = "Customize flair",
                     modifier = Modifier.size(18.dp),
                 )
@@ -2203,7 +2194,7 @@ private fun V4EditableFlairEditor(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onCancel) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back to flairs")
+                Icon(Symbols.ArrowBack, contentDescription = "Back to flairs")
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text("Customize flair", style = MaterialTheme.typography.headlineSmall)
@@ -2382,14 +2373,14 @@ private fun V4LinkAttachment(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Link, contentDescription = null)
+                Icon(Symbols.Link, contentDescription = null)
                 Text(
                     "Link attachment",
                     modifier = Modifier.weight(1f).padding(start = 10.dp),
                     style = MaterialTheme.typography.titleSmall,
                 )
                 IconButton(onClick = onRemove) {
-                    Icon(Icons.Rounded.Close, contentDescription = "Remove link")
+                    Icon(Symbols.Close, contentDescription = "Remove link")
                 }
             }
             OutlinedTextField(
@@ -2510,7 +2501,7 @@ private fun V4CompactLinkPreview(state: V4LinkPreviewState) {
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    Icons.Rounded.Link,
+                                    Symbols.Link,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                 )
@@ -2575,7 +2566,7 @@ private fun V4MediaSection(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Rounded.PermMedia, contentDescription = null)
+                Icon(Symbols.PermMedia, contentDescription = null)
                 Text(
                     when {
                         media.size > 1 -> "Gallery · ${media.size} items"
@@ -2597,7 +2588,7 @@ private fun V4MediaSection(
                         enabled = media.size < 20,
                         onClick = onAddPhotos,
                     ) {
-                        Icon(Icons.Rounded.Add, contentDescription = null, Modifier.size(18.dp))
+                        Icon(Symbols.Add, contentDescription = null, Modifier.size(18.dp))
                         Text("Add photos", Modifier.padding(start = 4.dp))
                     }
                 }
@@ -2655,7 +2646,7 @@ private fun V4MediaSection(
                                     modifier = Modifier.size(48.dp),
                                 ) {
                                     Icon(
-                                        Icons.Rounded.DeleteOutline,
+                                        Symbols.Delete,
                                         // COMPOSER12_LABELLED_SWITCHES_V1: names what is removed.
                                         contentDescription = composerMediaRemoveLabel(item, index),
                                         tint = Color.White,
@@ -2682,7 +2673,7 @@ private fun V4MediaSection(
                             modifier = Modifier.size(48.dp),
                         ) {
                             Icon(
-                                Icons.AutoMirrored.Rounded.ArrowBack,
+                                Symbols.ArrowBack,
                                 contentDescription = "Move image earlier",
                             )
                         }
@@ -2692,7 +2683,7 @@ private fun V4MediaSection(
                             modifier = Modifier.size(48.dp),
                         ) {
                             Icon(
-                                Icons.AutoMirrored.Rounded.ArrowForward,
+                                Symbols.ArrowForward,
                                 contentDescription = "Move image later",
                             )
                         }
@@ -2949,7 +2940,7 @@ private fun V4MutedVideoPreview(
                 color = Color.Black.copy(alpha = 0.70f),
             ) {
                 Icon(
-                    Icons.Rounded.PlayArrow,
+                    Symbols.PlayArrowFilled,
                     contentDescription = "Play muted video preview",
                     tint = Color.White,
                     modifier = Modifier.padding(12.dp),
@@ -2982,7 +2973,7 @@ private fun V4MediaPickerSheet(
                 onClick = onPickPhotos,
             ) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Image, contentDescription = null)
+                    Icon(Symbols.Image, contentDescription = null)
                     Column(Modifier.padding(start = 14.dp)) {
                         Text("Photos or gallery", style = MaterialTheme.typography.titleMedium)
                         Text(
@@ -3001,7 +2992,7 @@ private fun V4MediaPickerSheet(
                 onClick = onPickVideo,
             ) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Movie, contentDescription = null)
+                    Icon(Symbols.Movie, contentDescription = null)
                     Column(Modifier.padding(start = 14.dp)) {
                         Text("Video", style = MaterialTheme.typography.titleMedium)
                         Text(
@@ -3255,7 +3246,7 @@ private fun V4AddContentRow(
             onClick = onAddLink,
             label = { Text("Add link") },
             leadingIcon = {
-                Icon(Icons.Rounded.AddLink, contentDescription = null, Modifier.size(18.dp))
+                Icon(Symbols.AddLink, contentDescription = null, Modifier.size(18.dp))
             },
         )
         if (showMedia) {
@@ -3264,7 +3255,7 @@ private fun V4AddContentRow(
                 onClick = onAddMedia,
                 label = { Text("Add media") },
                 leadingIcon = {
-                    Icon(Icons.Rounded.PermMedia, contentDescription = null, Modifier.size(18.dp))
+                    Icon(Symbols.PermMedia, contentDescription = null, Modifier.size(18.dp))
                 },
             )
         }
@@ -3314,7 +3305,7 @@ private fun V4PostOptions(
                         }
                     }
                     Icon(
-                        Icons.Rounded.ExpandMore,
+                        Symbols.ExpandMore,
                         contentDescription = null,
                         modifier = Modifier.rotate(if (expanded) 180f else 0f),
                     )

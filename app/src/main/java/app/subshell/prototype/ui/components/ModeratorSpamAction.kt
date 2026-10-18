@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Report
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.Modifier
 import androidx.compose.material3.AlertDialog
@@ -26,6 +24,7 @@ import app.subshell.prototype.data.account.RedditModeratorQueueItem
 import app.subshell.prototype.data.account.RedditModeratorQueueKind
 import app.subshell.prototype.data.account.canConfirmModeratorSpam
 import app.subshell.prototype.data.account.moderatorSpamRequestOrNull
+import app.subshell.prototype.ui.symbols.Symbols
 
 // MODERATION02A1_SHARED_EXPLICIT_SPAM_CONFIRMATION_V1
 // Used by both the Inbox aggregate queue and the community Mod tools queue.
@@ -49,7 +48,7 @@ internal fun ModeratorSpamAction(
         onClick = { pendingSpam = request },
         enabled = request != null && !actionUiState.inProgress,
     ) {
-        ModeratorActionIcon(Icons.Rounded.Report)
+        ModeratorActionIcon(Symbols.Report)
         Spacer(Modifier.width(6.dp))
         Text("Spam")
     }

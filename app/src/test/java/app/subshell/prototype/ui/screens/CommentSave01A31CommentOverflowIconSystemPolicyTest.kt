@@ -40,18 +40,18 @@ class CommentSave01A31CommentOverflowIconSystemPolicyTest {
 
         assertTrue(row.contains("COMMENTSAVE01A31_COMMENT_OVERFLOW_ICON_SYSTEM_V1"))
         assertTrue(row.contains("text = { Text(\"Edit comment\") }"))
-        assertTrue(row.contains("imageVector = Icons.Rounded.Edit"))
+        assertTrue(row.contains("imageVector = Symbols.Edit"))
         assertTrue(row.contains("\"Delete comment\""))
-        assertTrue(row.contains("imageVector = Icons.Rounded.Delete"))
+        assertTrue(row.contains("imageVector = Symbols.Delete"))
         assertTrue(row.contains("Text(if (saved) \"Unsave comment\" else \"Save comment\")"))
-        assertTrue(row.contains("Icons.Rounded.Bookmark"))
-        assertTrue(row.contains("Icons.Rounded.BookmarkBorder"))
+        assertTrue(row.contains("Symbols.BookmarkFilled"))
+        assertTrue(row.contains("Symbols.Bookmark"))
         assertTrue(row.contains("text = { Text(\"Share comment\") }"))
-        assertTrue(row.contains("imageVector = Icons.Rounded.Share"))
+        assertTrue(row.contains("imageVector = Symbols.Share"))
         assertTrue(row.contains("text = { Text(\"Copy text\") }"))
-        assertTrue(row.contains("imageVector = Icons.Rounded.ContentCopy"))
+        assertTrue(row.contains("imageVector = Symbols.ContentCopy"))
         assertTrue(row.contains("text = { Text(\"Collapse thread\") }"))
-        assertTrue(row.contains("imageVector = Icons.Rounded.ExpandLess"))
+        assertTrue(row.contains("imageVector = Symbols.ExpandLess"))
         assertTrue(row.split("leadingIcon =").size - 1 >= 6)
     }
 
@@ -60,7 +60,7 @@ class CommentSave01A31CommentOverflowIconSystemPolicyTest {
         val row = commentActionRowSource()
 
         assertTrue(row.contains("\"Delete comment\",\n                                color = MaterialTheme.colorScheme.error"))
-        assertTrue(row.contains("imageVector = Icons.Rounded.Delete"))
+        assertTrue(row.contains("imageVector = Symbols.Delete"))
         assertTrue(row.contains("tint = MaterialTheme.colorScheme.error"))
     }
 

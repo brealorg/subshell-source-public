@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -30,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.subshell.prototype.ui.MutedCommunityDirectViewMode
+import app.subshell.prototype.ui.symbols.Symbols
 
 @Composable
 fun MutedCommunityDirectViewSetting(
@@ -151,7 +150,7 @@ fun MutedCommunityDirectViewLivePreview(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.VolumeOff,
+                        imageVector = Symbols.VolumeOff,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
                     )
@@ -270,7 +269,7 @@ fun MutedCommunityPostsHiddenCard(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.VolumeOff,
+                    imageVector = Symbols.VolumeOff,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                 )

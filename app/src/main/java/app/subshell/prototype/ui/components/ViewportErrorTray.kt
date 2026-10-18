@@ -15,10 +15,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -43,6 +39,7 @@ import app.subshell.prototype.data.error.toSafeDetailItems
 import app.subshell.prototype.ui.error.ErrorActionKind
 import app.subshell.prototype.ui.error.TrayTone
 import app.subshell.prototype.ui.error.ViewportErrorHostState
+import app.subshell.prototype.ui.symbols.Symbols
 
 @Composable
 internal fun ViewportErrorTrayHost(
@@ -88,7 +85,7 @@ internal fun ViewportErrorTrayHost(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        imageVector = if (info) Icons.Rounded.Info else Icons.Rounded.ErrorOutline,
+                        imageVector = if (info) Symbols.Info else Symbols.Error,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp),
                         tint = accent,
@@ -108,13 +105,13 @@ internal fun ViewportErrorTrayHost(
                     ) {
                         if (info) {
                             Icon(
-                                imageVector = Icons.Rounded.Close,
+                                imageVector = Symbols.Close,
                                 contentDescription = "Dismiss notice",
                                 modifier = Modifier.size(18.dp),
                             )
                         } else {
                             Icon(
-                                imageVector = Icons.Rounded.Close,
+                                imageVector = Symbols.Close,
                                 contentDescription = "Dismiss error",
                                 modifier = Modifier.size(18.dp),
                             )
@@ -189,7 +186,7 @@ internal fun ViewportErrorDetailsSheet(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.ErrorOutline,
+                    imageVector = Symbols.Error,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.error,
                 )

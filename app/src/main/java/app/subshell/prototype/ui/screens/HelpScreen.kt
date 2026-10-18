@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,6 +45,7 @@ import app.subshell.prototype.BuildConfig
 import app.subshell.prototype.ui.ScreenMargin
 import app.subshell.prototype.ui.components.RouteTopBar
 import app.subshell.prototype.ui.components.rememberRouteTopBarScrollBehavior
+import app.subshell.prototype.ui.symbols.Symbols
 import app.subshell.prototype.update.rememberBundledChangelog
 import androidx.compose.material3.TextButton
 import app.subshell.prototype.update.updateReleaseViewIntent
@@ -102,7 +101,7 @@ fun HelpScreen(
         RouteTopBar(
             title = { Text("Help & about") },
             navigationIcon = {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") }
+                IconButton(onClick = onBack) { Icon(Symbols.ArrowBack, contentDescription = "Back") }
             },
             scrollBehavior = routeTopBarScroll,
         )

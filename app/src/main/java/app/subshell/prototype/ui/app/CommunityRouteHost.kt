@@ -194,6 +194,8 @@ internal fun CommunityRouteHost(
                             redditCommunityInfoState,
                         onLoadRedditCommunityInfo =
                             onLoadRedditCommunityInfo,
+                        redditPinnedPostsState = redditCommunity.redditPinnedPostsState,
+                        onLoadRedditPinnedPosts = redditCommunity.onLoadRedditPinnedPosts,
                         redditCommunityWikiState =
                             redditCommunityWikiState,
                         onLoadRedditCommunityWikiIndex =
@@ -251,6 +253,8 @@ internal fun CommunityRouteHost(
                     redditCommunityInfoState,
                 onLoadRedditCommunityInfo =
                     onLoadRedditCommunityInfo,
+                redditPinnedPostsState = redditCommunity.redditPinnedPostsState,
+                onLoadRedditPinnedPosts = redditCommunity.onLoadRedditPinnedPosts,
                 redditCommunityWikiState =
                     redditCommunityWikiState,
                 onLoadRedditCommunityWikiIndex =

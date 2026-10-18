@@ -7,19 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
-import androidx.compose.material.icons.automirrored.rounded.Redo
-import androidx.compose.material.icons.automirrored.rounded.Undo
-import androidx.compose.material.icons.rounded.Code
-import androidx.compose.material.icons.rounded.FormatBold
-import androidx.compose.material.icons.rounded.FormatItalic
-import androidx.compose.material.icons.rounded.FormatListNumbered
-import androidx.compose.material.icons.rounded.FormatQuote
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.StrikethroughS
-import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.AppBarMenuState
 import androidx.compose.material3.AppBarRow
 import androidx.compose.material3.AppBarRowScope
@@ -34,6 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import app.subshell.prototype.ui.MarkdownAction
 import app.subshell.prototype.ui.ReadingMaxWidth
+import app.subshell.prototype.ui.symbols.Symbols
 
 private data class ComposerFormatAction(
     val action: MarkdownAction,
@@ -42,28 +30,28 @@ private data class ComposerFormatAction(
 )
 
 private val composerFormatActions = listOf(
-    ComposerFormatAction(MarkdownAction.BOLD, "Bold", Icons.Rounded.FormatBold),
-    ComposerFormatAction(MarkdownAction.ITALIC, "Italic", Icons.Rounded.FormatItalic),
-    ComposerFormatAction(MarkdownAction.LINK, "Link", Icons.Rounded.Link),
-    ComposerFormatAction(MarkdownAction.CODE_BLOCK, "Code block", Icons.Rounded.Code),
-    ComposerFormatAction(MarkdownAction.QUOTE, "Quote", Icons.Rounded.FormatQuote),
+    ComposerFormatAction(MarkdownAction.BOLD, "Bold", Symbols.FormatBold),
+    ComposerFormatAction(MarkdownAction.ITALIC, "Italic", Symbols.FormatItalic),
+    ComposerFormatAction(MarkdownAction.LINK, "Link", Symbols.Link),
+    ComposerFormatAction(MarkdownAction.CODE_BLOCK, "Code block", Symbols.Code),
+    ComposerFormatAction(MarkdownAction.QUOTE, "Quote", Symbols.FormatQuote),
     ComposerFormatAction(
         MarkdownAction.BULLET_LIST,
         "Bulleted list",
-        Icons.AutoMirrored.Rounded.FormatListBulleted,
+        Symbols.FormatListBulleted,
     ),
     ComposerFormatAction(
         MarkdownAction.NUMBERED_LIST,
         "Numbered list",
-        Icons.Rounded.FormatListNumbered,
+        Symbols.FormatListNumbered,
     ),
     ComposerFormatAction(
         MarkdownAction.STRIKETHROUGH,
         "Strikethrough",
-        Icons.Rounded.StrikethroughS,
+        Symbols.StrikethroughS,
     ),
-    ComposerFormatAction(MarkdownAction.INLINE_CODE, "Inline code", Icons.Rounded.Code),
-    ComposerFormatAction(MarkdownAction.SPOILER, "Spoiler", Icons.Rounded.VisibilityOff),
+    ComposerFormatAction(MarkdownAction.INLINE_CODE, "Inline code", Symbols.Code),
+    ComposerFormatAction(MarkdownAction.SPOILER, "Spoiler", Symbols.VisibilityOff),
 )
 
 /** Undo and redo, then the first four formats; the rest go to "More formatting". */
@@ -87,7 +75,7 @@ internal fun AppBarRowScope.composerFormattingItems(
             onReturnToEditor()
             state.undoState.undo()
         },
-        icon = { Icon(Icons.AutoMirrored.Rounded.Undo, contentDescription = "Undo") },
+        icon = { Icon(Symbols.Undo, contentDescription = "Undo") },
         label = "Undo",
         enabled = enabled && state.undoState.canUndo,
     )
@@ -96,7 +84,7 @@ internal fun AppBarRowScope.composerFormattingItems(
             onReturnToEditor()
             state.undoState.redo()
         },
-        icon = { Icon(Icons.AutoMirrored.Rounded.Redo, contentDescription = "Redo") },
+        icon = { Icon(Symbols.Redo, contentDescription = "Redo") },
         label = "Redo",
         enabled = enabled && state.undoState.canRedo,
     )
@@ -116,7 +104,7 @@ internal fun AppBarRowScope.composerFormattingItems(
 @Composable
 internal fun ComposerFormattingOverflow(menuState: AppBarMenuState, enabled: Boolean = true) {
     IconButton(enabled = enabled, onClick = { menuState.show() }) {
-        Icon(Icons.Rounded.MoreHoriz, contentDescription = "More formatting")
+        Icon(Symbols.MoreHoriz, contentDescription = "More formatting")
     }
 }
 

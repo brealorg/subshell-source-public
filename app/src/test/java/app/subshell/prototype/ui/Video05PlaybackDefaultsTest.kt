@@ -14,6 +14,8 @@ import androidx.test.core.app.ApplicationProvider
 import app.subshell.prototype.backup.SettingsBackupRepository
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.releaseWithoutHanging
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.PlaybackTrackSelectionMode
 import app.subshell.prototype.media.VIDEO_UNRANKED
 import app.subshell.prototype.media.VideoMedia
@@ -86,7 +88,7 @@ class Video05PlaybackDefaultsTest {
     @Test
     fun aNewVideoStartsWithTheDefaultsFromSettings() {
         ensureWorkManagerInitialized(context)
-        val coordinator = VideoPlaybackCoordinator(context)
+        val coordinator = testVideoPlaybackCoordinator(context)
         try {
             coordinator.updatePlaybackDefaults(VideoPlaybackDefaults(subtitles = VideoSubtitleDefault.OFF))
             coordinator.attach(
@@ -110,7 +112,7 @@ class Video05PlaybackDefaultsTest {
             assertTrue(C.TRACK_TYPE_TEXT in coordinator.player.trackSelectionParameters.disabledTrackTypes)
             assertEquals(PlaybackTrackSelectionMode.OFF, coordinator.trackOptions.selection.textMode)
         } finally {
-            coordinator.release()
+            coordinator.releaseWithoutHanging()
         }
     }
 

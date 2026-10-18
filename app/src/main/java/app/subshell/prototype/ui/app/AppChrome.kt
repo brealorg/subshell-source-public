@@ -72,7 +72,7 @@ internal fun rememberChromeHiddenFractions(
         state.topBarBehavior == ChromeBehavior.ALWAYS_SHOW ||
         state.chromeVisible
     val bottomBarShown = state.bottomBarBehavior == ChromeBehavior.ALWAYS_SHOW || state.chromeVisible
-    val motionSpec = if (state.reduceMotion) snap<Float>() else tween(durationMillis = 220)
+    val motionSpec = if (state.motionReduced) snap<Float>() else tween(durationMillis = 220)
     val topBarHiddenFractionState = animateFloatAsState(
         targetValue = if (topBarShown) 0f else 1f,
         animationSpec = motionSpec,

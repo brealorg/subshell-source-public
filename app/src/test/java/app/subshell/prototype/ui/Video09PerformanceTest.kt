@@ -11,6 +11,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.subshell.prototype.data.SampleData
 import app.subshell.prototype.harness.RetryOnRobolectricRendererFlake
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
+import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.LocalVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackProgress
@@ -68,7 +69,7 @@ class Video09PerformanceTest {
         val state = SubshellState()
         state.playVideo(video.id)
         // Released: only the progress the test reports reaches the player.
-        val coordinator = VideoPlaybackCoordinator(context).apply {
+        val coordinator = testVideoPlaybackCoordinator(context).apply {
             release()
             overrideProgressForTest(progress(1_000L))
         }
@@ -103,7 +104,7 @@ class Video09PerformanceTest {
         ensureWorkManagerInitialized(context)
         val state = SubshellState()
         state.playVideo(video.id)
-        val coordinator = VideoPlaybackCoordinator(context).apply {
+        val coordinator = testVideoPlaybackCoordinator(context).apply {
             release()
             overrideProgressForTest(progress(7_000L))
         }

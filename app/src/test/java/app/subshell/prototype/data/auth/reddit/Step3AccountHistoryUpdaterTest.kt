@@ -17,6 +17,7 @@ import app.subshell.prototype.data.auth.StoredOAuthSession
 import app.subshell.prototype.data.cache.RoomSubshellCacheStore
 import app.subshell.prototype.data.cache.SubshellCacheDatabase
 import app.subshell.prototype.data.network.NetworkEndpoint
+import app.subshell.prototype.data.network.NetworkProtocolFailureKind
 import app.subshell.prototype.data.redditAccountHistoryPostQueryKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -98,6 +99,19 @@ class Step3AccountHistoryUpdaterTest {
         .readPostFeedSnapshot(redditAccountHistoryPostQueryKey(account, "someone", kind))
         ?.posts
         ?.map { it.title }
+
+    // DIAG04_JSON_PATH_REACHES_THE_REPORT_V1: a broken answer names its field on the way to the report.
+    @Test
+    fun aBrokenHistoryAnswerKeepsTheFieldItFailedOn() = runBlocking {
+        reddit = { """{"kind":"Listing","data":{"children":{"x":1}}}""" }
+
+        val result = updater().synchronize(account, "someone", RedditAccountHistoryKind.UPVOTED, RepositoryLoadOperation.REFRESH)
+
+        val failed = result as AuthenticatedRedditAccountHistoryUpdateResult.Failed
+        assertEquals(AuthenticatedRedditAccountHistoryFailureKind.PROTOCOL, failed.kind)
+        assertEquals(NetworkProtocolFailureKind.MALFORMED_JSON, failed.details?.protocolKind)
+        assertEquals("$.data.children", failed.details?.jsonPath?.value)
+    }
 
     @Test
     fun aRefreshAsksRedditForTheUsersUpvotedPostsAndKeepsThem() = runBlocking {
