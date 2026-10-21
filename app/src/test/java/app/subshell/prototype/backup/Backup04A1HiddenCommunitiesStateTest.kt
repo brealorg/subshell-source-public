@@ -39,7 +39,7 @@ class Backup04A1HiddenCommunitiesStateTest {
         var seen: Map<String, Set<String>>? = emptyMap()
         val state = state(
             hidden = mutableMapOf(rootId to setOf("android")),
-            persistBackupRestoreState = { _, _, _, _, hiddenCommunities, _, _, _, _, _ ->
+            persistBackupRestoreState = { _, _, _, _, hiddenCommunities, _, _, _, _, _, _ ->
                 seen = hiddenCommunities
             },
         )
@@ -59,7 +59,7 @@ class Backup04A1HiddenCommunitiesStateTest {
         var calls = 0
         val state = state(
             hidden = mutableMapOf(rootId to setOf("android")),
-            persistBackupRestoreState = { _, _, _, _, _, _, _, _, _, _ -> calls += 1 },
+            persistBackupRestoreState = { _, _, _, _, _, _, _, _, _, _, _ -> calls += 1 },
         )
 
         state.restoreBackupState(
@@ -77,7 +77,7 @@ class Backup04A1HiddenCommunitiesStateTest {
         var seen: Map<String, Set<String>>? = null
         val state = state(
             hidden = mutableMapOf(rootId to setOf("android")),
-            persistBackupRestoreState = { _, _, _, _, hiddenCommunities, _, _, _, _, _ ->
+            persistBackupRestoreState = { _, _, _, _, hiddenCommunities, _, _, _, _, _, _ ->
                 seen = hiddenCommunities
             },
         )
@@ -98,7 +98,7 @@ class Backup04A1HiddenCommunitiesStateTest {
         var seen: Map<String, Set<String>>? = null
         val state = state(
             hidden = mutableMapOf(rootId to setOf("android")),
-            persistBackupRestoreState = { _, _, _, _, hiddenCommunities, _, _, _, _, _ ->
+            persistBackupRestoreState = { _, _, _, _, hiddenCommunities, _, _, _, _, _, _ ->
                 seen = hiddenCommunities
             },
         )
@@ -117,7 +117,7 @@ class Backup04A1HiddenCommunitiesStateTest {
     fun failedDurableTransactionPreventsHiddenAndSettingsProjection() {
         val state = state(
             hidden = mutableMapOf(rootId to setOf("android")),
-            persistBackupRestoreState = { _, _, _, _, _, _, _, _, _, _ ->
+            persistBackupRestoreState = { _, _, _, _, _, _, _, _, _, _, _ ->
                 error("simulated durable commit failure")
             },
         )
@@ -150,7 +150,8 @@ class Backup04A1HiddenCommunitiesStateTest {
                     List<app.subshell.prototype.data.moderation.ModeratorSavedResponse>?,
                     Map<String, Map<String, app.subshell.prototype.ui.UserTag>>?,
                     Map<String, List<app.subshell.prototype.ui.SavedSearch>>?,
-) -> Unit = { _, _, _, _, _, _, _, _, _, _ -> },
+                    Map<String, Set<String>>?,
+) -> Unit = { _, _, _, _, _, _, _, _, _, _, _ -> },
     ): SubshellState = SubshellState(
         initialAccountSessions = sessions,
         initialActiveAccountUsername = "root",

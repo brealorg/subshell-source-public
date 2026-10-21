@@ -25,7 +25,7 @@ class Crosspost01A1CBackupIsolationPolicyTest {
         val ordinary = PostComposerDraft(id = "ordinary", title = "Ordinary", accountStableId = "local:root")
         val state = SubshellState(
             initialPostComposerDrafts = listOf(sourceBound, ordinary),
-            persistBackupRestoreState = { _, _, _, _, _, _, drafts, _, _, _ -> saved = drafts },
+            persistBackupRestoreState = { _, _, _, _, _, _, drafts, _, _, _, _ -> saved = drafts },
         )
         state.restoreBackupState(state.captureSettings(), joinedCommunityIdsByAccount = null, postComposerDraftsByAccount = emptyMap())
         assertEquals(listOf(sourceBound), saved)

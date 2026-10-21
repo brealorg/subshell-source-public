@@ -366,6 +366,8 @@ fun BackupRestoreScreen(
                                             currentPortable.userTagsByAccount,
                                         savedSearchesByAccount =
                                             currentPortable.savedSearchesByAccount,
+                                        watchedCommunityNamesByAccount =
+                                            currentPortable.watchedCommunityNamesByAccount,
                                     )
                                     "Automatic settings history enabled."
                                 }
@@ -415,6 +417,8 @@ fun BackupRestoreScreen(
                                                 currentPortable.userTagsByAccount,
                                             savedSearchesByAccount =
                                                 currentPortable.savedSearchesByAccount,
+                                            watchedCommunityNamesByAccount =
+                                                currentPortable.watchedCommunityNamesByAccount,
                                         )
                                         if (enabled) {
                                             "Hidden communities will be included in new backups and may be restored."
@@ -463,6 +467,8 @@ fun BackupRestoreScreen(
                                                 currentPortable.userTagsByAccount,
                                             savedSearchesByAccount =
                                                 currentPortable.savedSearchesByAccount,
+                                            watchedCommunityNamesByAccount =
+                                                currentPortable.watchedCommunityNamesByAccount,
                                         )
                                         if (enabled) {
                                             "Muted communities will be included in new backups and may be restored."
@@ -510,6 +516,8 @@ fun BackupRestoreScreen(
                                                 currentPortable.userTagsByAccount,
                                             savedSearchesByAccount =
                                                 currentPortable.savedSearchesByAccount,
+                                            watchedCommunityNamesByAccount =
+                                                currentPortable.watchedCommunityNamesByAccount,
                                         )
                                         if (enabled) {
                                             "Text and link post drafts will be included in new backups and may be restored."
@@ -557,6 +565,8 @@ fun BackupRestoreScreen(
                                                 currentPortable.userTagsByAccount,
                                             savedSearchesByAccount =
                                                 currentPortable.savedSearchesByAccount,
+                                            watchedCommunityNamesByAccount =
+                                                currentPortable.watchedCommunityNamesByAccount,
                                         )
                                         if (enabled) {
                                             "Saved moderator responses will be included in new backups and may be restored."
@@ -604,6 +614,8 @@ fun BackupRestoreScreen(
                                                 currentPortable.userTagsByAccount,
                                             savedSearchesByAccount =
                                                 currentPortable.savedSearchesByAccount,
+                                            watchedCommunityNamesByAccount =
+                                                currentPortable.watchedCommunityNamesByAccount,
                                         )
                                         if (enabled) {
                                             "Private notes & tags will be included in new backups and may be restored."
@@ -762,6 +774,8 @@ fun BackupRestoreScreen(
                                     state.captureUserTagsByAccount(),
                                 currentSavedSearchesByAccount =
                                     state.captureSavedSearchesByAccount(),
+                                currentWatchedCommunityNamesByAccount =
+                                    state.captureWatchedCommunityNamesByAccount(),
                             )
                         },
                         onExport = {
@@ -824,6 +838,8 @@ fun BackupRestoreScreen(
                                     state.captureUserTagsByAccount(),
                                 currentSavedSearchesByAccount =
                                     state.captureSavedSearchesByAccount(),
+                                currentWatchedCommunityNamesByAccount =
+                                    state.captureWatchedCommunityNamesByAccount(),
                             )
                         },
                         onExport = {
@@ -883,6 +899,8 @@ fun BackupRestoreScreen(
                                     state.captureUserTagsByAccount(),
                                 currentSavedSearchesByAccount =
                                     state.captureSavedSearchesByAccount(),
+                                currentWatchedCommunityNamesByAccount =
+                                    state.captureWatchedCommunityNamesByAccount(),
                             ).also { pending -> restoreTarget = pending }
                         },
                         onExport = {
@@ -916,6 +934,7 @@ fun BackupRestoreScreen(
                 val currentModeratorSavedResponses = state.captureModeratorSavedResponses()
                 val currentUserTags = state.captureUserTagsByAccount()
                 val currentSavedSearches = state.captureSavedSearchesByAccount()
+                val currentWatchedCommunities = state.captureWatchedCommunityNamesByAccount()
                 val name = saveName
                 runInBackground(BackupFailureOperation.SAVE) {
                     val saved = repository.saveCurrent(
@@ -930,6 +949,7 @@ fun BackupRestoreScreen(
                         currentModeratorSavedResponses,
                         currentUserTags,
                         currentSavedSearches,
+                        currentWatchedCommunities,
                     )
                     "Saved ${saved.name}"
                 }
@@ -1017,6 +1037,12 @@ fun BackupRestoreScreen(
             target = request.snapshot.savedSearchesByAccount?.let(::savedSearchValuesByAccount),
         )
         val legacySavedSearches = request.snapshot.savedSearchesByAccount == null
+        // ISSUE239_WATCHED_COMMUNITIES_SCHEMA_V11_V1: always restored with the backup.
+        val watchedCommunityDiffs = portableValuesRestoreDiff(
+            current = request.currentWatchedCommunityNamesByAccount,
+            target = request.snapshot.watchedCommunityNamesByAccount,
+        )
+        val legacyWatchedCommunities = request.snapshot.watchedCommunityNamesByAccount == null
 
         AlertDialog(
             onDismissRequest = { restoreTarget = null },
@@ -1150,6 +1176,15 @@ fun BackupRestoreScreen(
                         enabled = true,
                         disabledMessage = "",
                     )
+                    Spacer(Modifier.size(8.dp))
+                    PortableValuesRestorePreview(
+                        accountLabel = restoreAccountLabel,
+                        title = "New-post notifications",
+                        legacy = legacyWatchedCommunities,
+                        diffs = watchedCommunityDiffs,
+                        enabled = true,
+                        disabledMessage = "",
+                    )
                     Spacer(Modifier.size(10.dp))
                     Text(
                         "A safety snapshot of your current setup will be created before restore.",
@@ -1180,6 +1215,7 @@ fun BackupRestoreScreen(
                                             pending.currentModeratorSavedResponses,
                                             pending.currentUserTagsByAccount,
                                             pending.currentSavedSearchesByAccount,
+                                            pending.currentWatchedCommunityNamesByAccount,
                                         )
                                     }
                                 }
@@ -1216,6 +1252,7 @@ fun BackupRestoreScreen(
                                                     includeUserTags
                                                 },
                                             savedSearchesByAccount = target.savedSearchesByAccount,
+                                            watchedCommunityNamesByAccount = target.watchedCommunityNamesByAccount,
                                         )
                                     }.onSuccess {
                                         refresh()
@@ -1783,6 +1820,7 @@ private data class PendingRestore(
     val currentModeratorSavedResponses: List<PortableModeratorSavedResponse>,
     val currentUserTagsByAccount: Map<String, Map<String, PortableUserTag>>,
     val currentSavedSearchesByAccount: Map<String, List<SavedSearch>>,
+    val currentWatchedCommunityNamesByAccount: Map<String, Set<String>>,
 )
 
 // BACKUP04A4: device-wide module, shown as one row.

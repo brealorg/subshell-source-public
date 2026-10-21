@@ -32,52 +32,84 @@ internal class RedditCommunityPinnedPostsLoader(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : AuthenticatedRedditCommunityPinnedPostsLoader {
     override suspend fun load(accountStableId: String, communityName: String): List<Post>? =
-        withContext(ioDispatcher) {
-            if (
-                configuration.clientMode != OAuthClientMode.REDREADER_COMPATIBILITY ||
-                configuration.scopes != RedditOAuth.coreReadScopes
-            ) {
-                return@withContext null
-            }
-            val directory = accountCoordinator.snapshot()
-            val active = directory.accounts.firstOrNull { it.stableId == directory.activeAccountId }
-            if (
-                active == null ||
-                active.source != AccountSessionSource.AUTHENTICATED ||
-                active.stableId != accountStableId
-            ) {
-                return@withContext null
-            }
-            val session = (
-                accountCoordinator.ensureConfiguredAccessTokenForAccount(accountStableId)
-                    as? AuthSessionResult.Authenticated
-                )?.session ?: return@withContext null
-            if (
-                session.clientMode != configuration.clientMode ||
-                session.clientIdFingerprint != configuration.clientIdFingerprint ||
-                !session.tokens.grants(RedditOAuth.coreReadScopes)
-            ) {
-                return@withContext null
-            }
-            val source = RedditListingNetworkDataSource(
-                SubshellHttpClient(
-                    callFactory = callFactory,
-                    endpoint = endpoint,
-                    json = SubshellNetworkJson.providerJson,
-                    userAgent = userAgent,
-                    bearerTokenProvider =
-                        accountCoordinator.sessionBoundBearerTokenProvider(session.tokens.accessToken),
-                ),
-            )
-            when (
-                val result = source.posts(
-                    community = communityName,
-                    sort = RedditListingSort.HOT,
-                    request = RepositoryPageRequest(limit = COMMUNITY_PINNED_POSTS_PAGE_LIMIT),
-                )
-            ) {
-                is NetworkResult.Success -> result.value.items.filter { it.pinned }
-                else -> null
-            }
-        }
+        readCommunityListingWithAccount(
+            callFactory = callFactory,
+            endpoint = endpoint,
+            userAgent = userAgent,
+            configuration = configuration,
+            accountCoordinator = accountCoordinator,
+            ioDispatcher = ioDispatcher,
+            accountStableId = accountStableId,
+            communityName = communityName,
+            sort = RedditListingSort.HOT,
+            limit = COMMUNITY_PINNED_POSTS_PAGE_LIMIT,
+        )?.filter { it.pinned }
 }
+
+/**
+ * One page of a community's listing read with [accountStableId]'s own token,
+ * only while it is the active signed-in account of the compatibility client
+ * with the core read scopes. Read only, never cached; null when the account,
+ * token or read does not allow it. Shared by ISSUE230 (pinned posts) and
+ * ISSUE239 (new posts in a watched community).
+ */
+internal suspend fun readCommunityListingWithAccount(
+    callFactory: Call.Factory,
+    endpoint: NetworkEndpoint,
+    userAgent: String,
+    configuration: OAuthProviderConfiguration,
+    accountCoordinator: AuthAccountSessionCoordinator,
+    ioDispatcher: CoroutineDispatcher,
+    accountStableId: String,
+    communityName: String,
+    sort: RedditListingSort,
+    limit: Int,
+): List<Post>? =
+    withContext(ioDispatcher) {
+        if (
+            configuration.clientMode != OAuthClientMode.REDREADER_COMPATIBILITY ||
+            configuration.scopes != RedditOAuth.coreReadScopes
+        ) {
+            return@withContext null
+        }
+        val directory = accountCoordinator.snapshot()
+        val active = directory.accounts.firstOrNull { it.stableId == directory.activeAccountId }
+        if (
+            active == null ||
+            active.source != AccountSessionSource.AUTHENTICATED ||
+            active.stableId != accountStableId
+        ) {
+            return@withContext null
+        }
+        val session = (
+            accountCoordinator.ensureConfiguredAccessTokenForAccount(accountStableId)
+                as? AuthSessionResult.Authenticated
+            )?.session ?: return@withContext null
+        if (
+            session.clientMode != configuration.clientMode ||
+            session.clientIdFingerprint != configuration.clientIdFingerprint ||
+            !session.tokens.grants(RedditOAuth.coreReadScopes)
+        ) {
+            return@withContext null
+        }
+        val source = RedditListingNetworkDataSource(
+            SubshellHttpClient(
+                callFactory = callFactory,
+                endpoint = endpoint,
+                json = SubshellNetworkJson.providerJson,
+                userAgent = userAgent,
+                bearerTokenProvider =
+                    accountCoordinator.sessionBoundBearerTokenProvider(session.tokens.accessToken),
+            ),
+        )
+        when (
+            val result = source.posts(
+                community = communityName,
+                sort = sort,
+                request = RepositoryPageRequest(limit = limit),
+            )
+        ) {
+            is NetworkResult.Success -> result.value.items
+            else -> null
+        }
+    }

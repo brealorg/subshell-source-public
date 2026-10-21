@@ -3728,6 +3728,7 @@ private fun CommentRow(
                 if (comment.body.isNotBlank()) {
                     CommentContent(
                         source = comment.body,
+                        selectable = true, // ISSUE235_LONG_PRESS_SELECTS_TEXT_V1
                         modifier = Modifier
                             .fillMaxWidth()
                             .then(

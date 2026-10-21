@@ -3,11 +3,12 @@ package app.subshell.prototype.data.auth.reddit
 import app.subshell.prototype.data.auth.AuthCapabilityAuthorizationOwner
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class Wiki01A1AuthorizationPolicyTest {
     @Test
-    fun wikiReadIsIncrementalAndDoesNotWidenDailyDriverGrant() {
+    fun wikiReadHasItsOwnCapabilityAndSignInAsksForIt() {
         assertEquals(
             RedditOAuth.coreReadScopes + "wikiread",
             RedditOAuth.liveCommunityWikiReadScopes,
@@ -17,7 +18,8 @@ class Wiki01A1AuthorizationPolicyTest {
             RedditOAuth.scopesFor(RedditOAuthCapability.COMMUNITY_WIKI_READ),
         )
         assertFalse("wikiread" in RedditOAuth.coreReadScopes)
-        assertFalse("wikiread" in RedditOAuth.dailyDriverScopes)
+        // ISSUE237: sign-in asks for it too; the capability owner stays the fallback.
+        assertTrue("wikiread" in RedditOAuth.dailyDriverScopes)
     }
 
     @Test

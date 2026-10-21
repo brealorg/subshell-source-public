@@ -1,12 +1,10 @@
 package app.subshell.prototype.ui.screens
 
 import android.text.format.DateFormat
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.layout.WindowInsetsRulers
 import androidx.compose.foundation.layout.fitInside
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onLongClick
@@ -80,6 +78,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import app.subshell.prototype.model.InboxItem
 import app.subshell.prototype.model.MessageBubble
 import app.subshell.prototype.model.RemoteCommentMediaKind
@@ -129,12 +128,6 @@ import app.subshell.prototype.data.account.directChatMatrixReactionTargetEventId
 import app.subshell.prototype.data.account.directChatCachedReactionTargetEventId
 import app.subshell.prototype.data.account.directChatReactionSummaries
 import app.subshell.prototype.data.account.suppressRedactedDirectChatAuthoritativeMessages
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.PressInteraction
-import androidx.compose.foundation.indication
-import androidx.compose.material3.ripple
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
@@ -1455,44 +1448,21 @@ private fun DirectChatMessage(
     val hasActions = onReact != null || onDelete != null
     val actionsAvailable = hasActions && !deleteInProgress && !reactInProgress
 
-    // LOWUI7_MESSAGE_ACTIONS_ON_LONG_PRESS_V1 (OCB-197): the small ⋮ stays
-    // (owner); a long press on the message, or the named accessibility
-    // action, opens the same menu.
-    // M3225_CHAT_LONG_PRESS_HAS_PRESS_FEEDBACK_V1 (#225, modinbox-17): the press
-    // shows a ripple and the long press a haptic tick, as combinedClickable
-    // would, without adding a tap action the bubble does not have.
-    val pressInteractions = remember { MutableInteractionSource() }
-    val haptics = LocalHapticFeedback.current
+    // ISSUE235_LONG_PRESS_SELECTS_TEXT_V1 (owner: one behaviour in the whole
+    // app): a long press on a message selects its text, as on a comment; the
+    // menu is the ⋮ beside it (as on a comment). Replaces LOWUI7 (OCB-197),
+    // where a long press opened the menu. TalkBack keeps the named action.
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .then(
                 if (actionsAvailable) {
-                    Modifier
-                        .clip(unitShape)
-                        .indication(pressInteractions, ripple())
-                        .pointerInput(message.id) {
-                            detectTapGestures(
-                                onPress = { offset ->
-                                    val press = PressInteraction.Press(offset)
-                                    pressInteractions.emit(press)
-                                    val released = tryAwaitRelease()
-                                    pressInteractions.emit(
-                                        if (released) PressInteraction.Release(press) else PressInteraction.Cancel(press),
-                                    )
-                                },
-                                onLongPress = {
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    actionMenuExpanded = true
-                                },
-                            )
+                    Modifier.semantics {
+                        onLongClick(label = DIRECT_CHAT_MESSAGE_ACTIONS_LABEL) {
+                            actionMenuExpanded = true
+                            true
                         }
-                        .semantics {
-                            onLongClick(label = DIRECT_CHAT_MESSAGE_ACTIONS_LABEL) {
-                                actionMenuExpanded = true
-                                true
-                            }
-                        }
+                    }
                 } else {
                     Modifier
                 },
@@ -1521,6 +1491,7 @@ private fun DirectChatMessage(
                     body = message.body,
                     renderMarkdown = true,
                     localMedia = localMedia,
+                    selectable = true, // ISSUE235_LONG_PRESS_SELECTS_TEXT_V1
                     modifier = if (hasActions) {
                         Modifier.padding(end = 24.dp)
                     } else {
@@ -1886,7 +1857,7 @@ private fun PrivateMessageThreadMessage(
         },
     ) {
         Box(modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp)) {
-            ConversationMessageBody(body = message.body)
+            ConversationMessageBody(body = message.body, selectable = true) // ISSUE235_LONG_PRESS_SELECTS_TEXT_V1
         }
     }
 }
@@ -1897,6 +1868,7 @@ private fun ConversationMessageBody(
     modifier: Modifier = Modifier,
     renderMarkdown: Boolean = true,
     localMedia: OptimisticConversationMedia? = null,
+    selectable: Boolean = false,
 ) {
     val projection = remember(body) { projectCommentContent(body) }
     Column(
@@ -1931,6 +1903,7 @@ private fun ConversationMessageBody(
             ConversationBodyText(
                 text = projection.displayText,
                 renderMarkdown = renderMarkdown,
+                selectable = selectable,
             )
         }
         projection.media.take(MAX_INLINE_MESSAGE_IMAGES).forEachIndexed { index, media ->
@@ -1973,15 +1946,23 @@ private fun ConversationMessageBody(
 private fun ConversationBodyText(
     text: String,
     renderMarkdown: Boolean,
+    selectable: Boolean,
 ) {
     if (renderMarkdown) {
-        MarkdownText(text = text)
+        MarkdownText(text = text, selectable = selectable)
+    } else if (selectable) {
+        SelectionContainer { ConversationPlainText(text) }
     } else {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyLarge,
-        )
+        ConversationPlainText(text)
     }
+}
+
+@Composable
+private fun ConversationPlainText(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyLarge,
+    )
 }
 
 @Composable

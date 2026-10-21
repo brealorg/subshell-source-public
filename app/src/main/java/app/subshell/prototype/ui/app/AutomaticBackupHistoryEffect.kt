@@ -66,6 +66,7 @@ internal suspend fun recordAutomaticBackup(
                 moderatorSavedResponses = portableState.moderatorSavedResponses,
                 userTagsByAccount = portableState.userTagsByAccount,
                 savedSearchesByAccount = portableState.savedSearchesByAccount,
+                watchedCommunityNamesByAccount = portableState.watchedCommunityNamesByAccount,
             )
         }
     } catch (cancelled: CancellationException) {

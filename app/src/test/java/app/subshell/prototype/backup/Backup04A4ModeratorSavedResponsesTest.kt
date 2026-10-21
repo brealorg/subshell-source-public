@@ -66,7 +66,7 @@ class Backup04A4ModeratorSavedResponsesTest {
             initialModeratorSavedResponses = listOf(
                 ModeratorSavedResponse("keep", "Keep", "Body", 1L),
             ),
-            persistBackupRestoreState = { _, _, _, _, _, _, _, responses, _, _ ->
+            persistBackupRestoreState = { _, _, _, _, _, _, _, responses, _, _, _ ->
                 persistCalls += 1
                 persisted = responses
             },
@@ -105,7 +105,7 @@ class Backup04A4ModeratorSavedResponsesTest {
     fun liveStateOnlyChangesAfterTheDurableCommit() {
         val state = SubshellState(
             initialModeratorSavedResponses = listOf(ModeratorSavedResponse("keep", "Keep", "Body", 1L)),
-            persistBackupRestoreState = { _, _, _, _, _, _, _, _, _, _ -> error("simulated durable commit failure") },
+            persistBackupRestoreState = { _, _, _, _, _, _, _, _, _, _, _ -> error("simulated durable commit failure") },
         )
         val failed = runCatching {
             state.restoreBackupState(

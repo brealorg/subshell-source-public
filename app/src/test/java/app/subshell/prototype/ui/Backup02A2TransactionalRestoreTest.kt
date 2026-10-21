@@ -33,7 +33,7 @@ class Backup02A2TransactionalRestoreTest {
             },
             persistJoinedCommunityIds = { _, _ -> legacyCommunityWrites += 1 },
             persistSettings = { legacySettingsWrites += 1 },
-            persistBackupRestoreState = { values, communities, _, _, _, _, _, _, _, _ ->
+            persistBackupRestoreState = { values, communities, _, _, _, _, _, _, _, _, _ ->
                 transactionCalls += 1
                 durableSettings.clear()
                 durableSettings.putAll(values)
@@ -88,7 +88,7 @@ class Backup02A2TransactionalRestoreTest {
             },
             persistJoinedCommunityIds = { _, _ -> legacyCommunityWrites += 1 },
             persistSettings = { legacySettingsWrites += 1 },
-            persistBackupRestoreState = { _, _, _, _, _, _, _, _, _, _ ->
+            persistBackupRestoreState = { _, _, _, _, _, _, _, _, _, _, _ ->
                 throw IllegalStateException("simulated atomic commit failure")
             },
         )
@@ -129,7 +129,7 @@ class Backup02A2TransactionalRestoreTest {
             loadJoinedCommunityIds = { username ->
                 durableCommunities[username.trim().lowercase()].orEmpty()
             },
-            persistBackupRestoreState = { values, communities, _, _, _, _, _, _, _, _ ->
+            persistBackupRestoreState = { values, communities, _, _, _, _, _, _, _, _, _ ->
                 durableSettings.putAll(values)
                 seenCommunities = communities
             },

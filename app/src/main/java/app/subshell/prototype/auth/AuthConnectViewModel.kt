@@ -952,6 +952,9 @@ internal class AuthConnectViewModel internal constructor(
     val accountSessionDirectory: AccountSessionDirectory?
         get() = runtime.accountSessionDirectory
 
+    val redditUserAgent: String?
+        get() = runtime.redditUserAgent
+
     fun logoutActiveAccount(onComplete: (Boolean) -> Unit) {
         val coordinator =
             runtime.accountSessionDirectory as? AuthAccountSessionCoordinator

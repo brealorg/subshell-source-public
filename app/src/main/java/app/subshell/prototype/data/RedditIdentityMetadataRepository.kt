@@ -164,6 +164,7 @@ internal class RoomBackedIdentityMetadataRepository(
 internal fun createRedditIdentityMetadataRepository(
     repository: SubshellRepository,
     accountSessionDirectory: AccountSessionDirectory?,
+    userAgent: String? = null,
 ): IdentityMetadataRepository? {
     val cache = repository as? IdentityMetadataCacheRepository ?: return null
     val activeTokenProvider = accountSessionDirectory as? NetworkBearerTokenProvider ?: return null
@@ -179,7 +180,7 @@ internal fun createRedditIdentityMetadataRepository(
                 callFactory = SubshellNetworkTransport.sharedCallFactory,
                 endpoint = NetworkEndpoint.https(RedditOAuth.apiEndpoint),
                 json = SubshellNetworkJson.providerJson,
-                userAgent = RedditOAuth.REDREADER_COMPATIBILITY_USER_AGENT,
+                userAgent = userAgent ?: RedditOAuth.REDREADER_COMPATIBILITY_USER_AGENT,
                 bearerTokenProvider = tokenProvider,
             ),
         ),

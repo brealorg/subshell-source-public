@@ -24,6 +24,9 @@ internal class ViewportErrorRequest internal constructor(
     val failureDetails: FailureDetails?,
     val onRetry: (() -> Unit)?,
     val tone: TrayTone = TrayTone.ERROR,
+    // ISSUE238_CONFIRMATIONS_DISMISS_THEMSELVES_V1: a one-off confirmation
+    // leaves the tray by itself, like a snackbar without an action.
+    val dismissesItself: Boolean = false,
 )
 
 /**
@@ -62,6 +65,7 @@ internal class ViewportErrorHostState {
         presentation: ErrorPresentation,
         failureDetails: FailureDetails?,
         tone: TrayTone = TrayTone.ERROR,
+        dismissesItself: Boolean = false,
         onRetry: (() -> Unit)?,
     ) {
         require(scopeKey.isNotBlank())
@@ -85,6 +89,7 @@ internal class ViewportErrorHostState {
                 presentation.primaryAction?.kind == ErrorActionKind.RETRY
             },
             tone = tone,
+            dismissesItself = dismissesItself,
         )
         val previous = activeRequests[scopeKey]
         if (previous?.fingerprint == fingerprint) {
@@ -134,6 +139,7 @@ internal fun ViewportErrorHostState.presentNotice(
     title: String,
     message: String,
     tone: TrayTone = TrayTone.INFO,
+    dismissesItself: Boolean = false,
 ) {
     clear(scopeKey)
     present(
@@ -146,6 +152,7 @@ internal fun ViewportErrorHostState.presentNotice(
         failureDetails = null,
         onRetry = null,
         tone = tone,
+        dismissesItself = dismissesItself,
     )
 }
 

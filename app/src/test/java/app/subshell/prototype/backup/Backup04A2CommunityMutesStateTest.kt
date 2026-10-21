@@ -47,7 +47,7 @@ class Backup04A2CommunityMutesStateTest {
             loadCommunityMuteEntries = { accountId ->
                 if (accountId == "local:root") setOf("indefinite|motogp") else emptySet()
             },
-            persistBackupRestoreState = { _, _, _, _, _, mutes, _, _, _, _ -> persisted = mutes },
+            persistBackupRestoreState = { _, _, _, _, _, mutes, _, _, _, _, _ -> persisted = mutes },
         )
 
         state.restoreBackupState(
@@ -77,7 +77,7 @@ class Backup04A2CommunityMutesStateTest {
             initialActiveAccountUsername = "root",
             currentTimeMillis = { 10_000L },
             loadCommunityMuteEntries = { setOf("indefinite|motogp") },
-            persistBackupRestoreState = { _, _, _, _, _, mutes, _, _, _, _ -> persisted = mutes },
+            persistBackupRestoreState = { _, _, _, _, _, mutes, _, _, _, _, _ -> persisted = mutes },
         )
 
         state.restoreBackupState(
@@ -110,7 +110,7 @@ class Backup04A2CommunityMutesStateTest {
             initialActiveAccountUsername = "root",
             currentTimeMillis = { 10_000L },
             loadCommunityMuteEntries = { setOf("indefinite|motogp") },
-            persistBackupRestoreState = { _, _, _, _, _, _, _, _, _, _ ->
+            persistBackupRestoreState = { _, _, _, _, _, _, _, _, _, _, _ ->
                 error("durable failure")
             },
         )

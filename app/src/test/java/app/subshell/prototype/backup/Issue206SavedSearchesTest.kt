@@ -118,14 +118,14 @@ class Issue206SavedSearchesTest {
             second.stableId to listOf(SavedSearch("cats", SearchScope.ALL, SearchArea.ALL_SUBSHELL)),
         )
         val encoded = SettingsSnapshotCodec.encode(snapshot(searches))
-        assertTrue(encoded.contains("\"schemaVersion\": 10"))
+        assertTrue(encoded.contains("\"schemaVersion\": $SETTINGS_BACKUP_SCHEMA_VERSION"))
         assertTrue(encoded.contains("\"savedSearches\""))
         assertEquals(
             normalizeSavedSearchesByAccount(searches),
             SettingsSnapshotCodec.decode(encoded).savedSearchesByAccount,
         )
 
-        val schemaNine = encoded.replace("\"schemaVersion\": 10", "\"schemaVersion\": 9")
+        val schemaNine = encoded.replace("\"schemaVersion\": $SETTINGS_BACKUP_SCHEMA_VERSION", "\"schemaVersion\": 9")
         assertNull(SettingsSnapshotCodec.decode(schemaNine).savedSearchesByAccount)
 
         val empty = SettingsSnapshotCodec.encode(snapshot(emptyMap()))
@@ -208,7 +208,7 @@ class Issue206SavedSearchesTest {
         initialSavedSearchesEnabled = enabled,
         loadSavedSearches = { id -> stored[id].orEmpty() },
         persistSavedSearches = { id, searches -> stored[id] = searches },
-        persistBackupRestoreState = { _, _, _, _, _, _, _, _, _, searches ->
+        persistBackupRestoreState = { _, _, _, _, _, _, _, _, _, searches, _ ->
             stage(searches)
             searches?.forEach { (id, list) -> stored[id] = list }
         },

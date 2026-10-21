@@ -3,13 +3,12 @@ package app.subshell.prototype.data.auth.reddit
 import app.subshell.prototype.data.auth.AuthCapabilityAuthorizationOwner
 import java.io.File
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class Moderation02A5A5AuthorizationPolicyTest {
     @Test
-    fun moderatorInvitesUseDedicatedModothersOwnerWithoutExpandingDailyDriver() {
+    fun moderatorInvitesUseDedicatedModothersOwnerAndSignInAsksForIt() {
         assertEquals("moderation_team", AuthCapabilityAuthorizationOwner.MODERATION_TEAM.wireKey)
         assertEquals(
             AuthCapabilityAuthorizationOwner.MODERATION_TEAM,
@@ -18,7 +17,8 @@ class Moderation02A5A5AuthorizationPolicyTest {
         assertTrue(
             RedditOAuth.scopesFor(RedditOAuthCapability.MODERATION_TEAM).contains("modothers"),
         )
-        assertFalse(RedditOAuth.dailyDriverScopes.contains("modothers"))
+        // ISSUE237: sign-in asks for it too; the capability owner stays the fallback.
+        assertTrue(RedditOAuth.dailyDriverScopes.contains("modothers"))
 
         val oauth = File("src/main/java/app/subshell/prototype/data/auth/reddit/RedditOAuth.kt").readText()
         val owner = File("src/main/java/app/subshell/prototype/data/auth/AuthCapabilityAuthorizer.kt").readText()
@@ -32,7 +32,7 @@ class Moderation02A5A5AuthorizationPolicyTest {
         assertTrue(oauth.contains("MODERATION_TEAM -> liveModeratorTeamScopes"))
         assertTrue(oauth.contains("liveModeratorUserManagementScopes = coreReadScopes + \"modcontributors\""))
         val daily = oauth.substringAfter("val dailyDriverScopes = setOf(").substringBefore("    )")
-        assertFalse(daily.contains("modothers"))
+        assertTrue(daily.contains("\"modothers\""))
         assertTrue(owner.contains("MODERATION_TEAM(\"moderation_team\")"))
         assertTrue(runtime.contains("owner = AuthCapabilityAuthorizationOwner.MODERATION_TEAM"))
         assertTrue(runtime.contains("SubshellNetworkTransport.nonRetryingWriteCallFactory"))

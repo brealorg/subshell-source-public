@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -578,7 +577,7 @@ private fun RedditClientIdGuide(
     }
     if (storeOpenFailed) {
         Text(
-            "Couldn't open a store on this phone. Search for RedReader in your app store.",
+            "Couldn't open a store on this device. Search for RedReader in your app store.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,
         )
@@ -825,12 +824,26 @@ private fun RedditClientIdEntry(
         mutableStateOf<String?>(null)
     }
 
+    // ISSUE240_ONBOARDING_EDITS_THE_REDDIT_API_VALUES_V1: a fresh install can
+    // sign in even after Reddit or RedReader changed these; saved with the ID.
+    var redirectUriDraft by remember {
+        mutableStateOf(configurationController.compatibilityRedirectUri)
+    }
+
+    var userAgentDraft by remember {
+        mutableStateOf(configurationController.compatibilityUserAgent)
+    }
+
     val normalizedDraft = draft.trim()
 
     val valid =
         configurationController.isValidClientId(
             normalizedDraft,
         )
+
+    val apiValuesValid =
+        redirectUriError(redirectUriDraft) == null &&
+            userAgentError(userAgentDraft) == null
 
     Icon(
         Symbols.Lock,
@@ -954,37 +967,15 @@ private fun RedditClientIdEntry(
                     Arrangement.spacedBy(12.dp),
             ) {
                 Text(
-                    "RedReader compatibility defaults",
+                    "Reddit API values",
                     style =
                         MaterialTheme.typography
                             .titleSmall,
                 )
 
-                SelectionContainer {
-                    Column(
-                        verticalArrangement =
-                            Arrangement.spacedBy(
-                                10.dp,
-                            ),
-                    ) {
-                        AdvancedValue(
-                            label = "Redirect URI",
-                            value =
-                                configurationController
-                                    .compatibilityRedirectUri,
-                        )
-
-                        AdvancedValue(
-                            label = "User agent",
-                            value =
-                                configurationController
-                                    .compatibilityUserAgent,
-                        )
-                    }
-                }
-
                 Text(
-                    "These values are fixed by subshell and normally don't need to be changed.",
+                    "Only change these if sign-in stopped working or you were told to. " +
+                        "Wrong values break sign-in.",
                     style =
                         MaterialTheme.typography
                             .bodySmall,
@@ -992,20 +983,54 @@ private fun RedditClientIdEntry(
                         MaterialTheme.colorScheme
                             .onSurfaceVariant,
                 )
+
+                ApiValueField(
+                    label = "Redirect URI",
+                    value = redirectUriDraft,
+                    error = redirectUriError(redirectUriDraft),
+                    enabled = !busy,
+                    keyboardType = KeyboardType.Uri,
+                    onValueChange = { value -> redirectUriDraft = value },
+                )
+
+                ApiValueField(
+                    label = "User agent",
+                    value = userAgentDraft,
+                    error = userAgentError(userAgentDraft),
+                    enabled = !busy,
+                    keyboardType = KeyboardType.Ascii,
+                    onValueChange = { value -> userAgentDraft = value },
+                )
+
+                if (
+                    redirectUriDraft != configurationController.compatibilityRedirectUri ||
+                    userAgentDraft != configurationController.compatibilityUserAgent
+                ) {
+                    TextButton(
+                        enabled = !busy,
+                        onClick = {
+                            redirectUriDraft = configurationController.compatibilityRedirectUri
+                            userAgentDraft = configurationController.compatibilityUserAgent
+                        },
+                    ) {
+                        Text("Use defaults")
+                    }
+                }
             }
         }
     }
 
     Button(
         modifier = Modifier.fillMaxWidth(),
-        enabled = valid && !busy,
+        enabled = valid && apiValuesValid && !busy,
         onClick = {
             val clientId =
                 normalizedDraft
 
             if (
                 !configurationController
-                    .isValidClientId(clientId)
+                    .isValidClientId(clientId) ||
+                !apiValuesValid
             ) {
                 return@Button
             }
@@ -1023,7 +1048,11 @@ private fun RedditClientIdEntry(
                             Dispatchers.IO,
                         ) {
                             configurationController
-                                .save(clientId)
+                                .save(
+                                    clientId = clientId,
+                                    redirectUri = redirectUriDraft.trim(),
+                                    userAgent = userAgentDraft.trim(),
+                                )
                         }
                     }
 
@@ -1052,34 +1081,6 @@ private fun RedditClientIdEntry(
             } else {
                 "Save Client ID"
             },
-        )
-    }
-}
-
-@Composable
-private fun AdvancedValue(
-    label: String,
-    value: String,
-) {
-    Column(
-        verticalArrangement =
-            Arrangement.spacedBy(3.dp),
-    ) {
-        Text(
-            label,
-            style =
-                MaterialTheme.typography
-                    .labelMedium,
-            color =
-                MaterialTheme.colorScheme
-                    .onSurfaceVariant,
-        )
-
-        Text(
-            value,
-            style =
-                MaterialTheme.typography
-                    .bodyMedium,
         )
     }
 }

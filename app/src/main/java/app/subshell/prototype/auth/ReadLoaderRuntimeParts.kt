@@ -1,6 +1,8 @@
 package app.subshell.prototype.auth
 
+import app.subshell.prototype.data.auth.reddit.RedditCommunityNewPostsLoader
 import app.subshell.prototype.data.auth.reddit.RedditCommunityPinnedPostsLoader
+import app.subshell.prototype.data.auth.AuthenticatedRedditCommunityNewPostsLoader
 import app.subshell.prototype.data.auth.AuthenticatedRedditCommunityPinnedPostsLoader
 import android.content.Context
 import app.subshell.prototype.data.auth.AuthAccountSessionCoordinator
@@ -50,6 +52,7 @@ internal class ReadLoaderRuntimeParts(
     val redditCommunityInfoLoader: AuthenticatedRedditCommunityInfoLoader?,
     // ISSUE230_PINNED_POSTS_FIRST_V1
     val redditCommunityPinnedPostsLoader: AuthenticatedRedditCommunityPinnedPostsLoader?,
+    val redditCommunityNewPostsLoader: AuthenticatedRedditCommunityNewPostsLoader?,
 )
 
 /**
@@ -170,6 +173,14 @@ internal fun readLoaderRuntimeParts(
             accountCoordinator = coordinator,
         ),
         redditCommunityPinnedPostsLoader = RedditCommunityPinnedPostsLoader(
+            callFactory = callFactory,
+            endpoint = NetworkEndpoint.https(RedditOAuth.apiEndpoint),
+            userAgent = selected.userAgent,
+            configuration = configuration,
+            accountCoordinator = coordinator,
+        ),
+        // ISSUE239_NEW_POSTS_IN_A_WATCHED_COMMUNITY_V1
+        redditCommunityNewPostsLoader = RedditCommunityNewPostsLoader(
             callFactory = callFactory,
             endpoint = NetworkEndpoint.https(RedditOAuth.apiEndpoint),
             userAgent = selected.userAgent,

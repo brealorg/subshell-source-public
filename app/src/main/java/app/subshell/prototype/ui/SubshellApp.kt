@@ -19,6 +19,7 @@ import app.subshell.prototype.ui.app.AppBottomBar
 import app.subshell.prototype.ui.app.ExpandedMainNavigationRail
 import app.subshell.prototype.ui.app.RuntimeErrorReports
 import app.subshell.prototype.ui.app.AutomaticBackupHistoryEffect
+import app.subshell.prototype.ui.app.CommunityPostCheckEffect
 import app.subshell.prototype.ui.app.NsfwAccountPreferenceNotice
 import app.subshell.prototype.ui.app.CustomFeedLinkEffect
 import app.subshell.prototype.ui.app.LauncherShortcutsEffect
@@ -310,6 +311,7 @@ fun SubshellApp(
     onDismissRedditLinkPrompt: () -> Unit = {},
     state: SubshellState = rememberSubshellState(
         accountSessionDirectory = accountConnect.accountSessionDirectory,
+        redditUserAgent = accountConnect.redditUserAgent,
     ),
     backupRepository: SettingsBackupRepository = rememberSettingsBackupRepository(),
     onThemeSettingsChanged: (SubshellThemeSettings) -> Unit = {},
@@ -587,6 +589,7 @@ fun SubshellApp(
         }
         var requestedSettingsDestinationName by requestedSettingsDestinationNameState
         AutomaticBackupHistoryEffect(state = state, backupRepository = backupRepository)
+        CommunityPostCheckEffect(state = state)
         LauncherShortcutsEffect(state = state, customFeedsState = customFeedsState)
         LoadCachedCommunityListIdentities(state = state)
         val activeCustomFeedPathState = rememberSaveable(state.activeAccountId) {

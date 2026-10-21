@@ -34,6 +34,7 @@ internal fun CommentContent(
     color: Color = Color.Unspecified,
     onMediaClick: (RemoteCommentMedia) -> Unit = {},
     highlight: MarkdownHighlight? = null,
+    selectable: Boolean = false,
 ) {
     val projection = remember(source) { projectCommentContent(source) }
     var mediaActionTarget by remember(source) { mutableStateOf<RemoteMediaTarget?>(null) }
@@ -52,6 +53,8 @@ internal fun CommentContent(
                 text = projection.displayText,
                 color = color,
                 highlight = highlight,
+                // ISSUE235: only the text; the media keep their own long press.
+                selectable = selectable,
             )
         }
         projection.media.forEach { media ->

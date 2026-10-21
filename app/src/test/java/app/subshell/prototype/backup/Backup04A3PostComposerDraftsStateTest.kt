@@ -40,7 +40,7 @@ class Backup04A3PostComposerDraftsStateTest {
                 media("media", "local:root"),
                 text("ownerless", null, "Legacy"),
             ),
-            persistBackupRestoreState = { _, _, _, _, _, _, drafts, _, _, _ ->
+            persistBackupRestoreState = { _, _, _, _, _, _, drafts, _, _, _, _ ->
                 persistedDrafts = drafts
             },
         )
@@ -71,7 +71,7 @@ class Backup04A3PostComposerDraftsStateTest {
                 text("other", "Other:Case", "Other"),
                 media("collision", "local:root"),
             ),
-            persistBackupRestoreState = { _, _, _, _, _, _, drafts, _, _, _ ->
+            persistBackupRestoreState = { _, _, _, _, _, _, drafts, _, _, _, _ ->
                 persistedDrafts = drafts
             },
         )
@@ -106,7 +106,7 @@ class Backup04A3PostComposerDraftsStateTest {
                 text("other", "Other", "Other"),
                 media("media", "local:root"),
             ),
-            persistBackupRestoreState = { _, _, _, _, _, _, _, _, _, _ -> },
+            persistBackupRestoreState = { _, _, _, _, _, _, _, _, _, _, _ -> },
         )
 
         state.restoreBackupState(
@@ -122,7 +122,7 @@ class Backup04A3PostComposerDraftsStateTest {
     fun durableFailurePreventsLiveDraftProjection() {
         val state = SubshellState(
             initialPostComposerDrafts = listOf(text("old", "local:root", "Old")),
-            persistBackupRestoreState = { _, _, _, _, _, _, _, _, _, _ ->
+            persistBackupRestoreState = { _, _, _, _, _, _, _, _, _, _, _ ->
                 error("durable failure")
             },
         )

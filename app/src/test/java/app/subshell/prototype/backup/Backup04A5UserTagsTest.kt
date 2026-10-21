@@ -212,7 +212,7 @@ class Backup04A5UserTagsTest {
         initialActiveAccountId = activeId,
         loadUserTags = { id -> stored[id].orEmpty() },
         persistUserTags = { id, tags -> stored[id] = tags },
-        persistBackupRestoreState = { _, _, _, _, _, _, _, _, userTags, _ ->
+        persistBackupRestoreState = { _, _, _, _, _, _, _, _, userTags, _, _ ->
             stageUserTags(userTags)
             userTags?.forEach { (id, tags) -> stored[id] = tags }
         },

@@ -26,8 +26,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -40,6 +42,11 @@ import app.subshell.prototype.ui.error.ErrorActionKind
 import app.subshell.prototype.ui.error.TrayTone
 import app.subshell.prototype.ui.error.ViewportErrorHostState
 import app.subshell.prototype.ui.symbols.Symbols
+import kotlinx.coroutines.delay
+
+// ISSUE238_CONFIRMATIONS_DISMISS_THEMSELVES_V1: Google's short snackbar time;
+// Android lengthens it for accessibility services, as SnackbarHost does.
+internal const val SelfDismissingNoticeMillis = 4_000L
 
 @Composable
 internal fun ViewportErrorTrayHost(
@@ -47,6 +54,19 @@ internal fun ViewportErrorTrayHost(
     modifier: Modifier = Modifier,
 ) {
     val request = state.currentRequest
+    val accessibilityManager = LocalAccessibilityManager.current
+    LaunchedEffect(request) {
+        val shown = request?.takeIf { it.dismissesItself } ?: return@LaunchedEffect
+        delay(
+            accessibilityManager?.calculateRecommendedTimeoutMillis(
+                originalTimeoutMillis = SelfDismissingNoticeMillis,
+                containsIcons = true,
+                containsText = true,
+                containsControls = false,
+            ) ?: SelfDismissingNoticeMillis,
+        )
+        state.clear(shown.scopeKey)
+    }
     AnimatedVisibility(
         visible = request != null,
         modifier = modifier,

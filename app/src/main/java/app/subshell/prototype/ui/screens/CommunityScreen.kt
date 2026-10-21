@@ -3,7 +3,20 @@ package app.subshell.prototype.ui.screens
 import app.subshell.prototype.ui.communityFeedWithPinnedPosts
 import app.subshell.prototype.ui.CommunityFeedWithPinned
 import app.subshell.prototype.data.account.RedditCommunityPinnedPostsUiState
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.RowScope
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import app.subshell.prototype.update.appNotificationSettingsIntent
+import app.subshell.prototype.communityposts.CommunityPostNotificationCenter
+import app.subshell.prototype.communityposts.MAX_WATCHED_COMMUNITIES
+import app.subshell.prototype.ui.noticeInfo
+import app.subshell.prototype.ui.state.CommunityPostWatchChange
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import app.subshell.prototype.ui.ScreenMargin
@@ -213,6 +226,85 @@ fun CommunityScreen(
         ?: state.communityIdentityFor(communityName)
     val context = LocalContext.current
     val userNotices = LocalViewportErrorHostState.current
+    // ISSUE239_NOTIFY_ABOUT_NEW_POSTS_FROM_THE_COMMUNITY_MENU_V1 (#239): the
+    // community's ⋮ turns new-post notifications on and off; Android 13+ asks
+    // for the notification permission first.
+    fun watchCommunityPosts() {
+        when (state.setWatchingCommunityPosts(community.name, watch = true)) {
+            CommunityPostWatchChange.CHANGED -> {
+                CommunityPostNotificationCenter.ensureChannel(context)
+                userNotices.noticeInfo(
+                    "Notifications on for ${state.subredditLabel(community.name)}",
+                    "New posts are checked every 15 minutes",
+                )
+            }
+            CommunityPostWatchChange.LIMIT_REACHED -> userNotices.noticeFailure(
+                "You get notifications from $MAX_WATCHED_COMMUNITIES communities",
+                "Turn one off in Settings › Notifications › New posts first",
+            )
+            CommunityPostWatchChange.UNCHANGED,
+            CommunityPostWatchChange.UNAVAILABLE,
+            -> Unit
+        }
+    }
+    // ISSUE239_NOTIFICATIONS_ARE_ASKED_FOR_OR_OPENED_V1 (owner, phone check):
+    // when Android answers without showing its question (the permission was
+    // refused before) or notifications are off for subshell, the system's
+    // notification settings open, and the community is turned on on return
+    // once notifications are allowed. A "Don't allow" the reader just chose
+    // is only said, not answered with the settings.
+    var newPostPermissionDialogShown by remember { mutableStateOf(false) }
+    var watchAfterNotificationSettings by remember(community.name) { mutableStateOf(false) }
+    fun openNotificationSettingsThenWatch() {
+        watchAfterNotificationSettings = true
+        runCatching { context.startActivity(appNotificationSettingsIntent(context)) }
+            .onFailure { watchAfterNotificationSettings = false }
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { newPostPermissionDialogShown = true }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (watchAfterNotificationSettings) {
+            watchAfterNotificationSettings = false
+            if (CommunityPostNotificationCenter.canPost(context)) {
+                watchCommunityPosts()
+            } else {
+                userNotices.noticeFailure(
+                    "Notifications are not allowed",
+                    "Allow notifications for subshell to get new posts",
+                )
+            }
+        }
+    }
+    val newPostPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        when {
+            granted && CommunityPostNotificationCenter.canPost(context) -> watchCommunityPosts()
+            granted || !newPostPermissionDialogShown -> openNotificationSettingsThenWatch()
+            else -> userNotices.noticeFailure(
+                "Notifications are not allowed",
+                "Allow notifications for subshell to get new posts",
+            )
+        }
+    }
+    fun toggleCommunityPostNotifications() {
+        when {
+            state.isWatchingCommunityPosts(community.name) -> {
+                state.setWatchingCommunityPosts(community.name, watch = false)
+                userNotices.noticeInfo(
+                    "Notifications off for ${state.subredditLabel(community.name)}",
+                    "No more notifications about its new posts",
+                )
+            }
+            // The limit is said before anything is asked.
+            state.watchedCommunityNames.size >= MAX_WATCHED_COMMUNITIES -> watchCommunityPosts()
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED -> {
+                newPostPermissionDialogShown = false
+                newPostPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            !CommunityPostNotificationCenter.canPost(context) -> openNotificationSettingsThenWatch()
+            else -> watchCommunityPosts()
+        }
+    }
     val aboutSheetVisible = rememberSaveable(community.name) {
         mutableStateOf(false)
     }
@@ -866,6 +958,31 @@ fun CommunityScreen(
                                     onClick = {
                                         communityMenuExpanded.value = false
                                         userFlairSheetVisible.value = true
+                                    },
+                                )
+                            }
+
+                            if (state.communityPostNotificationsAvailable) {
+                                val watchingPosts = state.isWatchingCommunityPosts(community.name)
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (watchingPosts) {
+                                                "Stop new-post notifications"
+                                            } else {
+                                                "Notify about new posts"
+                                            },
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            if (watchingPosts) Symbols.NotificationsOff else Symbols.Notifications,
+                                            contentDescription = null,
+                                        )
+                                    },
+                                    onClick = {
+                                        communityMenuExpanded.value = false
+                                        toggleCommunityPostNotifications()
                                     },
                                 )
                             }

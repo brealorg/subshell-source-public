@@ -106,12 +106,20 @@ internal object RedditOAuth {
     // WIKI01A1_INCREMENTAL_WIKIREAD_SCOPE_V1
     val liveCommunityWikiReadScopes = coreReadScopes + "wikiread"
 
+    // ISSUE237_EVERY_SCOPE_AT_SIGN_IN_V1: sign-in asks once for every scope a
+    // capability uses, moderator scopes included for every account (whether an
+    // account moderates cannot be read before it has a token). The capability
+    // authorizations stay only as the fallback for a token without them.
     val dailyDriverScopes = setOf(
         "account",
         "edit",
         "flair",
         "history",
         "identity",
+        "modcontributors",
+        "modlog",
+        "modmail",
+        "modothers",
         "modposts",
         "mysubreddits",
         "privatemessages",
@@ -121,6 +129,7 @@ internal object RedditOAuth {
         "save",
         "subscribe",
         "vote",
+        "wikiread",
     )
 
     fun dailyDriverAccountSelection(
@@ -172,11 +181,19 @@ internal object RedditOAuth {
         clientMode = clientMode,
     )
 
-    fun redReaderCompatibilitySelection(clientId: String): StoredOAuthClientSelection =
+    // ISSUE240_READER_EDITS_THE_REDDIT_API_VALUES_V1: a value equal to the
+    // shipped one is stored as null, so "custom" means really different.
+    fun redReaderCompatibilitySelection(
+        clientId: String,
+        redirectUri: String? = null,
+        userAgent: String? = null,
+    ): StoredOAuthClientSelection =
         StoredOAuthClientSelection(
             provider = OAuthProvider.REDDIT,
             mode = OAuthClientMode.REDREADER_COMPATIBILITY,
             clientId = clientId.trim(),
+            redirectUri = redirectUri?.trim()?.takeUnless { it == REDREADER_COMPATIBILITY_REDIRECT_URI },
+            userAgent = userAgent?.trim()?.takeUnless { it == REDREADER_COMPATIBILITY_USER_AGENT },
         )
 
     fun nativeProductionSelection(): StoredOAuthClientSelection = StoredOAuthClientSelection(
@@ -254,11 +271,11 @@ internal object RedditOAuth {
             OAuthClientMode.REDREADER_COMPATIBILITY -> RedditOAuthRuntimeSelection(
                 configuration = installedApplication(
                     clientId = requireNotNull(selection.clientId),
-                    redirectUri = REDREADER_COMPATIBILITY_REDIRECT_URI,
+                    redirectUri = selection.redirectUri ?: REDREADER_COMPATIBILITY_REDIRECT_URI,
                     scopes = scopesFor(capability) + preservedScopes,
                     clientMode = OAuthClientMode.REDREADER_COMPATIBILITY,
                 ),
-                userAgent = REDREADER_COMPATIBILITY_USER_AGENT,
+                userAgent = selection.userAgent ?: REDREADER_COMPATIBILITY_USER_AGENT,
                 providerLabel = "Reddit · RedReader compatibility",
             )
         }

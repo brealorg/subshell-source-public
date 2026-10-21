@@ -28,6 +28,9 @@ internal data class DiagnosticReportEnvironment(
     val screenWidthDp: Int,
     val screenHeightDp: Int,
     val smallestScreenWidthDp: Int,
+    // ISSUE240_DIAGNOSTICS_FLAG_CHANGED_API_VALUES_V1: default/custom/unknown
+    // only, never the values.
+    val redditApiValues: String = "default",
 )
 
 internal data class StagedDiagnosticReport(
@@ -105,6 +108,7 @@ internal fun buildDiagnosticReport(
     appendLine("screen_width_dp=${environment.screenWidthDp}")
     appendLine("screen_height_dp=${environment.screenHeightDp}")
     appendLine("smallest_screen_width_dp=${environment.smallestScreenWidthDp}")
+    appendLine("reddit_api_values=${environment.redditApiValues}")
     appendLine()
     appendLine("[buffer]")
     appendLine("events=${snapshot.events.size}")

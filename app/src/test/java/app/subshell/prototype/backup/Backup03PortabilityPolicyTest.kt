@@ -49,6 +49,7 @@ class Backup03PortabilityPolicyTest {
             "searchIndexEntries",
             "AccountPostActions",
             "savedSearches",
+            "watchedCommunities",
         ).forEach { symbol ->
             assertTrue("Missing policy symbol: $symbol", policy.contains(symbol))
         }
@@ -70,7 +71,22 @@ class Backup03PortabilityPolicyTest {
             model.contains("BACKUP04A5_USER_TAGS_SCHEMA_V9_OPT_IN_V1")
         val schemaV10Started =
             model.contains("ISSUE206_SAVED_SEARCHES_SCHEMA_V10_V1")
-        if (schemaV10Started) {
+        val schemaV11Started =
+            model.contains("ISSUE239_WATCHED_COMMUNITIES_SCHEMA_V11_V1")
+        if (schemaV11Started) {
+            assertTrue(model.contains("const val SETTINGS_BACKUP_SCHEMA_VERSION = 11"))
+            assertTrue(
+                model.contains(
+                    "val watchedCommunityNamesByAccount: Map<String, Set<String>>? = null",
+                ),
+            )
+            assertTrue(
+                model.contains(
+                    "val savedSearchesByAccount: Map<String, List<SavedSearch>>? = null",
+                ),
+            )
+            assertTrue(policy.contains("SCHEMA_V11_STATUS=RESOLVED_ISSUE239"))
+        } else if (schemaV10Started) {
             assertTrue(model.contains("const val SETTINGS_BACKUP_SCHEMA_VERSION = 10"))
             assertTrue(
                 model.contains(

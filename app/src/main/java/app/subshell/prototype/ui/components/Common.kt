@@ -1502,6 +1502,7 @@ fun PostCard(
                     CommentContent(
                         source = post.body,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        selectable = true, // ISSUE235_LONG_PRESS_SELECTS_TEXT_V1
                         onMediaClick = { media ->
                             state.openCommentMedia(commentId = post.id, media = media)
                         },

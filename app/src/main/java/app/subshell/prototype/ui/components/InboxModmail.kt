@@ -728,7 +728,7 @@ fun InboxModmailMessageRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                MarkdownText(text = message.body)
+                MarkdownText(text = message.body, selectable = true) // ISSUE235_LONG_PRESS_SELECTS_TEXT_V1
             }
         }
     }

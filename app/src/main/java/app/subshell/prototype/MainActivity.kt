@@ -603,6 +603,7 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
                     onThemeSettingsChanged = { appThemeSettings = it },
                     accountConnect = AccountConnectEntryPoints(
                         accountSessionDirectory = authConnectViewModel.accountSessionDirectory,
+                        redditUserAgent = authConnectViewModel.redditUserAgent,
                         readNsfwAccountPreferences = authConnectViewModel::readNsfwAccountPreferences,
                         onLogoutActiveAccount = authConnectViewModel::logoutActiveAccount,
                         onReconnectAccount = ::launchReconnectAccount,

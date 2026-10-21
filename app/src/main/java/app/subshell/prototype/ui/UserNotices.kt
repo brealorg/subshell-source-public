@@ -14,8 +14,10 @@ internal fun ViewportErrorHostState?.noticeFailure(title: String, message: Strin
     this?.presentNotice(USER_NOTICE_SCOPE, title, message, TrayTone.ERROR)
 }
 
+// ISSUE238_CONFIRMATIONS_DISMISS_THEMSELVES_V1 (#238, owner): a confirmation
+// ("Muted r/x") leaves the tray by itself; a failure stays until closed.
 internal fun ViewportErrorHostState?.noticeInfo(title: String, message: String) {
-    this?.presentNotice(USER_NOTICE_SCOPE, title, message, TrayTone.INFO)
+    this?.presentNotice(USER_NOTICE_SCOPE, title, message, TrayTone.INFO, dismissesItself = true)
 }
 
 /**

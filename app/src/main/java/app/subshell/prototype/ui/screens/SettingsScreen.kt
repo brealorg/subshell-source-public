@@ -40,6 +40,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
@@ -72,6 +73,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import app.subshell.prototype.backup.BackupProtection
 import app.subshell.prototype.backup.SettingsBackupRepository
+import app.subshell.prototype.auth.RedditApiValues
 import app.subshell.prototype.auth.RedditCompatibilityConfigurationController
 import app.subshell.prototype.media.LegacyVideoDownloadStatus
 import app.subshell.prototype.media.LegacyVideoDownloads
@@ -222,6 +224,10 @@ fun SettingsScreen(
     var redReaderCompatibilityConfigured by remember { mutableStateOf(false) }
     var redReaderConfigurationBusy by remember { mutableStateOf(false) }
     var redReaderOperationMessage by remember { mutableStateOf<String?>(null) }
+    // ISSUE240_READER_EDITS_THE_REDDIT_API_VALUES_V1
+    var redditApiValues by remember { mutableStateOf<RedditApiValues?>(null) }
+    var redditApiValuesDraft by remember { mutableStateOf<RedditApiValuesDraft?>(null) }
+    var redReaderClientIdChanges by remember { mutableStateOf(false) }
     var accountLogoutConfirmationVisible by remember { mutableStateOf(false) }
     var accountLogoutInProgress by remember { mutableStateOf(false) }
     var accountLogoutFailed by remember { mutableStateOf(false) }
@@ -393,6 +399,15 @@ fun SettingsScreen(
     if (destination == SettingsDestination.NOTIFICATION_TYPES) {
         // NOTIFY01A1R2_NOTIFICATION_TYPES_CHILD_ROUTE_V1
         NotificationTypesSettingsScreen(
+            state = state,
+            onBack = returnToSettings,
+            modifier = modifier,
+        )
+        return
+    }
+
+    if (destination == SettingsDestination.NEW_POST_NOTIFICATIONS) {
+        NewPostNotificationsSettingsScreen(
             state = state,
             onBack = returnToSettings,
             modifier = modifier,
@@ -867,6 +882,23 @@ fun SettingsScreen(
     }
 
     if (redReaderConfigurationDialogVisible) {
+        LaunchedEffect(Unit) {
+            val values = runCatching {
+                withContext(Dispatchers.IO) { redditCompatibilityConfiguration.apiValues() }
+            }.getOrNull()
+            redditApiValues = values
+            redditApiValuesDraft = values?.let(::RedditApiValuesDraft)
+        }
+        // ISSUE240: a new client ID ends the sessions made with the old one.
+        LaunchedEffect(redReaderClientIdDraft) {
+            redReaderClientIdChanges =
+                redditCompatibilityConfiguration.isValidClientId(redReaderClientIdDraft) &&
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        redditCompatibilityConfiguration.changesClientId(redReaderClientIdDraft)
+                    }
+                }.getOrDefault(false)
+        }
         AlertDialog(
             onDismissRequest = {
                 if (!redReaderConfigurationBusy) {
@@ -876,7 +908,10 @@ fun SettingsScreen(
             },
             title = { Text("RedReader compatibility") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
                     Text(
                         "This explicit compatibility mode uses a locally supplied OAuth client ID. " +
                             "The value is encrypted in no-backup storage and is never added to saved setups.",
@@ -891,6 +926,11 @@ fun SettingsScreen(
                         enabled = !redReaderConfigurationBusy,
                         singleLine = true,
                         label = { Text("OAuth client ID") },
+                        supportingText = if (redReaderCompatibilityConfigured) {
+                            { Text("Leave empty to keep the current one") }
+                        } else {
+                            null
+                        },
                         visualTransformation = PasswordVisualTransformation(),
                         // LOWUI3_CLIENT_ID_KEYBOARD_LEARNS_NOTHING_V1 (OCB-269): a password
                         // field, so the keyboard neither suggests nor learns the client ID.
@@ -899,6 +939,13 @@ fun SettingsScreen(
                             imeAction = ImeAction.Done,
                         ),
                     )
+                    if (redReaderClientIdChanges) {
+                        Text(
+                            REDDIT_CLIENT_ID_CHANGE_WARNING,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                     // LOWUX1_CLIENT_CONFIG_FAILURE_SHOWN_IN_THE_DIALOG_V1 (OCB-270): a
                     // failed save/remove was written only to the row behind the dialog.
                     redReaderOperationMessage?.takeIf { message -> message.startsWith("Couldn") }?.let { message ->
@@ -906,6 +953,38 @@ fun SettingsScreen(
                             message,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    val apiValues = redditApiValues
+                    val apiValuesDraft = redditApiValuesDraft
+                    if (apiValues != null && apiValuesDraft != null) {
+                        RedditApiValuesSection(
+                            stored = apiValues,
+                            draft = apiValuesDraft,
+                            enabled = !redReaderConfigurationBusy,
+                            onResetToDefaults = {
+                                redReaderConfigurationBusy = true
+                                // LOWUI6_CLIENT_CONFIG_CHANGE_FINISHES_V1 (OCB-324)
+                                cacheScope.launch(start = CoroutineStart.UNDISPATCHED) {
+                                    withContext(NonCancellable) {
+                                        val result = runCatching {
+                                            withContext(Dispatchers.IO) {
+                                                redditCompatibilityConfiguration.resetApiValues()
+                                            }
+                                        }
+                                        redReaderConfigurationBusy = false
+                                        result.onSuccess {
+                                            redReaderConfigurationDialogVisible = false
+                                            redReaderClientIdDraft = ""
+                                            redReaderOperationMessage =
+                                                "Reddit connection configuration saved"
+                                            onRedditConfigurationChanged()
+                                        }.onFailure {
+                                            redReaderOperationMessage = "Couldn’t save compatibility configuration"
+                                        }
+                                    }
+                                }
+                            },
                         )
                     }
                     Text(
@@ -950,20 +1029,36 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
+                val apiValues = redditApiValues
+                val apiValuesDraft = redditApiValuesDraft
+                val saveEnabled = apiValues != null && redditApiSaveEnabled(
+                    clientIdDraft = redReaderClientIdDraft,
+                    clientIdValid = redditCompatibilityConfiguration.isValidClientId(redReaderClientIdDraft),
+                    stored = apiValues,
+                    draft = apiValuesDraft,
+                )
                 TextButton(
-                    enabled = !redReaderConfigurationBusy &&
-                        redditCompatibilityConfiguration.isValidClientId(redReaderClientIdDraft),
+                    enabled = !redReaderConfigurationBusy && saveEnabled,
                     onClick = {
-                        if (!redditCompatibilityConfiguration.isValidClientId(redReaderClientIdDraft)) {
+                        if (!saveEnabled) {
                             return@TextButton
                         }
+                        val editing = apiValuesDraft?.editing == true
+                        val redirectUri =
+                            if (editing) apiValuesDraft.redirectUri.trim() else apiValues.redirectUri
+                        val userAgent =
+                            if (editing) apiValuesDraft.userAgent.trim() else apiValues.userAgent
                         redReaderConfigurationBusy = true
                         // LOWUI6_CLIENT_CONFIG_CHANGE_FINISHES_V1 (OCB-324)
                         cacheScope.launch(start = CoroutineStart.UNDISPATCHED) {
                             withContext(NonCancellable) {
                                 val result = runCatching {
                                     withContext(Dispatchers.IO) {
-                                        redditCompatibilityConfiguration.save(redReaderClientIdDraft)
+                                        redditCompatibilityConfiguration.save(
+                                            clientId = redReaderClientIdDraft,
+                                            redirectUri = redirectUri,
+                                            userAgent = userAgent,
+                                        )
                                     }
                                 }
                                 redReaderConfigurationBusy = false
@@ -981,7 +1076,13 @@ fun SettingsScreen(
                         }
                     },
                 ) {
-                    Text(if (redReaderCompatibilityConfigured) "Replace" else "Save")
+                    Text(
+                        if (redReaderCompatibilityConfigured && redReaderClientIdDraft.isNotBlank()) {
+                            "Replace"
+                        } else {
+                            "Save"
+                        },
+                    )
                 }
             },
             dismissButton = {
@@ -1917,7 +2018,7 @@ fun SettingsScreen(
                         ) {
                             "Ask for biometrics or your device screen lock before revealing hidden community names"
                         } else {
-                            "Set a screen lock on this phone first"
+                            "Set a screen lock on this device first"
                         },
                         checked = state.requireDeviceUnlockForHiddenSubscriptions,
                         onCheckedChange = { required ->
@@ -1946,7 +2047,7 @@ fun SettingsScreen(
                         description = if (appLock.deviceUnlockAvailable || appLock.settings.enabled) {
                             "Ask for biometrics or your device screen lock when you open subshell"
                         } else {
-                            "Set a screen lock on this phone first"
+                            "Set a screen lock on this device first"
                         },
                         checked = appLock.settings.enabled,
                         onCheckedChange = { enabled ->
@@ -2658,6 +2759,22 @@ fun SettingsScreen(
                     }
                 }
 
+                // ISSUE239_WATCHED_COMMUNITIES_IN_SETTINGS_V1
+                if (searchResult.isItemVisible("new-post-notifications")) {
+                    item("new-post-notifications") {
+                        NavigationRow(
+                            icon = Symbols.NotificationsActive,
+                            title = "New posts",
+                            description = newPostNotificationsSummary(state.watchedCommunityNames.size),
+                            onClick = {
+                                openSettingsDestination(
+                                    SettingsDestination.NEW_POST_NOTIFICATIONS,
+                                )
+                            },
+                        )
+                    }
+                }
+
                 if (notificationCategoryVisible) {
                     item("notification-types") {
                         NavigationRow(
@@ -2696,6 +2813,8 @@ fun SettingsScreen(
                         onClick = {
                             redReaderClientIdDraft = ""
                             redReaderOperationMessage = null
+                            redditApiValues = null
+                            redditApiValuesDraft = null
                             redReaderConfigurationDialogVisible = true
                         },
                     )

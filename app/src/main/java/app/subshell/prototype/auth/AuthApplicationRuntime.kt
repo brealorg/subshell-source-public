@@ -1,6 +1,7 @@
 package app.subshell.prototype.auth
 
 import app.subshell.prototype.data.diagnostics.recordFailureWithoutAScreen
+import app.subshell.prototype.data.auth.AuthenticatedRedditCommunityNewPostsLoader
 import app.subshell.prototype.data.auth.AuthenticatedRedditCommunityPinnedPostsLoader
 import app.subshell.prototype.data.auth.reddit.AuthenticatedCrosspostSourceLoader
 
@@ -125,6 +126,8 @@ internal data class AuthApplicationRuntime(
     val redditCommunityInfoLoader: AuthenticatedRedditCommunityInfoLoader? = null,
     // ISSUE230_PINNED_POSTS_FIRST_V1
     val redditCommunityPinnedPostsLoader: AuthenticatedRedditCommunityPinnedPostsLoader? = null,
+    // ISSUE239_NEW_POSTS_IN_A_WATCHED_COMMUNITY_V1
+    val redditCommunityNewPostsLoader: AuthenticatedRedditCommunityNewPostsLoader? = null,
     // WIKI01A1_RUNTIME_COMMUNITY_WIKI_READ_V1
     val communityWikiReadAuthorizer: AuthContextualCapabilityAuthorizer? = null,
     val communityWikiReadClientMode: OAuthClientMode? = null,
@@ -235,6 +238,9 @@ internal data class AuthApplicationRuntime(
     // callback routing reads the encrypted records; the test runtime routes
     // inline.
     val callbackRoutingDispatcher: kotlinx.coroutines.CoroutineDispatcher = kotlinx.coroutines.Dispatchers.IO,
+    // ISSUE240_READER_EDITS_THE_REDDIT_API_VALUES_V1: the selected user agent,
+    // for the Reddit reads built outside this runtime (identity lookups).
+    val redditUserAgent: String? = null,
 )
 
 internal object AuthApplicationRuntimeFactory {
@@ -1286,6 +1292,7 @@ internal object AuthApplicationRuntimeFactory {
         )
 
         return AuthApplicationRuntime(
+            redditUserAgent = selected.userAgent,
             accountSessionDirectory = coordinator,
             customFeedReader = accountWrite.customFeedReader,
             customFeedWriteCapability = customFeedWriteCapability,
@@ -1394,6 +1401,7 @@ internal object AuthApplicationRuntimeFactory {
             redditCommunityWikiLoader = readLoaders.redditCommunityWikiLoader,
             redditCommunityInfoLoader = readLoaders.redditCommunityInfoLoader,
             redditCommunityPinnedPostsLoader = readLoaders.redditCommunityPinnedPostsLoader,
+            redditCommunityNewPostsLoader = readLoaders.redditCommunityNewPostsLoader,
             // MOD01A1_RUNTIME_MODERATION_READ_WIRING_V1
             redditModerationLoader = moderation.redditModerationLoader,
             // MODERATION02A4_RUNTIME_MOD_LOG_READ_WIRING_V1

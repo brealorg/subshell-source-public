@@ -69,6 +69,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.subshell.prototype.auth.RedditCompatibilityConfigurationController
 import app.subshell.prototype.data.diagnostics.DiagnosticEvent
 import app.subshell.prototype.data.diagnostics.DiagnosticEventStore
 import app.subshell.prototype.data.diagnostics.DiagnosticEvents
@@ -143,7 +144,10 @@ internal fun DiagnosticsScreen(
                     val updated = store.record(DiagnosticEvents.reportCreated())
                     val reportText = buildDiagnosticReport(
                         snapshot = updated,
-                        environment = diagnosticReportEnvironment(appContext),
+                        environment = diagnosticReportEnvironment(appContext).copy(
+                            redditApiValues = RedditCompatibilityConfigurationController(appContext)
+                                .apiValuesDiagnosticToken(),
+                        ),
                         crashes = crashStore.records(),
                     )
                     val staged = stageDiagnosticReport(appContext, reportText)

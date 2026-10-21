@@ -1,5 +1,7 @@
 package app.subshell.prototype.data.auth
 
+import app.subshell.prototype.data.auth.reddit.RedditOAuth
+
 // AUTH10_REQUEST_CURRENT_SCOPES_V1 (#59): a capability authorization asks
 // Reddit for the capability's own scopes plus every scope the account's
 // current token already has. Reddit issues a token with exactly the requested
@@ -9,6 +11,9 @@ package app.subshell.prototype.data.auth
 // own scopes, so one account is never judged by another account's grants.
 // Computed when the authorization begins and again, the same way, when its
 // pending record and callback are matched, so the scope fingerprints agree.
+// ISSUE237_ONE_REAPPROVAL_COVERS_EVERYTHING_V1: a Reddit authorization also
+// asks for the whole sign-in set, so an account signed in before a scope
+// joined it approves once and every other capability works without asking.
 internal fun OAuthProviderConfiguration.requestingCurrentScopesOf(
     store: EncryptedAuthSessionStore,
     accountStableId: String?,
@@ -26,5 +31,7 @@ internal fun OAuthProviderConfiguration.requestingCurrentScopesOf(
         ?.scope
         ?.oauthScopeSet()
         .orEmpty()
-    return if (scopes.containsAll(current)) this else copy(scopes = scopes + current)
+    val signInSet = if (provider == OAuthProvider.REDDIT) RedditOAuth.dailyDriverScopes else emptySet()
+    val requested = current + signInSet
+    return if (scopes.containsAll(requested)) this else copy(scopes = scopes + requested)
 }

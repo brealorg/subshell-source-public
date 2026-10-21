@@ -172,7 +172,7 @@ class AppLockSettingsComposeTest {
 
         // The hidden-communities row says the same since OCB-273; this is the
         // lock row's own line.
-        composeRule.onNode(lockSwitch and hasText("Set a screen lock on this phone first", substring = true))
+        composeRule.onNode(lockSwitch and hasText("Set a screen lock on this device first", substring = true))
             .assertExists()
         composeRule.onNode(lockSwitch).assertIsNotEnabled()
     }

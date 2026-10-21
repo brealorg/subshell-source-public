@@ -10,6 +10,7 @@ import app.subshell.prototype.backup.toUserTag
 import app.subshell.prototype.backup.toPortableUserTag
 import app.subshell.prototype.backup.normalizePortableUserTagsByAccount
 import app.subshell.prototype.backup.normalizeSavedSearchesByAccount
+import app.subshell.prototype.backup.normalizeWatchedCommunityNamesByAccount
 import app.subshell.prototype.backup.PortableUserTag
 import app.subshell.prototype.backup.normalizePortableModeratorSavedResponses
 import app.subshell.prototype.backup.normalizePortablePostComposerDraftsByAccount
@@ -89,6 +90,8 @@ import app.subshell.prototype.ui.state.PostSaveState
 import app.subshell.prototype.ui.state.PostVoteState
 import app.subshell.prototype.ui.state.ReportReasonPolicyState
 import app.subshell.prototype.ui.state.SearchHistoryState
+import app.subshell.prototype.ui.state.CommunityPostWatchChange
+import app.subshell.prototype.ui.state.CommunityPostWatchState
 import app.subshell.prototype.ui.state.SavedSearchState
 import app.subshell.prototype.ui.state.UserTagState
 import app.subshell.prototype.ui.state.SettingsState
@@ -725,6 +728,8 @@ internal data class PortableBackupState(
     val userTagsByAccount: Map<String, Map<String, PortableUserTag>>,
     // ISSUE206_SAVED_SEARCHES_V1: backup module "savedSearches" (schema v10).
     val savedSearchesByAccount: Map<String, List<SavedSearch>> = emptyMap(),
+    // ISSUE239_WATCHED_COMMUNITIES_SCHEMA_V11_V1: backup module "watchedCommunities".
+    val watchedCommunityNamesByAccount: Map<String, Set<String>> = emptyMap(),
 )
 
 @Stable
@@ -852,6 +857,8 @@ class SubshellState(
     private val persistUserTags: (String, Map<String, UserTag>) -> Unit = { _, _ -> },
     private val loadSavedSearches: (String) -> List<SavedSearch> = { emptyList() },
     private val persistSavedSearches: (String, List<SavedSearch>) -> Unit = { _, _ -> },
+    private val loadWatchedCommunityNames: (String) -> Set<String> = { emptySet() },
+    private val persistWatchedCommunityNames: (String, Set<String>) -> Unit = { _, _ -> },
     private val currentTimeMillis: () -> Long = { System.currentTimeMillis() },
     private val loadAccountPostActions: (String) -> AccountPostActions = {
         defaultAccountPostActions(repository)
@@ -879,6 +886,7 @@ class SubshellState(
         List<ModeratorSavedResponse>?,
         Map<String, Map<String, UserTag>>?,
         Map<String, List<SavedSearch>>?,
+        Map<String, Set<String>>?,
     ) -> Unit = {
         settings,
         joinedCommunities,
@@ -889,7 +897,8 @@ class SubshellState(
         _,
         _,
         userTags,
-        savedSearches ->
+        savedSearches,
+        watchedCommunities ->
         persistSettings(settings)
         joinedCommunities?.forEach { (username, communityIds) ->
             persistJoinedCommunityIds(username, communityIds)
@@ -911,6 +920,9 @@ class SubshellState(
         }
         savedSearches?.forEach { (accountStableId, searches) ->
             persistSavedSearches(accountStableId, searches)
+        }
+        watchedCommunities?.forEach { (accountStableId, names) ->
+            persistWatchedCommunityNames(accountStableId, names)
         }
     },
     initialPostComposerDrafts: List<PostComposerDraft> = emptyList(),
@@ -1703,6 +1715,34 @@ class SubshellState(
                 .map { account -> account.stableId }
         },
     )
+    // ISSUE239_NEW_POSTS_IN_A_WATCHED_COMMUNITY_V1
+    private val communityPostWatchState = CommunityPostWatchState(
+        loadWatched = loadWatchedCommunityNames,
+        persistWatched = persistWatchedCommunityNames,
+        activeAccountIdProvider = { activeAccountId },
+        activeAccountIsAuthenticatedProvider = { activeAccountIsAuthenticated },
+        authenticatedAccountIdsProvider = {
+            accountSessionCatalog
+                .filter { account -> account.source == AccountSessionSource.AUTHENTICATED }
+                .map { account -> account.stableId }
+        },
+    )
+
+    // ISSUE239_NEW_POSTS_IN_A_WATCHED_COMMUNITY_V1 (#239): only a signed-in
+    // account can be notified (the check reads Reddit with its token).
+    val communityPostNotificationsAvailable: Boolean
+        get() = communityPostWatchState.available
+    val watchedCommunityNames: List<String>
+        get() = communityPostWatchState.watched
+
+    fun isWatchingCommunityPosts(communityName: String): Boolean =
+        communityPostWatchState.isWatched(communityName)
+
+    internal fun setWatchingCommunityPosts(communityName: String, watch: Boolean): CommunityPostWatchChange =
+        communityPostWatchState.setWatched(communityName, watch)
+
+    fun captureWatchedCommunityNamesByAccount(): Map<String, Set<String>> =
+        normalizeWatchedCommunityNamesByAccount(communityPostWatchState.captureByAccount())
 
     // ISSUE206_SAVED_SEARCHES_V1 (#206): shown and saved only with the
     // setting on and a signed-in account.
@@ -2403,6 +2443,7 @@ class SubshellState(
         searchHistory.reloadForAccount(selected.stableId)
         userTagState.reloadForAccount(selected.stableId)
         savedSearchState.reloadForAccount(selected.stableId)
+        communityPostWatchState.reloadForAccount(selected.stableId)
         searchSession = SearchSessionSnapshot()
         refreshCurrentRouteSnapshot()
         clearAuthenticatedPostVoteState()
@@ -2483,6 +2524,7 @@ class SubshellState(
         searchHistory.reloadForAccount(selected.stableId)
         userTagState.reloadForAccount(selected.stableId)
         savedSearchState.reloadForAccount(selected.stableId)
+        communityPostWatchState.reloadForAccount(selected.stableId)
         searchSession = SearchSessionSnapshot()
         refreshCurrentRouteSnapshot()
         clearAuthenticatedPostVoteState()
@@ -4992,6 +5034,7 @@ class SubshellState(
         moderatorSavedResponses = captureModeratorSavedResponses(),
         userTagsByAccount = captureUserTagsByAccount(),
         savedSearchesByAccount = captureSavedSearchesByAccount(),
+        watchedCommunityNamesByAccount = captureWatchedCommunityNamesByAccount(),
     )
 
     // BACKUP04A5_USER_TAGS_SCHEMA_V9_OPT_IN_V1
@@ -5200,6 +5243,7 @@ class SubshellState(
         moderatorSavedResponses: List<PortableModeratorSavedResponse>? = null,
         userTagsByAccount: Map<String, Map<String, PortableUserTag>>? = null,
         savedSearchesByAccount: Map<String, List<SavedSearch>>? = null,
+        watchedCommunityNamesByAccount: Map<String, Set<String>>? = null,
     ) {
         val restoredCommunities =
             normalizeJoinedCommunityRestoreSnapshot(joinedCommunityIdsByAccount)
@@ -5222,6 +5266,9 @@ class SubshellState(
             ?.mapValues { (_, tags) -> tags.mapValues { (_, tag) -> tag.toUserTag() } }
         // ISSUE206: missing module = leave unchanged; present-but-empty = clear.
         val restoredSavedSearches = savedSearchesByAccount?.let(::normalizeSavedSearchesByAccount)
+        // ISSUE239: missing module = leave unchanged; present-but-empty = clear.
+        val restoredWatchedCommunities =
+            watchedCommunityNamesByAccount?.let(::normalizeWatchedCommunityNamesByAccount)
 
         persistBackupRestoreState(
             settings.toStorageMap(),
@@ -5234,6 +5281,7 @@ class SubshellState(
             restoredModeratorSavedResponses,
             restoredUserTags,
             restoredSavedSearches,
+            restoredWatchedCommunities,
         )
 
         // Live state changes only after the durable transaction succeeds.
@@ -5247,6 +5295,7 @@ class SubshellState(
         restoredModeratorSavedResponses?.let(moderatorResponses::applyRestored)
         userTagState.applyRestored(restoredUserTags)
         savedSearchState.applyRestored(restoredSavedSearches)
+        communityPostWatchState.applyRestored(restoredWatchedCommunities)
     }
 
     fun toggleCommunity(communityId: String) {

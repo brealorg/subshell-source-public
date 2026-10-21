@@ -4,7 +4,6 @@ import app.subshell.prototype.data.auth.AuthCapabilityAuthorizationOwner
 import app.subshell.prototype.data.auth.reddit.RedditOAuth
 import app.subshell.prototype.data.auth.reddit.RedditOAuthCapability
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -22,7 +21,8 @@ class Modmail01A1AuthorizationPolicyTest {
             RedditOAuth.scopesFor(RedditOAuthCapability.MODMAIL_READ)
                 .contains("modmail"),
         )
-        assertFalse(RedditOAuth.dailyDriverScopes.contains("modmail"))
+        // ISSUE237: sign-in asks for it too; the capability owner stays the fallback.
+        assertTrue(RedditOAuth.dailyDriverScopes.contains("modmail"))
     }
 
 }

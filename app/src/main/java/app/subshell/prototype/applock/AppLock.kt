@@ -9,7 +9,7 @@ import androidx.lifecycle.ViewModel
 import app.subshell.prototype.inbox.InboxNotificationCenter
 
 // ISSUE38_APP_LOCK_V1: optional device unlock for the whole app (issue #38).
-// Device-local: a security choice for this phone, never part of a Subshell
+// Device-local: a security choice for this device, never part of a Subshell
 // backup.
 
 internal const val APP_LOCK_MAX_DELAY_MINUTES = 24 * 60

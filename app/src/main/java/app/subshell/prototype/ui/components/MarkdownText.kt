@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.DisableSelection
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -80,6 +82,7 @@ fun MarkdownText(
     overflow: TextOverflow = TextOverflow.Clip,
     onLinkClick: ((String) -> Unit)? = null,
     highlight: MarkdownHighlight? = null,
+    selectable: Boolean = false,
 ) {
     val linkColor = MaterialTheme.colorScheme.primary
     val codeBackground = MaterialTheme.colorScheme.surfaceContainerHighest
@@ -114,111 +117,125 @@ fun MarkdownText(
         return
     }
 
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        blocks.forEach { block ->
-            when (block) {
-                is MarkdownBlock.Paragraph -> Text(
-                    text = markdownAnnotatedString(block.text, linkColor, codeBackground, codeFontFamily, onLinkClick = onLinkClick, highlight = highlight, revealedSpoilers = revealedSpoilers, onRevealSpoiler = revealSpoiler),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = color,
-                    maxLines = maxLines,
-                    overflow = overflow,
-                    inlineContent = markdownEmoteInlineContent(block.text),
-                )
-                is MarkdownBlock.Heading -> Text(
-                    text = markdownAnnotatedString(
-                        block.text,
-                        linkColor,
-                        codeBackground,
-                        codeFontFamily,
-                                            onLinkClick = onLinkClick,
-                        highlight = highlight,
-                        revealedSpoilers = revealedSpoilers,
-                        onRevealSpoiler = revealSpoiler,
-                    ),
-                    style = when (block.level) {
-                        1 -> MaterialTheme.typography.headlineSmall
-                        2 -> MaterialTheme.typography.titleLarge
-                        3 -> MaterialTheme.typography.titleMedium
-                        else -> MaterialTheme.typography.titleSmall
-                    }.copy(
-                        fontWeight =
-                            androidx.compose.ui.text.font.FontWeight.SemiBold,
-                    ),
-                    color = color,
-                    maxLines = maxLines,
-                    overflow = overflow,
-                    inlineContent = markdownEmoteInlineContent(block.text),
-                )
-                is MarkdownBlock.HorizontalRule -> HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 8.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                )
-                is MarkdownBlock.Quote -> Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.extraSmall,
-                    color = quoteBackground,
-                ) {
-                    Text(
+    // ISSUE235_LONG_PRESS_SELECTS_TEXT_V1: where the full text is read (open
+    // post, comments, messages) a long press selects it and Android's own
+    // menu offers Copy, Share, Search and Translate. Previews stay plain.
+    SelectableWhen(selectable) {
+        Column(
+            modifier = modifier,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            blocks.forEach { block ->
+                when (block) {
+                    is MarkdownBlock.Paragraph -> Text(
                         text = markdownAnnotatedString(block.text, linkColor, codeBackground, codeFontFamily, onLinkClick = onLinkClick, highlight = highlight, revealedSpoilers = revealedSpoilers, onRevealSpoiler = revealSpoiler),
-                        modifier = Modifier
-                            .drawBehind {
-                                drawRect(
-                                    color = quoteBar,
-                                    size = size.copy(width = 3.dp.toPx()),
-                                )
-                            }
-                            .padding(start = 14.dp, top = 10.dp, end = 12.dp, bottom = 10.dp),
                         style = MaterialTheme.typography.bodyMedium,
                         color = color,
                         maxLines = maxLines,
                         overflow = overflow,
                         inlineContent = markdownEmoteInlineContent(block.text),
                     )
-                }
-                is MarkdownBlock.Spoiler -> {
-                    var revealed by remember(block.text) { mutableStateOf(false) }
-                    val spoilerShape = MaterialTheme.shapes.extraSmall
-                    // ISSUE219_SPOILER_SAYS_ITS_STATE_V1: TalkBack hears "Hidden"/"Revealed"
-                    // and what a double tap does.
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(spoilerShape)
-                            .clickable(
-                                onClickLabel = if (revealed) "Hide spoiler" else "Reveal spoiler",
-                                role = Role.Button,
-                            ) { revealed = !revealed }
-                            .semantics { stateDescription = if (revealed) "Revealed" else "Hidden" },
-                        shape = spoilerShape,
-                        color = if (revealed) MaterialTheme.colorScheme.surfaceContainerHigh
-                        else MaterialTheme.colorScheme.surfaceContainerHighest,
+                    is MarkdownBlock.Heading -> Text(
+                        text = markdownAnnotatedString(
+                            block.text,
+                            linkColor,
+                            codeBackground,
+                            codeFontFamily,
+                                                onLinkClick = onLinkClick,
+                            highlight = highlight,
+                            revealedSpoilers = revealedSpoilers,
+                            onRevealSpoiler = revealSpoiler,
+                        ),
+                        style = when (block.level) {
+                            1 -> MaterialTheme.typography.headlineSmall
+                            2 -> MaterialTheme.typography.titleLarge
+                            3 -> MaterialTheme.typography.titleMedium
+                            else -> MaterialTheme.typography.titleSmall
+                        }.copy(
+                            fontWeight =
+                                androidx.compose.ui.text.font.FontWeight.SemiBold,
+                        ),
+                        color = color,
+                        maxLines = maxLines,
+                        overflow = overflow,
+                        inlineContent = markdownEmoteInlineContent(block.text),
+                    )
+                    is MarkdownBlock.HorizontalRule -> HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                    )
+                    is MarkdownBlock.Quote -> Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.extraSmall,
+                        color = quoteBackground,
                     ) {
                         Text(
-                            text = if (revealed) {
-                                markdownAnnotatedString(block.text, linkColor, codeBackground, codeFontFamily, onLinkClick = onLinkClick)
-                            } else {
-                                AnnotatedString("Spoiler · tap to reveal")
-                            },
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            text = markdownAnnotatedString(block.text, linkColor, codeBackground, codeFontFamily, onLinkClick = onLinkClick, highlight = highlight, revealedSpoilers = revealedSpoilers, onRevealSpoiler = revealSpoiler),
+                            modifier = Modifier
+                                .drawBehind {
+                                    drawRect(
+                                        color = quoteBar,
+                                        size = size.copy(width = 3.dp.toPx()),
+                                    )
+                                }
+                                .padding(start = 14.dp, top = 10.dp, end = 12.dp, bottom = 10.dp),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = if (revealed) color else MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = color,
+                            maxLines = maxLines,
+                            overflow = overflow,
                             inlineContent = markdownEmoteInlineContent(block.text),
                         )
                     }
+                    is MarkdownBlock.Spoiler -> {
+                        var revealed by remember(block.text) { mutableStateOf(false) }
+                        val spoilerShape = MaterialTheme.shapes.extraSmall
+                        // ISSUE219_SPOILER_SAYS_ITS_STATE_V1: TalkBack hears "Hidden"/"Revealed"
+                        // and what a double tap does.
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(spoilerShape)
+                                .clickable(
+                                    onClickLabel = if (revealed) "Hide spoiler" else "Reveal spoiler",
+                                    role = Role.Button,
+                                ) { revealed = !revealed }
+                                .semantics { stateDescription = if (revealed) "Revealed" else "Hidden" },
+                            shape = spoilerShape,
+                            color = if (revealed) MaterialTheme.colorScheme.surfaceContainerHigh
+                            else MaterialTheme.colorScheme.surfaceContainerHighest,
+                        ) {
+                            val spoilerText: @Composable () -> Unit = {
+                                Text(
+                                    text = if (revealed) {
+                                        markdownAnnotatedString(block.text, linkColor, codeBackground, codeFontFamily, onLinkClick = onLinkClick)
+                                    } else {
+                                        AnnotatedString("Spoiler · tap to reveal")
+                                    },
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (revealed) color else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    inlineContent = markdownEmoteInlineContent(block.text),
+                                )
+                            }
+                            // ISSUE235: a hidden spoiler's label is not part of the text.
+                            if (revealed) spoilerText() else DisableSelection(spoilerText)
+                        }
+                    }
+                    is MarkdownBlock.Code -> MarkdownCodeBlock(
+                        block = block,
+                        color = color,
+                        maxLines = maxLines,
+                        codeFontFamily = codeFontFamily,
+                    )
                 }
-                is MarkdownBlock.Code -> MarkdownCodeBlock(
-                    block = block,
-                    color = color,
-                    maxLines = maxLines,
-                    codeFontFamily = codeFontFamily,
-                )
             }
         }
     }
+}
+
+@Composable
+private fun SelectableWhen(selectable: Boolean, content: @Composable () -> Unit) {
+    if (selectable) SelectionContainer(content = content) else content()
 }
 
 private val MARKDOWN_ATX_HEADING =

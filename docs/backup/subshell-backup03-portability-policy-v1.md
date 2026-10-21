@@ -35,6 +35,7 @@ an absent module means legacy/not supplied/no-op, while a present empty value is
 | `favoriteCommunityNames` | account stable ID | Portable by default through schema v4. |
 | `favoriteCustomFeedPaths` | account stable ID | Portable by default through schema v4. |
 | `savedSearches` | account stable ID | Portable by default through schema v10 (issue #206): searches the reader chose to keep; only while the Saved searches setting is on is there anything to back up. |
+| `watchedCommunities` | account stable ID | Portable by default through schema v11 (issue #239): communities the reader gets new-post notifications from; what has been seen stays DEVICE_LOCAL. |
 
 Future account modules must preserve their native ownership key unless a deliberate,
 tested migration changes that identity. Disconnected-account rows should remain
@@ -394,6 +395,31 @@ Boundary and semantics:
 - rows with an unknown scope or area, a blank query, or a community search without a
   valid community are dropped;
 - the encoded JSON is staged into the same `SharedPreferences.Editor.commit()` restore
+  transaction as the other modules, and the live list changes only after that commit.
+
+## Schema-v11 watched communities
+
+`ISSUE239_WATCHED_COMMUNITIES_SCHEMA_V11_V1`
+
+`SCHEMA_V11_STATUS=RESOLVED_ISSUE239`
+
+Schema v11 adds exactly one additional optional module:
+
+- `watchedCommunities`, serialized as `{stableAccountId: [communityName]}`, lowercase,
+  distinct, at most 10 per account.
+
+Boundary and semantics:
+
+- only signed-in Reddit accounts watch communities; capture covers every signed-in
+  account in the session catalog (the active one from memory, the others from storage);
+- owner decision (2026-10-21): the module is PORTABLE, not an opt-in, like favourites;
+  the newest post seen per community (`subshell_community_posts`) stays DEVICE_LOCAL, so
+  a restored or new device starts with a silent baseline;
+- an absent module (a backup from schema v10 or older) leaves the list unchanged; a
+  present empty module clears it; a present non-empty module replaces only the listed
+  accounts; a module that is not an object is corrupt and leaves it unchanged; names
+  that are not valid community names are dropped;
+- the names are staged into the same `SharedPreferences.Editor.commit()` restore
   transaction as the other modules, and the live list changes only after that commit.
 
 ## Non-goals

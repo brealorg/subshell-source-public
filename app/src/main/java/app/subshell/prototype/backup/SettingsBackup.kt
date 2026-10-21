@@ -9,6 +9,7 @@ import app.subshell.prototype.ui.userTagColorFromStoredName
 import app.subshell.prototype.ui.normalizeUserTags
 import app.subshell.prototype.ui.SavedSearch
 import app.subshell.prototype.ui.normalizeSavedSearches
+import app.subshell.prototype.communityposts.normalizeWatchedCommunityNames
 
 // BACKUP03C1_FAVORITES_SCHEMA_V4_CODEC_STORE_V1
 // BACKUP04A1_HIDDEN_COMMUNITIES_SCHEMA_V5_OPT_IN_V1
@@ -17,7 +18,8 @@ import app.subshell.prototype.ui.normalizeSavedSearches
 // BACKUP04A4_MODERATOR_SAVED_RESPONSES_SCHEMA_V8_OPT_IN_V1
 // BACKUP04A5_USER_TAGS_SCHEMA_V9_OPT_IN_V1
 // ISSUE206_SAVED_SEARCHES_SCHEMA_V10_V1
-const val SETTINGS_BACKUP_SCHEMA_VERSION = 10
+// ISSUE239_WATCHED_COMMUNITIES_SCHEMA_V11_V1
+const val SETTINGS_BACKUP_SCHEMA_VERSION = 11
 
 const val RECENT_CHANGE_SNAPSHOT_LIMIT = 20
 const val DAILY_HISTORY_DAYS = 30
@@ -122,6 +124,10 @@ data class SettingsSnapshot(
     // ISSUE206_SAVED_SEARCHES_SCHEMA_V10_V1: null = module missing (an older
     // backup), empty = authoritatively no saved searches.
     val savedSearchesByAccount: Map<String, List<SavedSearch>>? = null,
+    // ISSUE239_WATCHED_COMMUNITIES_SCHEMA_V11_V1 (owner: backed up per
+    // account, like favourites): null = module missing (an older backup),
+    // empty = authoritatively no community watched.
+    val watchedCommunityNamesByAccount: Map<String, Set<String>>? = null,
     // BACKUP07_ONLY_BACKED_UP_SETTINGS_OVERWRITE_V1 (generalises
     // CONTENTFILTER07_SCOPED_FILTERS_MISSING_KEEPS_CURRENT_V1): the settings
     // keys this backup actually contains. A backup from an older build lacks
@@ -656,6 +662,29 @@ internal fun UserTag.toPortableUserTag(): PortableUserTag =
 // ISSUE206_SAVED_SEARCHES_V1 (#206): per-account saved searches, the same
 // account-id rules as the other per-account modules; each account's list
 // valid, distinct, newest first and bounded.
+// ISSUE239_WATCHED_COMMUNITIES_SCHEMA_V11_V1: per-account watched communities,
+// the same account-id rules as the other per-account modules; each account's
+// names valid, distinct and at most MAX_WATCHED_COMMUNITIES.
+internal fun normalizeWatchedCommunityNamesByAccount(
+    value: Map<String, Set<String>>,
+): Map<String, Set<String>> = buildMap {
+    value.entries
+        .sortedBy { (rawAccount, _) -> rawAccount.trim() }
+        .forEach { (rawAccount, rawNames) ->
+            val account = rawAccount
+                .trim()
+                .takeIf {
+                    it.isNotEmpty() &&
+                        it.length <= BACKUP03C_MAX_PORTABLE_ACCOUNT_ID_LENGTH
+                }
+                ?: return@forEach
+            if (!containsKey(account) && size >= BACKUP03C_MAX_PORTABLE_ACCOUNT_ROWS) {
+                return@forEach
+            }
+            put(account, normalizeWatchedCommunityNames(get(account).orEmpty() + rawNames).toSet())
+        }
+}
+
 internal fun normalizeSavedSearchesByAccount(
     value: Map<String, List<SavedSearch>>,
 ): Map<String, List<SavedSearch>> = buildMap {

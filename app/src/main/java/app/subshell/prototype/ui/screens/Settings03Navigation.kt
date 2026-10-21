@@ -57,6 +57,11 @@ internal enum class SettingsDestination(
         title = "Notification types",
         description = "Choose which Reddit activity can notify you",
     ),
+    // ISSUE239_WATCHED_COMMUNITIES_IN_SETTINGS_V1
+    NEW_POST_NOTIFICATIONS(
+        title = "New posts",
+        description = "Communities that notify you about new posts",
+    ),
     CONTENT_FILTERS(
         title = "Content filters",
         description = "",
@@ -134,6 +139,7 @@ internal fun settingsDestinationBackTarget(
 ): SettingsDestination = when (destination) {
     SettingsDestination.ROOT -> SettingsDestination.ROOT
     SettingsDestination.NOTIFICATION_TYPES,
+    SettingsDestination.NEW_POST_NOTIFICATIONS,
     SettingsDestination.CONTENT_FILTERS,
     SettingsDestination.SENSITIVE_MEDIA_LAB,
     SettingsDestination.DIAGNOSTICS,

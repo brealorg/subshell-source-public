@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "versionCode": 248,
+      "versionName": "0.84-beta",
+      "date": "2026-10-21",
+      "headline": "Subshell 0.84: new-post notifications, text selection and one sign-in for everything",
+      "highlights": [
+        "Get a notification when a community you choose has a new post: \"Notify about new posts\" in the community's ⋮ menu (up to 10 communities).",
+        "Long press to select and copy text in posts, comments and messages, with Android's Copy, Share and Translate.",
+        "Sign-in asks for every permission once. Modmail, mod log and the wiki no longer ask again (accounts signed in before approve one more time).",
+        "If sign-in stops working because Reddit or RedReader changed something, you can edit the redirect URI and user agent yourself, in Settings or during setup.",
+        "Short confirmations such as \"Muted r/x\" now disappear by themselves."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v0.84-beta"
+    },
+    {
       "versionCode": 247,
       "versionName": "0.83-beta",
       "date": "2026-10-19",

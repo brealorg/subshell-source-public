@@ -2,6 +2,7 @@ package app.subshell.prototype.data.auth
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import app.subshell.prototype.data.auth.reddit.RedditOAuth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import okhttp3.Call
@@ -140,7 +141,8 @@ class Auth10CapabilityScopesTest {
 
     @Test
     fun theUpgradedSessionKeepsEveryEarlierScope() = runBlocking {
-        val granted = "identity read vote save submit privatemessages wikiread"
+        // ISSUE237: the request also carries the whole sign-in set.
+        val granted = (RedditOAuth.dailyDriverScopes + "wikiread").joinToString(" ")
         val authorizer = authorizer(grantedScope = granted)
         authorizer.beginAuthorization(accountId, owner)
         storeCallbackForPending()

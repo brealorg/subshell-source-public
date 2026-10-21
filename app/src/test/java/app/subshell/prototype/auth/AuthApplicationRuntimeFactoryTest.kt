@@ -308,6 +308,7 @@ class AuthApplicationRuntimeFactoryTest {
         "redditCommentLoader=RedditCommentLoader",
         "redditCommunityDiscoveryLoader=RedditCommunityDiscoveryLoader",
         "redditCommunityInfoLoader=RedditCommunityInfoLoader",
+        "redditCommunityNewPostsLoader=RedditCommunityNewPostsLoader",
         "redditCommunityPinnedPostsLoader=RedditCommunityPinnedPostsLoader",
         "redditCommunityWikiLoader=RedditCommunityWikiLoader",
         "redditFavoriteCapability=OwnerBoundAuthCustomFeedWriteCapability",
@@ -329,6 +330,8 @@ class AuthApplicationRuntimeFactoryTest {
         "redditProfileCommentsLoader=RedditProfileCommentsLoader",
         "redditSavedHistoryLoader=RedditSavedHistoryLoader",
         "redditSubscriptionsLoader=RedditSubscriptionsLoader",
+        // ISSUE240: the selected user agent, for the identity lookups.
+        "redditUserAgent=String",
         "redditUserFlairManager=RedditUserFlairManager",
         "removalReasonCapability=OwnerBoundAuthCommentWriteCapability",
         "removalReasonClientMode=REDREADER_COMPATIBILITY",

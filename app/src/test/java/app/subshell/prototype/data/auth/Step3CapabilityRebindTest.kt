@@ -2,6 +2,7 @@ package app.subshell.prototype.data.auth
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import app.subshell.prototype.data.auth.reddit.RedditOAuth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -41,7 +42,8 @@ class Step3CapabilityRebindTest {
         permanentAccess = true,
     )
     private val dailyDriver = "identity read vote save submit privatemessages"
-    private val granted = "$dailyDriver report"
+    // ISSUE237: the authorization also asks for the whole sign-in set.
+    private val granted = (RedditOAuth.dailyDriverScopes + "report").joinToString(" ")
     private val oldId = authenticatedAccountId(OAuthProvider.REDDIT, safety.clientMode, "t2old")
     private val meId = authenticatedAccountId(OAuthProvider.REDDIT, safety.clientMode, "t2me")
     private val owner = AuthCapabilityAuthorizationOwner.CONTENT_SAFETY

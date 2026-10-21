@@ -13,7 +13,8 @@ class Moderation02A4ModLogAuthorizationPolicyTest {
             RedditOAuth.coreReadScopes + "modlog",
             RedditOAuth.scopesFor(RedditOAuthCapability.MODERATION_LOG),
         )
-        assertFalse(RedditOAuth.dailyDriverScopes.contains("modlog"))
+        // ISSUE237: sign-in asks for it too; the capability owner stays the fallback.
+        assertTrue(RedditOAuth.dailyDriverScopes.contains("modlog"))
         assertEquals(
             "moderation_log",
             AuthCapabilityAuthorizationOwner.MODERATION_LOG.wireKey,

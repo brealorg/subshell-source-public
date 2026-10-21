@@ -28,6 +28,7 @@ import app.subshell.prototype.data.drafts.ComposerDraftStore
 import app.subshell.prototype.data.moderation.ModeratorSavedResponse
 import app.subshell.prototype.data.moderation.ModeratorSavedResponseStore
 import app.subshell.prototype.data.search.SEARCH_DISCOVERY_TREND_CACHE_PREFERENCE_KEY
+import app.subshell.prototype.communityposts.communityPostWatchPreferenceKey
 import app.subshell.prototype.data.search.decodeSavedSearches
 import app.subshell.prototype.data.search.encodeSavedSearches
 import app.subshell.prototype.data.usertags.decodeUserTags
@@ -46,6 +47,7 @@ private const val SUBSHELL_STATE_LOG_TAG = "SubshellState"
 fun rememberSubshellState(
     repository: SubshellRepository? = null,
     accountSessionDirectory: AccountSessionDirectory? = null,
+    redditUserAgent: String? = null,
 ): SubshellState {
     val context = LocalContext.current
     val defaultRepository = if (repository == null) {
@@ -56,10 +58,11 @@ fun rememberSubshellState(
     val resolvedRepository = repository ?: requireNotNull(defaultRepository)
     // PERF02_PAGER_LOADS_OFF_MAIN_V1 (#69): the app's post paging reads Room off Main.
     val postPagingExecutor: PostPagingExecutor = BackgroundPostPagingExecutor.shared
-    val identityMetadataRepository = remember(resolvedRepository, accountSessionDirectory) {
+    val identityMetadataRepository = remember(resolvedRepository, accountSessionDirectory, redditUserAgent) {
         createRedditIdentityMetadataRepository(
             repository = resolvedRepository,
             accountSessionDirectory = accountSessionDirectory,
+            userAgent = redditUserAgent,
         )
     }
     val localAccountSessions = remember(resolvedRepository) {
@@ -143,6 +146,7 @@ fun rememberSubshellState(
             restoredModeratorSavedResponses: List<ModeratorSavedResponse>?,
             restoredUserTags: Map<String, Map<String, UserTag>>?,
             restoredSavedSearches: Map<String, List<SavedSearch>>?,
+            restoredWatchedCommunities: Map<String, Set<String>>?,
         ) {
             val editor = preferences.edit()
             values.forEach { (key, value) -> editor.putSubshellPreference(key, value) }
@@ -257,6 +261,23 @@ fun rememberSubshellState(
                                 savedSearchesPreferenceKey(accountStableId),
                                 encodeSavedSearches(searches),
                             )
+                        }
+                    }
+                }
+            }
+            // ISSUE239_WATCHED_COMMUNITIES_SCHEMA_V11_V1: in the same commit as the rest.
+            restoredWatchedCommunities?.let { restored ->
+                if (restored.isEmpty()) {
+                    val prefix = communityPostWatchPreferenceKey("")
+                    preferences.all.keys
+                        .filter { key -> key.startsWith(prefix) }
+                        .forEach { key -> editor.remove(key) }
+                } else {
+                    restored.forEach { (accountStableId, names) ->
+                        if (names.isEmpty()) {
+                            editor.remove(communityPostWatchPreferenceKey(accountStableId))
+                        } else {
+                            editor.putStringSet(communityPostWatchPreferenceKey(accountStableId), names.toSet())
                         }
                     }
                 }
@@ -916,6 +937,22 @@ fun rememberSubshellState(
                         remove(savedSearchesPreferenceKey(accountStableId))
                     } else {
                         putString(savedSearchesPreferenceKey(accountStableId), encodeSavedSearches(searches))
+                    }
+                }
+            },
+            // ISSUE239_NEW_POSTS_IN_A_WATCHED_COMMUNITY_V1: one string set per
+            // signed-in account; the background check reads the same key.
+            loadWatchedCommunityNames = { accountStableId ->
+                preferences.getStringSet(communityPostWatchPreferenceKey(accountStableId), emptySet())
+                    .orEmpty()
+                    .toSet()
+            },
+            persistWatchedCommunityNames = { accountStableId, names ->
+                preferences.edit {
+                    if (names.isEmpty()) {
+                        remove(communityPostWatchPreferenceKey(accountStableId))
+                    } else {
+                        putStringSet(communityPostWatchPreferenceKey(accountStableId), names.toSet())
                     }
                 }
             },

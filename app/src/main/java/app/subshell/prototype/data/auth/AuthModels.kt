@@ -115,12 +115,26 @@ internal data class StoredOAuthClientSelection(
     val provider: OAuthProvider,
     val mode: OAuthClientMode,
     val clientId: String? = null,
+    // ISSUE240_READER_EDITS_THE_REDDIT_API_VALUES_V1: null is the shipped
+    // RedReader value; a file written before #240 has neither field.
+    val redirectUri: String? = null,
+    val userAgent: String? = null,
 ) {
     init {
         when (mode) {
-            OAuthClientMode.NATIVE_PRODUCTION ->
+            OAuthClientMode.NATIVE_PRODUCTION -> {
                 require(clientId == null) { "Native OAuth selection cannot carry a local client ID" }
+                require(redirectUri == null && userAgent == null) {
+                    "Native OAuth selection cannot carry local API values"
+                }
+            }
             OAuthClientMode.REDREADER_COMPATIBILITY -> {
+                redirectUri?.let { value ->
+                    require(isValidOAuthRedirectUri(value)) { "OAuth redirect URI is invalid" }
+                }
+                userAgent?.let { value ->
+                    require(isValidOAuthUserAgent(value)) { "OAuth User-Agent is invalid" }
+                }
                 val value = requireNotNull(clientId) {
                     "RedReader compatibility requires a local client ID"
                 }
@@ -134,6 +148,23 @@ internal data class StoredOAuthClientSelection(
         }
     }
 }
+
+// ISSUE240_READER_EDITS_THE_REDDIT_API_VALUES_V1: an app scheme, "://", a host
+// and no whitespace. The login window takes every page with the callback's
+// scheme and host as the answer, so a web (http/https) redirect is refused.
+internal fun isValidOAuthRedirectUri(value: String): Boolean =
+    value.length <= MAX_OAUTH_API_VALUE_LENGTH &&
+        value.matches(Regex("[A-Za-z][A-Za-z0-9+.-]*://[^\\s/?#]+[^\\s]*")) &&
+        value.substringBefore("://").lowercase() !in setOf("http", "https")
+
+// Printable ASCII only: OkHttp refuses any other header character.
+internal fun isValidOAuthUserAgent(value: String): Boolean =
+    value.isNotBlank() &&
+        value == value.trim() &&
+        value.length <= MAX_OAUTH_API_VALUE_LENGTH &&
+        value.all { character -> character in ' '..'~' }
+
+private const val MAX_OAUTH_API_VALUE_LENGTH = 512
 
 internal fun interface AuthClock {
     fun epochMillis(): Long

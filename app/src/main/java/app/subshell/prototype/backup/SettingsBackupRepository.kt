@@ -77,6 +77,7 @@ class SettingsBackupRepository(
         moderatorSavedResponses: List<PortableModeratorSavedResponse>? = null,
         userTagsByAccount: Map<String, Map<String, PortableUserTag>>? = null,
         savedSearchesByAccount: Map<String, List<SavedSearch>>? = null,
+        watchedCommunityNamesByAccount: Map<String, Set<String>>? = null,
     ): SettingsSnapshot {
         val externalReady = refreshFromVault()
         return store
@@ -98,6 +99,7 @@ class SettingsBackupRepository(
                     userTagsByAccount.takeIf { userTagsBackupEnabled() },
                 // ISSUE206: saved searches go into every backup (owner decision).
                 savedSearchesByAccount = savedSearchesByAccount,
+                watchedCommunityNamesByAccount = watchedCommunityNamesByAccount,
             )
             .also { if (externalReady) pushToVault() }
     }
@@ -114,6 +116,7 @@ class SettingsBackupRepository(
         moderatorSavedResponses: List<PortableModeratorSavedResponse>? = null,
         userTagsByAccount: Map<String, Map<String, PortableUserTag>>? = null,
         savedSearchesByAccount: Map<String, List<SavedSearch>>? = null,
+        watchedCommunityNamesByAccount: Map<String, Set<String>>? = null,
     ): SettingsSnapshot? {
         val externalReady = refreshFromVault()
         val snapshot = if (automaticHistoryEnabled()) {
@@ -134,6 +137,7 @@ class SettingsBackupRepository(
                     userTagsByAccount.takeIf { userTagsBackupEnabled() },
                 // ISSUE206: saved searches go into every backup (owner decision).
                 savedSearchesByAccount = savedSearchesByAccount,
+                watchedCommunityNamesByAccount = watchedCommunityNamesByAccount,
             )
         } else {
             null
@@ -188,6 +192,7 @@ class SettingsBackupRepository(
         currentModeratorSavedResponses: List<PortableModeratorSavedResponse>? = null,
         currentUserTagsByAccount: Map<String, Map<String, PortableUserTag>>? = null,
         currentSavedSearchesByAccount: Map<String, List<SavedSearch>>? = null,
+        currentWatchedCommunityNamesByAccount: Map<String, Set<String>>? = null,
     ): SettingsSnapshot {
         val externalReady = refreshFromVault()
         return store
@@ -214,6 +219,7 @@ class SettingsBackupRepository(
                 currentUserTagsByAccount =
                     currentUserTagsByAccount.takeIf { userTagsBackupEnabled() },
                 currentSavedSearchesByAccount = currentSavedSearchesByAccount,
+                currentWatchedCommunityNamesByAccount = currentWatchedCommunityNamesByAccount,
             )
             .also { if (externalReady) pushToVault() }
     }

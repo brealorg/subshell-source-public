@@ -18,6 +18,7 @@ import app.subshell.prototype.MainActivity
 import android.webkit.CookieManager
 import android.webkit.WebStorage
 import app.subshell.prototype.data.auth.AUTH_CALLBACK_CANCELLED_TOKEN
+import app.subshell.prototype.data.auth.reddit.RedditOAuth
 
 class RedReaderCompatibilityLoginActivity : ComponentActivity() {
     private lateinit var webView: WebView
@@ -148,7 +149,9 @@ class RedReaderCompatibilityLoginActivity : ComponentActivity() {
         }
     }
 
-    private fun handleNavigation(uri: Uri): Boolean = when (loginNavigationFor(uri)) {
+    private fun handleNavigation(uri: Uri): Boolean = when (
+        loginNavigationFor(uri, callbackUri = loginCallbackUriOf(intent.getStringExtra(AUTHORIZATION_URL_EXTRA)))
+    ) {
         LoginNavigation.CALLBACK -> {
             if (!callbackHandled) {
                 callbackHandled = true
@@ -242,8 +245,19 @@ class RedReaderCompatibilityLoginActivity : ComponentActivity() {
     }
 }
 
-private const val REDREADER_SCHEME = "redreader"
-private const val REDREADER_CALLBACK_HOST = "rr_oauth_redir"
+private val DEFAULT_LOGIN_CALLBACK_URI: Uri =
+    RedditOAuth.REDREADER_COMPATIBILITY_REDIRECT_URI.toUri()
+
+// ISSUE240_LOGIN_WINDOW_MATCHES_THE_CONFIGURED_REDIRECT_V1: the callback is the
+// redirect URI the authorization asked for (the reader may have changed it);
+// the shipped RedReader one when the URL names none.
+internal fun loginCallbackUriOf(authorizationUrl: String?): Uri =
+    authorizationUrl
+        ?.toUri()
+        ?.getQueryParameter("redirect_uri")
+        ?.toUri()
+        ?.takeIf { uri -> !uri.scheme.isNullOrEmpty() && !uri.host.isNullOrEmpty() }
+        ?: DEFAULT_LOGIN_CALLBACK_URI
 
 // STEP3_LOGIN_NAVIGATION_DECISION_IS_A_FUNCTION_V1: what the login window does
 // with a main-frame navigation, decided without the window (behaviour as
@@ -256,12 +270,16 @@ internal enum class LoginNavigation {
 }
 
 /**
- * Only the exact RedReader callback (scheme and host) is the sign-in's
- * answer; Reddit's front page ends or resumes the login; other HTTPS pages
+ * Only the callback (the authorization's redirect scheme and host, RedReader's
+ * by default) is the sign-in's answer; Reddit's front page ends or resumes the login; other HTTPS pages
  * load; anything that is not HTTPS is blocked.
  */
-internal fun loginNavigationFor(uri: Uri): LoginNavigation = when {
-    uri.scheme == REDREADER_SCHEME && uri.host == REDREADER_CALLBACK_HOST -> LoginNavigation.CALLBACK
+internal fun loginNavigationFor(
+    uri: Uri,
+    callbackUri: Uri = DEFAULT_LOGIN_CALLBACK_URI,
+): LoginNavigation = when {
+    uri.scheme.equals(callbackUri.scheme, ignoreCase = true) &&
+        uri.host.equals(callbackUri.host, ignoreCase = true) -> LoginNavigation.CALLBACK
     isRedditFrontPage(uri) -> LoginNavigation.LEAVE_FRONT_PAGE
     uri.scheme == "https" -> LoginNavigation.LOAD
     else -> LoginNavigation.BLOCK

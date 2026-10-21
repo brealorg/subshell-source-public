@@ -60,7 +60,7 @@ class Backup03C2FavoritesStateTest {
         val state = state(
             communities = mutableMapOf(rootId to setOf("android")),
             feeds = mutableMapOf(rootId to setOf("/user/root/m/dev")),
-            persistBackupRestoreState = { _, _, favoriteCommunities, favoriteFeeds, _, _, _, _, _, _ ->
+            persistBackupRestoreState = { _, _, favoriteCommunities, favoriteFeeds, _, _, _, _, _, _, _ ->
                 seenFavoriteCommunities = favoriteCommunities
                 seenFavoriteFeeds = favoriteFeeds
             },
@@ -85,7 +85,7 @@ class Backup03C2FavoritesStateTest {
         val state = state(
             communities = mutableMapOf(rootId to setOf("android")),
             feeds = mutableMapOf(rootId to setOf("/user/root/m/dev")),
-            persistBackupRestoreState = { _, _, _, _, _, _, _, _, _, _ -> transactionCalls += 1 },
+            persistBackupRestoreState = { _, _, _, _, _, _, _, _, _, _, _ -> transactionCalls += 1 },
         )
 
         state.restoreBackupState(
@@ -107,7 +107,7 @@ class Backup03C2FavoritesStateTest {
         val state = state(
             communities = mutableMapOf(rootId to setOf("android")),
             feeds = mutableMapOf(rootId to setOf("/user/root/m/dev")),
-            persistBackupRestoreState = { _, _, favoriteCommunities, favoriteFeeds, _, _, _, _, _, _ ->
+            persistBackupRestoreState = { _, _, favoriteCommunities, favoriteFeeds, _, _, _, _, _, _, _ ->
                 seenCommunities = favoriteCommunities
                 seenFeeds = favoriteFeeds
             },
@@ -134,7 +134,7 @@ class Backup03C2FavoritesStateTest {
         val state = state(
             communities = mutableMapOf(rootId to setOf("android")),
             feeds = mutableMapOf(rootId to setOf("/user/root/m/dev")),
-            persistBackupRestoreState = { _, _, favoriteCommunities, favoriteFeeds, _, _, _, _, _, _ ->
+            persistBackupRestoreState = { _, _, favoriteCommunities, favoriteFeeds, _, _, _, _, _, _, _ ->
                 seenCommunities = favoriteCommunities
                 seenFeeds = favoriteFeeds
             },
@@ -159,7 +159,7 @@ class Backup03C2FavoritesStateTest {
         val state = state(
             communities = mutableMapOf(rootId to setOf("android")),
             feeds = mutableMapOf(rootId to setOf("/user/root/m/dev")),
-            persistBackupRestoreState = { _, _, _, _, _, _, _, _, _, _ ->
+            persistBackupRestoreState = { _, _, _, _, _, _, _, _, _, _, _ ->
                 error("simulated durable commit failure")
             },
         )
@@ -201,7 +201,8 @@ class Backup03C2FavoritesStateTest {
                     List<app.subshell.prototype.data.moderation.ModeratorSavedResponse>?,
                     Map<String, Map<String, app.subshell.prototype.ui.UserTag>>?,
                     Map<String, List<app.subshell.prototype.ui.SavedSearch>>?,
-) -> Unit = { _, _, _, _, _, _, _, _, _, _ -> },
+                    Map<String, Set<String>>?,
+) -> Unit = { _, _, _, _, _, _, _, _, _, _, _ -> },
     ): SubshellState = SubshellState(
         initialAccountSessions = sessions,
         initialActiveAccountUsername = "root",

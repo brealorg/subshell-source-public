@@ -12,6 +12,8 @@ import app.subshell.prototype.data.account.ConnectAccountUiState
  */
 data class AccountConnectEntryPoints(
     val accountSessionDirectory: AccountSessionDirectory? = null,
+    // ISSUE240_READER_EDITS_THE_REDDIT_API_VALUES_V1: identity lookups send it.
+    val redditUserAgent: String? = null,
     val onLogoutActiveAccount: ((Boolean) -> Unit) -> Unit = { onComplete ->
         onComplete(false)
     },

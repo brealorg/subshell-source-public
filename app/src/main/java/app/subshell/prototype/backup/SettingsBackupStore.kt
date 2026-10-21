@@ -82,6 +82,7 @@ class SettingsBackupStore(
         moderatorSavedResponses: List<PortableModeratorSavedResponse>? = null,
         userTagsByAccount: Map<String, Map<String, PortableUserTag>>? = null,
         savedSearchesByAccount: Map<String, List<SavedSearch>>? = null,
+        watchedCommunityNamesByAccount: Map<String, Set<String>>? = null,
     ): SettingsSnapshot = createSnapshot(
         name = validateSnapshotName(name),
         kind = SnapshotKind.MANUAL,
@@ -95,6 +96,7 @@ class SettingsBackupStore(
         moderatorSavedResponses = moderatorSavedResponses,
         userTagsByAccount = userTagsByAccount,
         savedSearchesByAccount = savedSearchesByAccount,
+        watchedCommunityNamesByAccount = watchedCommunityNamesByAccount,
     )
 
     fun recordSettingsChange(
@@ -108,6 +110,7 @@ class SettingsBackupStore(
         moderatorSavedResponses: List<PortableModeratorSavedResponse>? = null,
         userTagsByAccount: Map<String, Map<String, PortableUserTag>>? = null,
         savedSearchesByAccount: Map<String, List<SavedSearch>>? = null,
+        watchedCommunityNamesByAccount: Map<String, Set<String>>? = null,
     ): SettingsSnapshot? {
         val normalizedCommunities =
             joinedCommunityIdsByAccount?.let(::normalizeJoinedCommunityIdsByAccount)
@@ -128,6 +131,8 @@ class SettingsBackupStore(
             userTagsByAccount?.let(::normalizePortableUserTagsByAccount)
         val normalizedSavedSearches =
             savedSearchesByAccount?.let(::normalizeSavedSearchesByAccount)
+        val normalizedWatchedCommunities =
+            watchedCommunityNamesByAccount?.let(::normalizeWatchedCommunityNamesByAccount)
         val latest = listSnapshots().firstOrNull { it.deviceId == deviceId }
         if (
             latest?.settings == settings &&
@@ -139,7 +144,8 @@ class SettingsBackupStore(
             latest.postComposerDraftsByAccount == normalizedPostComposerDrafts &&
             latest.moderatorSavedResponses == normalizedModeratorSavedResponses &&
             latest.userTagsByAccount == normalizedUserTags &&
-            latest.savedSearchesByAccount == normalizedSavedSearches
+            latest.savedSearchesByAccount == normalizedSavedSearches &&
+            latest.watchedCommunityNamesByAccount == normalizedWatchedCommunities
         ) {
             return null
         }
@@ -156,6 +162,7 @@ class SettingsBackupStore(
             moderatorSavedResponses = normalizedModeratorSavedResponses,
             userTagsByAccount = normalizedUserTags,
             savedSearchesByAccount = normalizedSavedSearches,
+            watchedCommunityNamesByAccount = normalizedWatchedCommunities,
         )
     }
 
@@ -175,6 +182,7 @@ class SettingsBackupStore(
             moderatorSavedResponses = imported.moderatorSavedResponses,
             userTagsByAccount = imported.userTagsByAccount,
             savedSearchesByAccount = imported.savedSearchesByAccount,
+            watchedCommunityNamesByAccount = imported.watchedCommunityNamesByAccount,
             sourceAppVersion = imported.appVersion,
             sourceDeviceId = imported.deviceId,
             // CONTENTFILTER07 / BACKUP07: an imported file keeps saying nothing
@@ -283,6 +291,7 @@ class SettingsBackupStore(
         currentModeratorSavedResponses: List<PortableModeratorSavedResponse>? = null,
         currentUserTagsByAccount: Map<String, Map<String, PortableUserTag>>? = null,
         currentSavedSearchesByAccount: Map<String, List<SavedSearch>>? = null,
+        currentWatchedCommunityNamesByAccount: Map<String, Set<String>>? = null,
     ): SettingsSnapshot {
         val target = requireSnapshot(id)
         createSnapshot(
@@ -298,6 +307,7 @@ class SettingsBackupStore(
             moderatorSavedResponses = currentModeratorSavedResponses,
             userTagsByAccount = currentUserTagsByAccount,
             savedSearchesByAccount = currentSavedSearchesByAccount,
+            watchedCommunityNamesByAccount = currentWatchedCommunityNamesByAccount,
         )
         return target
     }
@@ -331,6 +341,7 @@ class SettingsBackupStore(
         moderatorSavedResponses: List<PortableModeratorSavedResponse>? = null,
         userTagsByAccount: Map<String, Map<String, PortableUserTag>>? = null,
         savedSearchesByAccount: Map<String, List<SavedSearch>>? = null,
+        watchedCommunityNamesByAccount: Map<String, Set<String>>? = null,
         sourceAppVersion: String = appVersion,
         sourceDeviceId: String = deviceId,
         settingsKeysIncluded: Set<String> = SubshellSettings.storageKeys,
@@ -363,6 +374,8 @@ class SettingsBackupStore(
                 userTagsByAccount?.let(::normalizePortableUserTagsByAccount),
             savedSearchesByAccount =
                 savedSearchesByAccount?.let(::normalizeSavedSearchesByAccount),
+            watchedCommunityNamesByAccount =
+                watchedCommunityNamesByAccount?.let(::normalizeWatchedCommunityNamesByAccount),
             settingsKeysIncluded = settingsKeysIncluded,
             unreadSettings = unreadSettings,
         )
@@ -682,6 +695,18 @@ object SettingsSnapshotCodec {
                     },
                 )
             }
+
+            // ISSUE239_WATCHED_COMMUNITIES_SCHEMA_V11_V1
+            snapshot.watchedCommunityNamesByAccount?.let { rawWatched ->
+                put(
+                    "watchedCommunities",
+                    buildJsonObject {
+                        normalizeWatchedCommunityNamesByAccount(rawWatched).forEach { (account, names) ->
+                            put(account, buildJsonArray { names.forEach { name -> add(JsonPrimitive(name)) } })
+                        }
+                    },
+                )
+            }
         }
         return json.encodeToString(JsonElement.serializer(), root)
     }
@@ -755,6 +780,12 @@ object SettingsSnapshotCodec {
         } else {
             null
         }
+        // ISSUE239_WATCHED_COMMUNITIES_SCHEMA_V11_V1
+        val watchedCommunities = if (decodedSchemaVersion >= 11) {
+            root.watchedCommunityNamesByAccountOrNull("watchedCommunities")
+        } else {
+            null
+        }
 
         return SettingsSnapshot(
             id = root.stringValue("id")?.takeIf(SNAPSHOT_ID_PATTERN::matches)
@@ -784,6 +815,7 @@ object SettingsSnapshotCodec {
             moderatorSavedResponses = moderatorSavedResponses,
             userTagsByAccount = userTags,
             savedSearchesByAccount = savedSearches,
+            watchedCommunityNamesByAccount = watchedCommunities,
             settingsKeysIncluded = SubshellSettings.includedStorageKeys(readableSettings),
             unreadSettings = unreadSettings,
         )
@@ -822,6 +854,28 @@ object SettingsSnapshotCodec {
     // = empty map (authoritatively empty). A module that is not an object is
     // corrupt and leaves the target unchanged (BACKUP06); an account whose
     // value is not a list, and unreadable rows, are dropped.
+    // ISSUE239_WATCHED_COMMUNITIES_SCHEMA_V11_V1
+    // Missing module = null (leave the target unchanged); present but empty
+    // = empty map (authoritatively empty). A module that is not an object is
+    // corrupt and leaves the target unchanged (BACKUP06); an account whose
+    // value is not a list, and names that are not valid, are dropped.
+    private fun JsonObject.watchedCommunityNamesByAccountOrNull(
+        name: String,
+    ): Map<String, Set<String>>? {
+        if (!containsKey(name)) return null
+        val raw = get(name)
+        if (raw == null || raw === JsonNull) return null
+        val accounts = raw as? JsonObject ?: return null
+        return normalizeWatchedCommunityNamesByAccount(
+            accounts.mapNotNull { (account, rawNames) ->
+                if (rawNames !is JsonArray) return@mapNotNull null
+                account to rawNames.mapNotNullTo(linkedSetOf()) { value ->
+                    (value as? JsonPrimitive)?.takeIf { it.isString }?.content
+                }
+            }.toMap(),
+        )
+    }
+
     private fun JsonObject.savedSearchesByAccountOrNull(
         name: String,
     ): Map<String, List<SavedSearch>>? {

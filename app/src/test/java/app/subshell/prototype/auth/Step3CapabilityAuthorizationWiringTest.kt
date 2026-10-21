@@ -8,6 +8,7 @@ import app.subshell.prototype.data.auth.AuthCipher
 import app.subshell.prototype.data.auth.AuthCommentWriteCapability
 import app.subshell.prototype.data.auth.AuthCustomFeedWriteCapability
 import app.subshell.prototype.data.auth.AuthInboxReadCapability
+import app.subshell.prototype.data.auth.AuthSessionResult
 import app.subshell.prototype.data.auth.EncryptedAuthSessionStore
 import app.subshell.prototype.data.auth.OAuthClientMode
 import app.subshell.prototype.data.auth.OAuthProvider
@@ -21,6 +22,8 @@ import app.subshell.prototype.data.auth.oauthClientIdFingerprint
 import kotlinx.coroutines.runBlocking
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeFalse
 import org.junit.Before
 import org.junit.Test
@@ -31,9 +34,11 @@ import org.robolectric.annotation.Config
 /**
  * STEP3 (reddit01c2, c3a, c3b, c3c2, c4): every capability the real runtime
  * builds asks Reddit for authorization as its own owner (and context, for
- * Manage post) and for exactly the scopes that feature needs. The account
- * holds only the core read scopes, so each request is the feature's scope
- * set; the expectations are literal scope names, not the constants.
+ * Manage post) and requires exactly the scopes that feature needs. The
+ * account holds only the core read scopes; since #237 every request also
+ * carries the whole sign-in set, so what a feature needs is read from what
+ * its ensureAuthorized accepts. The expectations are literal scope names,
+ * not the constants.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
@@ -48,6 +53,41 @@ class Step3CapabilityAuthorizationWiringTest {
     private val write = core + "submit"
     private val textPost = write + "history"
     private val edit = textPost + "edit"
+    // ISSUE237: what sign-in asks for, and what every authorization asks for too.
+    private val signIn = setOf(
+        "account", "edit", "flair", "history", "identity", "modcontributors", "modlog", "modmail",
+        "modothers", "modposts", "mysubreddits", "privatemessages", "read", "report", "save",
+        "submit", "subscribe", "vote", "wikiread",
+    )
+
+    private fun holding(scopes: Set<String>) {
+        store.saveSession(
+            accountId,
+            StoredOAuthSession(
+                provider = OAuthProvider.REDDIT,
+                tokens = OAuthTokenSet("access", "refresh", "bearer", scopes.joinToString(" "), Long.MAX_VALUE),
+                identity = AuthAccountIdentity(providerAccountId = "t2me", username = "me"),
+                clientMode = mode,
+                clientIdFingerprint = oauthClientIdFingerprint(clientId),
+            ),
+        )
+    }
+
+    /**
+     * The scopes [ensure] requires, checked against [own]: a token with [own]
+     * is accepted and a token without any one of its non-core scopes is not.
+     */
+    private fun assertRequires(name: String, own: Set<String>, ensure: suspend () -> AuthSessionResult) {
+        holding(own)
+        val accepted = runBlocking { ensure() }
+        assertTrue("$name with $own: $accepted", accepted is AuthSessionResult.Authenticated)
+        (own - core).forEach { scope ->
+            holding(own - scope)
+            val refused = runBlocking { ensure() }
+            assertFalse("$name without $scope: $refused", refused is AuthSessionResult.Authenticated)
+        }
+        holding(core)
+    }
 
     @Before
     fun signedInWithTheCoreReadScopesOnly() {
@@ -96,6 +136,14 @@ class Step3CapabilityAuthorizationWiringTest {
         )
     }
 
+    // The runtime reads the account directory in the background; an
+    // authorization may only start once it is read (the app waits in
+    // AccountDirectoryGate). Without the wait the test raced the read and
+    // failed now and then in a full run.
+    private fun hydratedRuntime() = AuthApplicationRuntimeFactory.create(context, IdentityCipher()).also { runtime ->
+        runBlocking { runtime.accountSessionDirectory!!.hydratedSnapshot() }
+    }
+
     private fun AuthCommentWriteCapability.request() =
         requestOf({ beginAuthorization(accountId) }, ::cancelPendingAuthorization)
 
@@ -106,8 +154,8 @@ class Step3CapabilityAuthorizationWiringTest {
         requestOf({ beginAuthorization(accountId) }, ::cancelPendingAuthorization)
 
     @Test
-    fun everyCapabilityAsksAsItsOwnOwnerForItsOwnScopes() {
-        val runtime = AuthApplicationRuntimeFactory.create(context, IdentityCipher())
+    fun everyCapabilityAsksAsItsOwnOwnerAndRequiresItsOwnScopes() {
+        val runtime = hydratedRuntime()
         val actual = linkedMapOf(
             "commentWrite" to runtime.commentWriteAuthorizationCapability!!.request(),
             "textPostWrite" to runtime.textPostWriteAuthorizationCapability!!.request(),
@@ -134,6 +182,33 @@ class Step3CapabilityAuthorizationWiringTest {
             "moderatorTeam" to runtime.moderatorTeamCapability!!.request(),
             "moderationAction" to runtime.moderationActionCapability!!.request(),
             "removalReason" to runtime.removalReasonCapability!!.request(),
+        )
+        val ensure = linkedMapOf<String, suspend () -> AuthSessionResult>(
+            "commentWrite" to { runtime.commentWriteAuthorizationCapability.ensureAuthorized(accountId) },
+            "textPostWrite" to { runtime.textPostWriteAuthorizationCapability.ensureAuthorized(accountId) },
+            "commentEdit" to { runtime.commentEditAuthorizationCapability.ensureAuthorized(accountId) },
+            "commentDelete" to { runtime.commentDeleteAuthorizationCapability.ensureAuthorized(accountId) },
+            "postEdit" to { runtime.postEditAuthorizationCapability.ensureAuthorized(accountId) },
+            "postDelete" to { runtime.postDeleteAuthorizationCapability.ensureAuthorized(accountId) },
+            "composerFlair" to { runtime.composerFlairAuthorizationCapability.ensureAuthorized(accountId) },
+            "composerRequirements" to { runtime.composerPostRequirementsAuthorizationCapability.ensureAuthorized(accountId) },
+            "postManageEdit" to { runtime.postManageEditAuthorizationCapability.ensureAuthorized(accountId) },
+            "postManageFlair" to { runtime.postManageFlairAuthorizationCapability.ensureAuthorized(accountId) },
+            "postManageModeration" to { runtime.postManageModerationAuthorizationCapability.ensureAuthorized(accountId) },
+            "inboxRead" to { runtime.inboxReadCapability.ensureAuthorized(accountId) },
+            "customFeedWrite" to { runtime.customFeedWriteCapability.ensureAuthorized(accountId) },
+            "communityMembership" to { runtime.communityMembershipCapability.ensureAuthorized(accountId) },
+            "redditFavorite" to { runtime.redditFavoriteCapability.ensureAuthorized(accountId) },
+            "postVote" to { runtime.postVoteCapability.ensureAuthorized(accountId) },
+            "postSave" to { runtime.postSaveCapability.ensureAuthorized(accountId) },
+            "postFollow" to { runtime.postFollowCapability.ensureAuthorized(accountId) },
+            "contentSafety" to { runtime.contentSafetyCapability.ensureAuthorized(accountId) },
+            "modmailRead" to { runtime.modmailReadCapability.ensureAuthorized(accountId) },
+            "moderationLog" to { runtime.moderationLogCapability.ensureAuthorized(accountId) },
+            "moderatorUsers" to { runtime.moderatorUserManagementCapability.ensureAuthorized(accountId) },
+            "moderatorTeam" to { runtime.moderatorTeamCapability.ensureAuthorized(accountId) },
+            "moderationAction" to { runtime.moderationActionCapability.ensureAuthorized(accountId) },
+            "removalReason" to { runtime.removalReasonCapability.ensureAuthorized(accountId) },
         )
 
         val expected = linkedMapOf(
@@ -164,14 +239,17 @@ class Step3CapabilityAuthorizationWiringTest {
             // Reading removal reasons needs modcontributors too (MOD01A21).
             "removalReason" to Request("moderation_reason", null, core + setOf("modposts", "modcontributors")),
         )
-        expected.keys.forEach { name -> assertEquals(name, expected[name], actual[name]) }
+        expected.forEach { (name, own) ->
+            assertEquals(name, own.copy(scopes = signIn), actual[name])
+            assertRequires(name, own.scopes, ensure.getValue(name))
+        }
     }
 
     // STEP3 (wiki01a1): the community wiki asks as its own owner, per
     // community, for reading only; no capability ever asks to edit a wiki.
     @Test
     fun theWikiAsksToReadOnlyAndNothingAsksToEditAWiki() {
-        val runtime = AuthApplicationRuntimeFactory.create(context, IdentityCipher())
+        val runtime = hydratedRuntime()
         val wiki = runtime.communityWikiReadAuthorizer!!
         val owner = app.subshell.prototype.data.auth.AuthCapabilityAuthorizationOwner.COMMUNITY_WIKI_READ
 
@@ -183,7 +261,8 @@ class Step3CapabilityAuthorizationWiringTest {
 
         assertEquals("community_wiki_read", request.owner)
         assertEquals(key, request.context)
-        assertEquals(core + "wikiread", request.scopes)
+        assertEquals(signIn, request.scopes)
+        assertRequires("wiki", core + "wikiread") { wiki.ensureAuthorized(accountId) }
         val editing = app.subshell.prototype.data.auth.reddit.RedditOAuthCapability.entries
             .filter { "wikiedit" in app.subshell.prototype.data.auth.reddit.RedditOAuth.scopesFor(it) }
         assertEquals(emptyList<Any>(), editing)
@@ -193,7 +272,7 @@ class Step3CapabilityAuthorizationWiringTest {
     // user, for the core read scopes plus history.
     @Test
     fun profileHistoryAsksCoreReadPlusHistoryForItsUser() {
-        val runtime = AuthApplicationRuntimeFactory.create(context, IdentityCipher())
+        val runtime = hydratedRuntime()
         val history = runtime.profileHistoryAuthorizer!!
         val owner = app.subshell.prototype.data.auth.AuthCapabilityAuthorizationOwner.PROFILE_HISTORY
 
@@ -205,7 +284,8 @@ class Step3CapabilityAuthorizationWiringTest {
 
         assertEquals("profile_history", request.owner)
         assertEquals(key, request.context)
-        assertEquals(core + "history", request.scopes)
+        assertEquals(signIn, request.scopes)
+        assertRequires("profileHistory", core + "history") { history.ensureAuthorized(accountId) }
     }
 
     private class IdentityCipher : AuthCipher {

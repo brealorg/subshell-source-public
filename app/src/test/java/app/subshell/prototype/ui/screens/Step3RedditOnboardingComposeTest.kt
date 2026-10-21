@@ -50,7 +50,8 @@ import org.robolectric.annotation.Config
  * and not once one is signed in; its store links open only RedReader's
  * Google Play and F-Droid pages; a pasted Client ID is saved in the real store
  * and the app is asked to reload its auth host; the Advanced section shows
- * the fixed RedReader redirect URI and user agent; once configured, Connect
+ * the RedReader redirect URI and user agent as editable defaults (#240,
+ * Issue240RedditApiValuesComposeTest); once configured, Connect
  * Reddit starts the app's one connect flow. The Android key store is the test
  * stand-in [FakeAndroidKeyStore].
  */
@@ -213,7 +214,7 @@ class Step3RedditOnboardingComposeTest {
     }
 
     @Test
-    fun advancedShowsTheFixedRedReaderRedirectAndUserAgent() {
+    fun advancedShowsTheRedReaderRedirectAndUserAgentAsDefaults() {
         showScreen(
             object : UriHandler {
                 override fun openUri(uri: String) = Unit

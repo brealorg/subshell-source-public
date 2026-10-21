@@ -124,6 +124,7 @@ internal val settingsSearchEntries: List<SettingsSearchEntry> = listOf(
     setting("notify-private-messages", "Notifications", "private messages PM notifications"),
     setting("notify-reddit-notices", "Notifications", "Reddit notices system messages notification"),
     setting("notify-modmail", "Notifications", "Modmail moderation notification"),
+    setting("new-post-notifications", "Notifications", "new posts community subreddit notify alert watch follow"),
 
     setting("redreader-compatibility", "Reddit connection", "RedReader compatibility OAuth client ID account encrypted connection"),
     setting("diagnostics", "Diagnostics", "diagnostics debug troubleshooting event history report share clear privacy"),

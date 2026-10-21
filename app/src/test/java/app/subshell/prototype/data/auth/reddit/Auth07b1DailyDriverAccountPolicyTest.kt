@@ -2,7 +2,6 @@ package app.subshell.prototype.data.auth.reddit
 
 import app.subshell.prototype.data.auth.OAuthClientMode
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -15,6 +14,10 @@ class Auth07b1DailyDriverAccountPolicyTest {
             "flair",
             "history",
             "identity",
+            "modcontributors",
+            "modlog",
+            "modmail",
+            "modothers",
             "modposts",
             "mysubreddits",
             "privatemessages",
@@ -24,6 +27,7 @@ class Auth07b1DailyDriverAccountPolicyTest {
             "submit",
             "subscribe",
             "vote",
+            "wikiread",
         )
 
         assertEquals(
@@ -32,17 +36,9 @@ class Auth07b1DailyDriverAccountPolicyTest {
         )
 
         listOf(
-            RedditOAuth.coreReadScopes,
-            RedditOAuth.liveCommentWriteScopes,
             RedditOAuth.liveTextPostWriteScopes,
-            RedditOAuth.liveCommentEditScopes,
-            RedditOAuth.liveComposerFlairScopes,
-            RedditOAuth.livePostModerationScopes,
-            RedditOAuth.livePostVoteScopes,
-            RedditOAuth.livePostSaveScopes,
-            RedditOAuth.liveContentSafetyScopes,
-            RedditOAuth.liveCustomFeedWriteScopes,
-            RedditOAuth.liveInboxReadScopes,
+        ).plus(
+            RedditOAuthCapability.entries.map(RedditOAuth::scopesFor),
         ).forEach { required ->
             assertTrue(
                 RedditOAuth.dailyDriverScopes
