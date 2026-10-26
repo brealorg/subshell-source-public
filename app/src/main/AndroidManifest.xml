@@ -30,31 +30,23 @@
         android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true"
         android:theme="@style/Theme.Subshell">
+        <!-- SECAUDIT08_CALLBACK_OPENS_SUBSHELLS_OWN_TASK_V1 -->
         <activity
             android:name="app.subshell.prototype.auth.AuthCallbackActivity"
             android:excludeFromRecents="true"
             android:exported="false"
-            android:noHistory="true" />
+            android:noHistory="true"
+            android:taskAffinity="" />
         <activity
             android:name="app.subshell.prototype.auth.RedReaderCompatibilityLoginActivity"
             android:excludeFromRecents="true"
             android:exported="false" />
-        <activity-alias
-            android:name="app.subshell.prototype.auth.AuthRedReaderCompatibilityCallback"
-            android:enabled="true"
-            android:exported="true"
-            android:targetActivity="app.subshell.prototype.auth.AuthCallbackActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-
-                <data
-                    android:host="rr_oauth_redir"
-                    android:scheme="redreader" />
-            </intent-filter>
-        </activity-alias>
+        <!--
+          SECAUDIT07_NO_EXPORTED_REDREADER_CALLBACK_V1 (security audit #7): the
+          RedReader sign-in runs in the app's own login window, which takes
+          redreader://rr_oauth_redir itself. The exported alias that let any app
+          or web link deliver one is gone.
+        -->
         <activity-alias
             android:name="app.subshell.prototype.auth.AuthProductionCallback"
             android:enabled="${auth04ProductionCallbackEnabled}"
@@ -151,6 +143,11 @@
                 <data android:mimeType="image/*" />
             </intent-filter>
         </activity-alias>
+        <!-- ISSUE253_DIRECT_REPLY_FROM_THE_NOTIFICATION_V1: only Subshell's own
+             notification Reply action reaches it. -->
+        <receiver
+            android:name=".inbox.InboxReplyReceiver"
+            android:exported="false" />
         <!-- UPDATE01A1A_PACKAGE_REPLACED_INSTALL_MARKER_V1 -->
         <receiver
             android:name=".update.UpdatePackageReplacedReceiver"

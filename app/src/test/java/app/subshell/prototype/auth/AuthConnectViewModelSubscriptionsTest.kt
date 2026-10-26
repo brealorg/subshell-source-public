@@ -46,13 +46,13 @@ class AuthConnectViewModelSubscriptionsTest {
     fun withoutALoaderALiveLoadReportsClientConfigurationAndACachedLoadDoesNothing() {
         val viewModel = viewModel(loader = null)
 
-        viewModel.loadCachedRedditSubscriptions(account)
+        viewModel.communities().loadCachedRedditSubscriptions(account)
         idle()
-        assertEquals(null, viewModel.redditSubscriptionsUiState.value.accountStableId)
+        assertEquals(null, viewModel.communities().redditSubscriptionsUiState.value.accountStableId)
 
-        viewModel.loadRedditSubscriptions(account, forceRefresh = false)
+        viewModel.communities().loadRedditSubscriptions(account, forceRefresh = false)
         idle()
-        val state = viewModel.redditSubscriptionsUiState.value
+        val state = viewModel.communities().redditSubscriptionsUiState.value
         assertEquals(account, state.accountStableId)
         assertEquals(RedditSubscriptionsUiFailureKind.CLIENT_CONFIGURATION, state.failureKind)
     }
@@ -62,31 +62,31 @@ class AuthConnectViewModelSubscriptionsTest {
         val loader = FakeLoader(cached = { loaded("android") })
         val viewModel = viewModel(loader)
 
-        viewModel.loadCachedRedditSubscriptions(account)
+        viewModel.communities().loadCachedRedditSubscriptions(account)
         idle()
-        var state = viewModel.redditSubscriptionsUiState.value
+        var state = viewModel.communities().redditSubscriptionsUiState.value
         assertEquals(listOf("android"), state.communities.map { it.name })
         assertTrue(state.fromCache)
         assertTrue(state.loaded)
         assertEquals(1L, state.contentRevision)
 
         // Already has content for the account: not read again.
-        viewModel.loadCachedRedditSubscriptions(account)
+        viewModel.communities().loadCachedRedditSubscriptions(account)
         idle()
         assertEquals(1, loader.cachedCalls)
 
         loader.cached = { AuthenticatedRedditSubscriptionsResult.NotCached }
-        viewModel.loadCachedRedditSubscriptions("reddit:other")
+        viewModel.communities().loadCachedRedditSubscriptions("reddit:other")
         idle()
-        state = viewModel.redditSubscriptionsUiState.value
+        state = viewModel.communities().redditSubscriptionsUiState.value
         assertEquals("reddit:other", state.accountStableId)
         assertFalse(state.loaded)
         assertTrue(state.communities.isEmpty())
 
         loader.cached = { error("disk") }
-        viewModel.loadCachedRedditSubscriptions("reddit:third")
+        viewModel.communities().loadCachedRedditSubscriptions("reddit:third")
         idle()
-        state = viewModel.redditSubscriptionsUiState.value
+        state = viewModel.communities().redditSubscriptionsUiState.value
         assertEquals(RedditSubscriptionsUiFailureKind.STORAGE, state.failureKind)
         assertTrue(state.failureRetryable)
     }
@@ -96,9 +96,9 @@ class AuthConnectViewModelSubscriptionsTest {
         val loader = FakeLoader(cached = { loaded("android") })
         val viewModel = viewModel(loader)
 
-        viewModel.loadRedditSubscriptions(account, forceRefresh = false)
+        viewModel.communities().loadRedditSubscriptions(account, forceRefresh = false)
         idle()
-        var state = viewModel.redditSubscriptionsUiState.value
+        var state = viewModel.communities().redditSubscriptionsUiState.value
         assertTrue(state.loading)
         assertTrue(state.fromCache)
         assertEquals(listOf("android"), state.communities.map { it.name })
@@ -106,13 +106,13 @@ class AuthConnectViewModelSubscriptionsTest {
 
         // A second ordinary load while one is running is ignored; a forced one
         // replaces it (LOW7, OCB-442).
-        viewModel.loadRedditSubscriptions(account, forceRefresh = false)
+        viewModel.communities().loadRedditSubscriptions(account, forceRefresh = false)
         idle()
         assertEquals(1, loader.synchronizeCalls)
 
         loader.pendingSync!!.complete(loaded("android", "kotlin"))
         idle()
-        state = viewModel.redditSubscriptionsUiState.value
+        state = viewModel.communities().redditSubscriptionsUiState.value
         assertFalse(state.loading)
         assertFalse(state.fromCache)
         assertTrue(state.loaded)
@@ -120,17 +120,17 @@ class AuthConnectViewModelSubscriptionsTest {
         assertEquals(2L, state.contentRevision)
 
         // Loaded live and not forced: refused.
-        viewModel.loadRedditSubscriptions(account, forceRefresh = false)
+        viewModel.communities().loadRedditSubscriptions(account, forceRefresh = false)
         idle()
         assertEquals(1, loader.synchronizeCalls)
 
         // Forced: skips the cache and synchronises again.
-        viewModel.loadRedditSubscriptions(account, forceRefresh = true)
+        viewModel.communities().loadRedditSubscriptions(account, forceRefresh = true)
         idle()
         assertEquals(1, loader.cachedCalls)
         assertEquals(2, loader.synchronizeCalls)
-        assertTrue(viewModel.redditSubscriptionsUiState.value.loading)
-        assertEquals(listOf("android", "kotlin"), viewModel.redditSubscriptionsUiState.value.communities.map { it.name })
+        assertTrue(viewModel.communities().redditSubscriptionsUiState.value.loading)
+        assertEquals(listOf("android", "kotlin"), viewModel.communities().redditSubscriptionsUiState.value.communities.map { it.name })
     }
 
     @Test
@@ -138,7 +138,7 @@ class AuthConnectViewModelSubscriptionsTest {
         val loader = FakeLoader(cached = { loaded("android") })
         val viewModel = viewModel(loader)
 
-        viewModel.loadRedditSubscriptions(account, forceRefresh = false)
+        viewModel.communities().loadRedditSubscriptions(account, forceRefresh = false)
         idle()
         loader.pendingSync!!.complete(
             AuthenticatedRedditSubscriptionsResult.Failed(
@@ -147,18 +147,18 @@ class AuthConnectViewModelSubscriptionsTest {
             ),
         )
         idle()
-        var state = viewModel.redditSubscriptionsUiState.value
+        var state = viewModel.communities().redditSubscriptionsUiState.value
         assertFalse(state.loading)
         assertEquals(RedditSubscriptionsUiFailureKind.HTTP, state.failureKind)
         assertEquals(listOf("android"), state.communities.map { it.name })
         assertTrue(state.fromCache)
 
-        viewModel.loadRedditSubscriptions(account, forceRefresh = false)
+        viewModel.communities().loadRedditSubscriptions(account, forceRefresh = false)
         idle()
         assertEquals(2, loader.synchronizeCalls)
         loader.pendingSync!!.complete(AuthenticatedRedditSubscriptionsResult.NotCached)
         idle()
-        state = viewModel.redditSubscriptionsUiState.value
+        state = viewModel.communities().redditSubscriptionsUiState.value
         assertEquals(RedditSubscriptionsUiFailureKind.STORAGE, state.failureKind)
     }
 
@@ -167,16 +167,16 @@ class AuthConnectViewModelSubscriptionsTest {
         val loader = FakeLoader(cached = { AuthenticatedRedditSubscriptionsResult.NotCached })
         val viewModel = viewModel(loader)
 
-        viewModel.loadRedditSubscriptions(account, forceRefresh = false)
+        viewModel.communities().loadRedditSubscriptions(account, forceRefresh = false)
         idle()
         val first = loader.pendingSync!!
-        viewModel.loadRedditSubscriptions("reddit:other", forceRefresh = false)
+        viewModel.communities().loadRedditSubscriptions("reddit:other", forceRefresh = false)
         idle()
-        assertEquals("reddit:other", viewModel.redditSubscriptionsUiState.value.accountStableId)
+        assertEquals("reddit:other", viewModel.communities().redditSubscriptionsUiState.value.accountStableId)
 
         first.complete(loaded("android"))
         idle()
-        val state = viewModel.redditSubscriptionsUiState.value
+        val state = viewModel.communities().redditSubscriptionsUiState.value
         assertEquals("reddit:other", state.accountStableId)
         assertTrue(state.communities.isEmpty())
         assertTrue(state.loading)
@@ -187,16 +187,16 @@ class AuthConnectViewModelSubscriptionsTest {
         val loader = FakeLoader(cached = { AuthenticatedRedditSubscriptionsResult.NotCached })
         val viewModel = viewModel(loader, activeAccount = account)
 
-        viewModel.updateCommunityMembership(account, "kotlin", CommunityMembershipAction.JOIN)
+        viewModel.communities().updateCommunityMembership(account, "kotlin", CommunityMembershipAction.JOIN)
         idle()
-        assertEquals(CommunityMembershipPhase.SUCCEEDED, viewModel.communityMembershipUiState.value.phase)
+        assertEquals(CommunityMembershipPhase.SUCCEEDED, viewModel.communities().communityMembershipUiState.value.phase)
         // The first reconciliation step runs at once, as a forced load.
         assertEquals(0, loader.cachedCalls)
         assertEquals(1, loader.synchronizeCalls)
 
         loader.pendingSync!!.complete(loaded("android", "kotlin"))
         idle()
-        assertEquals(CommunityMembershipPhase.IDLE, viewModel.communityMembershipUiState.value.phase)
+        assertEquals(CommunityMembershipPhase.IDLE, viewModel.communities().communityMembershipUiState.value.phase)
 
         idleFor(30_000)
         assertEquals(1, loader.synchronizeCalls)
@@ -207,11 +207,11 @@ class AuthConnectViewModelSubscriptionsTest {
         val loader = FakeLoader(cached = { AuthenticatedRedditSubscriptionsResult.NotCached })
         val viewModel = viewModel(loader, activeAccount = account)
 
-        viewModel.updateCommunityMembership(account, "kotlin", CommunityMembershipAction.JOIN)
+        viewModel.communities().updateCommunityMembership(account, "kotlin", CommunityMembershipAction.JOIN)
         idle()
         loader.pendingSync!!.complete(loaded("android"))
         idle()
-        var membership = viewModel.communityMembershipUiState.value
+        var membership = viewModel.communities().communityMembershipUiState.value
         assertEquals(CommunityMembershipPhase.FAILED, membership.phase)
         assertEquals(CommunityMembershipFailureKind.OUTCOME_UNKNOWN, membership.failureKind)
 
@@ -222,7 +222,7 @@ class AuthConnectViewModelSubscriptionsTest {
             assertEquals(expectedCalls, loader.synchronizeCalls)
             loader.pendingSync!!.complete(loaded("android"))
             idle()
-            membership = viewModel.communityMembershipUiState.value
+            membership = viewModel.communities().communityMembershipUiState.value
             assertEquals(CommunityMembershipFailureKind.OUTCOME_UNKNOWN, membership.failureKind)
             assertTrue(membership.blocksActionFor(account, "kotlin"))
         }
@@ -233,7 +233,7 @@ class AuthConnectViewModelSubscriptionsTest {
         idle()
 
         // After the last step: a final, non-blocking state, nothing re-sent.
-        membership = viewModel.communityMembershipUiState.value
+        membership = viewModel.communities().communityMembershipUiState.value
         assertEquals(CommunityMembershipPhase.FAILED, membership.phase)
         assertEquals(CommunityMembershipFailureKind.NOT_CONFIRMED, membership.failureKind)
         assertFalse(membership.blocksActionFor(account, "kotlin"))
@@ -251,7 +251,7 @@ class AuthConnectViewModelSubscriptionsTest {
         val loader = FakeLoader(cached = { AuthenticatedRedditSubscriptionsResult.NotCached })
         val viewModel = viewModel(loader, activeAccount = account)
 
-        viewModel.updateCommunityMembership(account, "kotlin", CommunityMembershipAction.JOIN)
+        viewModel.communities().updateCommunityMembership(account, "kotlin", CommunityMembershipAction.JOIN)
         idle()
         loader.pendingSync!!.complete(loaded("android"))
         idle()
@@ -260,14 +260,14 @@ class AuthConnectViewModelSubscriptionsTest {
         idle()
         assertEquals(
             CommunityMembershipFailureKind.OUTCOME_UNKNOWN,
-            viewModel.communityMembershipUiState.value.failureKind,
+            viewModel.communities().communityMembershipUiState.value.failureKind,
         )
 
         idleFor(5_100)
         assertEquals(3, loader.synchronizeCalls)
         loader.pendingSync!!.complete(loaded("android", "kotlin"))
         idle()
-        assertEquals(CommunityMembershipPhase.IDLE, viewModel.communityMembershipUiState.value.phase)
+        assertEquals(CommunityMembershipPhase.IDLE, viewModel.communities().communityMembershipUiState.value.phase)
 
         idleFor(60_000)
         assertEquals(3, loader.synchronizeCalls)

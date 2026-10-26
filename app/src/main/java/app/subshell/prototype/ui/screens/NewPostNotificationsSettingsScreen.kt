@@ -1,6 +1,5 @@
 package app.subshell.prototype.ui.screens
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -38,7 +37,6 @@ internal fun NewPostNotificationsSettingsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    BackHandler(onBack = onBack)
     val watched = state.watchedCommunityNames
     val routeTopBarScroll = rememberRouteTopBarScrollBehavior()
     Column(modifier.fillMaxSize().nestedScroll(routeTopBarScroll.nestedScrollConnection)) {

@@ -105,7 +105,7 @@ class AuthTabCancelledCallbackTest {
 
         assertEquals(1, inbox.cancelled)
         assertTrue(connectFlow.handledTokens.isEmpty())
-        val inboxState = viewModel.redditInboxUiState.value
+        val inboxState = viewModel.inbox().redditInboxUiState.value
         assertTrue(inboxState.authorizationRequired)
         assertTrue(inboxState.failureKind != null)
     }
@@ -143,7 +143,7 @@ class AuthTabCancelledCallbackTest {
 
         assertEquals(1, inbox.cancelled)
         assertTrue(connectFlow.handledTokens.isEmpty())
-        val inboxState = viewModel.redditInboxUiState.value
+        val inboxState = viewModel.inbox().redditInboxUiState.value
         assertTrue(inboxState.authorizationRequired)
         assertNull(inboxState.failureKind)
     }
@@ -215,7 +215,7 @@ class AuthTabCancelledCallbackTest {
             authorizationOwnerResolver = AuthCapabilityAuthorizationOwnerResolver(store),
             inboxReadCapability = inbox,
         ),
-    )
+    ).withAreaViewModels() // AUTHSPLIT02/03: made with it, as MainActivity does
 
     private fun idle() = shadowOf(Looper.getMainLooper()).idle()
 

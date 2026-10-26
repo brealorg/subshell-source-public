@@ -162,7 +162,15 @@ python3 tools/release02/publish-source-snapshot.py \
   byte for byte the source of the APK); the private `SOURCE_COMMIT` is not
   reachable from the public repository, checked before the commit, after it
   and after the push; gitleaks finds nothing with the repository's
-  `.gitleaks.toml`; the push is `--atomic` and never forced.
+  `.gitleaks.toml`, whose sha256 is pinned in the tool
+  (`SECRET_SCAN_CONFIG_SHA256`; another config stops it with
+  `SECRET_SCAN_CONFIG_CHANGED`, SECAUDIT18_SCAN_CONFIG_IS_PINNED_V1 — a change
+  to `.gitleaks.toml` updates the pin in the same commit, or the selftest is
+  red); the push is `--atomic` and never forced. Qualification already ran
+  the same scan on the same tree (SECRETSCAN01), so a finding here means the
+  scanner or its rules changed in between. A false positive is allowed in
+  `.gitleaks.toml` by its exact line, never by file, and only on main: the
+  release whose tree it is in cannot get its snapshot (0.85-beta).
 - Resume: run it again with a new `--output`. If the tag already points at a
   snapshot with the same tree on main, it only verifies it
   (`SNAPSHOT_REUSED=YES`). A tag on another tree stops it.
@@ -174,6 +182,56 @@ python3 tools/release02/publish-source-snapshot.py \
   code is published separately in [brealorg/subshell-source-public]" on one line.
   The old "not published" sentence was accepted until the first snapshot release
   (0.82-beta) and is refused now.
+
+## Stage D: the r/subshell announcement (RELEASETOOL02F, #255)
+
+Every published release is announced in r/subshell. Part C (no
+credentials) writes the post; the owner posts it:
+
+```bash
+python3 tools/release02/announce-reddit.py \
+  --release-state "$PUB/release-beta-state.env" \
+  --qualified-source-root "$SRC_MAIN" \
+  --output "$PUB-announce"
+```
+
+- It needs Stage B COMPLETE (a release not on the site is not announced) and
+  reads the release's entry in the qualified source's
+  `app/src/main/assets/changelog/releases.json`: the headline is the title,
+  the owner-approved highlights are the post, with the GitHub release link
+  and the site. No new text is written for the announcement.
+- It writes `reddit-announcement.md` (title + text, ready to paste) and
+  `announce-state.env` (STATE=READY_TO_POST, POSTED_BY_TOOL=NO, SUBMIT_URL:
+  www.reddit.com's submit page with title and text filled in,
+  OLD_REDDIT_SUBMIT_URL as the fallback — both owner-checked 2026-10-26;
+  Reddit is restricting old.reddit; opening a link posts nothing). It runs after Stage C and does not depend on it (0.85 had no
+  snapshot).
+- The release report records `Announced in r/subshell: yes/no` with the
+  post's link; a release is not done until it says yes.
+- `tools/release02/selftest-reddit-announcement.py` runs on every land
+  (check-contract02-selftests).
+- Part A (owner 2026-10-26: "det fungerer så lenge det gjør") posts part C's
+  text as the announcing account:
+
+  ```bash
+  SUBSHELL_REDDIT_ANNOUNCE_CREDENTIALS_FILE=/path/outside/every/repo \
+  python3 tools/release02/post-reddit-announcement.py \
+    --announcement "$PUB-announce" --output "$PUB-announce-post"
+  ```
+
+  The credentials file (KEY=VALUE: CLIENT_ID, CLIENT_SECRET, USERNAME,
+  PASSWORD of a Reddit "script" app of that account) is the owner's; it is
+  never opened by hand, printed or committed (hard rule 6). The tool reads
+  the account's newest submissions first (same title in r/subshell =
+  ALREADY_POSTED), submits once and never retries; a lost answer is read back
+  once and, if not found, recorded as OUTCOME_UNKNOWN without posting again
+  (exit 2: the owner looks and uses part C's link if needed); a Reddit
+  refusal stops with Reddit's code. It writes `post-state.env`
+  (STATE=POSTED|ALREADY_POSTED|OUTCOME_UNKNOWN, POST_URL). It never blocks the
+  release. `selftest-post-reddit-announcement.py` runs on every land against a
+  loopback stand-in. Reddit stopped new API access requests on 2026-10-31 and
+  closes public access in March 2027 (press, not read on Reddit itself): from
+  then it stops with a token/HTTP error and part C's link remains.
 
 ## Failure classification
 

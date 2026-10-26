@@ -56,7 +56,7 @@ class Med2StaleResultsAfterSwitchTest {
             ),
         )
 
-        viewModel.updateCommunityMembership(accountA, "kotlin", CommunityMembershipAction.JOIN)
+        viewModel.communities().updateCommunityMembership(accountA, "kotlin", CommunityMembershipAction.JOIN)
         idle()
         loader.pendingSync!!.complete(loaded("android"))
         idle()

@@ -11,8 +11,8 @@ import org.robolectric.annotation.Config
  * STEP3 (auth06b): the RedReader login window takes only the exact callback
  * (`redreader://rr_oauth_redir`, scheme and host) as the sign-in's answer;
  * a look-alike host or another scheme is never processed. Reddit's front page
- * ends (or resumes) the login, other HTTPS pages load, and anything that is
- * not HTTPS is blocked.
+ * ends (or resumes) the login, HTTPS pages of Reddit and its sign-in
+ * providers load (SECAUDIT11), and anything else is blocked.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
@@ -25,7 +25,8 @@ class Step3RedReaderLoginNavigationTest {
 
         assertEquals(LoginNavigation.BLOCK, decide("redreader://evil?state=s&code=c"))
         assertEquals(LoginNavigation.BLOCK, decide("redreader://rr_oauth_redir.evil.example/?code=c"))
-        assertEquals(LoginNavigation.LOAD, decide("https://rr_oauth_redir/?state=s&code=c"))
+        // SECAUDIT11: an https page outside Reddit and its sign-in providers is blocked too.
+        assertEquals(LoginNavigation.BLOCK, decide("https://rr_oauth_redir/?state=s&code=c"))
     }
 
     @Test

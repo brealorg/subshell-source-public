@@ -231,14 +231,19 @@ private val AUTH05D2_EXPECTED_RELEASE_CERT_SHA256 =
 private val AUTH05D2_EXPECTED_KEYSTORE_SHA256 =
     "7702295c7184a73cb1baba354becaabcdc186cce76de19a470c41bd66afeb2a7"
 
-private data class Auth05d2ReleaseSigningInputs(
+// SECAUDIT25_SIGNING_INPUTS_NEVER_PRINT_THEIR_PASSWORDS_V1: not a data class,
+// whose generated toString() would put both passwords into any log or
+// exception message that prints the inputs.
+private class Auth05d2ReleaseSigningInputs(
     val configured: Boolean,
     val keystore: File? = null,
     val storePasswordFile: File? = null,
     val keyPasswordFile: File? = null,
     val storePassword: String = "",
     val keyPassword: String = "",
-)
+) {
+    override fun toString(): String = "Auth05d2ReleaseSigningInputs(configured=$configured)"
+}
 
 private fun auth05d2SigningFailure(message: String): Nothing =
     throw GradleException("AUTH05D2 release signing rejected: $message")
@@ -909,7 +914,11 @@ android {
         }
         create("benchmark") {
             initWith(getByName("release"))
-            applicationIdSuffix = if (subshellDebugSlot == "dev1") {
+            // ISSUE259_BENCHMARK_BUILD_OVER_THE_SIGNED_IN_LANE_APP_V1: with a lane
+            // slot (dev1 for FEED04B's live benchmarks, dev2 for the baseline
+            // profile, #259) the benchmark build installs over that lane's
+            // signed-in app, so no separate app needs a Reddit sign-in.
+            applicationIdSuffix = if (subshellDebugSlot == "dev1" || subshellDebugSlot == "dev2") {
                 subshellSelectedDebugApplicationIdSuffix
             } else {
                 ".benchmark"
@@ -1026,6 +1035,8 @@ dependencies {
     androidTestImplementation(composeBom)
 
     implementation(libs.androidx.activity.compose)
+    // ISSUE248_JANK_SUMMARY_PER_FOREGROUND_SESSION_V1: JankStats (slow frames, counted locally).
+    implementation(libs.androidx.metrics.performance)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.biometric)
     // PERF01_BASELINE_PROFILE_V1: compiles src/main/baseline-prof.txt on
@@ -1050,7 +1061,11 @@ dependencies {
     implementation(libs.androidx.media3.ui.compose)
     implementation(libs.androidx.media3.ui.views)
     implementation(libs.androidx.media3.transformer)
+    // ISSUE251_MEDIA_BUTTONS_CONTROL_THE_VIDEO_V1: a MediaSession for media buttons.
+    implementation(libs.androidx.media3.session)
     implementation(libs.androidx.window)
+    // ISSUE247_LAYOUT_FOLLOWS_WINDOW_SIZE_CLASSES_V1: currentWindowAdaptiveInfo().
+    implementation(libs.androidx.compose.material3.adaptive)
     implementation(libs.androidx.work.runtime)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.browser)
@@ -1068,6 +1083,10 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    // ISSUE246_ACCESSIBILITY_CHECKS_IN_COMPOSE_TESTS_V1: Google's Accessibility
+    // Test Framework; it skips Compose content under Robolectric, so it runs
+    // in the instrumented tests only.
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4.accessibility)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.room.testing)
 

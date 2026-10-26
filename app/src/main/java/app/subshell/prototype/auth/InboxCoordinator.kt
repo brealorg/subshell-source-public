@@ -14,10 +14,9 @@ import app.subshell.prototype.data.auth.AuthInboxReadMutationWriter
 import app.subshell.prototype.data.auth.AuthenticatedRedditInboxFailureKind
 import app.subshell.prototype.data.auth.AuthenticatedRedditInboxLoader
 import app.subshell.prototype.data.auth.AuthenticatedRedditInboxResult
+import app.subshell.prototype.data.auth.AuthenticatedRedditInboxSnapshot
 import app.subshell.prototype.data.auth.AuthenticatedRedditInboxTargetResult
 import app.subshell.prototype.data.auth.OAuthClientMode
-import app.subshell.prototype.inbox.InboxBackgroundSyncScheduler
-import app.subshell.prototype.inbox.inboxNotificationsEnabled
 import app.subshell.prototype.model.Post
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -47,6 +46,7 @@ internal class InboxCoordinator(
     private val inboxReadClientMode: OAuthClientMode?,
     private val accountSessionDirectory: AccountSessionDirectory?,
     private val scope: CoroutineScope,
+    private val backgroundSyncKeeper: InboxBackgroundSyncKeeper = InboxBackgroundSyncKeeper(application),
 ) {
     private val _redditInboxUiState = MutableStateFlow(RedditInboxUiState())
     private var redditInboxJob: Job? = null
@@ -59,6 +59,59 @@ internal class InboxCoordinator(
 
     val redditInboxUiState: StateFlow<RedditInboxUiState> =
         _redditInboxUiState.asStateFlow()
+
+    // INBOXSSOT01_THE_INBOX_FOLLOWS_ITS_CACHE_V1: the stored inbox is the
+    // source of truth (Google's offline-first pattern). The screen's state
+    // follows it for the account last loaded, so whatever the 15-minute
+    // background sync stored is shown at once: a notification's item is
+    // already in the inbox when the notification is tapped.
+    private var followedInboxAccount: String? = null
+    private var followStoredInboxJob: Job? = null
+
+    private fun followStoredInbox(account: String, loader: AuthenticatedRedditInboxLoader) {
+        if (followedInboxAccount == account && followStoredInboxJob?.isActive == true) return
+        followStoredInboxJob?.cancel()
+        followedInboxAccount = account
+        followStoredInboxJob = scope.launch {
+            try {
+                loader.observe(account).collect { snapshot -> applyStoredInbox(account, snapshot) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // A failed read leaves the inbox as shown; the next load
+                // follows the store again.
+                followedInboxAccount = null
+            }
+        }
+    }
+
+    private fun applyStoredInbox(account: String, snapshot: AuthenticatedRedditInboxSnapshot) {
+        val current = _redditInboxUiState.value
+        if (!current.matches(account)) return
+        // Marks not stored yet (sent after a load, or under way) stay shown.
+        val pendingSeen = current.readMutationItemIds + deferredReadItemIds
+            .filter { (deferredAccount, _) -> deferredAccount == account }
+            .map { (_, itemId) -> itemId }
+        val locallySeenIds = snapshot.locallySeenIds + pendingSeen
+        if (
+            current.loaded &&
+            current.items == snapshot.items &&
+            current.locallySeenIds == locallySeenIds &&
+            current.nextCursor == snapshot.nextCursor
+        ) {
+            return
+        }
+        _redditInboxUiState.value = current.copy(
+            items = snapshot.items,
+            locallySeenIds = locallySeenIds,
+            nextCursor = snapshot.nextCursor,
+            // Before the first load this is the stored list, which a load
+            // still refreshes.
+            fromCache = current.fromCache || !current.loaded,
+            loaded = true,
+            contentRevision = current.contentRevision + 1L,
+        )
+    }
 
     /**
      * The ViewModel's callback routing: an INBOX_READ authorization that was
@@ -95,6 +148,7 @@ internal class InboxCoordinator(
         val account = accountStableId.trim()
         keepBackgroundSyncScheduled(account)
         if (account.isEmpty()) return
+        redditInboxLoader?.let { loader -> followStoredInbox(account, loader) }
         // INBOX01_READ_DURING_LOAD_IS_DEFERRED_V1: reads deferred for another
         // account are dropped when this account's inbox loads.
         deferredReadItemIds.retainAll { (deferredAccount, _) -> deferredAccount == account }
@@ -311,34 +365,9 @@ internal class InboxCoordinator(
         }
     }
 
-    // LOW11_BACKGROUND_SYNC_SCHEDULED_ON_CHANGE_V1 (OCB-420/405): every inbox
-    // (and modmail) load re-enqueued the periodic work. It is scheduled or
-    // cancelled only when the account or the notification setting changed,
-    // and never while notifications are off (modmail scheduled regardless).
-    // The worker can cancel its own work (account gone), so an unchanged
-    // schedule is still renewed after BACKGROUND_SYNC_RENEW_MS.
-    private var scheduledBackgroundSync: Pair<String, Boolean>? = null
-    private var scheduledBackgroundSyncAtMs = 0L
-
-    fun keepBackgroundSyncScheduled(account: String) {
-        if (account.isEmpty()) return
-        // INBOX02_SYNC_ONLY_WITH_NOTIFICATIONS_V1: the background sync only
-        // feeds notifications, so it runs only while they are on.
-        val enabled = inboxNotificationsEnabled(application)
-        val wanted = account to enabled
-        val now = android.os.SystemClock.elapsedRealtime()
-        if (scheduledBackgroundSync == wanted && now - scheduledBackgroundSyncAtMs < BACKGROUND_SYNC_RENEW_MS) return
-        scheduledBackgroundSync = wanted
-        scheduledBackgroundSyncAtMs = now
-        if (enabled) {
-            InboxBackgroundSyncScheduler.schedule(
-                context = application,
-                accountStableId = account,
-            )
-        } else {
-            InboxBackgroundSyncScheduler.cancel(application)
-        }
-    }
+    // LOW11_BACKGROUND_SYNC_SCHEDULED_ON_CHANGE_V1: the schedule is kept by
+    // the one InboxBackgroundSyncKeeper the inbox and modmail share.
+    fun keepBackgroundSyncScheduled(account: String) = backgroundSyncKeeper.keep(account)
 
     private fun runPendingForcedReload(account: String) {
         if (pendingForcedReloadAccounts.remove(account)) {
@@ -652,5 +681,3 @@ private fun AuthenticatedRedditInboxFailureKind.toUiFailureKind():
     AuthenticatedRedditInboxFailureKind.STORAGE ->
         RedditInboxUiFailureKind.STORAGE
 }
-
-private const val BACKGROUND_SYNC_RENEW_MS = 15L * 60L * 1_000L

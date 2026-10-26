@@ -203,11 +203,17 @@ internal object VideoMediaDataSource {
             RedGifsDataSpecResolver(RedGifsClips.resolver),
         )
 
-        val cacheDataSourceFactory = CacheDataSource.Factory()
-            .setCache(cache(appContext))
-            .setUpstreamDataSourceFactory(resolvingUpstreamFactory)
-            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
-            .setEventListener(VideoMediaCacheTelemetry)
+        // STRICTMODE02_VIDEO_CACHE_OPENS_ON_THE_FIRST_LOAD_V1 (#243): the player
+        // is made on Main; the cache (its folder, size limit and database) is
+        // opened by the first data source, on the player's loading thread.
+        val cacheDataSourceFactory = DataSource.Factory {
+            CacheDataSource.Factory()
+                .setCache(cache(appContext))
+                .setUpstreamDataSourceFactory(resolvingUpstreamFactory)
+                .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+                .setEventListener(VideoMediaCacheTelemetry)
+                .createDataSource()
+        }
 
         // DefaultDataSource keeps asset://, android.resource://, file:// and content:// local.
         // Only HTTP(S) and otherwise unsupported schemes reach the cached base data source.

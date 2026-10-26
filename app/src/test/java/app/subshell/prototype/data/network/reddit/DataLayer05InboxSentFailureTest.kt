@@ -31,6 +31,13 @@ class DataLayer05InboxSentFailureTest {
     private fun source(): RedditInboxNetworkDataSource {
         val callFactory = OkHttpClient.Builder().addInterceptor { chain ->
             val request = chain.request()
+            // INBOXORDER01: a first page also reads the unread list; not part of this test.
+            if (request.url.encodedPath.contains("/message/unread")) {
+                return@addInterceptor Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
+                    .code(200).message("OK")
+                    .body("""{"kind":"Listing","data":{"after":null,"children":[]}}""".toResponseBody("application/json".toMediaType()))
+                    .build()
+            }
             val sent = request.url.encodedPath.contains("/message/sent")
             Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
                 .code(if (sent) 503 else 200).message(if (sent) "Unavailable" else "OK")

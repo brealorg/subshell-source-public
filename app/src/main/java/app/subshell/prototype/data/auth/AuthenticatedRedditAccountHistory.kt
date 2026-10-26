@@ -69,4 +69,24 @@ internal interface AuthenticatedRedditAccountHistoryCommentLoader {
         accountStableId: String,
         postId: String,
     ): AuthenticatedRedditProfileCommentTargetResult
+
+    /**
+     * PROFILESSOT01_HISTORY_FOLLOWS_ITS_CACHE_V1 (#244): the stored comment
+     * history each time it changes. Empty is a history not stored.
+     */
+    fun observeStoredHistory(
+        accountStableId: String,
+        username: String,
+        kind: RedditAccountHistoryKind,
+    ): kotlinx.coroutines.flow.Flow<List<app.subshell.prototype.model.ProfileCommentFixture>> =
+        kotlinx.coroutines.flow.emptyFlow()
+
+    /**
+     * PROFILESSOT01_HISTORY_KEEPS_EDITS_AND_DELETES_V1: a confirmed edit
+     * (new row) or delete (null) of one comment, in every stored history.
+     */
+    suspend fun updateStoredHistoryComment(
+        commentFullname: String,
+        transform: (app.subshell.prototype.model.ProfileCommentFixture) -> app.subshell.prototype.model.ProfileCommentFixture?,
+    ) = Unit
 }

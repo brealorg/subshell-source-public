@@ -72,7 +72,7 @@ class Issue119AccountDirectoryGateComposeTest {
         )
         val activeAtFirstComposition = mutableListOf<String>()
         composeRule.setContent {
-            AccountDirectoryGate(directory) {
+            AccountDirectoryGate(directory, preferencesLoaded = { true }, awaitPreferences = {}) {
                 activeAtFirstComposition += directory.snapshot().activeAccountId
                 Text("the app")
             }
@@ -94,7 +94,38 @@ class Issue119AccountDirectoryGateComposeTest {
             placeholder = AccountSessionDirectorySnapshot(listOf(local), local.stableId),
             loaded = AccountSessionDirectorySnapshot(listOf(local, stored), stored.stableId),
         ).apply { done = true }
-        composeRule.setContent { AccountDirectoryGate(directory) { Text("the app") } }
+        composeRule.setContent {
+            AccountDirectoryGate(directory, preferencesLoaded = { true }, awaitPreferences = {}) { Text("the app") }
+        }
+        composeRule.waitForIdle()
+
+        assertEquals(1, composeRule.onAllNodesWithText("the app").fetchSemanticsNodes().size)
+    }
+
+    // STRICTMODE02_PREFERENCES_LOAD_BEFORE_THE_FIRST_FRAME_V1 (#243): the app is
+    // composed only once the startup preference files are in memory, so its
+    // first reads on Main do not wait for the disk.
+    @Test
+    fun theAppWaitsForTheStartupPreferences() {
+        val directory = SlowDirectory(
+            placeholder = AccountSessionDirectorySnapshot(listOf(local), local.stableId),
+            loaded = AccountSessionDirectorySnapshot(listOf(local, stored), stored.stableId),
+        ).apply {
+            done = true
+            gate.complete(Unit)
+        }
+        val preferences = CompletableDeferred<Unit>()
+        composeRule.setContent {
+            AccountDirectoryGate(
+                directory = directory,
+                preferencesLoaded = { preferences.isCompleted },
+                awaitPreferences = { preferences.await() },
+            ) { Text("the app") }
+        }
+        composeRule.waitForIdle()
+        assertEquals(0, composeRule.onAllNodesWithText("the app").fetchSemanticsNodes().size)
+
+        composeRule.runOnIdle { preferences.complete(Unit) }
         composeRule.waitForIdle()
 
         assertEquals(1, composeRule.onAllNodesWithText("the app").fetchSemanticsNodes().size)

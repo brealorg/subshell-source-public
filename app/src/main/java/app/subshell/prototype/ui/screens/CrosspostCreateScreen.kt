@@ -4,7 +4,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.selection.toggleable
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -68,12 +67,15 @@ import app.subshell.prototype.ui.crosspostWriteStateForDraft
 import app.subshell.prototype.ui.symbols.Symbols
 import app.subshell.prototype.ui.validateCrosspostComposerDraftIssue
 import app.subshell.prototype.ui.withCrosspostDestination
+import app.subshell.prototype.ui.composerDestinationLabel
 import app.subshell.prototype.ui.composerKnownCommunityOptions
 import app.subshell.prototype.model.Community
 import kotlinx.coroutines.delay
 import app.subshell.prototype.ui.components.ComposerDiscardAction
 import app.subshell.prototype.ui.components.ComposerPrimaryAction
 import app.subshell.prototype.data.account.TextPostWriteValidationField
+import app.subshell.prototype.ui.app.predictiveBackPage
+import app.subshell.prototype.ui.app.rememberPredictiveBackPage
 
 // CROSSPOST01A1E_DEDICATED_NATIVE_CREATE_SURFACE_V1
 // Shares the established destination and flair pickers; never enters generic text/link submit.
@@ -139,7 +141,9 @@ internal fun CrosspostCreateScreen(
         if (ownerMatches && draft.community.isNotBlank()) onLoadPolicy(state.activeAccountId, draft.community)
     }
 
-    BackHandler { close() }
+    // ISSUE249_IN_SCREEN_PAGES_FOLLOW_THE_BACK_GESTURE_V1: the draft is kept,
+    // so Back always closes and follows the gesture.
+    val pageBack = rememberPredictiveBackPage(enabled = true, onBack = ::close)
     val latestInvalidate by rememberUpdatedState(onInvalidateReview)
     val view = LocalView.current
     DisposableEffect(view, draft.id, state.activeAccountId) {
@@ -176,7 +180,7 @@ internal fun CrosspostCreateScreen(
 
     val routeTopBarScroll = rememberRouteTopBarScrollBehavior(ChromeBehavior.ALWAYS_SHOW)
     Scaffold(
-        modifier = modifier.fillMaxSize().imePadding()
+        modifier = modifier.predictiveBackPage(pageBack).fillMaxSize().imePadding()
             .nestedScroll(routeTopBarScroll.nestedScrollConnection),
         topBar = {
             RouteTopBar(
@@ -364,6 +368,7 @@ internal fun CrosspostCreateScreen(
         V4CommunitySheet(
             query = communityQuery, onQueryChange = { communityQuery = it }, knownOptions = known,
             remoteSearch = communitySearch, selectedCommunity = draft.community, authenticated = ownerMatches,
+            profileUsername = state.activeAccountUsername.takeIf { state.activeAccountIsAuthenticated },
             onSelect = { option ->
                 if (!editingBlocked) update(state.postComposerDraft.withCrosspostDestination(option.name))
                 communitySheet = false
@@ -389,7 +394,7 @@ internal fun CrosspostCreateScreen(
             title = { Text("Publish crosspost?") },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Posting as u/${state.activeAccountUsername} to r/${draft.community}")
+                    Text("Posting as u/${state.activeAccountUsername} to ${composerDestinationLabel(draft.community)}")
                     Text(draft.title, style = MaterialTheme.typography.titleMedium)
                     source?.let { CrosspostSourceCard(it) }
                     draft.flair?.let { V4FlairPreview(it) }

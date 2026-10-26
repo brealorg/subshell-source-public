@@ -26,4 +26,16 @@ PYTHONDONTWRITEBYTECODE=1 python3 tools/release02/selftest-source-snapshot.py >/
     fail RELEASETOOL02E_SOURCE_SNAPSHOT_SELFTEST
 echo 'PASS=RELEASETOOL02E_SOURCE_SNAPSHOT_SELFTEST'
 
+# RELEASETOOL02F_REDDIT_ANNOUNCEMENT_TEXT_V1 (#255, 2026-10-26, owner-approved):
+# the r/subshell announcement text and submit link, no network.
+PYTHONDONTWRITEBYTECODE=1 python3 tools/release02/selftest-reddit-announcement.py >/dev/null ||
+    fail RELEASETOOL02F_REDDIT_ANNOUNCEMENT_SELFTEST
+echo 'PASS=RELEASETOOL02F_REDDIT_ANNOUNCEMENT_SELFTEST'
+
+# RELEASETOOL02F_REDDIT_ANNOUNCEMENT_POSTED_ONCE_V1 (#255 part A, 2026-10-26,
+# owner-approved): posting at most once, against a loopback stand-in Reddit.
+PYTHONDONTWRITEBYTECODE=1 timeout 120 python3 tools/release02/selftest-post-reddit-announcement.py >/dev/null ||
+    fail RELEASETOOL02F_REDDIT_POST_SELFTEST
+echo 'PASS=RELEASETOOL02F_REDDIT_POST_SELFTEST'
+
 echo 'RESULT=SUBSHELL_CONTRACT02_SELFTESTS_CONTRACT_PASS'

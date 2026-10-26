@@ -12,6 +12,8 @@ import app.subshell.prototype.model.ActivityKind
 import app.subshell.prototype.model.InboxItem
 import app.subshell.prototype.model.MessageBubble
 import app.subshell.prototype.model.Post
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -24,6 +26,7 @@ internal interface RedditInboxPageSource {
         cursor: String?,
         limit: Int,
         currentUsername: String,
+        balanceHistory: Boolean = true,
     ): NetworkResult<NetworkPage<InboxItem>>
 }
 
@@ -40,21 +43,47 @@ internal class RedditInboxNetworkDataSource(
         cursor: String?,
         limit: Int,
         currentUsername: String,
+        balanceHistory: Boolean,
     ): NetworkResult<NetworkPage<InboxItem>> {
-        val inbox = when (val result = httpClient.getJson(
-            request = redditInboxJsonRequest(cursor, limit),
-            deserializer = RedditInboxListingDto.serializer(),
-        )) {
+        // INBOXFAST01_INBOX_AND_SENT_IN_PARALLEL_V1: the two first requests do
+        // not depend on each other, so they run at the same time (Google's
+        // coroutine guidance for independent calls); a refresh took one
+        // Reddit round trip longer than it needed.
+        val (fetchedInbox, fetchedSent, fetchedUnread) = coroutineScope {
+            val inboxRequest = async {
+                httpClient.getJson(
+                    request = redditInboxJsonRequest(cursor, limit),
+                    deserializer = RedditInboxListingDto.serializer(),
+                )
+            }
+            val sentRequest = async {
+                httpClient.getJson(
+                    request = redditSentJsonRequest(REDDIT_INBOX_MAX_PAGE_SIZE),
+                    deserializer = RedditInboxListingDto.serializer(),
+                )
+            }
+            // INBOXORDER01_STORED_ROWS_READ_ELSEWHERE_TURN_READ_V1: a refresh
+            // also asks which items are unread now, so stored rows below the
+            // fresh page that were read elsewhere stop counting as unread.
+            val unreadRequest = if (cursor == null) {
+                async {
+                    httpClient.getJson(
+                        request = redditUnreadJsonRequest(REDDIT_INBOX_MAX_PAGE_SIZE),
+                        deserializer = RedditInboxListingDto.serializer(),
+                    )
+                }
+            } else {
+                null
+            }
+            Triple(inboxRequest.await(), sentRequest.await(), unreadRequest?.await())
+        }
+        val inbox = when (val result = fetchedInbox) {
             is NetworkResult.Success -> result
             is NetworkResult.HttpFailure -> return result
             is NetworkResult.TransportFailure -> return result
             is NetworkResult.ProtocolFailure -> return result
         }
 
-        val fetchedSent = httpClient.getJson(
-            request = redditSentJsonRequest(REDDIT_INBOX_MAX_PAGE_SIZE),
-            deserializer = RedditInboxListingDto.serializer(),
-        )
         // DATALAYER05: a later page (cursor != null) is appended to the cached
         // list, so a failed sent request only means this page's threads miss
         // your own recent replies; the inbox page itself is kept instead of
@@ -69,24 +98,43 @@ internal class RedditInboxNetworkDataSource(
             is NetworkResult.Success -> {
                 val inboxPages = mutableListOf(inbox.value)
                 val sentPages = mutableListOf(sent.value)
-                if (cursor == null) {
+                // INBOXFAST01_A_REFRESH_READS_ONLY_THE_FIRST_PAGES_V1: once the
+                // inbox is stored, its older pages stay below a refresh
+                // (INBOXSSOT01), so only the first load balances the history.
+                if (cursor == null && balanceHistory) {
                     balanceInitialMessageHistory(
                         inboxPages = inboxPages,
                         sentPages = sentPages,
                         limit = limit,
                     )
-                } else if (fetchedSent is NetworkResult.Success) {
+                } else if (cursor != null && fetchedSent is NetworkResult.Success) {
                     extendSentHistoryToPage(inboxPage = inbox.value, sentPages = sentPages)
                 }
+                val page = mergeInboxAndSentListings(
+                    inbox = combineRedditInboxListings(inboxPages),
+                    sent = combineRedditInboxListings(sentPages),
+                ).toNetworkPage(
+                    nowEpochSeconds = clock.epochSeconds(),
+                    currentUsername = currentUsername,
+                    json = json,
+                )
                 NetworkResult.Success(
-                    value = mergeInboxAndSentListings(
-                        inbox = combineRedditInboxListings(inboxPages),
-                        sent = combineRedditInboxListings(sentPages),
-                    ).toNetworkPage(
-                        nowEpochSeconds = clock.epochSeconds(),
-                        currentUsername = currentUsername,
-                        json = json,
-                    ),
+                    value = if (cursor == null) {
+                        page.copy(
+                            completeSinceEpochSeconds = redditInboxCompleteSince(inboxPages, sentPages),
+                            unreadItemIds = (fetchedUnread as? NetworkResult.Success)?.value
+                                ?.takeIf { listing -> listing.data.after.isNullOrBlank() }
+                                ?.toNetworkPage(
+                                    nowEpochSeconds = clock.epochSeconds(),
+                                    currentUsername = currentUsername,
+                                    json = json,
+                                )
+                                ?.items
+                                ?.mapTo(hashSetOf(), InboxItem::id),
+                        )
+                    } else {
+                        page
+                    },
                     metadata = inbox.metadata,
                 )
             }
@@ -238,6 +286,24 @@ internal fun combineRedditInboxListings(
             children = pages.flatMap { page -> page.data.children },
         ),
     )
+}
+
+/**
+ * INBOXFAST01_A_REFRESH_IS_COMPLETE_ONLY_SINCE_ITS_OLDER_EDGE_V1: the inbox
+ * and sent pages reach back to different times (you send rarely, so the sent
+ * page reaches months further). Every item newer than the later of the two
+ * edges is on the page; older ones may be missing. A listing read to its end
+ * limits nothing (0); an edge without times is unknown (null).
+ */
+internal fun redditInboxCompleteSince(
+    inboxPages: List<RedditInboxListingDto>,
+    sentPages: List<RedditInboxListingDto>,
+): Long? {
+    val edges = listOf(inboxPages, sentPages).map { pages ->
+        if (pages.last().data.after.isNullOrBlank()) 0L else pages.oldestCreatedEpochSeconds()
+    }
+    if (edges.any { edge -> edge == null }) return null
+    return edges.maxOf { edge -> edge ?: 0L }
 }
 
 internal fun shouldFetchOlderRedditInboxHistoryPage(
@@ -679,6 +745,22 @@ internal fun redditSentJsonRequest(
                 ?.takeIf(String::isNotEmpty)
                 ?.let { after -> add("after" to after) }
         },
+    )
+}
+
+internal fun redditUnreadJsonRequest(limit: Int): JsonGetRequest {
+    require(limit in 1..REDDIT_INBOX_MAX_PAGE_SIZE) {
+        "Reddit unread limit must be between 1 and $REDDIT_INBOX_MAX_PAGE_SIZE"
+    }
+    return JsonGetRequest(
+        pathSegments = listOf("message", "unread"),
+        queryParameters = listOf(
+            "raw_json" to "1",
+            // Reading the list must not mark it read.
+            "mark" to "false",
+            "max_replies" to "0",
+            "limit" to limit.toString(),
+        ),
     )
 }
 

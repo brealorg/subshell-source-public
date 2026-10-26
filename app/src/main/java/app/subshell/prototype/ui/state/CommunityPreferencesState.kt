@@ -75,13 +75,11 @@ internal class CommunityPreferencesState(
     private val accountSessionCatalog: List<AccountSessionSummary>
         get() = accountSessionCatalogProvider()
 
+    // ROOMWAIT01_ONE_COMMUNITY_READ_PER_LOAD_V1 (#243): loadJoinedCommunityIds
+    // returns canonical ids already (normalized, or the cached joined ones);
+    // normalizing again read the whole community table a second time on Main.
     val joinedCommunityIds = mutableStateListOf<String>().apply {
-        addAll(
-            normalizeJoinedCommunityIds(
-                communityIds = loadJoinedCommunityIds(activeAccountUsername),
-                repository = repository,
-            ),
-        )
+        addAll(loadJoinedCommunityIds(activeAccountUsername))
     }
     val favoriteCommunityNames = mutableStateListOf<String>().apply {
         addAll(

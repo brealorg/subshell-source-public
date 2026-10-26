@@ -480,9 +480,12 @@ land_lane() {
         # rules the retired quality01* checkers stood in for, new findings
         # only) and the auth policy-matrix tasks, which before ran only under
         # `gradle check`. None of them reads signing material.
+        # LAND_COMPILES_INSTRUMENTED_TESTS_V1 (#246): the instrumented tests are
+        # compiled too (not run); a change broke one unnoticed on 2026-10-24.
         ./gradlew \
             :app:compileDebugKotlin --rerun \
             :app:compileDebugUnitTestKotlin --rerun \
+            :app:compileDebugAndroidTestKotlin --rerun \
             :app:testDebugUnitTest \
             :app:assembleDebug \
             :app:lintDebug \

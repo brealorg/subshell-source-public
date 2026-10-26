@@ -6,6 +6,7 @@ import android.content.res.Configuration
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import android.content.Context
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -208,6 +209,7 @@ fun SubshellTheme(
     CompositionLocalProvider(
         LocalCodeFontFamily provides codeFontFamily,
         LocalDensity provides scaledDensity,
+        LocalReduceMotion provides reduceMotion,
     ) {
         // EXPRESSIVE01_SPRING_MOTION_V1 (owner 2026-10-18, test build): M3
         // Expressive's spring motion scheme; the app's own colours, type and
@@ -224,6 +226,13 @@ fun SubshellTheme(
 }
 
 private const val PLATFORM_MAX_FONT_SCALE_TABLE = 2f
+
+/**
+ * ISSUE249_IN_SCREEN_PAGES_FOLLOW_THE_BACK_GESTURE_V1: the app's Reduce motion
+ * (its own switch or Android's Remove animations), for motion that has no
+ * SubshellState at hand, such as the predictive back of a page inside a screen.
+ */
+val LocalReduceMotion = staticCompositionLocalOf { false }
 
 /** A Density for [combinedScale]: the platform's non-linear curve, linear above 2.0. */
 internal fun appTextScaleDensity(

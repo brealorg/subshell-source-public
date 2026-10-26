@@ -2,6 +2,7 @@ package app.subshell.prototype.update
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -71,24 +72,24 @@ class Update03ManifestFreshnessTest {
     @Test
     fun theSameOrAHigherVersionAlwaysSupersedes() {
         val known = release(versionCode = 242, publishedAt = "2026-10-02T10:00:00Z")
-        assertTrue(updateManifestSupersedes(release(242, "2026-10-01T10:00:00Z"), known))
-        assertTrue(updateManifestSupersedes(release(243, "2026-10-01T10:00:00Z"), known))
-        assertTrue(updateManifestSupersedes(release(241, "2026-10-01T10:00:00Z"), known = null))
-        assertFalse(updateManifestSupersedes(release(241, "2026-10-01T10:00:00Z"), known))
+        assertTrue(updateManifestSupersedes(release(242, "2026-10-01T10:00:00Z"), known, NOW))
+        assertTrue(updateManifestSupersedes(release(243, "2026-10-01T10:00:00Z"), known, NOW))
+        assertTrue(updateManifestSupersedes(release(241, "2026-10-01T10:00:00Z"), known = null, NOW))
+        assertFalse(updateManifestSupersedes(release(241, "2026-10-01T10:00:00Z"), known, NOW))
     }
 
     @Test
     fun anUnreadablePublicationTimeLetsTheIncomingManifestWin() {
         val known = release(versionCode = 243, publishedAt = "2026-10-02T10:00:00Z")
-        assertTrue(updateManifestSupersedes(release(242, "yesterday"), known))
-        assertTrue(updateManifestSupersedes(release(242, "2026-10-01T10:00:00Z"), known.copy(publishedAt = "?")))
+        assertTrue(updateManifestSupersedes(release(242, "yesterday"), known, NOW))
+        assertTrue(updateManifestSupersedes(release(242, "2026-10-01T10:00:00Z"), known.copy(publishedAt = "?"), NOW))
     }
 
     private suspend fun check(release: UpdateManifestRelease) {
         UpdateCheckCoordinator.check(
             context = application,
             force = true,
-            nowEpochMillis = 1_000L,
+            nowEpochMillis = NOW,
             client = FixedManifestClient(release),
             enabled = true,
             currentVersionCode = CURRENT,
@@ -115,5 +116,8 @@ class Update03ManifestFreshnessTest {
 
     private companion object {
         const val CURRENT = 241
+
+        // A device clock just after the fixtures' publishedAt (SECAUDIT01).
+        val NOW = Instant.parse("2026-10-04T00:00:00Z").toEpochMilli()
     }
 }

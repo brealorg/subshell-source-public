@@ -77,11 +77,11 @@ class Low7RefreshWhileLoadingTest {
             unavailableAuthApplicationRuntime().copy(redditSubscriptionsLoader = loader),
         )
 
-        viewModel.loadRedditSubscriptions(account, forceRefresh = false)
+        viewModel.communities().loadRedditSubscriptions(account, forceRefresh = false)
         idle()
-        viewModel.loadRedditSubscriptions(account, forceRefresh = true)
+        viewModel.communities().loadRedditSubscriptions(account, forceRefresh = true)
         idle()
-        viewModel.loadRedditSubscriptions(account, forceRefresh = true)
+        viewModel.communities().loadRedditSubscriptions(account, forceRefresh = true)
         idle()
 
         assertEquals(2, loader.synchronizeCalls)
@@ -97,15 +97,15 @@ class Low7RefreshWhileLoadingTest {
             context,
             unavailableAuthApplicationRuntime().copy(redditInboxLoader = loader, inboxReadMutationWriter = writer),
         )
-        viewModel.loadRedditInbox(account, forceRefresh = true)
+        viewModel.inbox().loadRedditInbox(account, forceRefresh = true)
         idle()
         loader.syncGates.single().complete(loaded(item("i1", unread = true)))
         idle()
         assertEquals(1, loader.syncCalls)
 
-        viewModel.markRedditInboxRead(account, "i1")
+        viewModel.inbox().markRedditInboxRead(account, "i1")
         idle()
-        viewModel.loadRedditInbox(account, forceRefresh = true)
+        viewModel.inbox().loadRedditInbox(account, forceRefresh = true)
         idle()
         assertEquals("waits for the read", 1, loader.syncCalls)
 

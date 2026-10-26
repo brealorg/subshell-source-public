@@ -49,8 +49,16 @@ release-record.txt
 The public APK is a byte-identical copy of the already-qualified signed
 preview. No release build or signing operation is allowed in this stage.
 
-The public provenance record retains the private source commit/tree while
-stating `app_source_publicly_pushed=NO`.
+The public provenance record retains the private source commit/tree and
+names the public source snapshot Stage C publishes for the same release:
+`app_source_public_repository=brealorg/subshell-source-public`,
+`app_source_public_tag=<tag>` and `app_source_public_tree=<SOURCE_TREE>`
+(Stage C stops unless the snapshot's tree is exactly that tree), with
+`app_source_private_commit_public=NO`: the private commit and its history are
+never public (rule 7). Before 0.85 the record said
+`app_source_publicly_pushed=NO` and
+`public_repository_source_scope=PROJECT_INFRA_SITE_RELEASES_ONLY`, which read
+as if the source were unpublished (SECAUDIT26).
 
 ## Create and resume semantics
 

@@ -15,6 +15,8 @@ import app.subshell.prototype.data.auth.AuthenticatedRedditProfileCommentsFailur
 import app.subshell.prototype.data.auth.AuthenticatedRedditProfileCommentsResult
 import app.subshell.prototype.data.normalizeRedditUsername
 import app.subshell.prototype.data.redditAccountHistoryQueryKey
+import app.subshell.prototype.model.ProfileCommentFixture
+import app.subshell.prototype.model.reannotateRedditMedia
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -34,6 +36,78 @@ internal class RedditAccountHistoryRequestCoordinator(
     private var latestRequestId = 0L
 
     val uiState: StateFlow<RedditAccountHistoryUiState> = mutableUiState.asStateFlow()
+
+    // PROFILESSOT01_HISTORY_FOLLOWS_ITS_CACHE_V1 (#244): the stored comment
+    // history is the source of truth (Google's offline-first pattern, as
+    // INBOXSSOT01/COMMENTSSOT01); the Comments tab follows the history of the
+    // account, user and kind last loaded, so an edit or delete written to the
+    // store is what the tab shows.
+    private var followedHistory: Triple<String, String, RedditAccountHistoryKind>? = null
+    private var followStoredHistoryJob: Job? = null
+
+    private fun followStoredHistory(
+        loader: AuthenticatedRedditAccountHistoryCommentLoader,
+        accountStableId: String,
+        username: String,
+        kind: RedditAccountHistoryKind,
+    ) {
+        val history = Triple(accountStableId, username, kind)
+        if (followedHistory == history && followStoredHistoryJob?.isActive == true) return
+        followStoredHistoryJob?.cancel()
+        followedHistory = history
+        followStoredHistoryJob = scope.launch {
+            try {
+                loader.observeStoredHistory(accountStableId, username, kind).collect { stored ->
+                    val current = mutableUiState.value
+                    // Empty is a history not stored (or evicted), never a
+                    // reason to blank the tab.
+                    if (stored.isEmpty() || !current.matches(accountStableId, username, kind)) return@collect
+                    if (current.comments == stored) return@collect
+                    mutableUiState.value = current.copy(
+                        comments = stored,
+                        loaded = true,
+                        contentRevision = current.contentRevision + 1L,
+                    )
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                followedHistory = null
+            }
+        }
+    }
+
+    /**
+     * PROFILESSOT01_HISTORY_KEEPS_EDITS_AND_DELETES_V1: a confirmed comment
+     * edit reaches every stored history that lists the comment; it only
+     * changed the thread, so the Comments tab kept the old text.
+     */
+    fun applyEditedComment(commentFullname: String, text: String) {
+        updateStoredHistoryComment(commentFullname) { stored ->
+            stored.copy(body = reannotateRedditMedia(text.trim(), previous = stored.body))
+        }
+    }
+
+    /** A confirmed delete leaves the comment out of the stored histories, as Reddit does. */
+    fun applyDeletedComment(commentFullname: String) {
+        updateStoredHistoryComment(commentFullname) { null }
+    }
+
+    private fun updateStoredHistoryComment(
+        commentFullname: String,
+        transform: (ProfileCommentFixture) -> ProfileCommentFixture?,
+    ) {
+        val loader = commentLoader ?: return
+        scope.launch {
+            try {
+                loader.updateStoredHistoryComment(commentFullname, transform)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // The next read of the history rebinds it.
+            }
+        }
+    }
 
     fun update(
         accountStableId: String,
@@ -174,6 +248,8 @@ internal class RedditAccountHistoryRequestCoordinator(
         nextRequestId()
         activeJob?.cancel()
         activeJob = null
+        followStoredHistoryJob?.cancel()
+        followedHistory = null
     }
 
     private fun startPostRequest(
@@ -267,6 +343,7 @@ internal class RedditAccountHistoryRequestCoordinator(
             return
         }
 
+        followStoredHistory(resolvedLoader, accountStableId, username, kind)
         activeJob = scope.launch {
             if (
                 operation == RepositoryLoadOperation.REFRESH &&

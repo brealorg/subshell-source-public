@@ -155,6 +155,9 @@ internal fun buildDiagnosticReport(
         event.action?.let { append(" action=$it") }
         event.appVersionFrom?.let { append(" from_version_code=$it") }
         event.appVersionTo?.let { append(" to_version_code=$it") }
+        event.frames?.let { append(" frames=$it") }
+        event.jankFrames?.let { append(" jank_frames=$it") }
+        event.worstFrameMs?.let { append(" worst_frame_ms=$it") }
         event.failure?.let { failure ->
             failure.httpStatusCode?.let { append(" http=$it") }
             failure.retryable?.let { append(" retryable=$it") }

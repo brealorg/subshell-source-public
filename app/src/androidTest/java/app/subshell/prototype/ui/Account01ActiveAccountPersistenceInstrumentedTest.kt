@@ -7,7 +7,6 @@ import app.subshell.prototype.auth.AuthApplicationRuntimeFactory
 import app.subshell.prototype.data.account.AccountSessionSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -35,11 +34,11 @@ class Account01ActiveAccountPersistenceInstrumentedTest {
         )
 
         assertEquals(activeAccount, resolved.account)
-        assertTrue(
-            persistActiveAccountSelection(
-                preferences = preferences,
-                account = resolved.account,
-            ),
+        // COMMIT01: the selection is written with apply(); the in-memory file
+        // holds it at once, which the reads below check.
+        persistActiveAccountSelection(
+            preferences = preferences,
+            account = resolved.account,
         )
 
         val afterId = preferences.getString(ACTIVE_ACCOUNT_ID_TEST_KEY, null)

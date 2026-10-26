@@ -11,6 +11,8 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import java.security.MessageDigest
+import java.util.UUID
 import app.subshell.prototype.MainActivity
 import app.subshell.prototype.applock.AppLockSettingsStore
 import app.subshell.prototype.applock.hidesNotificationContent
@@ -54,6 +56,9 @@ internal data class InboxNotificationEvent(
     val title: String,
     val sender: String,
     val preview: String,
+    // ISSUE253: a private message or direct chat, shown as a conversation.
+    val conversation: List<app.subshell.prototype.model.MessageBubble> = emptyList(),
+    val replyParentFullname: String? = null,
 )
 
 // NOTIFY01A1_GRANULAR_NOTIFICATION_POLICY_V1
@@ -92,8 +97,9 @@ internal fun inboxNotificationTarget(
     )
 }
 
-internal fun takeInboxNotificationTarget(intent: Intent?): InboxNotificationTarget? {
+internal fun takeInboxNotificationTarget(context: Context, intent: Intent?): InboxNotificationTarget? {
     val candidate = intent ?: return null
+    if (!takeNotificationLaunchKey(context, candidate)) return null
     val target = inboxNotificationTarget(
         action = candidate.action,
         accountStableId = candidate.getStringExtra(INBOX_NOTIFICATION_ACCOUNT_EXTRA),
@@ -128,8 +134,9 @@ internal fun modmailNotificationTarget(
     )
 }
 
-internal fun takeModmailNotificationTarget(intent: Intent?): ModmailNotificationTarget? {
+internal fun takeModmailNotificationTarget(context: Context, intent: Intent?): ModmailNotificationTarget? {
     val candidate = intent ?: return null
+    if (!takeNotificationLaunchKey(context, candidate)) return null
     val target = modmailNotificationTarget(
         action = candidate.action,
         accountStableId = candidate.getStringExtra(MODMAIL_NOTIFICATION_ACCOUNT_EXTRA),
@@ -168,6 +175,9 @@ internal fun inboxNotificationEvents(
             title = item.title.trim(),
             sender = item.sender.trim(),
             preview = item.preview.trim(),
+            conversation = item.conversation.takeIf { item.kind == ActivityKind.MESSAGE }.orEmpty(),
+            replyParentFullname = item.takeIf { it.kind == ActivityKind.MESSAGE }
+                ?.let { message -> conversationReplyParentFullname(message.id, message.conversation) },
         )
     }
 }
@@ -269,6 +279,7 @@ internal object InboxNotificationCenter {
                     .putExtra(INBOX_NOTIFICATION_ACCOUNT_EXTRA, account)
                     .putExtra(INBOX_NOTIFICATION_ITEM_EXTRA, event.inboxItemId)
                     .putExtra(INBOX_NOTIFICATION_EVENT_EXTRA, event.eventKey)
+                    .putExtra(NOTIFICATION_LAUNCH_KEY_EXTRA, NotificationLaunchKey.value(appContext))
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
@@ -321,6 +332,30 @@ internal object InboxNotificationCenter {
                     .setContentTitle("subshell")
                     .setContentText("New Reddit Inbox activity")
                     .setStyle(null)
+            } else if (event.kind == ActivityKind.MESSAGE) {
+                // ISSUE253_MESSAGES_ARE_CONVERSATION_NOTIFICATIONS_V1
+                val content = conversationNotificationContent(event, System.currentTimeMillis())
+                builder.setStyle(conversationMessagingStyle(content))
+                if (pushConversationShortcut(appContext, account, content.sender)) {
+                    builder.setShortcutId(conversationShortcutId(account, content.sender))
+                }
+                // ISSUE253_DIRECT_REPLY_FROM_THE_NOTIFICATION_V1
+                event.replyParentFullname?.let { parent ->
+                    val target = ConversationReplyTarget(
+                        eventKey = event.eventKey,
+                        accountStableId = account,
+                        inboxItemId = event.inboxItemId,
+                        parentFullname = parent,
+                        channel = if (isDirectChatRoom(event.title)) {
+                            app.subshell.prototype.data.account.MessageReplyChannel.DIRECT_CHAT
+                        } else {
+                            app.subshell.prototype.data.account.MessageReplyChannel.PRIVATE_MESSAGE_THREAD
+                        },
+                        notificationId = notificationId,
+                    )
+                    ConversationReplyTargets.put(appContext, target)
+                    builder.addAction(conversationReplyAction(appContext, target))
+                }
             }
 
             if (
@@ -393,6 +428,7 @@ internal object InboxNotificationCenter {
                     .putExtra(MODMAIL_NOTIFICATION_ACCOUNT_EXTRA, account)
                     .putExtra(MODMAIL_NOTIFICATION_CONVERSATION_EXTRA, event.conversationId)
                     .putExtra(MODMAIL_NOTIFICATION_EVENT_EXTRA, event.eventKey)
+                    .putExtra(NOTIFICATION_LAUNCH_KEY_EXTRA, NotificationLaunchKey.value(appContext))
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
@@ -622,6 +658,7 @@ internal object InboxNotificationCenter {
                 if ((tag to record.notificationId) !in shown) return@forEach
                 val modmail = record.kind == PostedNotificationKind.MODMAIL
                 val intent = Intent(appContext, MainActivity::class.java)
+                    .putExtra(NOTIFICATION_LAUNCH_KEY_EXTRA, NotificationLaunchKey.value(appContext))
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 if (modmail) {
                     intent.setAction(MODMAIL_NOTIFICATION_ACTION_OPEN)
@@ -924,6 +961,42 @@ private fun InboxNotificationEvent.notificationTitle(): String = when (kind) {
 private fun stableNotificationId(eventKey: String): Int =
     eventKey.hashCode() and Int.MAX_VALUE
 
+/**
+ * SECAUDIT06_NOTIFICATION_TAPS_CARRY_THE_LAUNCH_KEY_V1 (security audit #6):
+ * MainActivity is exported, so another app could send it an inbox or modmail
+ * "notification tap" and make Subshell switch account, open the item and mark
+ * it read on Reddit. A tap now carries a random key kept only in Subshell's own
+ * storage; it lasts across process restarts (a notification can outlive the
+ * process that posted it) and is never backed up. A tap without it is dropped.
+ */
+internal object NotificationLaunchKey {
+    const val PREFERENCES = "subshell_notification_launch"
+    private const val KEY = "launch_key_v1"
+
+    fun value(context: Context): String = synchronized(this) {
+        val preferences = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        preferences.getString(KEY, null)?.takeIf(String::isNotEmpty)
+            ?: UUID.randomUUID().toString().also { created ->
+                preferences.edit().putString(KEY, created).commit()
+            }
+    }
+
+    fun matches(context: Context, candidate: String?): Boolean =
+        candidate != null &&
+            MessageDigest.isEqual(
+                candidate.toByteArray(Charsets.UTF_8),
+                value(context).toByteArray(Charsets.UTF_8),
+            )
+}
+
+/** Removes the launch key from [intent] and says whether it was Subshell's own. */
+private fun takeNotificationLaunchKey(context: Context, intent: Intent): Boolean {
+    val key = intent.getStringExtra(NOTIFICATION_LAUNCH_KEY_EXTRA)
+    intent.removeExtra(NOTIFICATION_LAUNCH_KEY_EXTRA)
+    return NotificationLaunchKey.matches(context, key)
+}
+
+internal const val NOTIFICATION_LAUNCH_KEY_EXTRA = "app.subshell.prototype.extra.NOTIFICATION_LAUNCH_KEY"
 internal const val INBOX_NOTIFICATION_ACTION_OPEN =
     "app.subshell.prototype.action.OPEN_INBOX_NOTIFICATION"
 internal const val INBOX_NOTIFICATION_ACCOUNT_EXTRA = "inbox_notification_account"

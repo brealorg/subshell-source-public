@@ -365,6 +365,13 @@ internal interface SubshellCacheDao {
     @Query("SELECT * FROM cached_communities WHERE community_name = :name COLLATE NOCASE LIMIT 1")
     fun communityByName(name: String): CachedCommunityEntity?
 
+    // LISTSSOT01: what the stored lists hold, to tell a real change from a rewrite.
+    @Query(
+        "SELECT payload FROM cached_communities UNION ALL SELECT '|' UNION ALL " +
+            "SELECT payload FROM cached_users UNION ALL SELECT '|' UNION ALL SELECT payload FROM cached_inbox",
+    )
+    fun storedListPayloads(): List<String>
+
     @Query("DELETE FROM cached_communities")
     fun deleteCommunities()
 
@@ -507,6 +514,9 @@ internal interface SubshellCacheDao {
     @Query("SELECT * FROM cached_live_inbox_entries WHERE account_stable_id = :accountStableId ORDER BY position ASC")
     fun liveInboxEntries(accountStableId: String): List<CachedLiveInboxEntryEntity>
 
+    @Query("SELECT COUNT(*) FROM cached_live_inbox_entries WHERE account_stable_id = :accountStableId")
+    fun liveInboxEntryCount(accountStableId: String): Int
+
     @Query("SELECT * FROM cached_live_inbox_entries WHERE account_stable_id = :accountStableId AND item_id = :itemId LIMIT 1")
     fun liveInboxEntry(
         accountStableId: String,
@@ -569,6 +579,12 @@ internal interface SubshellCacheDao {
 
     @Query("SELECT * FROM cached_profile_comments WHERE username = :username COLLATE NOCASE ORDER BY position ASC LIMIT :limit OFFSET :offset")
     fun profileComments(username: String, offset: Int, limit: Int): List<CachedProfileCommentEntity>
+
+    @Query("SELECT * FROM cached_profile_comments WHERE comment_id IN (:commentIds)")
+    fun profileCommentRows(commentIds: List<String>): List<CachedProfileCommentEntity>
+
+    @Query("DELETE FROM cached_profile_comments WHERE username = :username AND comment_id = :commentId")
+    fun deleteProfileComment(username: String, commentId: String)
 
     @Query("SELECT * FROM cached_profile_comments ORDER BY username, position ASC LIMIT :limit OFFSET :offset")
     fun profileComments(offset: Int, limit: Int): List<CachedProfileCommentEntity>
@@ -798,6 +814,29 @@ internal abstract class SubshellCacheDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_cached_live_inbox_seen_account_stable_id` ON `cached_live_inbox_seen` (`account_stable_id`)",
                 )
+            }
+        }
+
+        /**
+         * FEEDSSOT01_ONE_CACHE_DATABASE_PER_PROCESS_V1 (#244): the repository
+         * and the account runtime each opened their own Room instance of this
+         * file. Room tells observers only about writes through the same
+         * instance, so a screen following the store missed what the other side
+         * wrote (the feeds were pushed by hand instead), and Google's Room
+         * guide asks for one instance per process. Both share this one; the
+         * stores over it do not own it and never close it.
+         */
+        @Volatile
+        private var shared: Pair<Context, SubshellCacheDatabase>? = null
+
+        // Keyed on the application context, as processRuntimeCacheStore is: a
+        // new Application (each Robolectric test) gets its own database.
+        fun processShared(context: Context): SubshellCacheDatabase {
+            val appContext = context.applicationContext
+            shared?.takeIf { (owner, _) -> owner === appContext }?.let { (_, database) -> return database }
+            return synchronized(this) {
+                shared?.takeIf { (owner, _) -> owner === appContext }?.second
+                    ?: open(appContext).also { created -> shared = appContext to created }
             }
         }
 

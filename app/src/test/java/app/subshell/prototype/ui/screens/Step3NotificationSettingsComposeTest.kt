@@ -4,6 +4,11 @@ import android.Manifest
 import android.app.Application
 import android.app.NotificationManager
 import android.content.Context
+import androidx.activity.compose.LocalActivityResultRegistryOwner
+import androidx.activity.result.ActivityResultRegistry
+import androidx.activity.result.ActivityResultRegistryOwner
+import androidx.activity.result.contract.ActivityResultContract
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -13,11 +18,13 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.core.app.ActivityOptionsCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
@@ -286,11 +293,12 @@ class Step3NotificationSettingsComposeTest {
         click(switchRow("Inbox notifications"))
 
         assertFalse(state.inboxNotificationsEnabled)
-        assertEquals(0, manager.allNotifications.size)
-        assertFalse(
-            context.getSharedPreferences("subshell_inbox_notifications", Context.MODE_PRIVATE)
-                .contains("posted_notification_records_v1"),
-        )
+        // COMMIT01: the clean-up runs on IO.
+        composeRule.waitUntil(5_000) { manager.allNotifications.isEmpty() }
+        composeRule.waitUntil(5_000) {
+            !context.getSharedPreferences("subshell_inbox_notifications", Context.MODE_PRIVATE)
+                .contains("posted_notification_records_v1")
+        }
     }
 
     @Test
@@ -340,5 +348,55 @@ class Step3NotificationSettingsComposeTest {
         assertTrue("notify-modmail" in settingsSearchResult("modmail").itemKeys)
         assertTrue("notify-replies" in settingsSearchResult("replies").itemKeys)
         assertTrue("notification-types" in settingsSearchResult("notification types").itemKeys)
+    }
+
+    // RECREATE03_SETTINGS_PERMISSION_ANSWER_SURVIVES_RECREATION_V1 (#241): the
+    // switch asks through the activity result registry, so a yes given after a
+    // dark-mode switch rebuilt the screen still turns notifications on.
+    @Test
+    fun aYesGivenAfterARebuildStillTurnsThemOn() {
+        shadowOf(context).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        val state = signedIn()
+        state.updateInboxNotificationsEnabled(false)
+        val launches = mutableListOf<Int>()
+        val registry = object : ActivityResultRegistry() {
+            override fun <I, O> onLaunch(
+                requestCode: Int,
+                contract: ActivityResultContract<I, O>,
+                input: I,
+                options: ActivityOptionsCompat?,
+            ) {
+                launches += requestCode
+            }
+        }
+        val owner = object : ActivityResultRegistryOwner {
+            override val activityResultRegistry: ActivityResultRegistry = registry
+        }
+        val repository = SettingsBackupRepository(context, "test")
+        val restoration = StateRestorationTester(composeRule)
+        restoration.setContent {
+            CompositionLocalProvider(LocalActivityResultRegistryOwner provides owner) {
+                SubshellTheme {
+                    SettingsScreen(
+                        state = state,
+                        backupRepository = repository,
+                        onBack = {},
+                        initialDestinationName = SettingsDestination.COMMENTS.name,
+                    )
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        scrollTo("Inbox notifications")
+        click(switchRow("Inbox notifications"))
+        assertEquals(1, launches.size)
+
+        restoration.emulateSavedInstanceStateRestore()
+        composeRule.waitForIdle()
+        shadowOf(context).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        composeRule.runOnIdle { registry.dispatchResult(launches.single(), true) }
+        composeRule.waitForIdle()
+
+        assertTrue(state.inboxNotificationsEnabled)
     }
 }

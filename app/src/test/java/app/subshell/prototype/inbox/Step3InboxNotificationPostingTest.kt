@@ -186,9 +186,9 @@ class Step3InboxNotificationPostingTest {
 
         assertEquals(
             InboxNotificationTarget("reddit:alice", "t1_reply", "activity:t1_reply"),
-            takeInboxNotificationTarget(tap),
+            takeInboxNotificationTarget(context, tap),
         )
-        assertNull("a tap is taken once", takeInboxNotificationTarget(tap))
+        assertNull("a tap is taken once", takeInboxNotificationTarget(context, tap))
     }
 
     @Test

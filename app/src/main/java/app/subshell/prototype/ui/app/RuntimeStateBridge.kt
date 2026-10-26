@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import app.subshell.prototype.BuildConfig
@@ -510,6 +511,10 @@ internal fun RuntimeStateBridge(
             if (draftAccount == null || draftAccount == commentWriteState.accountStableId) {
                 commentWriteState.targetStableKey?.let(state::completeRemoteCommentComposer)
             }
+            // COMMENTJUMP01_THE_THREAD_SCROLLS_TO_A_POSTED_COMMENT_V1
+            publishedCommentOf(commentWriteState, state.activeAccountId)?.let { (postId, commentId) ->
+                state.notePublishedComment(postId, commentId)
+            }
             onResetCommentWriteState()
         }
     }
@@ -581,6 +586,20 @@ internal fun RuntimeStateBridge(
             onResetTextPostWriteState()
         }
     }
+    // FEEDSSOT01_FEEDS_FOLLOW_THE_STORE_V1 (#244): the feeds read the store
+    // again after any committed change to the stored posts (a feed sync, a
+    // vote or save written later), not only after the pushes below, which stay.
+    // Changes that arrive together are read once.
+    LaunchedEffect(state) { state.followPostStore() }
+    // LISTSSOT01_LISTS_FOLLOW_THE_STORE_V1 (#244): community, user and inbox
+    // lists read again when what their store holds changes.
+    LaunchedEffect(state) { state.followListStore() }
+    // OPENPOSTSSOT01_THE_OPEN_POST_FOLLOWS_THE_STORE_V1 (#244): the open post takes
+    // the feeds' new copy, and settled overrides give way once every copy
+    // shows them.
+    LaunchedEffect(state) {
+        snapshotFlow { state.loadedPostCopiesKey() }.collect { state.followLoadedPostCopies() }
+    }
     LaunchedEffect(
         redditFeedState.contentRevision,
         redditFeedState.queryKey,
@@ -650,4 +669,20 @@ internal object AppSessionStartRecord {
     fun resetForTest() {
         recorded.set(false)
     }
+}
+
+/**
+ * COMMENTJUMP01_THE_THREAD_SCROLLS_TO_A_POSTED_COMMENT_V1: the post and comment
+ * a successful write posted, for the active account only (a write that
+ * finishes after an account switch moves nothing).
+ */
+internal fun publishedCommentOf(
+    writeState: app.subshell.prototype.data.account.CommentWriteUiState,
+    activeAccountId: String?,
+): Pair<String, String>? {
+    if (writeState.phase != CommentWritePhase.SUCCEEDED) return null
+    if (writeState.accountStableId == null || writeState.accountStableId != activeAccountId) return null
+    val postId = writeState.postId ?: return null
+    val commentId = writeState.submittedComment?.id ?: return null
+    return postId to commentId
 }

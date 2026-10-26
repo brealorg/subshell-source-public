@@ -381,6 +381,34 @@ internal class ContentSafetyState(
         }
     }
 
+    // RECREATE02_SETTLED_HIDES_AND_FOLLOWS_SURVIVE_RECREATION_V1 (#241): as for
+    // votes, only hides Reddit confirmed (none in flight, none awaiting rollback).
+    internal fun settledHiddenOverridesForSnapshot(): Map<String, Boolean> =
+        authenticatedPostHiddenOverrides.filterKeys { target ->
+            target != authenticatedContentSafetyInFlight && target !in authenticatedPostHiddenRollback
+        }
+
+    internal fun restoreSettledHiddenOverrides(overrides: Map<String, Boolean>) {
+        if (!activeAccountIsAuthenticated) return
+        overrides.forEach { (target, hidden) ->
+            authenticatedPostHiddenOverrides[target] = hidden
+            updateAuthenticatedHiddenMembership(target, hidden)
+        }
+    }
+
+    // RECREATE03_SETTLED_BLOCKS_SURVIVE_RECREATION_V1 (#241): a block made from
+    // a profile lives here until the blocked-accounts list is loaded; only
+    // confirmed ones (none in flight, none awaiting rollback) are kept.
+    internal fun settledBlockOverridesForSnapshot(): Map<String, Boolean> =
+        authenticatedUserBlockedOverrides.filterKeys { username ->
+            authenticatedContentSafetyInFlight != "u/$username" && username !in authenticatedUserBlockedRollback
+        }
+
+    internal fun restoreSettledBlockOverrides(overrides: Map<String, Boolean>) {
+        if (!activeAccountIsAuthenticated) return
+        authenticatedUserBlockedOverrides.putAll(overrides)
+    }
+
     private fun updateAuthenticatedHiddenMembership(
         postFullname: String,
         hidden: Boolean,

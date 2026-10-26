@@ -133,6 +133,7 @@ import app.subshell.prototype.media.formatVideoPlaybackTime
 import app.subshell.prototype.media.findActivity
 import app.subshell.prototype.media.findLifecycleOwner
 import app.subshell.prototype.media.shouldPreserveVideoPlaybackIntentOnDetach
+import app.subshell.prototype.ui.LocalMainPaneDestination
 import app.subshell.prototype.ui.SubshellState
 import app.subshell.prototype.ui.error.ErrorActionKind
 import app.subshell.prototype.ui.error.RemoteMediaKind
@@ -447,7 +448,11 @@ private fun rememberFeedVideoPosterImage(
 ): FeedVideoPosterImageState<Bitmap>? {
     if (!enabled || !post.localMediaUri.isNullOrBlank()) return null
     val uri = post.remoteImageUri?.takeIf(String::isNotBlank) ?: return null
-    val image = remember(post.id, uri) { FeedVideoPosterImageState<Bitmap>(post.id, uri) }
+    // VIDEOTABSWITCH01: a card composed again (a tab shown again) starts from the
+    // decoded image in memory instead of a black loading frame.
+    val image = remember(post.id, uri) {
+        FeedVideoPosterImageState<Bitmap>(post.id, uri, initial = RemoteImageLoader.cachedBitmap(uri))
+    }
     LaunchedEffect(image, image.retryNonce) {
         image.load(RemoteImageLoader::load)
     }
@@ -617,7 +622,10 @@ fun LocalVideoPlayer(
 
     val feedPausePresentation = !fullscreen && state.googleFeedOwnsPlayback
     // Stay above BOTH early returns: selection and shutter changes must not reload the poster.
-    val feedPosterImage = rememberFeedVideoPosterImage(post, enabled = feedPausePresentation)
+    // VIDEOTABSWITCH01_FEED_POSTER_NEVER_RELOADS_V1: enabled for every feed card, not only
+    // while the feed holds playback; flipping it dropped the remembered image (a black
+    // card with a spinner on a tab switch).
+    val feedPosterImage = rememberFeedVideoPosterImage(post, enabled = !fullscreen && !inPostDetail)
 
     if (posterOnly) {
         val posterModifier = if (fullscreen) {
@@ -648,7 +656,12 @@ fun LocalVideoPlayer(
     )
     // Visibility still controls playing. Keep the SAME drawing surface while paused.
     val surfaceSelected = playing || manuallyPaused || retainedFeedSurface
-    if (!surfaceSelected) {
+    // VIDEOTABSWITCH01_A_LEAVING_TAB_SHOWS_THE_POSTER_V1: in a tab that is fading
+    // out after a tap on another tab no live surface stays (Media3 keeps
+    // SurfaceView, Google's choice from Android 7); the card shows its poster.
+    val paneLeaving = !fullscreen &&
+        LocalMainPaneDestination.current?.let { pane -> pane != state.destination } == true
+    if (!surfaceSelected || paneLeaving) {
         val staticFrameModifier = if (fullscreen) {
             visibilityModifier.fillMaxSize()
         } else {

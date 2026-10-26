@@ -154,6 +154,7 @@ import app.subshell.prototype.ui.error.ErrorPresentation
 import app.subshell.prototype.ui.error.LocalViewportErrorHostState
 import app.subshell.prototype.ui.COMPOSER_BODY_NOT_ALLOWED_MESSAGE
 import app.subshell.prototype.ui.composerCommunityPickerOptions
+import app.subshell.prototype.ui.composerDestinationLabel
 import app.subshell.prototype.ui.composerKnownCommunityOptions
 import app.subshell.prototype.model.Community
 import app.subshell.prototype.ui.COMPOSER_FLAIR_TEXT_MAX_LENGTH
@@ -1367,6 +1368,7 @@ fun CreatePostScreen(
             remoteSearch = composerCommunitySearch,
             selectedCommunity = draft.community,
             authenticated = authenticated,
+            profileUsername = state.activeAccountUsername.takeIf { state.activeAccountIsAuthenticated },
             onSelect = { option ->
                 communitySheetVisible = false
                 communityQuery = ""
@@ -1609,7 +1611,7 @@ internal fun V4CommunitySelector(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    if (community.isBlank()) "Choose a community" else "r/$community",
+                    if (community.isBlank()) "Choose a community" else composerDestinationLabel(community),
                     style = MaterialTheme.typography.titleMedium,
                 )
             }
@@ -1629,6 +1631,7 @@ internal fun V4CommunitySheet(
     authenticated: Boolean,
     onSelect: (ComposerCommunityOption) -> Unit,
     onDismiss: () -> Unit,
+    profileUsername: String? = null,
 ) {
     val normalizedQuery = query
         .trim()
@@ -1642,6 +1645,7 @@ internal fun V4CommunitySheet(
         remoteMatches = remoteMatches,
         query = normalizedQuery,
         authenticated = authenticated,
+        profileUsername = profileUsername,
     )
     val density = LocalDensity.current
     var suppressInitialPartialTransition by remember { mutableStateOf(true) }
@@ -1809,7 +1813,7 @@ private fun V4CommunityOptionRow(
         ) {
             RemoteIdentityImage(
                 uri = option.iconImageUri,
-                contentDescription = "Icon for r/${option.name}",
+                contentDescription = "Icon for ${composerDestinationLabel(option.name)}",
                 modifier = Modifier.size(42.dp).clip(CircleShape),
             ) {
                 CommunityAvatar(
@@ -1819,7 +1823,7 @@ private fun V4CommunityOptionRow(
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text("r/${option.name}", style = MaterialTheme.typography.titleMedium)
+                Text(composerDestinationLabel(option.name), style = MaterialTheme.typography.titleMedium)
                 val details = buildList {
                     if (option.joined) add("Joined")
                     option.members?.let { add(v4CompactMemberCount(it)) }
@@ -2047,7 +2051,7 @@ internal fun V4FlairSheet(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                "r/${community.removePrefix("r/")}",
+                                composerDestinationLabel(community),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodyMedium,
                             )
@@ -2199,7 +2203,7 @@ private fun V4EditableFlairEditor(
             Column(modifier = Modifier.weight(1f)) {
                 Text("Customize flair", style = MaterialTheme.typography.headlineSmall)
                 Text(
-                    "r/${community.removePrefix("r/")}",
+                    composerDestinationLabel(community),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

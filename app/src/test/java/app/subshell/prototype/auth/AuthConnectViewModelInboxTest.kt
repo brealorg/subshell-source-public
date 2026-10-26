@@ -41,15 +41,15 @@ class AuthConnectViewModelInboxTest {
         val loader = GatedLoader()
         val viewModel = viewModel(loader)
 
-        viewModel.loadRedditInbox(account, forceRefresh = false)
+        viewModel.inbox().loadRedditInbox(account, forceRefresh = false)
         idle()
-        var state = viewModel.redditInboxUiState.value
+        var state = viewModel.inbox().redditInboxUiState.value
         assertTrue(state.loading)
         assertEquals(1, loader.cachedCalls)
 
         loader.cachedGate.complete(loaded(item("i1", unread = true), next = "cur-1"))
         idle()
-        state = viewModel.redditInboxUiState.value
+        state = viewModel.inbox().redditInboxUiState.value
         assertTrue(state.loading)
         assertTrue(state.fromCache)
         assertTrue(state.loaded)
@@ -58,47 +58,47 @@ class AuthConnectViewModelInboxTest {
 
         loader.syncGate.complete(loaded(item("i1", unread = true), item("i2", unread = false), next = "cur-2"))
         idle()
-        state = viewModel.redditInboxUiState.value
+        state = viewModel.inbox().redditInboxUiState.value
         assertFalse(state.loading)
         assertFalse(state.fromCache)
         assertEquals(listOf("i1", "i2"), state.items.map { it.id })
 
         // Loaded from the server and not forced: refused.
-        viewModel.loadRedditInbox(account, forceRefresh = false)
+        viewModel.inbox().loadRedditInbox(account, forceRefresh = false)
         idle()
         assertEquals(1, loader.syncCalls)
         loader.syncGate = CompletableDeferred()
-        viewModel.loadRedditInbox(account, forceRefresh = true)
+        viewModel.inbox().loadRedditInbox(account, forceRefresh = true)
         idle()
         assertEquals(1, loader.cachedCalls)
         assertEquals(2, loader.syncCalls)
-        assertEquals(listOf("i1", "i2"), viewModel.redditInboxUiState.value.items.map { it.id })
+        assertEquals(listOf("i1", "i2"), viewModel.inbox().redditInboxUiState.value.items.map { it.id })
     }
 
     @Test
     fun appendNeedsACursorAndASettledInboxAndPassesIt() {
         val loader = GatedLoader()
         val viewModel = viewModel(loader)
-        viewModel.appendRedditInbox(account)
+        viewModel.inbox().appendRedditInbox(account)
         idle()
         assertEquals(0, loader.appendCalls)
 
-        viewModel.loadRedditInbox(account, forceRefresh = true)
+        viewModel.inbox().loadRedditInbox(account, forceRefresh = true)
         idle()
         loader.syncGate.complete(loaded(item("i1", unread = false), next = "cur-1"))
         idle()
 
-        viewModel.appendRedditInbox(account)
+        viewModel.inbox().appendRedditInbox(account)
         idle()
-        assertTrue(viewModel.redditInboxUiState.value.appending)
+        assertTrue(viewModel.inbox().redditInboxUiState.value.appending)
         assertEquals("cur-1", loader.lastAfter)
-        viewModel.appendRedditInbox(account)
+        viewModel.inbox().appendRedditInbox(account)
         idle()
         assertEquals(1, loader.appendCalls)
 
         loader.appendGate.complete(loaded(item("i1", unread = false), item("i2", unread = false), next = null))
         idle()
-        val state = viewModel.redditInboxUiState.value
+        val state = viewModel.inbox().redditInboxUiState.value
         assertFalse(state.appending)
         assertEquals(listOf("i1", "i2"), state.items.map { it.id })
         assertNull(state.nextCursor)
@@ -109,25 +109,25 @@ class AuthConnectViewModelInboxTest {
         val loader = GatedLoader()
         val writer = GatedWriter()
         val viewModel = viewModel(loader, writer)
-        viewModel.loadRedditInbox(account, forceRefresh = true)
+        viewModel.inbox().loadRedditInbox(account, forceRefresh = true)
         idle()
         loader.syncGate.complete(loaded(item("i1", unread = true), item("i2", unread = false), next = null))
         idle()
 
         // A read item is not marked again, and an unknown id is ignored.
-        viewModel.markRedditInboxRead(account, "i2")
-        viewModel.markRedditInboxRead(account, "nope")
+        viewModel.inbox().markRedditInboxRead(account, "i2")
+        viewModel.inbox().markRedditInboxRead(account, "nope")
         idle()
         assertEquals(0, writer.readCalls)
 
-        viewModel.markRedditInboxRead(account, "i1")
+        viewModel.inbox().markRedditInboxRead(account, "i1")
         idle()
-        var state = viewModel.redditInboxUiState.value
+        var state = viewModel.inbox().redditInboxUiState.value
         assertTrue("i1" in state.locallySeenIds)
         assertTrue("i1" in state.readMutationItemIds)
         assertEquals(1, writer.readCalls)
         // While that mutation is pending, the same item is not sent again.
-        viewModel.markRedditInboxRead(account, "i1")
+        viewModel.inbox().markRedditInboxRead(account, "i1")
         idle()
         assertEquals(1, writer.readCalls)
 
@@ -138,7 +138,7 @@ class AuthConnectViewModelInboxTest {
             ),
         )
         idle()
-        state = viewModel.redditInboxUiState.value
+        state = viewModel.inbox().redditInboxUiState.value
         // The pending id clears, but opening the conversation is authoritative
         // for local seen state, so the optimistic seen id is kept and the
         // failure never surfaces as an inbox failure.
@@ -153,12 +153,12 @@ class AuthConnectViewModelInboxTest {
         val loader = GatedLoader()
         val writer = GatedWriter()
         val viewModel = viewModel(loader, writer)
-        viewModel.loadRedditInbox(account, forceRefresh = true)
+        viewModel.inbox().loadRedditInbox(account, forceRefresh = true)
         idle()
         loader.syncGate.complete(loaded(item("i1", unread = true), next = null))
         idle()
 
-        viewModel.markRedditInboxRead(account, "i1")
+        viewModel.inbox().markRedditInboxRead(account, "i1")
         idle()
         writer.readGate.complete(
             AuthInboxReadMutationResult.Applied(
@@ -166,7 +166,7 @@ class AuthConnectViewModelInboxTest {
             ),
         )
         idle()
-        val state = viewModel.redditInboxUiState.value
+        val state = viewModel.inbox().redditInboxUiState.value
         assertFalse("i1" in state.readMutationItemIds)
         assertTrue("i1" in state.locallySeenIds)
         assertFalse(state.items.first { it.id == "i1" }.unread)

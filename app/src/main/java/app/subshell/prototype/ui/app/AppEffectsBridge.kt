@@ -55,11 +55,15 @@ internal fun AppEffectsBridge(
     val onLoadCachedRedditSubscriptions = redditFeed.onLoadCachedRedditSubscriptions
     var accountSwitcherVisible by accountSwitcherVisibleState
     var suppressYouClick by suppressYouClickState
-    // ISSUE72_NOTIFICATION_WAITS_FOR_THE_RELOAD_V1: the inbox already in
-    // memory when a notification arrives predates the notified item; it was
-    // taken as the answer, so a new message opened the inbox root. Only a
-    // state that arrived after the target (the forced reload, or its failure)
+    // ISSUE72_NOTIFICATION_WAITS_FOR_THE_RELOAD_V1: an inbox state from before
+    // the notification may predate the notified item; only a state that
+    // arrived after the target (a stored or reloaded inbox, or its failure)
     // may say the item is gone.
+    // INBOXSSOT01_NOTIFICATION_OPENS_THE_STORED_ITEM_V1: the background sync
+    // stored the item before it posted the notification, and the inbox
+    // follows the store, so a tap opens it without waiting for Reddit. A
+    // plain load (stored inbox first) starts following when nothing loaded
+    // the inbox yet; Reddit is asked only when the item is not stored.
     val inboxAtNotification = remember(inboxNotificationTarget?.eventKey) { redditInboxState }
     LaunchedEffect(
         inboxNotificationTarget?.eventKey,
@@ -67,7 +71,7 @@ internal fun AppEffectsBridge(
     ) {
         val target = inboxNotificationTarget ?: return@LaunchedEffect
         if (target.accountStableId == state.activeAccountId) {
-            onLoadRedditInbox(target.accountStableId, true)
+            onLoadRedditInbox(target.accountStableId, false)
         } else if (!switchToNotifiedAccount(state, target.accountStableId)) {
             onInboxNotificationConsumed()
         }
@@ -82,15 +86,18 @@ internal fun AppEffectsBridge(
         val target = inboxNotificationTarget ?: return@LaunchedEffect
         if (
             target.accountStableId != state.activeAccountId ||
-            !redditInboxState.matches(target.accountStableId) ||
-            redditInboxState.loading
+            !redditInboxState.matches(target.accountStableId)
         ) {
             return@LaunchedEffect
         }
         val item = redditInboxState.items
             .firstOrNull { candidate -> candidate.id == target.inboxItemId }
         if (item == null) {
-            if (redditInboxState.loaded && redditInboxState !== inboxAtNotification) {
+            if (redditInboxState.loading || !redditInboxState.loaded) return@LaunchedEffect
+            if (redditInboxState === inboxAtNotification) {
+                // Not stored: the inbox in hand is all there is, so ask Reddit.
+                onLoadRedditInbox(target.accountStableId, true)
+            } else {
                 onInboxNotificationConsumed()
                 state.openInboxNotificationRoot()
             }

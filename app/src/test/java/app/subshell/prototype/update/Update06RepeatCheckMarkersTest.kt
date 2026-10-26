@@ -2,6 +2,7 @@ package app.subshell.prototype.update
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -71,7 +72,7 @@ class Update06RepeatCheckMarkersTest {
         UpdateCheckCoordinator.check(
             context = application,
             force = true,
-            nowEpochMillis = 1_000L,
+            nowEpochMillis = NOW,
             client = FixedManifestClient(release),
             enabled = true,
             currentVersionCode = CURRENT,
@@ -98,5 +99,8 @@ class Update06RepeatCheckMarkersTest {
 
     private companion object {
         const val CURRENT = 241
+
+        // A device clock just after the fixtures' publishedAt (SECAUDIT01).
+        val NOW = Instant.parse("2026-10-04T00:00:00Z").toEpochMilli()
     }
 }

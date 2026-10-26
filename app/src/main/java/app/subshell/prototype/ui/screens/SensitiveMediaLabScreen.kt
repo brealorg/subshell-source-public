@@ -1,6 +1,5 @@
 package app.subshell.prototype.ui.screens
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -51,8 +50,6 @@ fun SensitiveMediaLabScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    BackHandler(onBack = onBack)
-
     val posts = remember { redditSensitiveMediaLabPosts() }
     val visiblePosts = posts.filter(state::showsPost)
     val nsfwPosts = posts.filter { post -> post.nsfw }

@@ -25,7 +25,8 @@ import androidx.core.content.ContextCompat
 import android.os.Build
 import android.content.pm.PackageManager
 import android.Manifest
-import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -87,6 +88,8 @@ import app.subshell.prototype.media.VideoMediaCacheLimit
 import app.subshell.prototype.data.account.RedditFavoriteSyncSettingStore
 import app.subshell.prototype.shortcuts.LauncherShortcutsEnabledStore
 import app.subshell.prototype.shortcuts.rememberLauncherShortcutsEnabled
+import app.subshell.prototype.ui.app.predictiveBackPage
+import app.subshell.prototype.ui.app.rememberPredictiveBackPage
 import app.subshell.prototype.ui.app.rememberRedditFavoriteSyncEnabled
 import app.subshell.prototype.media.videoMediaCacheSummary
 import app.subshell.prototype.ui.ChromeBehavior
@@ -164,8 +167,9 @@ fun SettingsScreen(
     accountSettingsRuntime: AccountSettingsRuntime = AccountSettingsRuntime(),
     initialDestinationName: String = SettingsDestination.ROOT.name,
     onInitialDestinationConsumed: () -> Unit = {},
-    onRequestInboxNotificationPermission: ((Boolean) -> Unit) -> Unit =
-        { onResult -> onResult(false) },
+    // Tests answer the permission question here; the app uses the activity
+    // result registry (RECREATE03_SETTINGS_PERMISSION_ANSWER_SURVIVES_RECREATION_V1).
+    onRequestInboxNotificationPermission: (((Boolean) -> Unit) -> Unit)? = null,
     onRedditConfigurationChanged: () -> Unit = {},
     redditLinkHandlingState: RedditLinkHandlingState = RedditLinkHandlingState(),
     onOpenRedditLinkSettings: () -> Unit = {},
@@ -298,10 +302,39 @@ fun SettingsScreen(
         InboxBackgroundSyncScheduler.schedule(appContext, account)
     }
 
+    fun answerInboxNotificationPermission(account: String, granted: Boolean) {
+        if (
+            granted &&
+            state.activeAccountIsAuthenticated &&
+            state.activeAccountId == account
+        ) {
+            enableInboxNotifications(account)
+        } else {
+            state.updateInboxNotificationsEnabled(false)
+        }
+    }
+
+    // RECREATE03_SETTINGS_PERMISSION_ANSWER_SURVIVES_RECREATION_V1 (#241): the
+    // switch asks through the activity result registry, which hands an answer
+    // given after a dark-mode switch to the rebuilt screen; the account it was
+    // asked for is saved state. The activity's own callback died with it.
+    var inboxNotificationPermissionAccount by rememberSaveable { mutableStateOf<String?>(null) }
+    val inboxNotificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        val account = inboxNotificationPermissionAccount ?: return@rememberLauncherForActivityResult
+        inboxNotificationPermissionAccount = null
+        answerInboxNotificationPermission(account, granted)
+    }
+
     fun setInboxNotificationsEnabled(enabled: Boolean) {
         if (!enabled) {
             state.updateInboxNotificationsEnabled(false)
-            InboxNotificationCenter.cancelPosted(appContext)
+            // COMMIT01_NOTIFICATION_CLEANUP_OFF_MAIN_V1 (#243): the shown
+            // notifications and their records are cleared on IO.
+            cacheScope.launch(Dispatchers.IO) {
+                runCatching { InboxNotificationCenter.cancelPosted(appContext) }
+            }
             return
         }
 
@@ -316,16 +349,12 @@ fun SettingsScreen(
                 Manifest.permission.POST_NOTIFICATIONS,
             ) != PackageManager.PERMISSION_GRANTED
         ) {
-            onRequestInboxNotificationPermission { granted ->
-                if (
-                    granted &&
-                    state.activeAccountIsAuthenticated &&
-                    state.activeAccountId == account
-                ) {
-                    enableInboxNotifications(account)
-                } else {
-                    state.updateInboxNotificationsEnabled(false)
-                }
+            val testAnswer = onRequestInboxNotificationPermission
+            if (testAnswer != null) {
+                testAnswer { granted -> answerInboxNotificationPermission(account, granted) }
+            } else {
+                inboxNotificationPermissionAccount = account
+                inboxNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         } else {
             enableInboxNotifications(account)
@@ -366,12 +395,15 @@ fun SettingsScreen(
             destinationName = target.name
         }
     }
-    BackHandler(enabled = backupScreenVisible, onBack = returnToSettings)
-    BackHandler(
-        enabled = destination != SettingsDestination.ROOT &&
-            destination != SettingsDestination.BACKUP,
+    // ISSUE249_IN_SCREEN_PAGES_FOLLOW_THE_BACK_GESTURE_V1 (#249): an area of
+    // Settings follows the back gesture as a route does. This one handler owns
+    // Back for every area; the area screens no longer register their own.
+    val pageBack = rememberPredictiveBackPage(
+        enabled = backupScreenVisible ||
+            (destination != SettingsDestination.ROOT && destination != SettingsDestination.BACKUP),
         onBack = returnToSettings,
     )
+    val pageModifier = modifier.predictiveBackPage(pageBack)
 
     LaunchedEffect(appContext) {
         val status = runCatching {
@@ -391,7 +423,7 @@ fun SettingsScreen(
             state = state,
             repository = backupRepository,
             onBack = returnToSettings,
-            modifier = modifier,
+            modifier = pageModifier,
         )
         return
     }
@@ -401,7 +433,7 @@ fun SettingsScreen(
         NotificationTypesSettingsScreen(
             state = state,
             onBack = returnToSettings,
-            modifier = modifier,
+            modifier = pageModifier,
         )
         return
     }
@@ -410,7 +442,7 @@ fun SettingsScreen(
         NewPostNotificationsSettingsScreen(
             state = state,
             onBack = returnToSettings,
-            modifier = modifier,
+            modifier = pageModifier,
         )
         return
     }
@@ -421,7 +453,7 @@ fun SettingsScreen(
             onAdd = state::addContentFilter,
             onRemove = state::removeContentFilter,
             onBack = returnToSettings,
-            modifier = modifier,
+            modifier = pageModifier,
         )
         return
     }
@@ -430,7 +462,7 @@ fun SettingsScreen(
         SensitiveMediaLabScreen(
             state = state,
             onBack = returnToSettings,
-            modifier = modifier,
+            modifier = pageModifier,
         )
         return
     }
@@ -438,7 +470,7 @@ fun SettingsScreen(
     if (destination == SettingsDestination.DIAGNOSTICS) {
         DiagnosticsScreen(
             onBack = returnToSettings,
-            modifier = modifier,
+            modifier = pageModifier,
         )
         return
     }
@@ -446,7 +478,7 @@ fun SettingsScreen(
     if (destination == SettingsDestination.ABOUT) {
         HelpScreen(
             onBack = returnToSettings,
-            modifier = modifier,
+            modifier = pageModifier,
         )
         return
     }
@@ -1199,7 +1231,7 @@ fun SettingsScreen(
     val settingsListState = rememberLazyListState()
 
     val routeTopBarScroll = rememberRouteTopBarScrollBehavior()
-    Column(modifier.fillMaxSize().nestedScroll(routeTopBarScroll.nestedScrollConnection)) {
+    Column(pageModifier.fillMaxSize().nestedScroll(routeTopBarScroll.nestedScrollConnection)) {
         RouteTopBar(
             title = { Text(destination.title) },
             navigationIcon = {

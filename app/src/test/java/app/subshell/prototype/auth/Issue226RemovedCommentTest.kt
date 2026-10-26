@@ -101,19 +101,19 @@ class Issue226RemovedCommentTest {
     fun aConfirmedRemoveMarksTheNestedCommentAndApproveUnmarksIt() {
         val writer = FakeWriter(AuthenticatedRedditModerationActionResult.Updated())
         val viewModel = viewModel(writer)
-        viewModel.loadRedditComments(account, post, sort)
+        viewModel.reading().loadRedditComments(account, post, sort)
         idle()
 
-        viewModel.moderateRedditQueueItem(request("t1_c2", RedditModeratorAction.REMOVE))
+        moderation.moderateRedditQueueItem(request("t1_c2", RedditModeratorAction.REMOVE))
         idle()
         assertTrue(child().removedByModerator)
-        assertFalse(viewModel.redditCommentsUiState.value.comments.single().removedByModerator)
+        assertFalse(viewModel.reading().redditCommentsUiState.value.comments.single().removedByModerator)
 
-        viewModel.moderateRedditQueueItem(request("t1_c2", RedditModeratorAction.APPROVE))
+        moderation.moderateRedditQueueItem(request("t1_c2", RedditModeratorAction.APPROVE))
         idle()
         assertFalse(child().removedByModerator)
 
-        viewModel.moderateRedditQueueItem(request("t1_c2", RedditModeratorAction.SPAM))
+        moderation.moderateRedditQueueItem(request("t1_c2", RedditModeratorAction.SPAM))
         idle()
         assertTrue(child().removedByModerator)
     }
@@ -127,21 +127,22 @@ class Issue226RemovedCommentTest {
             ),
         )
         val viewModel = viewModel(writer)
-        viewModel.loadRedditComments(account, post, sort)
+        viewModel.reading().loadRedditComments(account, post, sort)
         idle()
 
-        viewModel.moderateRedditQueueItem(request("t1_c2", RedditModeratorAction.REMOVE))
+        moderation.moderateRedditQueueItem(request("t1_c2", RedditModeratorAction.REMOVE))
         idle()
         assertFalse(child().removedByModerator)
 
         writer.result = AuthenticatedRedditModerationActionResult.Updated()
-        viewModel.moderateRedditQueueItem(request("t3_$post", RedditModeratorAction.REMOVE))
+        moderation.moderateRedditQueueItem(request("t3_$post", RedditModeratorAction.REMOVE))
         idle()
         assertFalse(child().removedByModerator)
     }
 
     private lateinit var current: AuthConnectViewModel
-    private fun child() = current.redditCommentsUiState.value.comments.single().children.single()
+    private lateinit var moderation: ModerationViewModel
+    private fun child() = current.reading().redditCommentsUiState.value.comments.single().children.single()
 
     private fun request(thing: String, action: RedditModeratorAction) = RedditModeratorActionRequest(
         accountStableId = account,
@@ -158,7 +159,13 @@ class Issue226RemovedCommentTest {
                 moderationActionWriter = writer,
                 accountSessionDirectory = ActiveDirectory(account),
             ),
-        ).also { current = it }
+        ).also {
+            current = it
+            it.withAreaViewModels() // AUTHSPLIT05: the thread lives in ReadingViewModel
+            // AUTHSPLIT01: the action is ModerationViewModel's; the thread
+            // learns of it through the shared runtime.
+            moderation = ModerationViewModel(it.sharedRuntime)
+        }
 
     private fun idle() = shadowOf(Looper.getMainLooper()).idle()
 

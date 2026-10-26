@@ -16,6 +16,7 @@ rerun with a full cache works offline.
 
 import argparse
 import pathlib
+import re
 import sys
 import urllib.request
 import xml.etree.ElementTree as ElementTree
@@ -23,11 +24,16 @@ import xml.etree.ElementTree as ElementTree
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 TABLE = ROOT / "tools/symbols/symbols.tsv"
 OUTPUT = ROOT / "app/src/main/java/app/subshell/prototype/ui/symbols/Symbols.kt"
+# SECAUDIT22_UPSTREAM_IS_PINNED_TO_A_COMMIT_V1: a fixed commit, not the moving
+# master branch; it reproduces the Symbols.kt of 2026-10-18 byte for byte.
+# Moving it is a reviewed change: regenerate and read the Symbols.kt diff.
+UPSTREAM_COMMIT = "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7"
 URL = (
-    "https://raw.githubusercontent.com/google/material-design-icons/master/"
+    f"https://raw.githubusercontent.com/google/material-design-icons/{UPSTREAM_COMMIT}/"
     "symbols/android/{name}/materialsymbolsrounded/{name}{fill}_24px.xml"
 )
 ANDROID = "{http://schemas.android.com/apk/res/android}"
+PATH_DATA = re.compile(r"[MmLlHhVvCcSsQqTtAaZzEe0-9.,\- ]+")
 
 
 def read_table():
@@ -59,7 +65,13 @@ def paths_of(source, label):
     for child in vector:
         if child.tag != "path":
             sys.exit(f"{label}: unexpected <{child.tag}> (groups and transforms are not supported)")
-        paths.append(child.get(ANDROID + "pathData"))
+        path = child.get(ANDROID + "pathData")
+        # SECAUDIT22_PATH_DATA_IS_ONLY_PATH_COMMANDS_V1: the path goes into a
+        # Kotlin string literal, so a quote, backslash or "$" from a tampered
+        # download would become code.
+        if path is None or not PATH_DATA.fullmatch(path):
+            sys.exit(f"{label}: pathData is not plain path commands and numbers")
+        paths.append(path)
     if not paths:
         sys.exit(f"{label}: no paths")
     return float(viewport), paths

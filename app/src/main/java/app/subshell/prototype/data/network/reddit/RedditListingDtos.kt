@@ -417,15 +417,33 @@ private fun RedditPostDataDto.toPost(nowEpochSeconds: Long): Post {
     } else {
         directImageUrl ?: previewImageUrl
     }
-    // ISSUE207_REDGIFS_PLAYS_IN_THE_APP_V1: Reddit's own copy plays first; only
-    // an NSFW RedGIFs post without one becomes a video the player resolves.
+    // ISSUE207_REDGIFS_PLAYS_IN_THE_APP_V1: an NSFW RedGIFs post is a video the
+    // player resolves. ISSUE256_REDGIFS_ORIGINAL_PLAYS_FIRST_V1 (#256, owner
+    // reversed #207's order 2026-10-25): Reddit's copy (reddit_video_preview,
+    // the GIF's MP4) has no audio, so the RedGIFs original plays first and
+    // Reddit's copies follow as the player's fallback sources.
     val redGifsVideoUrl = redGifsClipId(externalUrl)
-        ?.takeIf { over18 && videoUrl == null && previewGifMp4Url == null && galleryData == null }
+        ?.takeIf { over18 && galleryData == null }
         ?.let(::redGifsVideoUri)
-    val resolvedVideoUrl = if (imageIsGif) previewGifMp4Url ?: videoUrl else videoUrl ?: redGifsVideoUrl
+    val redditVideoUrl = if (imageIsGif) previewGifMp4Url ?: videoUrl else videoUrl
     val usesPreviewGifMp4 = imageIsGif && previewGifMp4Url != null
-    val resolvedVideoHlsUrl = hlsVideoUrl.takeUnless { usesPreviewGifMp4 }
-    val resolvedVideoFallbackUrl = fallbackVideoUrl.takeUnless { usesPreviewGifMp4 }
+    // Behind the RedGIFs original every Reddit copy is a fallback, the GIF's
+    // MP4 first; the player has two slots for them.
+    val redditVideoSources = sequenceOf(redditVideoUrl, hlsVideoUrl, fallbackVideoUrl)
+        .filterNotNull()
+        .distinct()
+        .toList()
+    val resolvedVideoUrl = redGifsVideoUrl ?: redditVideoUrl
+    val resolvedVideoHlsUrl = if (redGifsVideoUrl != null) {
+        redditVideoSources.getOrNull(0)
+    } else {
+        hlsVideoUrl.takeUnless { usesPreviewGifMp4 }
+    }
+    val resolvedVideoFallbackUrl = if (redGifsVideoUrl != null) {
+        redditVideoSources.getOrNull(1)
+    } else {
+        fallbackVideoUrl.takeUnless { usesPreviewGifMp4 }
+    }
     val poll = pollData?.toPoll(nowEpochSeconds)
     val galleryItems = galleryData
         ?.items
@@ -436,6 +454,7 @@ private fun RedditPostDataDto.toPost(nowEpochSeconds: Long): Post {
             val metadata = mediaMetadata[mediaId]
                 ?: return@mapIndexedNotNull null
             val remoteImageUrl = metadata.remoteImageUrl()
+                ?: failedRedditGalleryImageUri(mediaId, metadata.status)
                 ?: return@mapIndexedNotNull null
             val caption = item.caption.orEmpty()
             val outboundUrl = item.outboundUrl
@@ -740,6 +759,18 @@ internal fun String.normalizedRedditCommunityName(): String? {
             }
     }
 }
+
+// ISSUE262_FAILED_GALLERY_IMAGES_STILL_SHOW_V1: Reddit marks every image of a
+// gallery posted through its public API "failed" (Subshell's and PRAW's alike,
+// 2026-10; its own clients' galleries are "valid"), with no address or type,
+// although the images exist and reddit.com shows them. Such an image gets an
+// internal address the image loader resolves on i.redd.it by trying .jpeg,
+// .png, .gif and .webp (it serves an image only under its own extension).
+internal const val FAILED_REDDIT_GALLERY_IMAGE_SCHEME = "subshell-reddit-image"
+
+internal fun failedRedditGalleryImageUri(mediaId: String, status: String?): String? =
+    mediaId.takeIf { status == "failed" && it.length in 1..64 && it.all(Char::isLetterOrDigit) }
+        ?.let { "$FAILED_REDDIT_GALLERY_IMAGE_SCHEME://${it.lowercase()}" }
 
 internal fun RedditMediaMetadataDto.remoteImageUrl(): String? {
     val valid = status == null || status == REDDIT_MEDIA_STATUS_VALID

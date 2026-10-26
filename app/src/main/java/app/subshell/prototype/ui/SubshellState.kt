@@ -27,7 +27,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import app.subshell.prototype.data.CommunityRepository
 import app.subshell.prototype.data.IdentityMetadataRepository
-import app.subshell.prototype.data.ListCacheWriteCounter
+import app.subshell.prototype.data.ListStoreChanges
 import app.subshell.prototype.data.RepositoryPagingSnapshot
 import app.subshell.prototype.data.RepositoryQueryKey
 import app.subshell.prototype.data.RepositoryResult
@@ -100,6 +100,7 @@ import app.subshell.prototype.ui.state.UiRequestState
 import app.subshell.prototype.ui.state.UserFlairState
 import app.subshell.prototype.ui.theme.ThemeMode
 import kotlin.math.abs
+import kotlinx.coroutines.flow.conflate
 import app.subshell.prototype.data.account.CustomFeedSummary
 import app.subshell.prototype.data.account.RedditUserBlockRequest
 import app.subshell.prototype.data.account.RedditCommunityInfoUiState
@@ -211,13 +212,17 @@ internal fun resolveActiveAccountSelection(
     )
 }
 
+// COMMIT01_UI_PREFERENCE_WRITES_APPLY_V1 (#243): called on Main (start-up
+// migration, account switch); apply() writes in the background.
 internal fun persistActiveAccountSelection(
     preferences: SharedPreferences,
     account: AccountSessionSummary,
-): Boolean = preferences.edit()
-    .putString(ACTIVE_ACCOUNT_ID, account.stableId)
-    .putString(ACTIVE_ACCOUNT_USERNAME, account.username)
-    .commit()
+) {
+    preferences.edit()
+        .putString(ACTIVE_ACCOUNT_ID, account.stableId)
+        .putString(ACTIVE_ACCOUNT_USERNAME, account.username)
+        .apply()
+}
 
 internal fun accountSessionForPersistence(
     accountId: String,
@@ -1156,6 +1161,14 @@ class SubshellState(
         get() = commentDraft.commentComposerVisible
     val commentComposerDraft
         get() = commentDraft.commentComposerDraft
+    internal val publishedComment
+        get() = commentDraft.publishedComment
+
+    internal fun notePublishedComment(postId: String, commentId: String) =
+        commentDraft.notePublishedComment(postId, commentId)
+
+    internal fun consumePublishedComment(target: app.subshell.prototype.ui.state.PublishedCommentTarget) =
+        commentDraft.consumePublishedComment(target)
     var interactionSide by settings::interactionSide
         private set
     var drawerSidePreference by settings::drawerSidePreference
@@ -1352,6 +1365,8 @@ class SubshellState(
             ?: 0,
     )
     private val routedPostsByVisitId = mutableMapOf<Int, Post>()
+    // The open post's identity and the feeds' agreed copy of it last seen.
+    private var openPostCopyBaseline: Pair<String, Post?>? = null
     private val consumedPostEntryVisitIds = mutableSetOf<Int>()
     private val feedScrollAnchorStore = FeedScrollAnchorStore(
         restoredProcessSnapshot?.scrollAnchors.orEmpty(),
@@ -1520,6 +1535,20 @@ class SubshellState(
             feedVideoMuted = feedVideoMuted,
             backgroundResumeMediaId = navigationLifecycleMediaId,
             backgroundResumeWasManual = navigationLifecycleMediaWasManual,
+            messageConversationDrafts = inboxActivity.messageConversationDraftsForSnapshot(),
+            messageConversationMedia = inboxActivity.messageConversationMediaForSnapshot(),
+            settledOverrides = if (activeAccountIsAuthenticated) {
+                SettledAccountOverrides(
+                    accountStableId = activeAccountId,
+                    votes = postVotes.settledVoteOverridesForSnapshot(),
+                    saves = postSaves.settledSaveOverridesForSnapshot(),
+                    hidden = contentSafety.settledHiddenOverridesForSnapshot(),
+                    follows = postFollows.settledFollowOverridesForSnapshot(),
+                    blocks = contentSafety.settledBlockOverridesForSnapshot(),
+                )
+            } else {
+                null
+            },
         )
     }
 
@@ -1830,6 +1859,24 @@ class SubshellState(
         )
     }
 
+    init {
+        // RECREATE01 (#241): what the process snapshot kept beside the routes,
+        // after the account's stored post actions replaced the hidden list.
+        restoredProcessSnapshot?.let { snapshot ->
+            inboxActivity.restoreMessageConversationDrafts(snapshot.messageConversationDrafts)
+            inboxActivity.restoreMessageConversationMedia(snapshot.messageConversationMedia)
+            snapshot.settledOverrides
+                ?.takeIf { overrides -> overrides.accountStableId == activeAccountId }
+                ?.let { overrides ->
+                    postVotes.restoreSettledVoteOverrides(overrides.votes)
+                    postSaves.restoreSettledSaveOverrides(overrides.saves)
+                    contentSafety.restoreSettledHiddenOverrides(overrides.hidden)
+                    postFollows.restoreSettledFollowOverrides(overrides.follows)
+                    contentSafety.restoreSettledBlockOverrides(overrides.blocks)
+                }
+        }
+    }
+
     private fun replaceAccountPostActions(
         actions: AccountPostActions,
         username: String,
@@ -1876,6 +1923,9 @@ class SubshellState(
         queryKey: RepositoryQueryKey,
     ): RepositoryPagingSnapshot<Post> = postPaging.postPagingSnapshot(queryKey)
 
+    internal fun postPagingStoreRead(queryKey: RepositoryQueryKey): Boolean =
+        postPaging.postPagingStoreRead(queryKey)
+
     internal fun ensurePostPaging(queryKey: RepositoryQueryKey) {
         postPaging.ensurePostPaging(queryKey)
     }
@@ -1888,6 +1938,102 @@ class SubshellState(
         queryKey: RepositoryQueryKey,
     ) {
         postPaging.synchronizePostPagingAfterRemoteWrite(queryKey)
+    }
+
+    /**
+     * FEEDSSOT01_FEEDS_FOLLOW_THE_STORE_V1 (#244): until cancelled, every
+     * committed change to the stored posts makes the loaded feeds read the
+     * store again; changes that arrive together are read once.
+     */
+    internal suspend fun followPostStore() {
+        val changes = (repository as? app.subshell.prototype.data.PostStoreChanges)?.postStoreChanges() ?: return
+        changes.conflate().collect { postPaging.synchronizeLoadedPostPaging() }
+    }
+
+    internal fun settledOverrideTargetsKey(): Any =
+        postVotes.settledOverrideTargets to postSaves.settledOverrideTargets
+
+    // What followLoadedPostCopies reads; a change runs it again. A feed's
+    // snapshot is replaced on every change, so its identity is enough (no deep
+    // comparison of every loaded post).
+    internal fun loadedPostCopiesKey(): Any = listOf(
+        postPagingSnapshots.values.map(System::identityHashCode),
+        selectedPost,
+        selectedMediaPost,
+        postVotes.settledOverrideTargets,
+        postSaves.settledOverrideTargets,
+    )
+
+    /**
+     * OPENPOSTSSOT01_THE_OPEN_POST_FOLLOWS_THE_STORE_V1 (#244): the open post was
+     * the copy it was opened with. When the loaded feeds (which follow the
+     * store) change their copy of it and agree, the open post takes that copy.
+     * The copy they held when it opened is the baseline, so a post opened from
+     * a link with newer data than an older feed copy keeps its own.
+     */
+    internal fun followLoadedPostCopies() {
+        val copies = postPagingSnapshots.values
+            .flatMap { snapshot -> snapshot.items }
+            .groupBy { post -> normalizedPostIdentity(post.id) }
+        fun agreedCopy(postId: String): Post? =
+            copies[normalizedPostIdentity(postId)]?.distinct()?.singleOrNull()
+
+        val open = selectedPost
+        if (open == null) {
+            openPostCopyBaseline = null
+        } else {
+            val identity = normalizedPostIdentity(open.id)
+            val agreed = agreedCopy(open.id)
+            val baseline = openPostCopyBaseline
+            if (baseline == null || baseline.first != identity) {
+                openPostCopyBaseline = identity to agreed
+            } else if (agreed != null && agreed != baseline.second) {
+                openPostCopyBaseline = identity to agreed
+                if (agreed != open) {
+                    selectedPost = agreed
+                    routedPostsByVisitId[postVisitId]
+                        ?.takeIf { routed -> normalizedPostIdentity(routed.id) == identity }
+                        ?.let { routedPostsByVisitId[postVisitId] = agreed }
+                }
+            }
+        }
+        releaseSettledPostOverrides(copies)
+    }
+
+    // OPENPOSTSSOT01_SETTLED_OVERRIDES_GIVE_WAY_TO_THE_STORE_V1 (#244): every
+    // copy of a post held now: the feeds, the open post, the posts kept for
+    // the back stack and the media viewer.
+    private fun releaseSettledPostOverrides(feedCopies: Map<String, List<Post>>) {
+        fun copiesOf(target: String): List<Post>? {
+            if (!target.startsWith("t3_")) return null
+            val identity = normalizedPostIdentity(target)
+            return feedCopies[identity].orEmpty() +
+                (listOfNotNull(selectedPost, selectedMediaPost) + routedPostsByVisitId.values)
+                    .filter { post -> normalizedPostIdentity(post.id) == identity }
+        }
+        postVotes.releaseSettledOverrides { target -> copiesOf(target)?.map(Post::vote) }
+        postSaves.releaseSettledOverrides { target -> copiesOf(target)?.map(Post::saved) }
+    }
+
+    /**
+     * OPENPOSTSSOT01_SETTLED_OVERRIDES_GIVE_WAY_TO_THE_STORE_V1 (#244): the
+     * comments of the thread on screen (which follows its store) are the
+     * copies of a comment's vote and save.
+     */
+    internal fun releaseSettledCommentOverrides(comments: List<Comment>) {
+        val copies = mutableMapOf<String, MutableList<Comment>>()
+        fun collect(level: List<Comment>) {
+            level.forEach { comment ->
+                runCatching { app.subshell.prototype.data.account.normalizeCommentVoteFullname(comment.id) }
+                    .getOrNull()
+                    ?.let { target -> copies.getOrPut(target) { mutableListOf() }.add(comment) }
+                collect(comment.children)
+            }
+        }
+        collect(comments)
+        fun copiesOf(target: String): List<Comment>? = copies[target].takeIf { target.startsWith("t1_") }
+        postVotes.releaseSettledOverrides { target -> copiesOf(target)?.map(Comment::vote) }
+        postSaves.releaseSettledOverrides { target -> copiesOf(target)?.map(Comment::saved) }
     }
 
     internal fun claimProfileHistoryAutoRefresh(
@@ -1915,21 +2061,22 @@ class SubshellState(
     // from the Room cache (a blocking read and decode) and were read during
     // composition: on every keystroke in Create post, once per item in a
     // "My communities" search, twice per Communities frame. A list changes
-    // when repositoryRevision does or when a single item is written to its
-    // cache (identity lookups write communities and users without a revision,
-    // PERF03_LIST_CACHE_WRITES_INVALIDATE_V1), so each is read once per pair;
-    // reading the revision keeps the composition observing it, as before.
+    // when repositoryRevision does or when what its store holds changes
+    // (identity lookups write communities and users without a revision;
+    // LISTSSOT01_LISTS_FOLLOW_THE_STORE_V1 counts those changes in
+    // listStoreRevision, which composition observes), so each is read once
+    // per pair.
     // Posts and comments stay direct: local vote/save/poll writes change them
     // without a revision.
     private class RevisionMemo<T>(private val load: () -> T) {
         private var revision = -1
-        private var cacheWrites = -1
+        private var storeRevision = -1
         private var value: T? = null
 
         @Suppress("UNCHECKED_CAST")
-        fun get(currentRevision: Int, currentCacheWrites: Int): T {
-            if (currentRevision != revision || currentCacheWrites != cacheWrites) {
-                cacheWrites = currentCacheWrites
+        fun get(currentRevision: Int, currentStoreRevision: Int): T {
+            if (currentRevision != revision || currentStoreRevision != storeRevision) {
+                storeRevision = currentStoreRevision
                 value = load()
                 revision = currentRevision
             }
@@ -1937,8 +2084,18 @@ class SubshellState(
         }
     }
 
-    private val listCacheWrites: Int
-        get() = (repository as? ListCacheWriteCounter)?.listCacheWrites ?: 0
+    private var listStoreRevision by mutableIntStateOf(0)
+
+    /**
+     * LISTSSOT01_LISTS_FOLLOW_THE_STORE_V1 (#244): until cancelled, a change to
+     * what the stored community, user or inbox lists hold makes them read
+     * again. PERF03's write counter was not state, so a write showed only at
+     * the next recomposition for another reason.
+     */
+    internal suspend fun followListStore() {
+        val changes = (repository as? ListStoreChanges)?.listStoreChanges() ?: return
+        changes.conflate().collect { listStoreRevision += 1 }
+    }
 
     private val communitiesMemo = RevisionMemo { repository.communities() }
     private val usersMemo = RevisionMemo { repository.users() }
@@ -1954,19 +2111,19 @@ class SubshellState(
         get() = postsResult.itemsOrEmpty().filterNot { post -> isPostDeleted(post.id) }
 
     private val communitiesResult: RepositoryResult<List<Community>>
-        get() = communitiesMemo.get(repositoryRevision, listCacheWrites)
+        get() = communitiesMemo.get(repositoryRevision, listStoreRevision)
 
     val communities: List<Community>
         get() = communitiesResult.itemsOrEmpty()
 
     private val usersResult: RepositoryResult<List<UserFixture>>
-        get() = usersMemo.get(repositoryRevision, listCacheWrites)
+        get() = usersMemo.get(repositoryRevision, listStoreRevision)
 
     val users: List<UserFixture>
         get() = usersResult.itemsOrEmpty()
 
     private val inboxResult: RepositoryResult<List<InboxItem>>
-        get() = inboxMemo.get(repositoryRevision, listCacheWrites)
+        get() = inboxMemo.get(repositoryRevision, listStoreRevision)
 
     val inboxItems: List<InboxItem>
         get() = if (activeAccountIsAuthenticated) emptyList() else inboxResult.itemsOrEmpty()
@@ -2402,12 +2559,8 @@ class SubshellState(
         activeAccountId = selected.stableId
         activeAccountUsername = selected.username
         joinedCommunityIds.clear()
-        joinedCommunityIds.addAll(
-            normalizeJoinedCommunityIds(
-                communityIds = loadJoinedCommunityIds(selected.username),
-                repository = repository,
-            ),
-        )
+        // ROOMWAIT01_ONE_COMMUNITY_READ_PER_LOAD_V1 (#243): already canonical.
+        joinedCommunityIds.addAll(loadJoinedCommunityIds(selected.username))
         favoriteCommunityNames.clear()
         favoriteCommunityNames.addAll(
             normalizeFavoriteCommunityNames(
@@ -2483,12 +2636,8 @@ class SubshellState(
         activeAccountId = selected.stableId
         activeAccountUsername = selected.username
         joinedCommunityIds.clear()
-        joinedCommunityIds.addAll(
-            normalizeJoinedCommunityIds(
-                communityIds = loadJoinedCommunityIds(selected.username),
-                repository = repository,
-            ),
-        )
+        // ROOMWAIT01_ONE_COMMUNITY_READ_PER_LOAD_V1 (#243): already canonical.
+        joinedCommunityIds.addAll(loadJoinedCommunityIds(selected.username))
         favoriteCommunityNames.clear()
         favoriteCommunityNames.addAll(
             normalizeFavoriteCommunityNames(
@@ -3562,6 +3711,16 @@ class SubshellState(
         }
         selectedPost = selectedPost?.let(::updated)
         selectedMediaPost = selectedMediaPost?.let(::updated)
+        storeEditedPost(postId, ::updated)
+    }
+
+    // OPENPOSTSSOT01_POST_EDITS_REACH_THE_STORE_V1 (#244): the feeds and the open
+    // post read the store again on every stored change, so an edit kept only
+    // here went back to the old text after the next vote.
+    private fun storeEditedPost(postId: String, updated: (Post) -> Post) {
+        if (!activeAccountIsAuthenticated) return
+        (repository as? app.subshell.prototype.data.SettledPostActions)
+            ?.storeEditedPost(activeAccountId, postId, updated)
     }
 
     fun applyDeletedPost(postId: String) {
@@ -3654,6 +3813,7 @@ class SubshellState(
         }
         selectedPost = selectedPost?.let(::updated)
         selectedMediaPost = selectedMediaPost?.let(::updated)
+        storeEditedPost(postId, ::updated)
     }
 
     fun closePost() {
@@ -4049,6 +4209,19 @@ class SubshellState(
         inboxActivity.updateMessageConversationDraft(accountStableId, inboxItemId, text)
     }
 
+    fun messageConversationMedia(
+        accountStableId: String,
+        inboxItemId: String,
+    ): ComposerMediaAttachment? = inboxActivity.messageConversationMedia(accountStableId, inboxItemId)
+
+    fun updateMessageConversationMedia(
+        accountStableId: String,
+        inboxItemId: String,
+        media: ComposerMediaAttachment?,
+    ) {
+        inboxActivity.updateMessageConversationMedia(accountStableId, inboxItemId, media)
+    }
+
     fun closeConversation() {
         popExpectedRoute<SubshellRoute.Conversation>()
     }
@@ -4218,6 +4391,16 @@ class SubshellState(
         val normalizedName = runCatching {
             normalizeRedditCommunityName(name)
         }.getOrDefault(name.trim())
+        // ISSUE262_PROFILE_POSTS_ARE_LABELLED_U_V1: a post to a profile lives in the
+        // profile's community u_<name>; Reddit shows it as u/<name>.
+        if (normalizedName.startsWith("u_", ignoreCase = true) && normalizedName.length > 2) {
+            val username = normalizedName.drop(2)
+            return when (subredditLabelStyle) {
+                SubredditLabelStyle.MODERN -> "u/$username"
+                SubredditLabelStyle.CLASSIC -> "/u/$username"
+                SubredditLabelStyle.PLAIN -> username
+            }
+        }
         return when (subredditLabelStyle) {
             SubredditLabelStyle.MODERN -> "r/$normalizedName"
             SubredditLabelStyle.CLASSIC -> "/r/$normalizedName"
@@ -4596,6 +4779,10 @@ class SubshellState(
 
     internal fun isGoogleFeedVideoViewportCurrent(owner: Any): Boolean =
         googleFeedOwnsPlayback && googleFeedVideoViewports[owner] == routeStack.current
+
+    /** VIDEOTABSWITCH01: the viewport registered the route whose feed holds playback, even if that route is gone. */
+    internal fun googleFeedVideoViewportHeldPlayback(owner: Any): Boolean =
+        googleFeedVideoRoute != null && googleFeedVideoViewports[owner] == googleFeedVideoRoute
 
     internal fun removeGoogleFeedVideoViewport(owner: Any) {
         googleFeedVideoViewports.remove(owner)
@@ -5245,6 +5432,40 @@ class SubshellState(
         savedSearchesByAccount: Map<String, List<SavedSearch>>? = null,
         watchedCommunityNamesByAccount: Map<String, Set<String>>? = null,
     ) {
+        val prepared = prepareBackupRestore(
+            settings = settings,
+            joinedCommunityIdsByAccount = joinedCommunityIdsByAccount,
+            favoriteCommunityNamesByAccount = favoriteCommunityNamesByAccount,
+            favoriteCustomFeedPathsByAccount = favoriteCustomFeedPathsByAccount,
+            hiddenCommunityNamesByAccount = hiddenCommunityNamesByAccount,
+            communityMutesByAccount = communityMutesByAccount,
+            postComposerDraftsByAccount = postComposerDraftsByAccount,
+            moderatorSavedResponses = moderatorSavedResponses,
+            userTagsByAccount = userTagsByAccount,
+            savedSearchesByAccount = savedSearchesByAccount,
+            watchedCommunityNamesByAccount = watchedCommunityNamesByAccount,
+        )
+        persistBackupRestore(prepared)
+        applyBackupRestore(prepared)
+    }
+
+    // COMMIT01_BACKUP_RESTORE_WRITES_OFF_MAIN_V1 (#243): a restore is read and
+    // checked on Main (prepare), written as one synchronous commit that the
+    // backup screen runs on IO (persist), then shown (apply, Main). Live state
+    // changes only after the commit succeeded.
+    internal fun prepareBackupRestore(
+        settings: SubshellSettings,
+        joinedCommunityIdsByAccount: Map<String, Set<String>>?,
+        favoriteCommunityNamesByAccount: Map<String, Set<String>>? = null,
+        favoriteCustomFeedPathsByAccount: Map<String, Set<String>>? = null,
+        hiddenCommunityNamesByAccount: Map<String, Set<String>>? = null,
+        communityMutesByAccount: Map<String, List<PortableCommunityMute>>? = null,
+        postComposerDraftsByAccount: Map<String, List<PortablePostComposerDraft>>? = null,
+        moderatorSavedResponses: List<PortableModeratorSavedResponse>? = null,
+        userTagsByAccount: Map<String, Map<String, PortableUserTag>>? = null,
+        savedSearchesByAccount: Map<String, List<SavedSearch>>? = null,
+        watchedCommunityNamesByAccount: Map<String, Set<String>>? = null,
+    ): PreparedBackupRestore {
         val restoredCommunities =
             normalizeJoinedCommunityRestoreSnapshot(joinedCommunityIdsByAccount)
         val restoredFavoriteCommunities =
@@ -5270,32 +5491,50 @@ class SubshellState(
         val restoredWatchedCommunities =
             watchedCommunityNamesByAccount?.let(::normalizeWatchedCommunityNamesByAccount)
 
-        persistBackupRestoreState(
-            settings.toStorageMap(),
-            restoredCommunities,
-            restoredFavoriteCommunities,
-            restoredFavoriteCustomFeeds,
-            restoredHiddenCommunities,
-            encodePortableCommunityMuteEntriesByAccount(restoredCommunityMutes),
-            restoredPostComposerDrafts,
-            restoredModeratorSavedResponses,
-            restoredUserTags,
-            restoredSavedSearches,
-            restoredWatchedCommunities,
+        return PreparedBackupRestore(
+            settings = settings,
+            communities = restoredCommunities,
+            favoriteCommunities = restoredFavoriteCommunities,
+            favoriteCustomFeeds = restoredFavoriteCustomFeeds,
+            hiddenCommunities = restoredHiddenCommunities,
+            communityMutes = restoredCommunityMutes,
+            postComposerDrafts = restoredPostComposerDrafts,
+            moderatorSavedResponses = restoredModeratorSavedResponses,
+            userTags = restoredUserTags,
+            savedSearches = restoredSavedSearches,
+            watchedCommunities = restoredWatchedCommunities,
         )
+    }
 
-        // Live state changes only after the durable transaction succeeds.
-        applyRestoredSettingsToLiveState(settings)
-        applyRestoredJoinedCommunityIdsToLiveState(restoredCommunities)
-        applyRestoredFavoriteCommunityNamesToLiveState(restoredFavoriteCommunities)
-        applyRestoredFavoriteCustomFeedPathsToLiveState(restoredFavoriteCustomFeeds)
-        applyRestoredHiddenCommunityNamesToLiveState(restoredHiddenCommunities)
-        applyRestoredCommunityMutesToLiveState(restoredCommunityMutes)
-        applyRestoredPostComposerDraftsToLiveState(restoredPostComposerDrafts)
-        restoredModeratorSavedResponses?.let(moderatorResponses::applyRestored)
-        userTagState.applyRestored(restoredUserTags)
-        savedSearchState.applyRestored(restoredSavedSearches)
-        communityPostWatchState.applyRestored(restoredWatchedCommunities)
+    /** Disk only; safe on any thread. Throws when the commit fails. */
+    internal fun persistBackupRestore(prepared: PreparedBackupRestore) {
+        persistBackupRestoreState(
+            prepared.settings.toStorageMap(),
+            prepared.communities,
+            prepared.favoriteCommunities,
+            prepared.favoriteCustomFeeds,
+            prepared.hiddenCommunities,
+            encodePortableCommunityMuteEntriesByAccount(prepared.communityMutes),
+            prepared.postComposerDrafts,
+            prepared.moderatorSavedResponses,
+            prepared.userTags,
+            prepared.savedSearches,
+            prepared.watchedCommunities,
+        )
+    }
+
+    internal fun applyBackupRestore(prepared: PreparedBackupRestore) {
+        applyRestoredSettingsToLiveState(prepared.settings)
+        applyRestoredJoinedCommunityIdsToLiveState(prepared.communities)
+        applyRestoredFavoriteCommunityNamesToLiveState(prepared.favoriteCommunities)
+        applyRestoredFavoriteCustomFeedPathsToLiveState(prepared.favoriteCustomFeeds)
+        applyRestoredHiddenCommunityNamesToLiveState(prepared.hiddenCommunities)
+        applyRestoredCommunityMutesToLiveState(prepared.communityMutes)
+        applyRestoredPostComposerDraftsToLiveState(prepared.postComposerDrafts)
+        prepared.moderatorSavedResponses?.let(moderatorResponses::applyRestored)
+        userTagState.applyRestored(prepared.userTags)
+        savedSearchState.applyRestored(prepared.savedSearches)
+        communityPostWatchState.applyRestored(prepared.watchedCommunities)
     }
 
     fun toggleCommunity(communityId: String) {
@@ -6106,3 +6345,17 @@ private fun PostComposerDraft.textPostWriteRequestKeyOrNull(): String? {
         )
     }.getOrNull()
 }
+
+internal class PreparedBackupRestore(
+    val settings: SubshellSettings,
+    val communities: Map<String, Set<String>>?,
+    val favoriteCommunities: Map<String, Set<String>>?,
+    val favoriteCustomFeeds: Map<String, Set<String>>?,
+    val hiddenCommunities: Map<String, Set<String>>?,
+    val communityMutes: Map<String, List<PortableCommunityMute>>?,
+    val postComposerDrafts: List<PostComposerDraft>?,
+    val moderatorSavedResponses: List<ModeratorSavedResponse>?,
+    val userTags: Map<String, Map<String, UserTag>>?,
+    val savedSearches: Map<String, List<SavedSearch>>?,
+    val watchedCommunities: Map<String, Set<String>>?,
+)

@@ -764,6 +764,19 @@ class VideoPlaybackCoordinator internal constructor(context: Context) {
     internal fun ownsPresentation(owner: Any, mediaId: String): Boolean =
         activeOwner === owner && activeMedia?.mediaId == mediaId
 
+    /**
+     * ISSUE251_MEDIA_BUTTONS_CONTROL_THE_VIDEO_V1 (#251): the video a headset,
+     * Bluetooth or system media button may play or pause: the one a surface
+     * presents right now, only while it plays with sound (a muted or silent
+     * video leaves the buttons to other apps).
+     */
+    internal fun mediaButtonVideoId(): String? {
+        if (released || activeOwner == null) return null
+        val mediaId = activeMedia?.mediaId ?: return null
+        if (currentMuted != false || silentMediaId == mediaId) return null
+        return mediaId
+    }
+
     fun attach(
         owner: Any,
         media: VideoMedia,
@@ -1818,6 +1831,8 @@ fun ProvideVideoPlaybackCoordinator(
     val appLockedNow by rememberUpdatedState(LocalAppLockedNow.current)
     var resumeAfterUnlock by remember { mutableStateOf(false) }
     PictureInPictureEffect(state = state, activity = activity)
+    // ISSUE251_MEDIA_BUTTONS_CONTROL_THE_VIDEO_V1
+    VideoMediaSessionEffect(state = state, coordinator = coordinator, appLocked = appLocked)
 
     // VIDEO02_AUTOPLAY_FOLLOWS_WIFI_ONLY_V1: the selection learns whether the
     // network is unmetered, so "Wi-Fi only" can hold autoplay on mobile data.

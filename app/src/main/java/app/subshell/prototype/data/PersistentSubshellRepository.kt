@@ -18,7 +18,6 @@ import app.subshell.prototype.model.Post
 import app.subshell.prototype.model.ProfileCommentFixture
 import app.subshell.prototype.model.UserFixture
 import java.io.Closeable
-import java.util.concurrent.atomic.AtomicInteger
 
 internal interface PersistentCacheRepository {
     fun clearRemoteCache(): RepositoryResult<Unit>
@@ -36,17 +35,28 @@ internal class PersistentSubshellRepository(
 ) : SubshellRepository,
     PersistentCacheRepository,
     IdentityMetadataCacheRepository,
-    ListCacheWriteCounter,
+    ListStoreChanges,
+    PostStoreChanges,
+    SettledPostActions,
     Closeable {
-    private val listCacheWriteCount = AtomicInteger()
-
-    override val listCacheWrites: Int
-        get() = listCacheWriteCount.get()
-
-    private fun countedListCacheWrite(write: () -> Unit) {
-        write()
-        listCacheWriteCount.incrementAndGet()
+    override fun storeSettledVote(accountStableId: String, postFullname: String, direction: Int) {
+        if (direction !in -1..1) return
+        cacheStore.updateStoredPostLater(accountStableId, postFullname) { post ->
+            post.copy(score = post.score + (direction - post.vote), vote = direction)
+        }
     }
+
+    override fun storeSettledSave(accountStableId: String, postFullname: String, saved: Boolean) {
+        cacheStore.updateStoredPostLater(accountStableId, postFullname) { post -> post.copy(saved = saved) }
+    }
+
+    override fun storeEditedPost(accountStableId: String, postFullname: String, transform: (Post) -> Post) {
+        cacheStore.updateStoredPostLater(accountStableId, postFullname, transform)
+    }
+
+    override fun postStoreChanges(): kotlinx.coroutines.flow.Flow<Unit> = cacheStore.postStoreChanges()
+
+    override fun listStoreChanges(): kotlinx.coroutines.flow.Flow<Unit> = cacheStore.listStoreChanges()
 
     override val defaultSavedPostIds: Set<String>
         get() = delegate.defaultSavedPostIds
@@ -185,14 +195,14 @@ internal class PersistentSubshellRepository(
         cacheItem(
             backend = { delegate.community(name) },
             cached = { cacheStore.community(name) },
-            onContent = { value -> countedListCacheWrite { cacheStore.cacheCommunities(listOf(value)) } },
+            onContent = { value -> cacheStore.cacheCommunities(listOf(value)) },
         )
 
     override fun cachedCommunityIdentity(name: String): Community? =
         cacheStore.community(name)
 
     override fun cacheCommunityIdentity(community: Community) {
-        countedListCacheWrite { cacheStore.cacheCommunities(listOf(community)) }
+        cacheStore.cacheCommunities(listOf(community))
     }
 
     override fun accounts(): RepositoryResult<List<String>> =
@@ -211,14 +221,14 @@ internal class PersistentSubshellRepository(
         cacheItem(
             backend = { delegate.user(username) },
             cached = { cacheStore.user(username) },
-            onContent = { value -> countedListCacheWrite { cacheStore.cacheUsers(listOf(value)) } },
+            onContent = { value -> cacheStore.cacheUsers(listOf(value)) },
         )
 
     override fun cachedUserIdentity(username: String): UserFixture? =
         cacheStore.user(username)
 
     override fun cacheUserIdentity(user: UserFixture) {
-        countedListCacheWrite { cacheStore.cacheUsers(listOf(user)) }
+        cacheStore.cacheUsers(listOf(user))
     }
 
     override fun profileComments(
@@ -249,7 +259,7 @@ internal class PersistentSubshellRepository(
         cacheItem(
             backend = { delegate.inboxItem(itemId) },
             cached = { cacheStore.inboxItem(itemId) },
-            onContent = { value -> countedListCacheWrite { cacheStore.cacheInbox(listOf(value)) } },
+            onContent = { value -> cacheStore.cacheInbox(listOf(value)) },
         )
 
     override fun createPost(post: Post): RepositoryResult<Post> =
@@ -457,8 +467,9 @@ internal fun createPersistentSubshellRepository(
             ?: PersistentSubshellRepository(
                 delegate = createFixtureFreeLocalSubshellRepository(),
                 cacheStore = RoomSubshellCacheStore(
-                    database = SubshellCacheDatabase.open(context),
+                    database = SubshellCacheDatabase.processShared(context),
                     clock = SystemCacheClock,
+                    ownsDatabase = false,
                 ),
             ).also { created ->
                 ProductionPersistentRepositoryHolder.repository = created

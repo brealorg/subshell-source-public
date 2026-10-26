@@ -17,8 +17,15 @@ tools/contract02/qualify-delta.sh \
 The qualifier requires a clean source worktree, verifies the known-good
 base as an ancestor of `HEAD`, records exact commits and changed paths,
 hashes the selected manifest, executes the Contract02 manifest once, runs
-the full `:app:testDebugUnitTest`, and emits an external
-`qualification-record.env`.
+the full `:app:testDebugUnitTest`, scans the whole tree with gitleaks and
+its own `.gitleaks.toml` (the scan Stage C runs on the public snapshot;
+`SECRET_SCAN=PASS|FINDINGS|FAILED|MISSING`, report in
+`<output>/secret-scan/`; scanner `$SUBSHELL_GITLEAKS`, default
+`~/.local/bin/gitleaks`; SECRETSCAN01_QUALIFICATION_SCANS_THE_WHOLE_TREE_V1),
+and emits an external `qualification-record.env`. Anything but
+`SECRET_SCAN=PASS` blocks the gate: 0.85-beta was signed and published
+before Stage C found two false positives, and its source could then never be
+published as a snapshot.
 
 The record keeps Primary, Predecessor, and Release-blocking counts
 separate and emits `RELEASE_GATE=PASS|BLOCKED`.
@@ -27,7 +34,7 @@ separate and emits `RELEASE_GATE=PASS|BLOCKED`.
 
 The record pins source commit/tree, base commit, delta counts, manifest
 path/SHA-256, Contract02 classification, unit-test status, warning count,
-and final release-gate state.
+secret scan and final release-gate state.
 
 `tools/contract02/verify-release-qualification.py` independently verifies
 that the record still describes the exact clean source snapshot being

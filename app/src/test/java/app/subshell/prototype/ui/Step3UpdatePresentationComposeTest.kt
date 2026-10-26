@@ -136,6 +136,13 @@ class Step3UpdatePresentationComposeTest {
         ensureWorkManagerInitialized(context)
         composeRule.setContent { SubshellTheme { HelpScreen(onBack = {}) } }
         composeRule.waitForIdle()
+        // The bundled changelog is read on IO, which waitForIdle does not wait
+        // for; until then the screen shows the empty state. Run alone (no
+        // earlier test filled the process cache) the check came too early.
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("No bundled changelog is available in this build.")
+                .fetchSemanticsNodes().isEmpty()
+        }
         composeRule.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(hasText("Changelog"))
 
         assertTrue(composeRule.onAllNodesWithText("Changelog").fetchSemanticsNodes().isNotEmpty())

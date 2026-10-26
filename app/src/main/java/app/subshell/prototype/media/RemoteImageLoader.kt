@@ -12,6 +12,8 @@ import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.error.LocalFailureKind
 import app.subshell.prototype.data.network.NetworkProtocolFailureKind
 import app.subshell.prototype.data.network.NetworkTransportFailureKind
+import app.subshell.prototype.data.linkpreview.PublicPreviewDns
+import app.subshell.prototype.data.linkpreview.isStructurallySafePreviewUrl
 import app.subshell.prototype.data.network.SubshellNetworkTransport
 import app.subshell.prototype.data.network.isRetryableHttpStatus
 import app.subshell.prototype.data.network.isRetryableTransportFailure
@@ -34,6 +36,7 @@ import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 
@@ -139,7 +142,9 @@ internal fun FailureDetails.isRemoteMediaGone(): Boolean = httpStatusCode == 404
  * tells i.redd.it, previews, imgur and other hosts apart.
  */
 internal fun remoteMediaDiagnosticScope(kind: String, uri: String?): String {
-    val host = remoteImageRequestUrl(uri.orEmpty())?.host?.lowercase().orEmpty()
+    // ISSUE262: a failed gallery image's internal address is served by i.redd.it.
+    val host = failedGalleryImageCandidates(uri.orEmpty())?.let { "i.redd.it" }
+        ?: remoteImageRequestUrl(uri.orEmpty())?.host?.lowercase().orEmpty()
     val source = when {
         host == "i.redd.it" -> "i_redd_it"
         host == "preview.redd.it" -> "preview_redd_it"
@@ -167,9 +172,12 @@ internal object RemoteImageLoader {
     // STEP3_IMAGE_LOADER_CALL_FACTORY_IS_A_PARAMETER_V1: the network is a
     // parameter (default: the shared media read client) so a test can answer
     // the request; every caller uses the default.
+    /** The decoded image already in memory, read without waiting (VIDEOTABSWITCH01). */
+    fun cachedBitmap(uri: String): Bitmap? = bitmapCache.get(uri)
+
     suspend fun load(
         uri: String,
-        callFactory: Call.Factory = SubshellNetworkTransport.mediaReadCallFactory,
+        callFactory: Call.Factory = publicMediaReadCallFactory,
     ): RemoteMediaLoadResult<Bitmap> {
         bitmapCache.get(uri)?.let { return RemoteMediaLoadResult.Ready(it) }
         val bytes = when (val result = loadEncodedBytes(uri, callFactory)) {
@@ -177,7 +185,9 @@ internal object RemoteImageLoader {
             is RemoteMediaLoadResult.Failed -> return result
         }
         val bitmap = try {
-            withContext(Dispatchers.Default) { decodeBoundedBitmap(bytes) }
+            RemoteMediaMemoryBudget.shared.withReservation(bytes.size.toLong()) {
+                withContext(Dispatchers.Default) { decodeBoundedBitmap(bytes) }
+            }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
@@ -203,6 +213,17 @@ internal object RemoteImageLoader {
      * carries the leading bytes of the file, for type detection.
      */
     internal suspend fun downloadToFile(uri: String, file: File): RemoteMediaLoadResult<ByteArray> {
+        failedGalleryImageCandidates(uri)?.let { candidates ->
+            var last: RemoteMediaLoadResult<ByteArray> = RemoteMediaLoadResult.Failed(
+                FailureDetails(retryable = false, localKind = LocalFailureKind.VALIDATION),
+            )
+            for (candidate in candidates) {
+                last = downloadToFile(candidate, file)
+                if (last is RemoteMediaLoadResult.Ready) return last
+                if (!(last as RemoteMediaLoadResult.Failed).details.isRemoteMediaGone()) return last
+            }
+            return last
+        }
         val parsed = remoteImageRequestUrl(uri)
             ?: return RemoteMediaLoadResult.Failed(
                 FailureDetails(
@@ -210,7 +231,7 @@ internal object RemoteImageLoader {
                     localKind = LocalFailureKind.VALIDATION,
                 ),
             )
-        if (!parsed.isHttps || parsed.username.isNotEmpty() || parsed.password.isNotEmpty()) {
+        if (!isPublicRemoteMediaUrl(parsed)) {
             return RemoteMediaLoadResult.Failed(
                 FailureDetails(
                     retryable = false,
@@ -234,7 +255,7 @@ internal object RemoteImageLoader {
 
     suspend fun loadAnimated(
         uri: String,
-        callFactory: Call.Factory = SubshellNetworkTransport.mediaReadCallFactory,
+        callFactory: Call.Factory = publicMediaReadCallFactory,
     ): RemoteMediaLoadResult<RemoteAnimatedImage> {
         // MEDIAGONE01_LARGE_GIFS_UP_TO_100_MB_V1 (owner 2026-10-18): a report
         // showed a GIF over the 40 MB image limit; GIFs may be 100 MB. The bytes
@@ -244,8 +265,10 @@ internal object RemoteImageLoader {
             is RemoteMediaLoadResult.Failed -> return result
         }
         val drawable = try {
-            withContext(Dispatchers.Default) {
-                decodeRemoteDrawable(bytes)
+            RemoteMediaMemoryBudget.shared.withReservation(bytes.size.toLong()) {
+                withContext(Dispatchers.Default) {
+                    decodeRemoteDrawable(bytes)
+                }
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -271,10 +294,26 @@ internal object RemoteImageLoader {
 
     private suspend fun loadEncodedBytes(
         uri: String,
-        callFactory: Call.Factory = SubshellNetworkTransport.mediaReadCallFactory,
+        callFactory: Call.Factory = publicMediaReadCallFactory,
         maxBytes: Long = REMOTE_IMAGE_MAX_BYTES,
     ): RemoteMediaLoadResult<ByteArray> {
         encodedCache.get(uri)?.let { return RemoteMediaLoadResult.Ready(it) }
+        // ISSUE262_FAILED_GALLERY_IMAGES_STILL_SHOW_V1: the first extension
+        // i.redd.it serves; each candidate keeps its own gone/encoded caching.
+        failedGalleryImageCandidates(uri)?.let { candidates ->
+            var last: RemoteMediaLoadResult<ByteArray> = RemoteMediaLoadResult.Failed(
+                FailureDetails(retryable = false, localKind = LocalFailureKind.VALIDATION),
+            )
+            for (candidate in candidates) {
+                last = loadEncodedBytes(candidate, callFactory, maxBytes)
+                if (last is RemoteMediaLoadResult.Ready) {
+                    if (shouldCacheEncodedImage(last.value.size)) encodedCache.put(uri, last.value)
+                    return last
+                }
+                if (!(last as RemoteMediaLoadResult.Failed).details.isRemoteMediaGone()) return last
+            }
+            return last
+        }
         goneCache.get(uri)?.let { return RemoteMediaLoadResult.Failed(it) }
         val parsed = remoteImageRequestUrl(uri)
             ?: return RemoteMediaLoadResult.Failed(
@@ -283,7 +322,7 @@ internal object RemoteImageLoader {
                     localKind = LocalFailureKind.VALIDATION,
                 ),
             )
-        if (!parsed.isHttps || parsed.username.isNotEmpty() || parsed.password.isNotEmpty()) {
+        if (!isPublicRemoteMediaUrl(parsed)) {
             return RemoteMediaLoadResult.Failed(
                 FailureDetails(
                     retryable = false,
@@ -335,7 +374,7 @@ internal object RemoteImageLoader {
     private suspend fun loadEncodedBytesFromNetwork(
         initialUrl: HttpUrl,
         sink: File? = null,
-        callFactory: Call.Factory = SubshellNetworkTransport.mediaReadCallFactory,
+        callFactory: Call.Factory = publicMediaReadCallFactory,
         maxBytes: Long = REMOTE_IMAGE_MAX_BYTES,
     ): RemoteMediaLoadResult<ByteArray> {
         var currentUrl = initialUrl
@@ -362,7 +401,7 @@ internal object RemoteImageLoader {
     private suspend fun executeRemoteImageRequest(
         url: HttpUrl,
         sink: File? = null,
-        callFactory: Call.Factory = SubshellNetworkTransport.mediaReadCallFactory,
+        callFactory: Call.Factory = publicMediaReadCallFactory,
         maxBytes: Long = REMOTE_IMAGE_MAX_BYTES,
     ): RemoteImageHttpOutcome {
         // MEDIA02_CANCELLABLE_MEDIA_BODY_READS_V1: the body copy loops run on
@@ -434,7 +473,13 @@ internal object RemoteImageLoader {
                             ),
                         )
                         sink != null -> streamImageBodyToFile(response, sink, stillWanted)
-                        else -> readBoundedImageBody(response, stillWanted, maxBytes)
+                        // SECAUDIT13_MEDIA_BYTES_SHARE_ONE_MEMORY_BUDGET_V1: the
+                        // declared length, or the cap when the server sends none.
+                        else -> RemoteMediaMemoryBudget.shared.withReservation(
+                            response.body.contentLength().takeIf { it > 0L } ?: maxBytes,
+                        ) {
+                            readBoundedImageBody(response, stillWanted, maxBytes)
+                        }
                     },
                 )
             }
@@ -672,4 +717,30 @@ private fun readRemainingBounded(
         output.write(buffer, 0, read)
     }
     return output.toByteArray()
+}
+
+/**
+ * SECAUDIT14_POST_MEDIA_ONLY_FROM_PUBLIC_HOSTS_V1 (security audit #14): a post
+ * can name an image on any https host, and loading it from a private address
+ * (the reader's router, a LAN service) sent a blind GET from the reader's
+ * device. Post media now follows the link-preview rule: https, no user info,
+ * no local names or private literal addresses, and a host whose DNS answer is
+ * private is refused at connect time.
+ */
+internal fun isPublicRemoteMediaUrl(url: HttpUrl): Boolean = isStructurallySafePreviewUrl(url)
+
+internal val publicMediaReadCallFactory: Call.Factory by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+    (SubshellNetworkTransport.mediaReadCallFactory as OkHttpClient).newBuilder()
+        .dns(PublicPreviewDns)
+        .build()
+}
+
+/** i.redd.it addresses to try for a failed gallery image, or null for any other address. */
+internal fun failedGalleryImageCandidates(uri: String): List<String>? {
+    val prefix = "${app.subshell.prototype.data.network.reddit.FAILED_REDDIT_GALLERY_IMAGE_SCHEME}://"
+    if (!uri.startsWith(prefix)) return null
+    val mediaId = uri.removePrefix(prefix).takeIf { id -> id.isNotEmpty() && id.all(Char::isLetterOrDigit) }
+        ?: return emptyList()
+    // .jpg is not served (only .jpeg); .webp for an uploaded WebP (owner 2026-10-26).
+    return listOf("jpeg", "png", "gif", "webp").map { extension -> "https://i.redd.it/$mediaId.$extension" }
 }

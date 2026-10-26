@@ -201,6 +201,7 @@ internal class PostVoteState(
                 authenticatedPostVoteOverrides[postFullname] = direction
                 authenticatedPostVoteRollback.remove(postFullname)
                 authenticatedPostVotesInFlight.remove(postFullname)
+                storeSettledVote(postFullname, direction)
             }
 
             PostVotePhase.FAILED -> {
@@ -227,10 +228,21 @@ internal class PostVoteState(
                 authenticatedPostVoteOverrides[target] = settlement.direction
                 authenticatedPostVoteRollback.remove(target)
                 authenticatedPostVotesInFlight.remove(target)
+                storeSettledVote(target, settlement.direction)
             } else {
                 rollBackAuthenticatedPostVote(target)
             }
         }
+    }
+
+    // VOTESSOT01_SETTLED_ACTIONS_REACH_THE_STORE_V1 (#244): a post vote Reddit
+    // confirmed goes to the stored post too (comment votes reach the stored
+    // thread through the vote coordinator). The override stays until the
+    // copies show the vote (releaseSettledOverrides).
+    private fun storeSettledVote(target: String, direction: Int) {
+        if (!target.startsWith("t3_")) return
+        (repository as? app.subshell.prototype.data.SettledPostActions)
+            ?.storeSettledVote(activeAccountId, target, direction)
     }
 
     private fun rollBackAuthenticatedPostVote(postFullname: String) {
@@ -244,6 +256,44 @@ internal class PostVoteState(
         }
         authenticatedPostVotesInFlight.remove(postFullname)
     }
+
+    // RECREATE01_SETTLED_VOTES_SURVIVE_RECREATION_V1 (#241): a settled vote whose
+    // copies have not shown it yet lives only here (a post that is not stored,
+    // a thread not open), so the settled ones ride in the process snapshot. A vote still in
+    // flight is left out: the coordinator hands it back after the rebuild, and
+    // without its rollback a later failure would keep a vote Reddit never took.
+    internal fun settledVoteOverridesForSnapshot(): Map<String, Int> =
+        authenticatedPostVoteOverrides.filterKeys { target -> target !in authenticatedPostVotesInFlight }
+
+    internal fun restoreSettledVoteOverrides(overrides: Map<String, Int>) {
+        if (!activeAccountIsAuthenticated) return
+        overrides.forEach { (target, direction) ->
+            if (direction in -1..1) authenticatedPostVoteOverrides[target] = direction
+        }
+    }
+
+    /**
+     * OPENPOSTSSOT01_SETTLED_OVERRIDES_GIVE_WAY_TO_THE_STORE_V1 (#244): a vote
+     * Reddit took stands in for the copies only until they show it themselves
+     * (the store wrote it and the feeds, the open post or the thread read it
+     * again). [copiesOf] gives the vote of every copy of a target held now; a
+     * settled override is dropped when there is one and all agree, so the
+     * screen does not change, and the copies follow Reddit from then on. In
+     * flight, or with no copy (not stored, nothing open), it stays.
+     */
+    fun releaseSettledOverrides(copiesOf: (target: String) -> List<Int>?) {
+        if (!activeAccountIsAuthenticated) return
+        authenticatedPostVoteOverrides.toMap().forEach { (target, direction) ->
+            if (target in authenticatedPostVotesInFlight) return@forEach
+            val copies = copiesOf(target) ?: return@forEach
+            if (copies.isNotEmpty() && copies.all { vote -> vote == direction }) {
+                authenticatedPostVoteOverrides.remove(target)
+            }
+        }
+    }
+
+    internal val settledOverrideTargets: Set<String>
+        get() = authenticatedPostVoteOverrides.keys - authenticatedPostVotesInFlight.keys
 
     fun clearAuthenticatedPostVoteState() {
         authenticatedPostVoteOverrides.clear()

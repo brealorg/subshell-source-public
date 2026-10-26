@@ -2,10 +2,13 @@ package app.subshell.prototype
 
 import androidx.core.app.ActivityCompat
 import android.content.pm.PackageManager
-import android.Manifest
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import app.subshell.prototype.data.diagnostics.CrashRecorder
+import app.subshell.prototype.ui.app.JANK_SCREEN_STATE
+import app.subshell.prototype.data.diagnostics.JankTally
+import app.subshell.prototype.data.diagnostics.DiagnosticEventStore
+import androidx.metrics.performance.JankStats
 import app.subshell.prototype.data.diagnostics.ListingSkipReports
 import app.subshell.prototype.inbox.takeInboxNotificationTarget
 import app.subshell.prototype.inbox.takeModmailNotificationTarget
@@ -27,6 +30,13 @@ import androidx.browser.auth.AuthTabIntent
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.MutableCreationExtras
+import app.subshell.prototype.auth.AuthRuntimeKey
+import app.subshell.prototype.auth.CommunitiesViewModel
+import app.subshell.prototype.auth.InboxViewModel
+import app.subshell.prototype.auth.ModerationViewModel
+import app.subshell.prototype.auth.PostComposerViewModel
+import app.subshell.prototype.auth.ReadingViewModel
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.compose.foundation.layout.Box
@@ -44,7 +54,7 @@ import app.subshell.prototype.applock.LocalAppLocked
 import app.subshell.prototype.applock.LocalAppLockedNow
 import app.subshell.prototype.ui.theme.SubshellTheme
 import app.subshell.prototype.ui.theme.SubshellThemeSettings
-import app.subshell.prototype.auth.AUTH_CALLBACK_RESULT_EXTRA
+import app.subshell.prototype.auth.takeAuthCallbackResult
 import app.subshell.prototype.auth.AuthBrowserLauncher
 import app.subshell.prototype.auth.dispatchAuthBrowserLaunch
 import app.subshell.prototype.auth.dispatchAuthTabResult
@@ -89,6 +99,7 @@ import app.subshell.prototype.data.account.CustomFeedDeleteRequest
 import app.subshell.prototype.data.account.CustomFeedUpdateRequest
 import android.app.KeyguardManager
 import android.os.Build
+import android.view.WindowManager
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
@@ -99,18 +110,58 @@ import app.subshell.prototype.update.UpdateStateStore
 import app.subshell.prototype.update.consumeUpdatePresentationIntent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import app.subshell.prototype.ui.app.StartupPreferences
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
 class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
     private val videoPlaybackViewModel: VideoPlaybackViewModel by lazy {
-        ViewModelProvider(this)[VideoPlaybackViewModel::class.java]
+        ViewModelProvider(this, VideoPlaybackViewModel.Factory)[VideoPlaybackViewModel::class.java]
     }
+    // AUTHSPLIT01_MODERATION_VIEWMODEL_V1: the area ViewModels live in the same
+    // store and share the runtime AuthConnectViewModel owns. They are made with
+    // it, so their capability callback routes are registered before any
+    // callback can be routed.
     private val authConnectViewModel: AuthConnectViewModel by lazy {
-        ViewModelProvider(this)[AuthConnectViewModel::class.java]
+        ViewModelProvider(this, AuthConnectViewModel.Factory)[AuthConnectViewModel::class.java]
+            .also { auth ->
+                areaViewModels(auth, ModerationViewModel.Factory)[ModerationViewModel::class]
+                areaViewModels(auth, InboxViewModel.Factory)[InboxViewModel::class]
+                areaViewModels(auth, PostComposerViewModel.Factory)[PostComposerViewModel::class]
+                areaViewModels(auth, CommunitiesViewModel.Factory)[CommunitiesViewModel::class]
+                areaViewModels(auth, ReadingViewModel.Factory)[ReadingViewModel::class]
+            }
     }
+    private val moderationViewModel: ModerationViewModel by lazy {
+        areaViewModels(authConnectViewModel, ModerationViewModel.Factory)[ModerationViewModel::class]
+    }
+    private val inboxViewModel: InboxViewModel by lazy {
+        areaViewModels(authConnectViewModel, InboxViewModel.Factory)[InboxViewModel::class]
+    }
+    private val postComposerViewModel: PostComposerViewModel by lazy {
+        areaViewModels(authConnectViewModel, PostComposerViewModel.Factory)[PostComposerViewModel::class]
+    }
+    private val communitiesViewModel: CommunitiesViewModel by lazy {
+        areaViewModels(authConnectViewModel, CommunitiesViewModel.Factory)[CommunitiesViewModel::class]
+    }
+    private val readingViewModel: ReadingViewModel by lazy {
+        areaViewModels(authConnectViewModel, ReadingViewModel.Factory)[ReadingViewModel::class]
+    }
+
+    private fun areaViewModels(
+        auth: AuthConnectViewModel,
+        factory: ViewModelProvider.Factory,
+    ): ViewModelProvider =
+        ViewModelProvider.create(
+            store = viewModelStore,
+            factory = factory,
+            extras = MutableCreationExtras(defaultViewModelCreationExtras).apply {
+                set(AuthRuntimeKey, auth.sharedRuntime)
+            },
+        )
     // ISSUE38_APP_LOCK_V1
     private val appLock: AppLockController by lazy {
         ViewModelProvider(this)[AppLockViewModel::class.java].controller(applicationContext)
@@ -138,6 +189,28 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
                 SystemClock.elapsedRealtime(),
                 changingConfigurations = isChangingConfigurations,
             )
+        }
+    }
+    // ISSUE248_JANK_SUMMARY_PER_FOREGROUND_SESSION_V1 (#248): JankStats counts
+    // slow frames while the app is in front; each foreground session that had
+    // any is written to the local diagnostics log when the app leaves the front.
+    private val jankTally = JankTally()
+    private var jankStats: JankStats? = null
+    private val jankLifecycleObserver = object : DefaultLifecycleObserver {
+        override fun onResume(owner: LifecycleOwner) {
+            jankStats?.isTrackingEnabled = true
+        }
+
+        override fun onPause(owner: LifecycleOwner) {
+            jankStats?.isTrackingEnabled = false
+        }
+
+        override fun onStop(owner: LifecycleOwner) {
+            val summary = jankTally.drain() ?: return
+            val appContext = applicationContext
+            lifecycleScope.launch(Dispatchers.IO) {
+                runCatching { DiagnosticEventStore(appContext).recordJankSummary(summary) }
+            }
         }
     }
     // NOTIFY01A2_ACTIVITY_OWNED_RECONCILIATION_SCOPE_V2
@@ -173,7 +246,6 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
         mutableStateOf(RedditLinkHandlingState())
     private var redditLinkHandlingPromptSeen by
         mutableStateOf(true)
-    private var inboxNotificationPermissionResult: ((Boolean) -> Unit)? = null
     private var legacyStorageWriteResult: ((Boolean) -> Unit)? = null
     private val authTabLauncher: ActivityResultLauncher<Intent> =
         AuthTabIntent.registerActivityResultLauncher(this) { result ->
@@ -189,36 +261,6 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
             }
         }
 
-    private fun requestInboxNotificationPermission(
-        onResult: (Boolean) -> Unit,
-    ) {
-        if (
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.POST_NOTIFICATIONS,
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            onResult(true)
-            return
-        }
-
-        // LOW_MAIN_REPLACED_PERMISSION_CALLBACK_GETS_AN_ANSWER_V1 (OCB-390): a
-        // second request does not leave the first caller waiting for ever.
-        inboxNotificationPermissionResult?.invoke(false)
-        inboxNotificationPermissionResult = onResult
-        runCatching {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                INBOX_NOTIFICATION_PERMISSION_REQUEST_CODE,
-            )
-        }.onFailure {
-            inboxNotificationPermissionResult = null
-            onResult(false)
-        }
-    }
-
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -229,12 +271,7 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
             val storageCallback = legacyStorageWriteResult ?: return
             legacyStorageWriteResult = null
             storageCallback(grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED)
-            return
         }
-        if (requestCode != INBOX_NOTIFICATION_PERMISSION_REQUEST_CODE) return
-        val callback = inboxNotificationPermissionResult ?: return
-        inboxNotificationPermissionResult = null
-        callback(grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED)
     }
 
     // LOWUI_LEGACY_DOWNLOADS_ASK_FOR_STORAGE_V1 (OCB-084): Android 9 and older
@@ -318,7 +355,13 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
     private fun changeAppLockSettings(settings: AppLockSettings) {
         val controller = appLock
         controller.updateSettings(settings)
-        AppLockSettingsStore.write(this, controller.settings)
+        // COMMIT01_APP_LOCK_SETTINGS_WRITE_OFF_MAIN_V1 (#243): the controller
+        // holds the new settings at once; the file write and the redaction of
+        // shown notifications run on one background thread, in tap order.
+        val saved = controller.settings
+        lifecycleScope.launch(APP_LOCK_SETTINGS_WRITES) {
+            AppLockSettingsStore.write(applicationContext, saved)
+        }
         applyAppLockToRecents()
     }
 
@@ -411,6 +454,9 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
         CrashRecorder.install(applicationContext)
         ListingSkipReports.install(applicationContext)
         installDebugUriGrantCheck(BuildConfig.DEBUG)
+        installDebugMainThreadCheck(BuildConfig.DEBUG)
+        // STRICTMODE02_PREFERENCES_LOAD_BEFORE_THE_FIRST_FRAME_V1 (#243)
+        StartupPreferences.start(applicationContext)
         super.onCreate(savedInstanceState)
         deviceUnlockPrompt = BiometricPrompt(
             this,
@@ -457,6 +503,9 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
         } else {
             lifecycleScope.launch {
                 runCatching { AuthRuntimePreparation.prepare(applicationContext).await() }
+                // STRICTMODE02_PREFERENCES_LOAD_BEFORE_THE_FIRST_FRAME_V1 (#243):
+                // the launch intent's handling reads the poll handoff file.
+                StartupPreferences.await(applicationContext)
                 onAuthRuntimeReady(savedInstanceState, launchIntent)
             }
         }
@@ -471,85 +520,85 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
         startNotificationReadReconciliation(
             scope = notificationReadReconciliationScope,
             context = applicationContext,
-            inboxStates = authConnectViewModel.redditInboxUiState,
-            modmailStates = authConnectViewModel.redditModmailUiState,
+            inboxStates = inboxViewModel.redditInboxUiState,
+            modmailStates = moderationViewModel.redditModmailUiState,
         )
 
         setContent {
             val connectAccountState by authConnectViewModel.uiState.collectAsStateWithLifecycle()
             val onlineVisibilityState by authConnectViewModel.onlineVisibilityUiState.collectAsStateWithLifecycle()
-            val customFeedsState by authConnectViewModel.customFeedsUiState.collectAsStateWithLifecycle()
-            val customFeedPostsState by authConnectViewModel.customFeedPostsUiState.collectAsStateWithLifecycle()
-            val redditFeedState by authConnectViewModel.redditFeedUiState.collectAsStateWithLifecycle()
+            val customFeedsState by communitiesViewModel.customFeedsUiState.collectAsStateWithLifecycle()
+            val customFeedPostsState by communitiesViewModel.customFeedPostsUiState.collectAsStateWithLifecycle()
+            val redditFeedState by readingViewModel.redditFeedUiState.collectAsStateWithLifecycle()
             val redditAccountHistoryState by
-                authConnectViewModel.redditAccountHistoryUiState.collectAsStateWithLifecycle()
+                readingViewModel.redditAccountHistoryUiState.collectAsStateWithLifecycle()
             val redditSavedHistoryState by
-                authConnectViewModel.redditSavedHistoryUiState.collectAsStateWithLifecycle()
+                readingViewModel.redditSavedHistoryUiState.collectAsStateWithLifecycle()
             val redditCommentsState by
-                authConnectViewModel.redditCommentsUiState.collectAsStateWithLifecycle()
+                readingViewModel.redditCommentsUiState.collectAsStateWithLifecycle()
             val redditSubscriptionsState by
-                authConnectViewModel.redditSubscriptionsUiState.collectAsStateWithLifecycle()
+                communitiesViewModel.redditSubscriptionsUiState.collectAsStateWithLifecycle()
             val redditCommunityDiscoveryState by
-                authConnectViewModel.redditCommunityDiscoveryUiState.collectAsStateWithLifecycle()
+                communitiesViewModel.redditCommunityDiscoveryUiState.collectAsStateWithLifecycle()
             val redditMentionSearchState by
-                authConnectViewModel.redditMentionSearchUiState.collectAsStateWithLifecycle()
+                communitiesViewModel.redditMentionSearchUiState.collectAsStateWithLifecycle()
             val redditCommunityInfoState by
-                authConnectViewModel.redditCommunityInfoUiState.collectAsStateWithLifecycle()
+                communitiesViewModel.redditCommunityInfoUiState.collectAsStateWithLifecycle()
             // ISSUE230_PINNED_POSTS_FIRST_V1
             val redditPinnedPostsState by
-                authConnectViewModel.redditCommunityPinnedPostsUiState.collectAsStateWithLifecycle()
+                communitiesViewModel.redditCommunityPinnedPostsUiState.collectAsStateWithLifecycle()
             val redditUserFlairState by
-                authConnectViewModel.userFlairUiState.collectAsStateWithLifecycle()
+                postComposerViewModel.userFlairUiState.collectAsStateWithLifecycle()
             val redditCommunityWikiState by
-                authConnectViewModel.redditCommunityWikiUiState.collectAsStateWithLifecycle()
+                communitiesViewModel.redditCommunityWikiUiState.collectAsStateWithLifecycle()
             val redditModerationState by
-                authConnectViewModel.redditModerationUiState.collectAsStateWithLifecycle()
+                moderationViewModel.redditModerationUiState.collectAsStateWithLifecycle()
             val moderationActionState by
-                authConnectViewModel.moderationActionUiState.collectAsStateWithLifecycle()
+                moderationViewModel.moderationActionUiState.collectAsStateWithLifecycle()
             val removalReasonState by
-                authConnectViewModel.removalReasonUiState.collectAsStateWithLifecycle()
+                moderationViewModel.removalReasonUiState.collectAsStateWithLifecycle()
             val redditModmailState by
-                authConnectViewModel.redditModmailUiState.collectAsStateWithLifecycle()
+                moderationViewModel.redditModmailUiState.collectAsStateWithLifecycle()
             val communityMembershipState by
-                authConnectViewModel.communityMembershipUiState.collectAsStateWithLifecycle()
+                communitiesViewModel.communityMembershipUiState.collectAsStateWithLifecycle()
             val redditFavoriteState by
-                authConnectViewModel.redditFavoriteUiState.collectAsStateWithLifecycle()
+                communitiesViewModel.redditFavoriteUiState.collectAsStateWithLifecycle()
             val postVoteState by
-                authConnectViewModel.postVoteUiState.collectAsStateWithLifecycle()
+                readingViewModel.postVoteUiState.collectAsStateWithLifecycle()
             val postSaveState by
-                authConnectViewModel.postSaveUiState.collectAsStateWithLifecycle()
+                readingViewModel.postSaveUiState.collectAsStateWithLifecycle()
             val postFollowState by
-                authConnectViewModel.postFollowUiState.collectAsStateWithLifecycle()
+                readingViewModel.postFollowUiState.collectAsStateWithLifecycle()
             val contentSafetyState by
-                authConnectViewModel.contentSafetyUiState.collectAsStateWithLifecycle()
+                readingViewModel.contentSafetyUiState.collectAsStateWithLifecycle()
             val commentWriteState by
-                authConnectViewModel.commentWriteUiState.collectAsStateWithLifecycle()
+                readingViewModel.commentWriteUiState.collectAsStateWithLifecycle()
             val commentMediaPolicies by
-                authConnectViewModel.commentMediaPolicies.collectAsStateWithLifecycle()
+                postComposerViewModel.commentMediaPolicies.collectAsStateWithLifecycle()
             val commentEditState by
-                authConnectViewModel.commentEditUiState.collectAsStateWithLifecycle()
+                readingViewModel.commentEditUiState.collectAsStateWithLifecycle()
             val commentDeleteState by
-                authConnectViewModel.commentDeleteUiState.collectAsStateWithLifecycle()
+                readingViewModel.commentDeleteUiState.collectAsStateWithLifecycle()
             val postEditState by
-                authConnectViewModel.postEditUiState.collectAsStateWithLifecycle()
+                postComposerViewModel.postEditUiState.collectAsStateWithLifecycle()
             val postDeleteState by
-                authConnectViewModel.postDeleteUiState.collectAsStateWithLifecycle()
+                postComposerViewModel.postDeleteUiState.collectAsStateWithLifecycle()
             val postManageState by
-                authConnectViewModel.postManageUiState.collectAsStateWithLifecycle()
+                postComposerViewModel.postManageUiState.collectAsStateWithLifecycle()
             val textPostWriteState by
-                authConnectViewModel.textPostWriteUiState.collectAsStateWithLifecycle()
-            val crosspostReviewState by authConnectViewModel.crosspostReviewUiState.collectAsStateWithLifecycle()
-            val composerPolicy by authConnectViewModel.composerPolicy.collectAsStateWithLifecycle()
+                postComposerViewModel.textPostWriteUiState.collectAsStateWithLifecycle()
+            val crosspostReviewState by postComposerViewModel.crosspostReviewUiState.collectAsStateWithLifecycle()
+            val composerPolicy by postComposerViewModel.composerPolicy.collectAsStateWithLifecycle()
             val composerCommunitySearch by
-                authConnectViewModel.composerCommunitySearch.collectAsStateWithLifecycle()
+                postComposerViewModel.composerCommunitySearch.collectAsStateWithLifecycle()
             val redditInboxState by
-                authConnectViewModel.redditInboxUiState.collectAsStateWithLifecycle()
+                inboxViewModel.redditInboxUiState.collectAsStateWithLifecycle()
             val messageReplyState by
-                authConnectViewModel.messageReplyUiState.collectAsStateWithLifecycle()
+                inboxViewModel.messageReplyUiState.collectAsStateWithLifecycle()
             val directChatStartState by
-                authConnectViewModel.directChatStartUiState.collectAsStateWithLifecycle()
+                inboxViewModel.directChatStartUiState.collectAsStateWithLifecycle()
             val directChatLiveState by
-                authConnectViewModel.directChatLiveUiState.collectAsStateWithLifecycle()
+                inboxViewModel.directChatLiveUiState.collectAsStateWithLifecycle()
             val platformUriHandler = androidx.compose.ui.platform.LocalUriHandler.current
             val inAppUriHandler = androidx.compose.runtime.remember(platformUriHandler) {
                 app.subshell.prototype.ui.InAppRedditUriHandler(platformUriHandler) { uri ->
@@ -591,8 +640,8 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
                 app.subshell.prototype.ui.LocalPostFollowRuntime provides
                     app.subshell.prototype.ui.PostFollowRuntimeEntryPoints(
                         state = postFollowState,
-                        onSetFollowed = authConnectViewModel::followPost,
-                        onRetry = authConnectViewModel::retryPostFollow,
+                        onSetFollowed = readingViewModel::followPost,
+                        onRetry = readingViewModel::retryPostFollow,
                         onAuthorize = ::launchPostFollowAuthorization,
                     ),
             ) {
@@ -604,7 +653,7 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
                     accountConnect = AccountConnectEntryPoints(
                         accountSessionDirectory = authConnectViewModel.accountSessionDirectory,
                         redditUserAgent = authConnectViewModel.redditUserAgent,
-                        readNsfwAccountPreferences = authConnectViewModel::readNsfwAccountPreferences,
+                        readNsfwAccountPreferences = communitiesViewModel::readNsfwAccountPreferences,
                         onLogoutActiveAccount = authConnectViewModel::logoutActiveAccount,
                         onReconnectAccount = ::launchReconnectAccount,
                         onlineVisibilityRuntime = app.subshell.prototype.ui.components.OnlineVisibilityRuntime(
@@ -625,135 +674,135 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
                         customFeedsState = customFeedsState,
                         customFeedPostsState = customFeedPostsState,
                         onRequestHiddenSubscriptionsUnlock = ::requestHiddenSubscriptionsUnlock,
-                        onLoadCustomFeeds = authConnectViewModel::loadCustomFeeds,
-                        onLoadCustomFeedPosts = authConnectViewModel::loadCustomFeedPosts,
-                        onResolveCustomFeed = authConnectViewModel::resolveCustomFeed,
-                        onAppendCustomFeedPosts = authConnectViewModel::appendCustomFeedPosts,
+                        onLoadCustomFeeds = communitiesViewModel::loadCustomFeeds,
+                        onLoadCustomFeedPosts = communitiesViewModel::loadCustomFeedPosts,
+                        onResolveCustomFeed = communitiesViewModel::resolveCustomFeed,
+                        onAppendCustomFeedPosts = communitiesViewModel::appendCustomFeedPosts,
                         onCreateCustomFeed = ::launchCustomFeedCreation,
                         onUpdateCustomFeed = ::launchCustomFeedUpdate,
                         onDeleteCustomFeed = ::launchCustomFeedDeletion,
-                        onResetCustomFeedCreate = authConnectViewModel::resetCustomFeedCreateState,
-                        onResetCustomFeedManage = authConnectViewModel::resetCustomFeedManageState,
+                        onResetCustomFeedCreate = communitiesViewModel::resetCustomFeedCreateState,
+                        onResetCustomFeedManage = communitiesViewModel::resetCustomFeedManageState,
                         launcherShortcutTarget =
                             launcherShortcutTarget as? LauncherShortcutTarget.CustomFeed,
                         onLauncherShortcutConsumed = { launcherShortcutTarget = null },
                     ),
                     redditFeed = FeedEntryPoints(
                         redditFeedState = redditFeedState,
-                        onRefreshRedditFeed = authConnectViewModel::refreshRedditFeed,
-                        onAppendRedditFeed = authConnectViewModel::appendRedditFeed,
-                        onRefreshRedditSearch = authConnectViewModel::refreshRedditSearch,
-                        onAppendRedditSearch = authConnectViewModel::appendRedditSearch,
+                        onRefreshRedditFeed = readingViewModel::refreshRedditFeed,
+                        onAppendRedditFeed = readingViewModel::appendRedditFeed,
+                        onRefreshRedditSearch = readingViewModel::refreshRedditSearch,
+                        onAppendRedditSearch = readingViewModel::appendRedditSearch,
                         redditSubscriptionsState = redditSubscriptionsState,
                         onLoadRedditSubscriptions =
-                            authConnectViewModel::loadRedditSubscriptions,
+                            communitiesViewModel::loadRedditSubscriptions,
                         onLoadCachedRedditSubscriptions =
-                            authConnectViewModel::loadCachedRedditSubscriptions,
+                            communitiesViewModel::loadCachedRedditSubscriptions,
                     ),
                     redditCommunity = CommunityEntryPoints(
-                        onViewQuarantinedCommunity = authConnectViewModel::optInToQuarantinedCommunity,
-                        randomNsfwCommunity = authConnectViewModel::randomNsfwCommunity,
+                        onViewQuarantinedCommunity = communitiesViewModel::optInToQuarantinedCommunity,
+                        randomNsfwCommunity = communitiesViewModel::randomNsfwCommunity,
                         onRefreshRedditCommunityFeed =
-                            authConnectViewModel::refreshRedditCommunityFeed,
+                            readingViewModel::refreshRedditCommunityFeed,
                         onAppendRedditCommunityFeed =
-                            authConnectViewModel::appendRedditCommunityFeed,
+                            readingViewModel::appendRedditCommunityFeed,
                         redditCommunityWikiState = redditCommunityWikiState,
                         onLoadRedditCommunityWikiIndex =
-                            authConnectViewModel::loadRedditCommunityWikiIndex,
+                            communitiesViewModel::loadRedditCommunityWikiIndex,
                         onLoadRedditCommunityWikiPage =
-                            authConnectViewModel::loadRedditCommunityWikiPage,
+                            communitiesViewModel::loadRedditCommunityWikiPage,
                         onAuthorizeRedditCommunityWiki =
                             ::launchCommunityWikiAuthorization,
                         redditCommunityInfoState = redditCommunityInfoState,
                         onLoadRedditCommunityInfo =
-                            authConnectViewModel::loadRedditCommunityInfo,
+                            communitiesViewModel::loadRedditCommunityInfo,
                         redditPinnedPostsState = redditPinnedPostsState,
-                        onLoadRedditPinnedPosts = authConnectViewModel::loadRedditCommunityPinnedPosts,
+                        onLoadRedditPinnedPosts = communitiesViewModel::loadRedditCommunityPinnedPosts,
                         communityMembershipState = communityMembershipState,
                         onChangeCommunityMembership =
-                            authConnectViewModel::updateCommunityMembership,
+                            communitiesViewModel::updateCommunityMembership,
                         onAuthorizeCommunityMembership =
                             ::launchCommunityMembershipAuthorization,
                         redditCommunityDiscoveryState = redditCommunityDiscoveryState,
                         onLoadRedditCommunityDiscovery =
-                            authConnectViewModel::loadRedditCommunityDiscovery,
+                            communitiesViewModel::loadRedditCommunityDiscovery,
                         redditMentionSearchState = redditMentionSearchState,
-                        onSearchMentions = authConnectViewModel::loadRedditMentionSearch,
+                        onSearchMentions = communitiesViewModel::loadRedditMentionSearch,
                         redditFavoriteState = redditFavoriteState,
                         onUpdateRedditFavorite =
-                            authConnectViewModel::updateRedditFavorite,
+                            communitiesViewModel::updateRedditFavorite,
                         onDismissRedditFavoriteFailure =
-                            authConnectViewModel::dismissRedditFavoriteFailure,
+                            communitiesViewModel::dismissRedditFavoriteFailure,
                         onAuthorizeRedditFavorite =
                             ::launchRedditFavoriteAuthorization,
                         onUpdateRedditCustomFeedFavorite =
-                            authConnectViewModel::updateRedditCustomFeedFavorite,
+                            communitiesViewModel::updateRedditCustomFeedFavorite,
                     ),
                     onRefreshRedditUserSubmitted =
-                        authConnectViewModel::refreshRedditUserSubmitted,
+                        readingViewModel::refreshRedditUserSubmitted,
                     onAppendRedditUserSubmitted =
-                        authConnectViewModel::appendRedditUserSubmitted,
+                        readingViewModel::appendRedditUserSubmitted,
                     redditAccountHistoryState = redditAccountHistoryState,
                     onRefreshRedditAccountHistory =
-                        authConnectViewModel::refreshRedditAccountHistory,
+                        readingViewModel::refreshRedditAccountHistory,
                     onAppendRedditAccountHistory =
-                        authConnectViewModel::appendRedditAccountHistory,
+                        readingViewModel::appendRedditAccountHistory,
                     redditSavedHistoryState = redditSavedHistoryState,
                     onRefreshRedditSavedHistory =
-                        authConnectViewModel::refreshRedditSavedHistory,
+                        readingViewModel::refreshRedditSavedHistory,
                     onAppendRedditSavedHistory =
-                        authConnectViewModel::appendRedditSavedHistory,
+                        readingViewModel::appendRedditSavedHistory,
                     onResolveRedditProfileCommentTarget =
-                        authConnectViewModel::resolveRedditProfileCommentTarget,
+                        readingViewModel::resolveRedditProfileCommentTarget,
                     onResolveRedditSavedCommentTarget =
-                        authConnectViewModel::resolveRedditSavedCommentTarget,
+                        readingViewModel::resolveRedditSavedCommentTarget,
                     onAuthorizeRedditProfileHistory =
                         ::launchProfileHistoryAuthorization,
                     redditComments = CommentLoadingEntryPoints(
                         redditCommentsState = redditCommentsState,
-                        onLoadRedditComments = authConnectViewModel::loadRedditComments,
+                        onLoadRedditComments = readingViewModel::loadRedditComments,
                         onLoadCachedRedditComments =
-                            authConnectViewModel::loadCachedRedditComments,
+                            readingViewModel::loadCachedRedditComments,
                         onRefreshRedditCommentsPreservingFocusedTarget =
-                            authConnectViewModel::refreshRedditCommentsPreservingFocusedTarget,
+                            readingViewModel::refreshRedditCommentsPreservingFocusedTarget,
                         onLoadFocusedRedditComment =
-                            authConnectViewModel::loadFocusedRedditComment,
+                            readingViewModel::loadFocusedRedditComment,
                         onLoadMoreRedditComments =
-                            authConnectViewModel::loadMoreRedditComments,
+                            readingViewModel::loadMoreRedditComments,
                     ),
                     redditUserFlairState = redditUserFlairState,
-                    onLoadRedditUserFlair = authConnectViewModel::loadUserFlair,
-                    onSetRedditUserFlair = authConnectViewModel::setUserFlair,
+                    onLoadRedditUserFlair = postComposerViewModel::loadUserFlair,
+                    onSetRedditUserFlair = postComposerViewModel::setUserFlair,
                     redditModeration = ModerationQueueEntryPoints(
                         redditModerationState = redditModerationState,
                         onLoadRedditModQueue =
-                            authConnectViewModel::loadRedditModQueue,
+                            moderationViewModel::loadRedditModQueue,
                         onAppendRedditModQueue =
-                            authConnectViewModel::appendRedditModQueue,
+                            moderationViewModel::appendRedditModQueue,
                         onResolveRedditModerationTarget =
-                            authConnectViewModel::resolveRedditModerationTarget,
+                            moderationViewModel::resolveRedditModerationTarget,
                         moderationActionState = moderationActionState,
                         onModerateRedditQueueItem =
-                            authConnectViewModel::moderateRedditQueueItem,
+                            moderationViewModel::moderateRedditQueueItem,
                         onRetryRedditModerationAction =
-                            authConnectViewModel::retryRedditModerationAction,
+                            moderationViewModel::retryRedditModerationAction,
                         onAuthorizeRedditModerationAction =
                             ::launchRedditModerationActionAuthorization,
                         removalReasonState = removalReasonState,
                         onLoadRedditRemovalReasons =
-                            authConnectViewModel::loadRedditRemovalReasons,
+                            moderationViewModel::loadRedditRemovalReasons,
                         onAuthorizeRedditRemovalReasons =
                             ::launchRedditRemovalReasonAuthorization,
                     ),
                     moderatorTools = moderatorToolsEntryPoints(
-                        authConnectViewModel = authConnectViewModel,
+                        moderationViewModel = moderationViewModel,
                         launchRedditModeratorLogAuthorization = ::launchRedditModeratorLogAuthorization,
                         launchRedditModeratorUserManagementAuthorization =
                             ::launchRedditModeratorUserManagementAuthorization,
                     ),
                     // MODERATION02A5A6_MODERATOR_TEAM_RUNTIME_BUNDLE_CALLSITE_V1
                     moderatorTeamRuntime = moderatorTeamRuntimeEntryPoints(
-                        authConnectViewModel = authConnectViewModel,
+                        moderationViewModel = moderationViewModel,
                         launchRedditModeratorInviteAuthorization = ::launchRedditModeratorInviteAuthorization,
                         launchRedditModeratorPermissionAuthorization =
                             ::launchRedditModeratorPermissionAuthorization,
@@ -761,121 +810,121 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
                     ),
                     redditModmail = ModmailEntryPoints(
                         redditModmailState = redditModmailState,
-                        onLoadRedditModmail = authConnectViewModel::loadRedditModmail,
-                        onAppendRedditModmail = authConnectViewModel::appendRedditModmail,
-                        onSelectRedditModmailListMode = authConnectViewModel::selectRedditModmailListMode,
+                        onLoadRedditModmail = moderationViewModel::loadRedditModmail,
+                        onAppendRedditModmail = moderationViewModel::appendRedditModmail,
+                        onSelectRedditModmailListMode = moderationViewModel::selectRedditModmailListMode,
                         onOpenRedditModmailConversation =
-                            authConnectViewModel::openRedditModmailConversation,
+                            moderationViewModel::openRedditModmailConversation,
                         onSendRedditModmailMessage =
-                            authConnectViewModel::sendRedditModmailMessage,
-                        onSetRedditModmailArchived = authConnectViewModel::setRedditModmailArchived,
-                        onSetRedditModmailUnread = authConnectViewModel::setRedditModmailUnread,
+                            moderationViewModel::sendRedditModmailMessage,
+                        onSetRedditModmailArchived = moderationViewModel::setRedditModmailArchived,
+                        onSetRedditModmailUnread = moderationViewModel::setRedditModmailUnread,
                         onVerifyRedditModmailReadState =
-                            authConnectViewModel::verifyRedditModmailReadState,
-                        onApplyRedditModmailTriage = authConnectViewModel::applyRedditModmailTriage,
+                            moderationViewModel::verifyRedditModmailReadState,
+                        onApplyRedditModmailTriage = moderationViewModel::applyRedditModmailTriage,
                         onCloseRedditModmailConversation =
-                            authConnectViewModel::closeRedditModmailConversation,
+                            moderationViewModel::closeRedditModmailConversation,
                         onAuthorizeRedditModmail = ::launchRedditModmailAuthorization,
                         modmailNotificationTarget = modmailNotificationTarget,
                         onModmailNotificationConsumed = { modmailNotificationTarget = null },
                     ),
                     postVoteState = postVoteState,
-                    onVotePost = authConnectViewModel::votePost,
-                    onRetryPostVote = authConnectViewModel::retryPostVote,
+                    onVotePost = readingViewModel::votePost,
+                    onRetryPostVote = readingViewModel::retryPostVote,
                     onAuthorizePostVote = ::launchPostVoteAuthorization,
                     postSaveState = postSaveState,
-                    onSavePost = authConnectViewModel::savePost,
-                    onRetryPostSave = authConnectViewModel::retryPostSave,
+                    onSavePost = readingViewModel::savePost,
+                    onRetryPostSave = readingViewModel::retryPostSave,
                     onAuthorizePostSave = ::launchPostSaveAuthorization,
                     contentSafetyState = contentSafetyState,
-                    onSetPostHidden = authConnectViewModel::setPostHidden,
-                    onReportContent = authConnectViewModel::reportContent,
-                    onSetUserBlocked = authConnectViewModel::setUserBlocked,
-                    onRefreshBlockedAccounts = authConnectViewModel::refreshBlockedAccounts,
+                    onSetPostHidden = readingViewModel::setPostHidden,
+                    onReportContent = readingViewModel::reportContent,
+                    onSetUserBlocked = readingViewModel::setUserBlocked,
+                    onRefreshBlockedAccounts = readingViewModel::refreshBlockedAccounts,
                     onAuthorizeBlockedAccounts = ::launchBlockedAccountsAuthorization,
-                    onAppendBlockedAccounts = authConnectViewModel::appendBlockedAccounts,
-                    onRetryContentSafety = authConnectViewModel::retryContentSafetyMutation,
+                    onAppendBlockedAccounts = readingViewModel::appendBlockedAccounts,
+                    onRetryContentSafety = readingViewModel::retryContentSafetyMutation,
                     onAuthorizeContentSafety = ::launchContentSafetyAuthorization,
                     commentMutations = CommentMutationEntryPoints(
                         commentWriteState = commentWriteState,
-                        onSubmitComment = authConnectViewModel::submitComment,
+                        onSubmitComment = readingViewModel::submitComment,
                         onAuthorizeCommentWrite = ::launchCommentAuthorization,
                         onCancelCommentWriteAuthorization =
-                            authConnectViewModel::cancelCommentAuthorization,
-                        onResetCommentWriteState = authConnectViewModel::resetCommentWriteState,
+                            readingViewModel::cancelCommentAuthorization,
+                        onResetCommentWriteState = readingViewModel::resetCommentWriteState,
                         commentEditState = commentEditState,
-                        onEditComment = authConnectViewModel::editComment,
+                        onEditComment = readingViewModel::editComment,
                         onAuthorizeCommentEdit = ::launchCommentEditAuthorization,
                         onCancelCommentEditAuthorization =
-                            authConnectViewModel::cancelCommentEditAuthorization,
-                        onResetCommentEditState = authConnectViewModel::resetCommentEditState,
-                        onCheckCommentEdit = authConnectViewModel::checkCommentEdit,
+                            readingViewModel::cancelCommentEditAuthorization,
+                        onResetCommentEditState = readingViewModel::resetCommentEditState,
+                        onCheckCommentEdit = readingViewModel::checkCommentEdit,
                         commentDeleteState = commentDeleteState,
-                        onDeleteComment = authConnectViewModel::deleteComment,
+                        onDeleteComment = readingViewModel::deleteComment,
                         onAuthorizeCommentDelete = ::launchCommentDeleteAuthorization,
-                        onCancelCommentDeleteAuthorization = authConnectViewModel::cancelCommentDeleteAuthorization,
-                        onResetCommentDeleteState = authConnectViewModel::resetCommentDeleteState,
+                        onCancelCommentDeleteAuthorization = readingViewModel::cancelCommentDeleteAuthorization,
+                        onResetCommentDeleteState = readingViewModel::resetCommentDeleteState,
                         commentMediaPolicies = commentMediaPolicies,
-                        onLoadCommentMediaPolicy = authConnectViewModel::loadCommentMediaPolicy,
+                        onLoadCommentMediaPolicy = postComposerViewModel::loadCommentMediaPolicy,
                     ),
                     postMutations = PostMutationEntryPoints(
                         postEditState = postEditState,
-                        onEditPost = authConnectViewModel::editPost,
+                        onEditPost = postComposerViewModel::editPost,
                         onAuthorizePostEdit = ::launchPostEditAuthorization,
                         onCancelPostEditAuthorization =
-                            authConnectViewModel::cancelPostEditAuthorization,
-                        onResetPostEditState = authConnectViewModel::resetPostEditState,
-                        onCheckPostEdit = authConnectViewModel::checkPostEdit,
+                            postComposerViewModel::cancelPostEditAuthorization,
+                        onResetPostEditState = postComposerViewModel::resetPostEditState,
+                        onCheckPostEdit = postComposerViewModel::checkPostEdit,
                         postDeleteState = postDeleteState,
-                        onDeletePost = authConnectViewModel::deletePost,
+                        onDeletePost = postComposerViewModel::deletePost,
                         onAuthorizePostDelete = ::launchPostDeleteAuthorization,
                         onCancelPostDeleteAuthorization =
-                            authConnectViewModel::cancelPostDeleteAuthorization,
-                        onResetPostDeleteState = authConnectViewModel::resetPostDeleteState,
-                        onCheckPostDelete = authConnectViewModel::checkPostDelete,
+                            postComposerViewModel::cancelPostDeleteAuthorization,
+                        onResetPostDeleteState = postComposerViewModel::resetPostDeleteState,
+                        onCheckPostDelete = postComposerViewModel::checkPostDelete,
                         postManageState = postManageState,
-                        onLoadPostManagement = authConnectViewModel::loadPostManagement,
-                        onMutatePostManagement = authConnectViewModel::mutatePostManagement,
+                        onLoadPostManagement = postComposerViewModel::loadPostManagement,
+                        onMutatePostManagement = postComposerViewModel::mutatePostManagement,
                         onAuthorizePostManagement = ::launchPostManageAuthorization,
                         onCancelPostManageAuthorization =
-                            authConnectViewModel::cancelPostManageAuthorization,
-                        onResetPostManageState = authConnectViewModel::resetPostManageState,
+                            postComposerViewModel::cancelPostManageAuthorization,
+                        onResetPostManageState = postComposerViewModel::resetPostManageState,
                     ),
                     postComposerWriteRuntime =
                         app.subshell.prototype.ui.PostComposerWriteRuntimeEntryPoints(
                             textPostWriteState = textPostWriteState,
                             crosspostReviewState = crosspostReviewState,
                             onReviewCrosspost =
-                                authConnectViewModel::reviewCrosspostDraft,
+                                postComposerViewModel::reviewCrosspostDraft,
                             onPublishReviewedCrosspost =
-                                authConnectViewModel::publishReviewedCrosspost,
+                                postComposerViewModel::publishReviewedCrosspost,
                             onInvalidateCrosspostReview =
-                                authConnectViewModel::invalidateCrosspostReview,
+                                postComposerViewModel::invalidateCrosspostReview,
                         ),
                     composerPolicy = composerPolicy,
-                    onLoadComposerPolicy = authConnectViewModel::loadComposerPolicy,
+                    onLoadComposerPolicy = postComposerViewModel::loadComposerPolicy,
                     composerCommunitySearch = composerCommunitySearch,
                     onSearchComposerCommunities =
-                        authConnectViewModel::searchComposerCommunities,
-                    onSubmitTextPost = authConnectViewModel::submitTextPost,
-                    onReconcileTextPostSubmit = authConnectViewModel::reconcileTextPostSubmit,
+                        postComposerViewModel::searchComposerCommunities,
+                    onSubmitTextPost = postComposerViewModel::submitTextPost,
+                    onReconcileTextPostSubmit = postComposerViewModel::reconcileTextPostSubmit,
                     onAuthorizeTextPostWrite = ::launchTextPostAuthorization,
                     onAuthorizeComposerPostRequirements =
                         ::launchComposerPostRequirementsAuthorization,
                     onAuthorizeComposerFlair = ::launchComposerFlairAuthorization,
                     onAuthorizeRedditUserFlair = ::launchUserFlairAuthorization,
                     onCancelTextPostWriteAuthorization =
-                        authConnectViewModel::cancelTextPostAuthorization,
-                    onResetTextPostWriteState = authConnectViewModel::resetTextPostWriteState,
+                        postComposerViewModel::cancelTextPostAuthorization,
+                    onResetTextPostWriteState = postComposerViewModel::resetTextPostWriteState,
                     redditInbox = InboxEntryPoints(
                         redditInboxState = redditInboxState,
-                        onLoadRedditInbox = authConnectViewModel::loadRedditInbox,
-                        onAppendRedditInbox = authConnectViewModel::appendRedditInbox,
-                        onMarkRedditInboxRead = authConnectViewModel::markRedditInboxRead,
-                        onResolveRedditInboxTarget = authConnectViewModel::resolveRedditInboxTarget,
+                        onLoadRedditInbox = inboxViewModel::loadRedditInbox,
+                        onAppendRedditInbox = inboxViewModel::appendRedditInbox,
+                        onMarkRedditInboxRead = inboxViewModel::markRedditInboxRead,
+                        onResolveRedditInboxTarget = inboxViewModel::resolveRedditInboxTarget,
                         onAuthorizeRedditInbox = ::launchInboxAuthorization,
                         onCancelRedditInboxAuthorization =
-                            authConnectViewModel::cancelInboxAuthorization,
+                            inboxViewModel::cancelInboxAuthorization,
                         inboxNotificationTarget = inboxNotificationTarget,
                         onInboxNotificationConsumed = { inboxNotificationTarget = null },
                         launcherShortcutTarget = launcherShortcutTarget as? LauncherShortcutTarget.Inbox,
@@ -884,31 +933,30 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
                     redditMessaging = MessagingEntryPoints(
                         messageReplyState = messageReplyState,
                         directChatLiveState = directChatLiveState,
-                        onSendRedditMessageReply = authConnectViewModel::sendRedditMessageReply,
+                        onSendRedditMessageReply = inboxViewModel::sendRedditMessageReply,
                         onResetRedditMessageReplyState =
-                            authConnectViewModel::resetRedditMessageReplyState,
+                            inboxViewModel::resetRedditMessageReplyState,
                         onStartRedditDirectChatLive =
-                            authConnectViewModel::startRedditDirectChatLive,
+                            inboxViewModel::startRedditDirectChatLive,
                         onStopRedditDirectChatLive =
-                            authConnectViewModel::stopRedditDirectChatLive,
+                            inboxViewModel::stopRedditDirectChatLive,
                         onUpdateRedditDirectChatTyping =
-                            authConnectViewModel::updateRedditDirectChatTyping,
+                            inboxViewModel::updateRedditDirectChatTyping,
                         onDeleteRedditDirectChatMessage =
-                            authConnectViewModel::deleteRedditDirectChatMessage,
+                            inboxViewModel::deleteRedditDirectChatMessage,
                         onResetRedditDirectChatDeleteFailure =
-                            authConnectViewModel::resetRedditDirectChatDeleteFailure,
+                            inboxViewModel::resetRedditDirectChatDeleteFailure,
                         onReactRedditDirectChatMessage =
-                            authConnectViewModel::reactRedditDirectChatMessage,
+                            inboxViewModel::reactRedditDirectChatMessage,
                         onResetRedditDirectChatReactionFailure =
-                            authConnectViewModel::resetRedditDirectChatReactionFailure,
+                            inboxViewModel::resetRedditDirectChatReactionFailure,
                     ),
                     directChatStartState = directChatStartState,
-                    onStartRedditDirectChat = authConnectViewModel::startRedditDirectChat,
+                    onStartRedditDirectChat = inboxViewModel::startRedditDirectChat,
                     onResetRedditDirectChatStartState =
-                        authConnectViewModel::resetRedditDirectChatStartState,
+                        inboxViewModel::resetRedditDirectChatStartState,
                     onResolveRedditNavigationTarget =
-                        authConnectViewModel::resolveRedditNavigationTargetPost,
-                    onRequestInboxNotificationPermission = ::requestInboxNotificationPermission,
+                        readingViewModel::resolveRedditNavigationTargetPost,
                     onRedditConfigurationChanged =
                         ::reloadRedditConfigurationHost,
                     debugFocusedCommentLaunch = debugFocusedCommentLaunch,
@@ -942,6 +990,16 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
                     )
                 }
             }
+        }
+        if (jankStats == null) {
+            jankStats = JankStats.createAndTrack(window) { frame ->
+                jankTally.add(
+                    durationNanos = frame.frameDurationUiNanos,
+                    isJank = frame.isJank,
+                    screen = frame.states.firstOrNull { state -> state.key == JANK_SCREEN_STATE }?.value,
+                )
+            }
+            lifecycle.addObserver(jankLifecycleObserver)
         }
         // INTENT01_RESTORED_ACTIVITY_SKIPS_LAUNCH_INTENT_V1 (#122): the consumers
         // mark an intent as handled only on the in-process copy. After process
@@ -980,8 +1038,34 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
 
     override fun onResume() {
         super.onResume()
+        if (recentsCardHiddenBySecureFlag) {
+            recentsCardHiddenBySecureFlag = false
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
         refreshRedditLinkHandlingState()
     }
+
+    // SECAUDIT10_RECENTS_CARD_HIDDEN_BELOW_ANDROID_13_V1 (security audit #10):
+    // below Android 13 there is no setRecentsScreenshotEnabled, so the recents
+    // card showed the last screen while the app lock's delay ran. The window is
+    // secure while Subshell is in the background and plain again on return;
+    // picture-in-picture keeps its picture. Only the flag set here is cleared.
+    override fun onPause() {
+        if (
+            appLockHidesRecentsWithSecureFlag(
+                sdkInt = Build.VERSION.SDK_INT,
+                appLockEnabled = appLock.settings.enabled,
+                inPictureInPicture = isInPictureInPictureMode,
+            ) &&
+            window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE == 0
+        ) {
+            recentsCardHiddenBySecureFlag = true
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+        super.onPause()
+    }
+
+    private var recentsCardHiddenBySecureFlag = false
 
     // NOTIFY01A2_ACTIVITY_OWNED_RECONCILIATION_DESTROY_V2
     override fun onDestroy() {
@@ -1024,26 +1108,33 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
         videoPlaybackViewModel.coordinator.onHostConfigurationChanged(newConfig)
     }
 
+    // STRICTMODE02_LINK_HANDLING_READ_OFF_MAIN_V1 (#243): the system's link
+    // verification state and the prompt store are read on IO; until then the
+    // prompt counts as seen (no prompt shows).
     private fun refreshRedditLinkHandlingState() {
-        val current =
-            readRedditLinkHandlingState(applicationContext)
-        redditLinkHandlingState = current
-        if (!current.supported) {
-            redditLinkHandlingPromptSeen = true
-        } else {
-            if (current.status == RedditLinkHandlingStatus.ENABLED) {
-                redditLinkHandlingPromptStore.markSeen()
+        lifecycleScope.launch {
+            val (current, promptSeen) = withContext(Dispatchers.IO) {
+                val current = readRedditLinkHandlingState(applicationContext)
+                val promptSeen = if (!current.supported) {
+                    true
+                } else {
+                    if (current.status == RedditLinkHandlingStatus.ENABLED) {
+                        redditLinkHandlingPromptStore.markSeen()
+                    }
+                    redditLinkHandlingPromptStore.wasSeen()
+                }
+                current to promptSeen
             }
-            redditLinkHandlingPromptSeen =
-                redditLinkHandlingPromptStore.wasSeen()
-        }
-        if (BuildConfig.DEBUG) {
-            Log.d(
-                "SubshellDeepLink",
-                "phase=link_handling_state supported=${current.supported} " +
-                    "status=${current.status} selected=${current.selectedHostCount}/" +
-                    "${current.supportedHostCount} promptSeen=$redditLinkHandlingPromptSeen",
-            )
+            redditLinkHandlingState = current
+            redditLinkHandlingPromptSeen = promptSeen
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    "SubshellDeepLink",
+                    "phase=link_handling_state supported=${current.supported} " +
+                        "status=${current.status} selected=${current.selectedHostCount}/" +
+                        "${current.supportedHostCount} promptSeen=$promptSeen",
+                )
+            }
         }
     }
 
@@ -1117,57 +1208,57 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
 
     private fun launchPostManageAuthorization() {
         launchAuthBrowser(
-            { authConnectViewModel.beginPostManageAuthorization() },
+            { postComposerViewModel.beginPostManageAuthorization() },
         ) {
-            authConnectViewModel.postManageAuthorizationBrowserLaunchFailed()
+            postComposerViewModel.postManageAuthorizationBrowserLaunchFailed()
         }
     }
 
     private fun launchPostDeleteAuthorization() {
         launchAuthBrowser(
-            { authConnectViewModel.beginPostDeleteAuthorization() },
+            { postComposerViewModel.beginPostDeleteAuthorization() },
         ) {
-            authConnectViewModel.postDeleteAuthorizationBrowserLaunchFailed()
+            postComposerViewModel.postDeleteAuthorizationBrowserLaunchFailed()
         }
     }
 
     private fun launchPostEditAuthorization() {
         launchAuthBrowser(
-            { authConnectViewModel.beginPostEditAuthorization() },
+            { postComposerViewModel.beginPostEditAuthorization() },
         ) {
-            authConnectViewModel.postEditAuthorizationBrowserLaunchFailed()
+            postComposerViewModel.postEditAuthorizationBrowserLaunchFailed()
         }
     }
 
     private fun launchCommentDeleteAuthorization() {
         launchAuthBrowser(
-            { authConnectViewModel.beginCommentDeleteAuthorization() },
+            { readingViewModel.beginCommentDeleteAuthorization() },
         ) {
-            authConnectViewModel.commentDeleteAuthorizationBrowserLaunchFailed()
+            readingViewModel.commentDeleteAuthorizationBrowserLaunchFailed()
         }
     }
 
     private fun launchCommentEditAuthorization() {
         launchAuthBrowser(
-            { authConnectViewModel.beginCommentEditAuthorization() },
+            { readingViewModel.beginCommentEditAuthorization() },
         ) {
-            authConnectViewModel.commentEditAuthorizationBrowserLaunchFailed()
+            readingViewModel.commentEditAuthorizationBrowserLaunchFailed()
         }
     }
 
     private fun launchCommentAuthorization() {
         launchAuthBrowser(
-            { authConnectViewModel.beginCommentAuthorization() },
+            { readingViewModel.beginCommentAuthorization() },
         ) {
-            authConnectViewModel.commentAuthorizationBrowserLaunchFailed()
+            readingViewModel.commentAuthorizationBrowserLaunchFailed()
         }
     }
 
     private fun launchTextPostAuthorization(request: TextPostWriteRequest) {
         launchAuthBrowser(
-            { authConnectViewModel.beginTextPostAuthorization(request) },
+            { postComposerViewModel.beginTextPostAuthorization(request) },
         ) {
-            authConnectViewModel.textPostAuthorizationBrowserLaunchFailed()
+            postComposerViewModel.textPostAuthorizationBrowserLaunchFailed()
         }
     }
 
@@ -1179,7 +1270,7 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
     ): Boolean {
         lifecycleScope.launch {
             dispatchComposerPostRequirementsAuthorization(
-                authConnectViewModel.beginComposerPostRequirementsAuthorization(accountStableId),
+                postComposerViewModel.beginComposerPostRequirementsAuthorization(accountStableId),
             )
         }
         return true
@@ -1198,7 +1289,7 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
         }.fold(
             onSuccess = { true },
             onFailure = {
-                authConnectViewModel
+                postComposerViewModel
                     .composerPostRequirementsAuthorizationBrowserLaunchFailed()
                 false
             },
@@ -1208,30 +1299,30 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
 
     private fun launchComposerFlairAuthorization(accountStableId: String) {
         launchAuthBrowser(
-            { authConnectViewModel.beginComposerFlairAuthorization(accountStableId) },
+            { postComposerViewModel.beginComposerFlairAuthorization(accountStableId) },
         ) {
-            authConnectViewModel.composerFlairAuthorizationBrowserLaunchFailed()
+            postComposerViewModel.composerFlairAuthorizationBrowserLaunchFailed()
         }
     }
 
     private fun launchUserFlairAuthorization(accountStableId: String) {
         launchAuthBrowser(
-            { authConnectViewModel.beginUserFlairAuthorization(accountStableId) },
+            { postComposerViewModel.beginUserFlairAuthorization(accountStableId) },
         ) {
-            authConnectViewModel.userFlairAuthorizationBrowserLaunchFailed()
+            postComposerViewModel.userFlairAuthorizationBrowserLaunchFailed()
         }
     }
 
     private fun launchCustomFeedCreation(request: CustomFeedCreateRequest) {
-        launchCustomFeedAuthorization { authConnectViewModel.beginCustomFeedCreation(request) }
+        launchCustomFeedAuthorization { communitiesViewModel.beginCustomFeedCreation(request) }
     }
 
     private fun launchCustomFeedUpdate(request: CustomFeedUpdateRequest) {
-        launchCustomFeedAuthorization { authConnectViewModel.beginCustomFeedUpdate(request) }
+        launchCustomFeedAuthorization { communitiesViewModel.beginCustomFeedUpdate(request) }
     }
 
     private fun launchCustomFeedDeletion(request: CustomFeedDeleteRequest) {
-        launchCustomFeedAuthorization { authConnectViewModel.beginCustomFeedDeletion(request) }
+        launchCustomFeedAuthorization { communitiesViewModel.beginCustomFeedDeletion(request) }
     }
 
     private fun launchCustomFeedAuthorization(begin: suspend () -> AuthBrowserLaunchResult) {
@@ -1249,7 +1340,7 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
                         clientMode = launch.clientMode,
                     )
                 }.onFailure {
-                    authConnectViewModel.customFeedAuthorizationBrowserLaunchFailed()
+                    communitiesViewModel.customFeedAuthorizationBrowserLaunchFailed()
                 }
             }
             AuthBrowserLaunchResult.NotStarted -> Unit
@@ -1258,119 +1349,119 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
 
     private fun launchCommunityMembershipAuthorization() {
         launchAuthBrowser(
-            { authConnectViewModel.beginCommunityMembershipAuthorization() },
+            { communitiesViewModel.beginCommunityMembershipAuthorization() },
         ) {
-            authConnectViewModel.communityMembershipAuthorizationBrowserLaunchFailed()
+            communitiesViewModel.communityMembershipAuthorizationBrowserLaunchFailed()
         }
     }
 
     private fun launchRedditFavoriteAuthorization() {
         launchAuthBrowser(
-            { authConnectViewModel.beginRedditFavoriteAuthorization() },
+            { communitiesViewModel.beginRedditFavoriteAuthorization() },
         ) {
-            authConnectViewModel.redditFavoriteAuthorizationBrowserLaunchFailed()
+            communitiesViewModel.redditFavoriteAuthorizationBrowserLaunchFailed()
         }
     }
 
     private fun launchPostVoteAuthorization() {
         launchAuthBrowser(
-            { authConnectViewModel.beginPostVoteAuthorization() },
+            { readingViewModel.beginPostVoteAuthorization() },
         ) {
-            authConnectViewModel.postVoteAuthorizationBrowserLaunchFailed()
+            readingViewModel.postVoteAuthorizationBrowserLaunchFailed()
         }
     }
 
     private fun launchPostSaveAuthorization() {
         launchAuthBrowser(
-            { authConnectViewModel.beginPostSaveAuthorization() },
+            { readingViewModel.beginPostSaveAuthorization() },
         ) {
-            authConnectViewModel.postSaveAuthorizationBrowserLaunchFailed()
+            readingViewModel.postSaveAuthorizationBrowserLaunchFailed()
         }
     }
 
     private fun launchPostFollowAuthorization() {
         launchAuthBrowser(
-            { authConnectViewModel.beginPostFollowAuthorization() },
+            { readingViewModel.beginPostFollowAuthorization() },
         ) {
-            authConnectViewModel.postFollowAuthorizationBrowserLaunchFailed()
+            readingViewModel.postFollowAuthorizationBrowserLaunchFailed()
         }
     }
 
     // MOD01A2_MODERATION_ACTION_AUTH_BROWSER_V1
     private fun launchRedditModerationActionAuthorization() {
         launchAuthBrowser(
-            { authConnectViewModel.beginRedditModerationActionAuthorization() },
+            { moderationViewModel.beginRedditModerationActionAuthorization() },
         ) {
-            authConnectViewModel.redditModerationActionAuthorizationBrowserLaunchFailed()
+            moderationViewModel.redditModerationActionAuthorizationBrowserLaunchFailed()
         }
     }
 
     // MOD01A21_REMOVAL_REASON_AUTH_BROWSER_V1
     private fun launchRedditRemovalReasonAuthorization() {
         launchAuthBrowser(
-            { authConnectViewModel.beginRedditRemovalReasonAuthorization() },
+            { moderationViewModel.beginRedditRemovalReasonAuthorization() },
         ) {
-            authConnectViewModel.redditRemovalReasonAuthorizationBrowserLaunchFailed()
+            moderationViewModel.redditRemovalReasonAuthorizationBrowserLaunchFailed()
         }
     }
 
     // MODERATION02A4_MOD_LOG_AUTH_BROWSER_V1
     private fun launchRedditModeratorLogAuthorization() {
         launchAuthBrowser(
-            { authConnectViewModel.beginRedditModeratorLogAuthorization() },
+            { moderationViewModel.beginRedditModeratorLogAuthorization() },
             propagateFreshAccountSession = true,
         ) {
-            authConnectViewModel.redditModeratorLogAuthorizationBrowserLaunchFailed()
+            moderationViewModel.redditModeratorLogAuthorizationBrowserLaunchFailed()
         }
     }
 
     // MODERATION02A5A1_USER_MANAGEMENT_AUTH_BROWSER_V1
     private fun launchRedditModeratorUserManagementAuthorization() {
         launchAuthBrowser(
-            { authConnectViewModel.beginRedditModeratorUserManagementAuthorization() },
+            { moderationViewModel.beginRedditModeratorUserManagementAuthorization() },
             propagateFreshAccountSession = true,
         ) {
-            authConnectViewModel.redditModeratorUserManagementAuthorizationBrowserLaunchFailed()
+            moderationViewModel.redditModeratorUserManagementAuthorizationBrowserLaunchFailed()
         }
     }
 
     // MODERATION02A5A5_MODERATOR_TEAM_AUTH_BROWSER_V1
     private fun launchRedditModeratorInviteAuthorization() {
         launchAuthBrowser(
-            { authConnectViewModel.beginRedditModeratorInviteAuthorization() },
+            { moderationViewModel.beginRedditModeratorInviteAuthorization() },
             propagateFreshAccountSession = true,
         ) {
-            authConnectViewModel.redditModeratorInviteAuthorizationBrowserLaunchFailed()
+            moderationViewModel.redditModeratorInviteAuthorizationBrowserLaunchFailed()
         }
     }
 
     // MODERATION02A5A6_MODERATOR_PERMISSION_AUTH_BROWSER_V1
     private fun launchRedditModeratorPermissionAuthorization() {
         launchAuthBrowser(
-            { authConnectViewModel.beginRedditModeratorPermissionAuthorization() },
+            { moderationViewModel.beginRedditModeratorPermissionAuthorization() },
             propagateFreshAccountSession = true,
         ) {
-            authConnectViewModel.redditModeratorPermissionAuthorizationBrowserLaunchFailed()
+            moderationViewModel.redditModeratorPermissionAuthorizationBrowserLaunchFailed()
         }
     }
 
     // MODERATION02A5A7_MODERATOR_REMOVAL_AUTH_BROWSER_V1
     private fun launchRedditModeratorRemovalAuthorization() {
         launchAuthBrowser(
-            { authConnectViewModel.beginRedditModeratorRemovalAuthorization() },
+            { moderationViewModel.beginRedditModeratorRemovalAuthorization() },
             propagateFreshAccountSession = true,
         ) {
-            authConnectViewModel.redditModeratorRemovalAuthorizationBrowserLaunchFailed()
+            moderationViewModel.redditModeratorRemovalAuthorizationBrowserLaunchFailed()
         }
     }
 
     // MODMAIL01A1_ACCOUNT_SAFE_BROWSER_AFFINITY_V1
     private fun launchRedditModmailAuthorization(accountStableId: String) {
         launchAuthBrowser(
-            { authConnectViewModel.beginRedditModmailAuthorization(accountStableId) },
+            { moderationViewModel.beginRedditModmailAuthorization(accountStableId) },
             propagateFreshAccountSession = true,
         ) {
-            authConnectViewModel.redditModmailAuthorizationBrowserLaunchFailed()
+            moderationViewModel.redditModmailAuthorizationBrowserLaunchFailed()
         }
     }
 
@@ -1378,17 +1469,17 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
     // OCB414_BLOCKED_LIST_CAN_ASK_FOR_AUTHORIZATION_V1
     private fun launchBlockedAccountsAuthorization(accountStableId: String) {
         launchAuthBrowser(
-            { authConnectViewModel.beginBlockedAccountsAuthorization(accountStableId) },
+            { readingViewModel.beginBlockedAccountsAuthorization(accountStableId) },
         ) {
-            authConnectViewModel.blockedAccountsAuthorizationBrowserLaunchFailed()
+            readingViewModel.blockedAccountsAuthorizationBrowserLaunchFailed()
         }
     }
 
     private fun launchContentSafetyAuthorization() {
         launchAuthBrowser(
-            { authConnectViewModel.beginContentSafetyAuthorization() },
+            { readingViewModel.beginContentSafetyAuthorization() },
         ) {
-            authConnectViewModel.contentSafetyAuthorizationBrowserLaunchFailed()
+            readingViewModel.contentSafetyAuthorizationBrowserLaunchFailed()
         }
     }
 
@@ -1398,12 +1489,12 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
         communityName: String,
     ) {
         launchAuthBrowser(
-            { authConnectViewModel.beginRedditCommunityWikiAuthorization(
+            { communitiesViewModel.beginRedditCommunityWikiAuthorization(
                 accountStableId = accountStableId,
                 rawCommunityName = communityName,
             ) },
         ) {
-            authConnectViewModel.redditCommunityWikiAuthorizationBrowserLaunchFailed()
+            communitiesViewModel.redditCommunityWikiAuthorizationBrowserLaunchFailed()
         }
     }
 
@@ -1412,22 +1503,22 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
         username: String,
     ) {
         launchAuthBrowser(
-            { authConnectViewModel.beginProfileHistoryAuthorization(
+            { readingViewModel.beginProfileHistoryAuthorization(
                 accountStableId = accountStableId,
                 username = username,
             ) },
         ) {
-            authConnectViewModel.profileHistoryAuthorizationBrowserLaunchFailed()
+            readingViewModel.profileHistoryAuthorizationBrowserLaunchFailed()
         }
     }
 
     // MOD01A221_ACCOUNT_SAFE_INBOX_BROWSER_AFFINITY_V1
     private fun launchInboxAuthorization(accountStableId: String) {
         launchAuthBrowser(
-            { authConnectViewModel.beginInboxAuthorization(accountStableId) },
+            { inboxViewModel.beginInboxAuthorization(accountStableId) },
             propagateFreshAccountSession = true,
         ) {
-            authConnectViewModel.inboxAuthorizationBrowserLaunchFailed()
+            inboxViewModel.inboxAuthorizationBrowserLaunchFailed()
         }
     }
 
@@ -1486,13 +1577,13 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
     }
 
     private fun consumeInboxNotificationIntent(candidate: Intent?): Boolean {
-        val target = takeInboxNotificationTarget(candidate) ?: return false
+        val target = takeInboxNotificationTarget(applicationContext, candidate) ?: return false
         inboxNotificationTarget = target
         return true
     }
 
     private fun consumeModmailNotificationIntent(candidate: Intent?): Boolean {
-        val target = takeModmailNotificationTarget(candidate) ?: return false
+        val target = takeModmailNotificationTarget(applicationContext, candidate) ?: return false
         modmailNotificationTarget = target
         return true
     }
@@ -1524,18 +1615,22 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
     }
 
     private fun consumeAuthCallbackIntent(candidate: Intent?): Boolean {
-        val resultToken = candidate
-            ?.getStringExtra(AUTH_CALLBACK_RESULT_EXTRA)
-            ?.takeIf(String::isNotBlank)
-            ?: return false
-        candidate.removeExtra(AUTH_CALLBACK_RESULT_EXTRA)
+        val resultToken = takeAuthCallbackResult(candidate) ?: return false
         authConnectViewModel.handleCallbackResultToken(resultToken)
         return true
     }
 }
 
-private const val INBOX_NOTIFICATION_PERMISSION_REQUEST_CODE = 0x1B22
 private const val LEGACY_STORAGE_WRITE_REQUEST_CODE = 0x0084
 private const val DEBUG_FOCUSED_POST_ID_EXTRA = "subshell.debug.focused_post_id"
 private const val DEBUG_FOCUSED_COMMENT_ID_EXTRA = "subshell.debug.focused_comment_id"
 private const val DEBUG_FOCUSED_USERNAME_EXTRA = "subshell.debug.focused_username"
+
+/** SECAUDIT10_RECENTS_CARD_HIDDEN_BELOW_ANDROID_13_V1: Android 13+ blanks the card with setRecentsScreenshotEnabled. */
+internal fun appLockHidesRecentsWithSecureFlag(
+    sdkInt: Int,
+    appLockEnabled: Boolean,
+    inPictureInPicture: Boolean,
+): Boolean = sdkInt < Build.VERSION_CODES.TIRAMISU && appLockEnabled && !inPictureInPicture
+
+private val APP_LOCK_SETTINGS_WRITES = Dispatchers.IO.limitedParallelism(1)

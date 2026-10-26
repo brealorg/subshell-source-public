@@ -37,7 +37,7 @@ grep -Fq 'verify_public_target' "$DRIVER" ||
 
 grep -Fq 'verify_private_source_not_public' "$DRIVER" &&
 grep -Fq 'PRIVATE_APP_SOURCE_COMMIT_IS_PUBLIC' "$DRIVER" &&
-grep -Fq 'app_source_publicly_pushed=NO' "$DRIVER" ||
+grep -Fq '"app_source_private_commit_public=NO",' "$DRIVER" ||
     fail PRIVATE_PUBLIC_SOURCE_BOUNDARY
 
 grep -Fq 'Subshell-{version_name}.apk' "$DRIVER" &&

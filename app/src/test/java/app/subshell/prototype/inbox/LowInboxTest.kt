@@ -123,8 +123,8 @@ class LowInboxTest {
         assertEquals(INBOX_NOTIFICATION_CHANNEL_ID, notification.channelId)
         val tap = shadowOf(notification.contentIntent).savedIntent
 
-        assertEquals(ModmailNotificationTarget("acct", "abc1", eventKey), takeModmailNotificationTarget(tap))
-        assertEquals("a tap is taken once", null, takeModmailNotificationTarget(tap))
+        assertEquals(ModmailNotificationTarget("acct", "abc1", eventKey), takeModmailNotificationTarget(context, tap))
+        assertEquals("a tap is taken once", null, takeModmailNotificationTarget(context, tap))
     }
 
     // STEP3 (modmail06): the inbox and Modmail keep separate background

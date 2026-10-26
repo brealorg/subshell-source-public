@@ -161,6 +161,13 @@ internal fun PostRouteHost(
     val redditSubscriptionsState = redditFeed.redditSubscriptionsState
     val onLoadRedditSubscriptions = redditFeed.onLoadRedditSubscriptions
     val redditCommentsState = redditComments.redditCommentsState
+    // OPENPOSTSSOT01_SETTLED_OVERRIDES_GIVE_WAY_TO_THE_STORE_V1 (#244): a settled
+    // comment vote or save gives way once the thread (which follows its store)
+    // shows it.
+    val settledOverrideTargets = state.settledOverrideTargetsKey()
+    LaunchedEffect(redditCommentsState.comments, settledOverrideTargets) {
+        state.releaseSettledCommentOverrides(redditCommentsState.comments)
+    }
     val onLoadRedditComments = redditComments.onLoadRedditComments
     val onLoadCachedRedditComments = redditComments.onLoadCachedRedditComments
     val onRefreshRedditCommentsPreservingFocusedTarget = redditComments.onRefreshRedditCommentsPreservingFocusedTarget

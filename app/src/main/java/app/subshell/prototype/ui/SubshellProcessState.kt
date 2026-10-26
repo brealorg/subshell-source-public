@@ -19,6 +19,12 @@ private const val SUBSHELL_PROCESS_SNAPSHOT_MAX_ROUTES = 32
 private const val SUBSHELL_PROCESS_SNAPSHOT_MAX_ANCHORS = 256
 private const val SUBSHELL_PROCESS_SNAPSHOT_MAX_FIELD_CHARS = 100_000
 private const val SUBSHELL_PROCESS_SNAPSHOT_MAX_INDEX = 1_000_000
+// RECREATE01 (#241): message drafts share a budget so one long draft cannot push
+// the whole snapshot over SUBSHELL_PROCESS_SNAPSHOT_MAX_CHARS (then nothing is
+// restored); settled votes and saves are capped per kind.
+private const val SUBSHELL_PROCESS_SNAPSHOT_MAX_MESSAGE_DRAFT_CHARS = 20_000
+private const val SUBSHELL_PROCESS_SNAPSHOT_MAX_SETTLED_OVERRIDES = 256
+private const val SUBSHELL_PROCESS_SNAPSHOT_MAX_MESSAGE_MEDIA = 16
 
 internal data class SubshellProcessSnapshot(
     val routeStack: SubshellRouteStack,
@@ -30,6 +36,20 @@ internal data class SubshellProcessSnapshot(
     val backgroundResumeWasManual: Boolean,
     val commentComposerVisible: Boolean = false,
     val commentComposerDraft: CommentComposerDraft? = null,
+    val messageConversationDrafts: Map<String, String> = emptyMap(),
+    val messageConversationMedia: Map<String, ComposerMediaAttachment> = emptyMap(),
+    val settledOverrides: SettledAccountOverrides? = null,
+)
+
+// RECREATE01_SETTLED_VOTES_SURVIVE_RECREATION_V1 (#241): the votes and saves
+// Reddit confirmed for one signed-in account, restored only to that account.
+internal data class SettledAccountOverrides(
+    val accountStableId: String,
+    val votes: Map<String, Int>,
+    val saves: Map<String, Boolean>,
+    val hidden: Map<String, Boolean> = emptyMap(),
+    val follows: Map<String, Boolean> = emptyMap(),
+    val blocks: Map<String, Boolean> = emptyMap(),
 )
 
 // ISSUE48_RESTORE_LOOKS_UP_THE_CACHE_V1: restore validates each saved route
@@ -148,6 +168,9 @@ internal fun encodeSubshellProcessSnapshot(snapshot: SubshellProcessSnapshot): S
             draft = draft,
         )
     }
+    records += encodeMessageDraftRecords(snapshot.messageConversationDrafts)
+    records += encodeMessageMediaRecords(snapshot.messageConversationMedia)
+    snapshot.settledOverrides?.let { overrides -> records += encodeSettledOverrideRecords(overrides) }
     records += snapshotRecord(
         "MEDIA_STATE",
         snapshot.feedVideoMuted.toString(),
@@ -186,6 +209,9 @@ internal fun decodeSubshellProcessSnapshot(
         val composer = decodeComposer(records, catalog)
         val commentComposer = decodeCommentComposer(records, catalog, routeStack)
         val mediaState = decodeMediaState(records, catalog)
+        val messageDrafts = decodeMessageDrafts(records)
+        val messageMedia = decodeMessageMedia(records)
+        val settledOverrides = decodeSettledOverrides(records)
 
         SubshellProcessSnapshot(
             routeStack = routeStack,
@@ -197,6 +223,9 @@ internal fun decodeSubshellProcessSnapshot(
             feedVideoMuted = mediaState.feedVideoMuted,
             backgroundResumeMediaId = mediaState.backgroundResumeMediaId,
             backgroundResumeWasManual = mediaState.backgroundResumeWasManual,
+            messageConversationDrafts = messageDrafts,
+            messageConversationMedia = messageMedia,
+            settledOverrides = settledOverrides,
         )
     }.getOrNull()
 }
@@ -1019,6 +1048,102 @@ private fun encodeCommentComposerRecord(
     // UIPOST02: appended; an older snapshot has no field 11 (account unknown).
     draft.accountStableId,
 )
+
+// RECREATE01_MESSAGE_DRAFTS_SURVIVE_RECREATION_V1 (#241): in key order, while
+// the drafts fit the shared budget; a draft past it is left out whole.
+private fun encodeMessageDraftRecords(drafts: Map<String, String>): List<String> {
+    var remaining = SUBSHELL_PROCESS_SNAPSHOT_MAX_MESSAGE_DRAFT_CHARS
+    return drafts.toSortedMap().mapNotNull { (key, text) ->
+        if (text.isEmpty() || key.length + text.length > remaining) return@mapNotNull null
+        remaining -= key.length + text.length
+        snapshotRecord("MESSAGE_DRAFT", key, text)
+    }
+}
+
+private fun decodeMessageDrafts(records: List<SnapshotRecord>): Map<String, String> {
+    var remaining = SUBSHELL_PROCESS_SNAPSHOT_MAX_MESSAGE_DRAFT_CHARS
+    return buildMap {
+        records.filter { record -> record.kind == "MESSAGE_DRAFT" }.forEach { record ->
+            val key = record.fields.getOrNull(0)?.takeIf(String::isNotBlank) ?: return@forEach
+            val text = record.fields.getOrNull(1)?.takeIf(String::isNotEmpty) ?: return@forEach
+            if (key.length + text.length > remaining) return@forEach
+            remaining -= key.length + text.length
+            put(key, text)
+        }
+    }
+}
+
+// RECREATE02_MESSAGE_ATTACHMENT_SURVIVES_RECREATION_V1 (#241): fields as the
+// comment composer's media (uri, mime type, kind, source link). After a process
+// death the picker's read grant may be gone; sending then fails like a comment
+// reply's restored image does, and the reader can remove it.
+private fun encodeMessageMediaRecords(media: Map<String, ComposerMediaAttachment>): List<String> =
+    media.toSortedMap().entries.take(SUBSHELL_PROCESS_SNAPSHOT_MAX_MESSAGE_MEDIA).map { (key, attachment) ->
+        snapshotRecord(
+            "MESSAGE_MEDIA",
+            key,
+            attachment.uri,
+            attachment.mimeType,
+            attachment.kind.name,
+            attachment.sourceLinkUri,
+        )
+    }
+
+private fun decodeMessageMedia(records: List<SnapshotRecord>): Map<String, ComposerMediaAttachment> =
+    records.asSequence()
+        .filter { record -> record.kind == "MESSAGE_MEDIA" }
+        .mapNotNull { record ->
+            val key = record.fields.getOrNull(0)?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+            val uri = record.fields.getOrNull(1)?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+            key to ComposerMediaAttachment(
+                uri = uri,
+                mimeType = record.fields.getOrNull(2)?.takeIf(String::isNotBlank) ?: "image/*",
+                kind = record.fields.getOrNull(3).enumOrDefault(ComposerMediaKind.IMAGE),
+                sourceLinkUri = record.fields.getOrNull(4)?.takeIf(String::isNotBlank),
+            )
+        }
+        .take(SUBSHELL_PROCESS_SNAPSHOT_MAX_MESSAGE_MEDIA)
+        .toMap()
+
+private fun encodeSettledOverrideRecords(overrides: SettledAccountOverrides): List<String> = buildList {
+    add(snapshotRecord("SETTLED_ACCOUNT", overrides.accountStableId))
+    overrides.votes.toSortedMap().entries.take(SUBSHELL_PROCESS_SNAPSHOT_MAX_SETTLED_OVERRIDES)
+        .forEach { (target, direction) -> add(snapshotRecord("SETTLED_VOTE", target, direction.toString())) }
+    overrides.saves.toSortedMap().entries.take(SUBSHELL_PROCESS_SNAPSHOT_MAX_SETTLED_OVERRIDES)
+        .forEach { (target, saved) -> add(snapshotRecord("SETTLED_SAVE", target, saved.toString())) }
+    overrides.hidden.toSortedMap().entries.take(SUBSHELL_PROCESS_SNAPSHOT_MAX_SETTLED_OVERRIDES)
+        .forEach { (target, hidden) -> add(snapshotRecord("SETTLED_HIDDEN", target, hidden.toString())) }
+    overrides.follows.toSortedMap().entries.take(SUBSHELL_PROCESS_SNAPSHOT_MAX_SETTLED_OVERRIDES)
+        .forEach { (target, followed) -> add(snapshotRecord("SETTLED_FOLLOW", target, followed.toString())) }
+    overrides.blocks.toSortedMap().entries.take(SUBSHELL_PROCESS_SNAPSHOT_MAX_SETTLED_OVERRIDES)
+        .forEach { (username, blocked) -> add(snapshotRecord("SETTLED_BLOCK", username, blocked.toString())) }
+}
+
+private fun decodeSettledOverrides(records: List<SnapshotRecord>): SettledAccountOverrides? {
+    val account = records.lastOrNull { record -> record.kind == "SETTLED_ACCOUNT" }
+        ?.fields
+        ?.getOrNull(0)
+        ?.takeIf(::isRestorableItemId)
+        ?: return null
+    fun <T> targets(kind: String, value: (String) -> T?): Map<String, T> =
+        records.asSequence()
+            .filter { record -> record.kind == kind }
+            .mapNotNull { record ->
+                val target = record.fields.getOrNull(0)?.takeIf(::isRestorableItemId) ?: return@mapNotNull null
+                val parsed = record.fields.getOrNull(1)?.let(value) ?: return@mapNotNull null
+                target to parsed
+            }
+            .take(SUBSHELL_PROCESS_SNAPSHOT_MAX_SETTLED_OVERRIDES)
+            .toMap()
+    return SettledAccountOverrides(
+        accountStableId = account,
+        votes = targets("SETTLED_VOTE") { field -> field.toIntOrNull()?.takeIf { it in -1..1 } },
+        saves = targets("SETTLED_SAVE", String::toBooleanStrictOrNull),
+        hidden = targets("SETTLED_HIDDEN", String::toBooleanStrictOrNull),
+        follows = targets("SETTLED_FOLLOW", String::toBooleanStrictOrNull),
+        blocks = targets("SETTLED_BLOCK", String::toBooleanStrictOrNull),
+    )
+}
 
 private fun decodeCommentComposer(
     records: List<SnapshotRecord>,

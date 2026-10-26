@@ -1,6 +1,5 @@
 package app.subshell.prototype.ui.screens
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -43,8 +42,6 @@ fun NotificationTypesSettingsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    BackHandler(onBack = onBack)
-
     val enabled = state.inboxNotificationsEnabled
 
     val routeTopBarScroll = rememberRouteTopBarScrollBehavior()

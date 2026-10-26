@@ -10,6 +10,8 @@ import app.subshell.prototype.BuildConfig
 import app.subshell.prototype.data.network.SubshellNetworkTransport
 import app.subshell.prototype.model.REDGIFS_VIDEO_SCHEME
 import app.subshell.prototype.model.isRedGifsClipId
+import app.subshell.prototype.model.redGifsVideoUri
+import java.util.concurrent.TimeUnit
 import java.io.IOException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -23,8 +25,9 @@ import okhttp3.Response
 
 /*
  * ISSUE207_REDGIFS_PLAYS_IN_THE_APP_V1 (#207, owner: follows "Show NSFW
- * posts", no setting of its own). A RedGIFs post Reddit sends without its own
- * video copy is a video whose source is `subshell-redgifs://<id>`. The id is
+ * posts", no setting of its own). An NSFW RedGIFs post is a video whose first
+ * source is `subshell-redgifs://<id>` (#256: before Reddit's own silent copy,
+ * which follows as a fallback). The id is
  * turned into the clip's MP4 only when the player loads it (feed autoplay,
  * preload or opening the video), never while a listing is read, and nothing is
  * asked of RedGIFs while "Show NSFW posts" is off.
@@ -43,12 +46,50 @@ internal const val REDGIFS_TOKEN_REUSE_MILLIS = 23L * 60L * 60L * 1_000L
 
 private const val REDGIFS_MAX_RESPONSE_BYTES = 1L * 1024L * 1024L
 
-internal fun redGifsClipIdOfVideoUri(uri: String): String? =
+/** RedGIFs' two renditions; HD is often 1080p, SD the smaller mobile file. */
+internal enum class RedGifsQuality { HD, SD }
+
+private const val REDGIFS_SD_SUFFIX = "/sd"
+
+/** Seconds a token or clip lookup may take before the next source plays. */
+private const val REDGIFS_LOOKUP_TIMEOUT_SECONDS = 8L
+
+private fun redGifsPathOfVideoUri(uri: String): String? =
     uri.trim()
         .takeIf { mediaUriScheme(it) == REDGIFS_VIDEO_SCHEME }
         ?.substringAfter("://", missingDelimiterValue = "")
+        ?.trimStart('/')
+
+internal fun redGifsClipIdOfVideoUri(uri: String): String? =
+    redGifsPathOfVideoUri(uri)
+        ?.removeSuffix(REDGIFS_SD_SUFFIX)
         ?.trim('/')
         ?.takeIf(::isRedGifsClipId)
+
+internal fun redGifsQualityOfVideoUri(uri: String): RedGifsQuality =
+    if (redGifsPathOfVideoUri(uri)?.endsWith(REDGIFS_SD_SUFFIX) == true) RedGifsQuality.SD else RedGifsQuality.HD
+
+/**
+ * ISSUE256_REDGIFS_CACHE_KEY_IS_THE_CLIP_V1: the video cache keys a source by
+ * post and source position, so a post stored before #256 (Reddit's silent copy
+ * at position 0) would hand its cached bytes to the RedGIFs source now there.
+ * A RedGIFs source is keyed by its clip and quality instead.
+ */
+internal fun redGifsCacheKeyOf(uri: String): String? =
+    redGifsClipIdOfVideoUri(uri)?.let { clipId ->
+        "subshell:redgifs:$clipId:${redGifsQualityOfVideoUri(uri).name.lowercase()}"
+    }
+
+/**
+ * ISSUE256_REDGIFS_HD_THEN_SD_V1 (owner 2026-10-25: HD always first, SD if HD
+ * fails, then Reddit's copy): a RedGIFs source becomes its HD and SD sources;
+ * any other source stays one.
+ */
+internal fun redGifsQualitySources(uri: String): List<String> =
+    redGifsClipIdOfVideoUri(uri)
+        ?.takeIf { redGifsQualityOfVideoUri(uri) == RedGifsQuality.HD }
+        ?.let { clipId -> listOf(uri, "${redGifsVideoUri(clipId)}$REDGIFS_SD_SUFFIX") }
+        ?: listOf(uri)
 
 /** Set from "Show NSFW posts"; off until the app has read the setting. */
 internal object RedGifsPlayback {
@@ -80,15 +121,15 @@ internal class RedGifsClipResolver(
     private var token: String? = null
     private var tokenFetchedAt: Long = 0L
 
-    /** The clip's MP4 (hd, else sd). A 401 renews the token once. */
+    /** The clip's MP4 (HD: hd, else sd; SD: sd only). A 401 renews the token once. */
     @WorkerThread
     @Throws(IOException::class)
-    fun resolve(clipId: String): String {
+    fun resolve(clipId: String, quality: RedGifsQuality = RedGifsQuality.HD): String {
         if (!allowed()) throw VideoProviderOffException()
         val first = token(stale = null)
-        lookUp(clipId, first)?.let { return it }
+        lookUp(clipId, first, quality)?.let { return it }
         val second = token(stale = first)
-        return lookUp(clipId, second) ?: throw VideoProviderHttpException(401)
+        return lookUp(clipId, second, quality) ?: throw VideoProviderHttpException(401)
     }
 
     private fun token(stale: String?): String = synchronized(lock) {
@@ -110,7 +151,7 @@ internal class RedGifsClipResolver(
     }
 
     /** The stream URL, or null when the token was refused (401). */
-    private fun lookUp(clipId: String, bearer: String): String? {
+    private fun lookUp(clipId: String, bearer: String, quality: RedGifsQuality): String? {
         if (!allowed()) throw VideoProviderOffException()
         return execute(request("$apiBase/v2/gifs/$clipId", bearer)) { response ->
             when {
@@ -119,7 +160,10 @@ internal class RedGifsClipResolver(
                 !response.isSuccessful -> throw VideoProviderHttpException(response.code)
                 else -> {
                     val urls = response.jsonBody()["gif"]?.jsonObject?.get("urls")?.jsonObject
-                    sequenceOf("hd", "sd")
+                    when (quality) {
+                        RedGifsQuality.HD -> sequenceOf("hd", "sd")
+                        RedGifsQuality.SD -> sequenceOf("sd")
+                    }
                         .mapNotNull { quality -> urls?.get(quality)?.jsonPrimitive?.contentOrNull }
                         .firstOrNull { url -> url.toHttpUrlOrNull()?.isHttps == true }
                         ?: throw VideoProviderResponseException("RedGIFs sent no stream")
@@ -135,8 +179,13 @@ internal class RedGifsClipResolver(
         .apply { bearer?.let { header("Authorization", "Bearer $it") } }
         .build()
 
+    // ISSUE256_REDGIFS_LOOKUP_WAITS_AT_MOST_8_SECONDS_V1: a slow RedGIFs makes
+    // the player move on to the next source instead of spinning.
     private fun <T> execute(request: Request, read: (Response) -> T): T =
-        callFactory.newCall(request).execute().use(read)
+        callFactory.newCall(request)
+            .apply { timeout().timeout(REDGIFS_LOOKUP_TIMEOUT_SECONDS, TimeUnit.SECONDS) }
+            .execute()
+            .use(read)
 
     private fun Response.jsonBody(): JsonObject {
         val source = body.source()
@@ -154,8 +203,9 @@ internal class RedGifsDataSpecResolver(
     private val resolver: RedGifsClipResolver,
 ) : ResolvingDataSource.Resolver {
     override fun resolveDataSpec(dataSpec: DataSpec): DataSpec {
-        val clipId = redGifsClipIdOfVideoUri(dataSpec.uri.toString()) ?: return dataSpec
-        return dataSpec.withUri(Uri.parse(resolver.resolve(clipId)))
+        val uri = dataSpec.uri.toString()
+        val clipId = redGifsClipIdOfVideoUri(uri) ?: return dataSpec
+        return dataSpec.withUri(Uri.parse(resolver.resolve(clipId, redGifsQualityOfVideoUri(uri))))
     }
 }
 

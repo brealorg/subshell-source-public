@@ -43,9 +43,9 @@ class AuthConnectViewModelCommentLoadingTest {
         val loader = GatedLoader()
         val viewModel = viewModel(loader)
 
-        viewModel.loadRedditComments(account, post, sort)
+        viewModel.reading().loadRedditComments(account, post, sort)
         idle()
-        var state = viewModel.redditCommentsUiState.value
+        var state = viewModel.reading().redditCommentsUiState.value
         assertEquals(listOf("c1"), state.comments.map { it.id })
         assertTrue(state.fullDiscussionLoaded)
         assertTrue(state.fullDiscussionLoading)
@@ -53,31 +53,31 @@ class AuthConnectViewModelCommentLoadingTest {
         // While the canonical discussion is still synchronising, "load more"
         // is refused and the discussion job is untouched. OCB581A: the caller
         // learns it was refused.
-        assertFalse(viewModel.loadMoreRedditComments(account, post, sort, "more-1"))
+        assertFalse(viewModel.reading().loadMoreRedditComments(account, post, sort, "more-1"))
         idle()
-        assertNull(viewModel.redditCommentsUiState.value.loadingMoreNodeId)
+        assertNull(viewModel.reading().redditCommentsUiState.value.loadingMoreNodeId)
         assertEquals(0, loader.moreCalls)
 
         loader.syncGate.complete(loaded("c1", "c2"))
         idle()
-        state = viewModel.redditCommentsUiState.value
+        state = viewModel.reading().redditCommentsUiState.value
         assertFalse(state.fullDiscussionLoading)
         assertFalse(state.loading)
         assertEquals(listOf("c1", "c2"), state.comments.map { it.id })
 
         // Now a more-load runs on its own job; a second one is refused while
         // it is in flight.
-        assertTrue(viewModel.loadMoreRedditComments(account, post, sort, "more-1"))
+        assertTrue(viewModel.reading().loadMoreRedditComments(account, post, sort, "more-1"))
         idle()
-        assertEquals("more-1", viewModel.redditCommentsUiState.value.loadingMoreNodeId)
-        assertFalse(viewModel.loadMoreRedditComments(account, post, sort, "more-2"))
+        assertEquals("more-1", viewModel.reading().redditCommentsUiState.value.loadingMoreNodeId)
+        assertFalse(viewModel.reading().loadMoreRedditComments(account, post, sort, "more-2"))
         idle()
         assertEquals(1, loader.moreCalls)
         assertEquals(listOf("c1", "c2"), loader.lastMoreCurrentComments.map { it.id })
 
         loader.moreGate.complete(loaded("c1", "c2", "c3"))
         idle()
-        state = viewModel.redditCommentsUiState.value
+        state = viewModel.reading().redditCommentsUiState.value
         assertNull(state.loadingMoreNodeId)
         assertEquals(listOf("c1", "c2", "c3"), state.comments.map { it.id })
     }
@@ -86,23 +86,23 @@ class AuthConnectViewModelCommentLoadingTest {
     fun aNewDiscussionLoadCancelsAPendingMoreLoad() {
         val loader = GatedLoader()
         val viewModel = viewModel(loader)
-        viewModel.loadRedditComments(account, post, sort)
+        viewModel.reading().loadRedditComments(account, post, sort)
         idle()
         loader.syncGate.complete(loaded("c1"))
         idle()
 
-        viewModel.loadMoreRedditComments(account, post, sort, "more-1")
+        viewModel.reading().loadMoreRedditComments(account, post, sort, "more-1")
         idle()
-        assertEquals("more-1", viewModel.redditCommentsUiState.value.loadingMoreNodeId)
+        assertEquals("more-1", viewModel.reading().redditCommentsUiState.value.loadingMoreNodeId)
 
         loader.syncGate = CompletableDeferred()
-        viewModel.loadRedditComments(account, post, RedditCommentSort.NEW)
+        viewModel.reading().loadRedditComments(account, post, RedditCommentSort.NEW)
         idle()
         loader.moreGate.complete(loaded("stale"))
         idle()
         loader.syncGate.complete(loaded("n1"))
         idle()
-        val state = viewModel.redditCommentsUiState.value
+        val state = viewModel.reading().redditCommentsUiState.value
         assertEquals(RedditCommentSort.NEW, state.sort)
         assertEquals(listOf("n1"), state.comments.map { it.id })
         assertNull(state.loadingMoreNodeId)
@@ -112,25 +112,25 @@ class AuthConnectViewModelCommentLoadingTest {
     fun focusedRefreshHandsContinuityToTheLoaderWithTheCurrentComments() {
         val loader = GatedLoader()
         val viewModel = viewModel(loader)
-        viewModel.loadRedditComments(account, post, sort)
+        viewModel.reading().loadRedditComments(account, post, sort)
         idle()
         loader.syncGate.complete(loaded("c1", "c2"))
         idle()
 
-        viewModel.refreshRedditCommentsPreservingFocusedTarget(account, post, sort, " c2 ")
+        viewModel.reading().refreshRedditCommentsPreservingFocusedTarget(account, post, sort, " c2 ")
         idle()
-        assertTrue(viewModel.redditCommentsUiState.value.fullDiscussionLoading)
+        assertTrue(viewModel.reading().redditCommentsUiState.value.fullDiscussionLoading)
         assertEquals("c2", loader.lastFocusedCommentId)
         assertEquals(listOf("c1", "c2"), loader.lastContinuityCurrentComments.map { it.id })
 
         loader.continuityGate.complete(loaded("c2", "c9"))
         idle()
-        val state = viewModel.redditCommentsUiState.value
+        val state = viewModel.reading().redditCommentsUiState.value
         assertFalse(state.fullDiscussionLoading)
         assertEquals(listOf("c2", "c9"), state.comments.map { it.id })
 
         // A blank target is ignored outright.
-        viewModel.refreshRedditCommentsPreservingFocusedTarget(account, post, sort, "  ")
+        viewModel.reading().refreshRedditCommentsPreservingFocusedTarget(account, post, sort, "  ")
         idle()
         assertEquals(1, loader.continuityCalls)
     }

@@ -6,6 +6,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.material3.SheetValue
 import androidx.compose.ui.text.style.TextDecoration
 import app.subshell.prototype.media.isRemoteMediaGone
+import app.subshell.prototype.media.redGifsCacheKeyOf
+import app.subshell.prototype.media.redGifsQualitySources
 import app.subshell.prototype.media.remoteMediaDiagnosticScope
 import app.subshell.prototype.ui.mediaDownloadFolder
 import app.subshell.prototype.ui.downloadGalleryItems
@@ -2378,6 +2380,7 @@ internal fun remoteVideoMediaSource(uri: String): VideoMediaSource {
         uri = uri,
         kind = kind,
         mimeType = mimeType,
+        cacheKey = redGifsCacheKeyOf(uri),
     )
 }
 
@@ -2393,6 +2396,9 @@ internal fun remoteVideoMediaSources(post: Post): List<VideoMediaSource> =
                 ?.takeIf(String::isNotEmpty)
         }
         .distinct()
+        // ISSUE256_REDGIFS_HD_THEN_SD_V1: a RedGIFs clip is tried in HD, then SD,
+        // before Reddit's copies.
+        .flatMap(::redGifsQualitySources)
         .map(::remoteVideoMediaSource)
         .toList()
 

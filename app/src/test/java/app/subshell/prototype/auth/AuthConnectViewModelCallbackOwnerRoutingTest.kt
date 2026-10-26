@@ -54,6 +54,9 @@ import app.subshell.prototype.data.auth.EncryptedAuthSessionStore
 import app.subshell.prototype.data.auth.OAuthProvider
 import app.subshell.prototype.data.auth.PendingOAuthAuthorization
 import app.subshell.prototype.data.auth.StoredOAuthSession
+import app.subshell.prototype.data.auth.reddit.AuthenticatedComposerPolicyLoader
+import app.subshell.prototype.data.auth.reddit.AuthenticatedComposerPolicyResult
+import app.subshell.prototype.ui.ComposerCommunityPolicy
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.junit.Assert.assertEquals
@@ -191,41 +194,68 @@ class AuthConnectViewModelCallbackOwnerRoutingTest {
                 idle()
                 when (armed) {
                     "invite" -> {
-                        viewModel.openModeratorInvite(account, "subshell")
-                        viewModel.inviteModerator(
+                        moderation.openModeratorInvite(account, "subshell")
+                        moderation.inviteModerator(
                             RedditModeratorInviteRequest(account, "subshell", "target_user", permissions = setOf(RedditModeratorPermission.POSTS)),
                         )
                     }
                     "permission" -> {
-                        viewModel.openModeratorPermissionUpdate(account, "subshell", "target_user")
-                        viewModel.updateModeratorPermissions(
+                        moderation.openModeratorPermissionUpdate(account, "subshell", "target_user")
+                        moderation.updateModeratorPermissions(
                             RedditModeratorPermissionUpdateRequest(account, "subshell", "target_user", permissions = setOf(RedditModeratorPermission.POSTS)),
                         )
                     }
                     "removal" -> {
-                        viewModel.openModeratorRemoval(account, "subshell", "target_user")
-                        viewModel.removeModerator(RedditModeratorRemovalRequest(account, "subshell", "target_user"))
+                        moderation.openModeratorRemoval(account, "subshell", "target_user")
+                        moderation.removeModerator(RedditModeratorRemovalRequest(account, "subshell", "target_user"))
                     }
                 }
                 idle()
-                assertEquals("$label armed", listOf(armed), teamAuthorizationRequired(viewModel))
+                assertEquals("$label armed", listOf(armed), teamAuthorizationRequired(moderation))
                 log.clear()
                 if (handle) viewModel.handleCallbackResultToken("token") else viewModel.resumeStoredCallbackIfPresent()
                 idle()
                 assertTrue("$label reached the connect flow: $log", log.none { it.startsWith("connectFlow.") })
                 assertEquals("$label completions", 1, log.count { it == "moderatorTeam.complete" })
-                assertEquals("$label ready", listOf(armed), teamAuthorizationReady(viewModel))
+                assertEquals("$label ready", listOf(armed), teamAuthorizationReady(moderation))
             }
         }
     }
 
-    private fun teamAuthorizationRequired(viewModel: AuthConnectViewModel) = listOfNotNull(
+    // AUTHSPLIT03: the composer policy lives in PostComposerViewModel; a
+    // comment authorization still reloads a policy that waited for it.
+    @Test
+    fun aCommentAuthorizationReloadsTheComposerPolicyThatWaitedForIt() {
+        val loads = mutableListOf<String>()
+        store.clearAll()
+        store.savePendingAuthorization(pending(AuthCapabilityAuthorizationOwner.COMMENT_WRITE.wireKey))
+        val viewModel = viewModel(mutableListOf(), RecordingConnectFlow(mutableListOf()), tweak = { runtime ->
+            armedRuntime(runtime).copy(
+                composerPolicyLoader = AuthenticatedComposerPolicyLoader { _, community ->
+                    loads += community
+                    AuthenticatedComposerPolicyResult.Loaded(
+                        ComposerCommunityPolicy(community = community, flairAuthorizationRequired = true),
+                    )
+                },
+            )
+        })
+        idle()
+        viewModel.postComposer().loadComposerPolicy(account, "subshell")
+        idle()
+
+        viewModel.handleCallbackResultToken("token")
+        idle()
+
+        assertEquals(listOf("subshell", "subshell"), loads)
+    }
+
+    private fun teamAuthorizationRequired(viewModel: ModerationViewModel) = listOfNotNull(
         "invite".takeIf { viewModel.moderatorInviteUiState.value.authorizationRequired },
         "permission".takeIf { viewModel.moderatorPermissionUpdateUiState.value.authorizationRequired },
         "removal".takeIf { viewModel.moderatorRemovalUiState.value.authorizationRequired },
     )
 
-    private fun teamAuthorizationReady(viewModel: AuthConnectViewModel) = listOfNotNull(
+    private fun teamAuthorizationReady(viewModel: ModerationViewModel) = listOfNotNull(
         "invite".takeIf { viewModel.moderatorInviteUiState.value.authorizationReady },
         "permission".takeIf { viewModel.moderatorPermissionUpdateUiState.value.authorizationReady },
         "removal".takeIf { viewModel.moderatorRemovalUiState.value.authorizationReady },
@@ -284,16 +314,16 @@ class AuthConnectViewModelCallbackOwnerRoutingTest {
     private fun arm(viewModel: AuthConnectViewModel, arm: String?) = runBlocking<Unit> {
         when (arm) {
             "commentDelete" -> {
-                viewModel.deleteComment(CommentDeleteRequest(account, "t3_post", "t1_comment", "tester", RedditCommentSort.BEST))
-                idle(); viewModel.beginCommentDeleteAuthorization()
+                viewModel.reading().deleteComment(CommentDeleteRequest(account, "t3_post", "t1_comment", "tester", RedditCommentSort.BEST))
+                idle(); viewModel.reading().beginCommentDeleteAuthorization()
             }
             "postEdit" -> {
-                viewModel.editPost(PostEditRequest(account, "t3_post", "tester", "text"))
-                idle(); viewModel.beginPostEditAuthorization()
+                viewModel.postComposer().editPost(PostEditRequest(account, "t3_post", "tester", "text"))
+                idle(); viewModel.postComposer().beginPostEditAuthorization()
             }
             "postDelete" -> {
-                viewModel.deletePost(PostDeleteRequest(account, "t3_post", "tester"))
-                idle(); viewModel.beginPostDeleteAuthorization()
+                viewModel.postComposer().deletePost(PostDeleteRequest(account, "t3_post", "tester"))
+                idle(); viewModel.postComposer().beginPostDeleteAuthorization()
             }
         }
         idle()
@@ -374,8 +404,15 @@ class AuthConnectViewModelCallbackOwnerRoutingTest {
                 communityWikiReadAuthorizer = RecordingAuthorizer("communityWiki", log),
                 profileHistoryAuthorizer = RecordingAuthorizer("profileHistory", log),
             ).let(tweak),
-        )
+        ).also {
+            // AUTHSPLIT01: as MainActivity does, the area ViewModels are made
+            // with it and register their owners' routes.
+            moderation = ModerationViewModel(it.sharedRuntime)
+            it.withAreaViewModels()
+        }
     }
+
+    private lateinit var moderation: ModerationViewModel
 
     private fun idle() = repeat(3) { shadowOf(Looper.getMainLooper()).idle() }
 

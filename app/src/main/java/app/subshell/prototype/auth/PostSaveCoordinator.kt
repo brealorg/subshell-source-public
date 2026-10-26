@@ -27,6 +27,9 @@ internal class PostSaveCoordinator(
     private val writer: AuthenticatedPostSaveWriter?,
     private val clientMode: OAuthClientMode?,
     private val activeAccountStableId: () -> String?,
+    // COMMENTSSOT01_SETTLED_COMMENT_ACTIONS_REACH_THE_THREAD_V1 (#244): told of
+    // every save Reddit acknowledged, before the state shows it.
+    private val onSaved: (PostSaveRequest) -> Unit = {},
 ) {
     private val mutationMutex = Mutex()
     private val mutableUiState = MutableStateFlow(PostSaveUiState())
@@ -90,6 +93,7 @@ internal class PostSaveCoordinator(
             when (result) {
                 is AuthenticatedPostSaveResult.Updated -> {
                     pendingRequest = null
+                    onSaved(result.request)
                     val nextRevision = mutableUiState.value.completionRevision + 1L
                     mutableUiState.value = PostSaveUiState(
                         phase = PostSavePhase.SUCCEEDED,

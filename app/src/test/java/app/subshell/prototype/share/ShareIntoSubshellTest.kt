@@ -24,6 +24,10 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
 class ShareIntoSubshellTest {
+    @org.junit.Before
+    @org.junit.After
+    fun forgetFileProviderRoots() = app.subshell.prototype.harness.forgetFileProviderRoots()
+
     private val context = ApplicationProvider.getApplicationContext<Application>()
 
     /** Another app's provider: a PNG and a HEIC it lends out. */

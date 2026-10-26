@@ -66,6 +66,7 @@ import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.error.toSafeTechnicalDetail
 import app.subshell.prototype.model.CommunityModerator
 import app.subshell.prototype.model.RedditPeopleSearchItem
+import app.subshell.prototype.ui.app.PredictiveBackPage
 import app.subshell.prototype.ui.symbols.Symbols
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -165,27 +166,15 @@ fun ModeratorTeamContent(
     val anyEditorBusy = inviteBusy || permissionUpdateBusy || removalBusy
     SideEffect { workspaceBusy?.busy = anyEditorBusy }
     DisposableEffect(workspaceBusy) { onDispose { workspaceBusy?.busy = false } }
-    BackHandler(enabled = showInviteEditor) {
-        if (!inviteBusy) {
-            showInviteEditor = false
-            onDismissInvite()
-        }
-    }
+    // ISSUE249_IN_SCREEN_PAGES_FOLLOW_THE_BACK_GESTURE_V1: an editor follows
+    // the back gesture (PredictiveBackPage below); while it writes, Back is
+    // swallowed here without a preview.
+    BackHandler(enabled = showInviteEditor && inviteBusy) {}
     // LOWUI8_HIDDEN_EDITOR_DOES_NOT_TAKE_BACK_V1 (OCB-305): an editor whose
     // moderator is not in the current list is not shown, so its Back handler
     // stands down too; Back then leaves Moderators as the screen suggests.
-    BackHandler(enabled = permissionEditorUsername != null && permissionTarget != null) {
-        if (!permissionUpdateBusy) {
-            permissionEditorUsername = null
-            onDismissPermissionUpdate()
-        }
-    }
-    BackHandler(enabled = removalEditorUsername != null && removalTarget != null) {
-        if (!removalBusy) {
-            removalEditorUsername = null
-            onDismissRemoval()
-        }
-    }
+    BackHandler(enabled = permissionEditorUsername != null && permissionTarget != null && permissionUpdateBusy) {}
+    BackHandler(enabled = removalEditorUsername != null && removalTarget != null && removalBusy) {}
     LaunchedEffect(inviteState.completionRevision, invitedUsername) {
         if (inviteMatches && invitedUsername != null && inviteState.completionRevision > 0L) {
             showInviteEditor = false
@@ -224,52 +213,76 @@ fun ModeratorTeamContent(
     }
 
     if (showInviteEditor) {
-        ModeratorInviteEditor(
-            accountStableId = accountStableId,
-            communityName = communityName,
-            activeUsername = activeUsername,
-            activeModerators = projection.moderators,
-            state = inviteState,
-            onInvite = onInvite,
-            onAuthorize = onAuthorizeInvite,
+        PredictiveBackPage(
+            enabled = !inviteBusy,
             onBack = {
                 showInviteEditor = false
                 onDismissInvite()
             },
-        )
+        ) {
+            ModeratorInviteEditor(
+                accountStableId = accountStableId,
+                communityName = communityName,
+                activeUsername = activeUsername,
+                activeModerators = projection.moderators,
+                state = inviteState,
+                onInvite = onInvite,
+                onAuthorize = onAuthorizeInvite,
+                onBack = {
+                    showInviteEditor = false
+                    onDismissInvite()
+                },
+            )
+        }
         return
     }
 
     if (permissionTarget != null) {
-        ModeratorPermissionEditor(
-            accountStableId = accountStableId,
-            communityName = communityName,
-            target = permissionTarget,
-            state = permissionUpdateState,
-            onUpdate = onUpdatePermissions,
-            onAuthorize = onAuthorizePermissionUpdate,
+        PredictiveBackPage(
+            enabled = !permissionUpdateBusy,
             onBack = {
                 permissionEditorUsername = null
                 onDismissPermissionUpdate()
             },
-        )
+        ) {
+            ModeratorPermissionEditor(
+                accountStableId = accountStableId,
+                communityName = communityName,
+                target = permissionTarget,
+                state = permissionUpdateState,
+                onUpdate = onUpdatePermissions,
+                onAuthorize = onAuthorizePermissionUpdate,
+                onBack = {
+                    permissionEditorUsername = null
+                    onDismissPermissionUpdate()
+                },
+            )
+        }
         return
     }
 
     if (removalTarget != null) {
-        ModeratorRemovalEditor(
-            accountStableId = accountStableId,
-            communityName = communityName,
-            target = removalTarget,
-            avatarUri = avatarImageUri(removalTarget.username),
-            state = removalState,
-            onRemove = onRemoveModerator,
-            onAuthorize = onAuthorizeRemoval,
+        PredictiveBackPage(
+            enabled = !removalBusy,
             onBack = {
                 removalEditorUsername = null
                 onDismissRemoval()
             },
-        )
+        ) {
+            ModeratorRemovalEditor(
+                accountStableId = accountStableId,
+                communityName = communityName,
+                target = removalTarget,
+                avatarUri = avatarImageUri(removalTarget.username),
+                state = removalState,
+                onRemove = onRemoveModerator,
+                onAuthorize = onAuthorizeRemoval,
+                onBack = {
+                    removalEditorUsername = null
+                    onDismissRemoval()
+                },
+            )
+        }
         return
     }
 

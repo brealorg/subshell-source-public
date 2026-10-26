@@ -3,6 +3,7 @@ package app.subshell.prototype.data.auth
 import android.net.Uri
 import androidx.core.net.toUri
 import app.subshell.prototype.data.network.NetworkBearerTokenProvider
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -198,6 +199,7 @@ internal class OAuthSessionManager(
         when (val exchange = tokenClient.exchangeAuthorizationCode(code)) {
             is OAuthEndpointResult.Success -> {
                 if (!exchange.value.grants(configuration.scopes)) {
+                    revokeQuietly(exchange.value)
                     return@withLock AuthSessionResult.ClientConfigurationMismatch
                 }
                 val session = StoredOAuthSession(
@@ -211,6 +213,7 @@ internal class OAuthSessionManager(
                     cachedSession = session
                     AuthSessionResult.Authenticated(session)
                 } catch (_: Exception) {
+                    revokeQuietly(exchange.value)
                     AuthSessionResult.StorageFailure
                 }
             }
@@ -320,6 +323,33 @@ internal class OAuthSessionManager(
             localSessionCleared = runCatching { storedSession() == null }.getOrDefault(false),
             remoteRevocationSucceeded = remoteResult == null || remoteResult is OAuthEndpointResult.Success,
         )
+    }
+
+    /**
+     * SECAUDIT31_FAILED_REGISTRATION_REVOKES_ITS_GRANT_V1 (security audit
+     * 2026-10-22, #31): a sign-in that exchanged its code but is not kept (its
+     * identity cannot be read, its name is taken, it is another account than
+     * the one being re-authorized) gives its grant back at Reddit, through the
+     * client that received it. Deleting the local copy alone left a live
+     * refresh token at Reddit. Best effort: a failed revoke changes nothing
+     * else.
+     */
+    internal suspend fun revokeAbandonedGrant(tokens: OAuthTokenSet) {
+        revokeQuietly(tokens)
+    }
+
+    private suspend fun revokeQuietly(tokens: OAuthTokenSet) {
+        val refresh = tokens.refreshToken
+        try {
+            tokenClient.revoke(
+                token = refresh ?: tokens.accessToken,
+                tokenTypeHint = if (refresh != null) "refresh_token" else "access_token",
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            // The grant stays at Reddit until the reader removes it there.
+        }
     }
 
     internal fun forAccountAuthorization(

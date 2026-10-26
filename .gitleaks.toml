@@ -28,3 +28,16 @@ regexes = ['''printf 'PASSWORD_FILES=TMPFS_OR_PRIVATE_TEMP_[0-9]+\\n'''']
 [[allowlists]]
 description = "Instrumented-test HTTPS server keystore"
 paths = ['''^app/src/androidTest/assets/subshell_media04a1_test_server\.p12$''']
+
+# SECRETSCAN01: names and digests in source that gitleaks' generic-api-key
+# rule took for keys (0.85 Stage C): the SharedPreferences key name of the
+# notification launch key, and this file's own sha256 pinned in Stage C.
+[[allowlists]]
+description = "Notification launch key preference name"
+regexTarget = "line"
+regexes = ['''private const val KEY = "launch_key_v1"''']
+
+[[allowlists]]
+description = "Stage C's pin of this file"
+regexTarget = "line"
+regexes = ['''SECRET_SCAN_CONFIG_SHA256 = "[0-9a-f]{64}"''']

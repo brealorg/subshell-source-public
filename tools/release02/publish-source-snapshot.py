@@ -21,6 +21,7 @@ against local repositories without network.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import os
 from pathlib import Path
@@ -34,6 +35,12 @@ STATE_VERSION = 1
 SNAPSHOT_AUTHOR_NAME = "brealorg"
 SNAPSHOT_AUTHOR_EMAIL = "6815997+brealorg@users.noreply.github.com"
 SECRET_SCAN_CONFIG = ".gitleaks.toml"
+# SECAUDIT18_SCAN_CONFIG_IS_PINNED_V1 (security audit 2026-10-22, #18): the
+# scan reads its rules from the tree it scans, so a commit that widened an
+# allowlist would let its own secret through. The config is pinned here: a
+# change to .gitleaks.toml must update this sha256 in the same commit (the
+# selftest goes red otherwise), which makes it a visible release-tooling change.
+SECRET_SCAN_CONFIG_SHA256 = "1474caa2c304714ef651065a9108ca84d718a522d02b7b21f3864211e8ab6d1e"
 
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -178,6 +185,8 @@ def run_secret_scan(gitleaks: Path, clone: Path, output: Path) -> None:
     config = clone / SECRET_SCAN_CONFIG
     if not config.is_file():
         fail("SECRET_SCAN_CONFIG_MISSING")
+    if hashlib.sha256(config.read_bytes()).hexdigest() != SECRET_SCAN_CONFIG_SHA256:
+        fail("SECRET_SCAN_CONFIG_CHANGED")
     report = output / "gitleaks-report.json"
     result = run(
         [

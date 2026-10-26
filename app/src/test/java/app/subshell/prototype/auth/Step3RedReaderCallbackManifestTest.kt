@@ -12,9 +12,10 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * STEP3 (auth06b): the browser's RedReader callback reaches Subshell only
- * through its exported alias, which hands it to the callback activity; a
- * `redreader://` link to any other host is not offered to Subshell at all.
+ * STEP3 (auth06b), successor SECAUDIT07 (security audit #7): the RedReader
+ * callback was taken by an exported alias, so any app or web link could
+ * deliver one and end a sign-in in progress. The sign-in window takes the
+ * redirect itself, so no `redreader://` link is offered to Subshell at all.
  * (That the callback activity itself is not exported in the main manifest
  * is a boundary guard: the debug manifest exports it for the test scheme.)
  */
@@ -31,20 +32,13 @@ class Step3RedReaderCallbackManifestTest {
     ).map { it.activityInfo }
 
     @Test
-    fun theRedReaderCallbackIsTakenOnlyByItsAliasForTheCallbackActivity() {
-        val callback = handlers("redreader://rr_oauth_redir?state=s&code=c")
-
-        assertEquals(listOf(ALIAS), callback.map { it.name })
-        assertEquals(AuthCallbackActivity::class.java.name, callback.single().targetActivity)
+    fun theRedReaderCallbackIsNotOfferedToSubshell() {
+        assertEquals(emptyList<String>(), handlers("redreader://rr_oauth_redir?state=s&code=c").map { it.name })
     }
 
     @Test
     fun aRedReaderLinkToAnotherHostIsNotOfferedToSubshell() {
         assertEquals(emptyList<String>(), handlers("redreader://somewhere-else?state=s&code=c").map { it.name })
         assertEquals(emptyList<String>(), handlers("redreader://rr_oauth_redir.evil.example/").map { it.name })
-    }
-
-    private companion object {
-        const val ALIAS = "app.subshell.prototype.auth.AuthRedReaderCompatibilityCallback"
     }
 }

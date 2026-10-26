@@ -4,14 +4,19 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.view.View
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
 import androidx.core.net.toUri
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import app.subshell.prototype.MainActivity
@@ -47,7 +52,7 @@ class RedReaderCompatibilityLoginActivity : ComponentActivity() {
             )
 
         webView = createLoginWebView()
-        setContentView(webView)
+        setContentView(loginWindowContent(webView))
         onBackPressedDispatcher.addCallback(this) {
             if (webView.canGoBack()) {
                 webView.goBack()
@@ -114,6 +119,30 @@ class RedReaderCompatibilityLoginActivity : ComponentActivity() {
     }
 
     @SuppressLint("SetJavaScriptEnabled")
+    // ISSUE242_LOGIN_WINDOW_KEEPS_CLEAR_OF_THE_SYSTEM_BARS_V1 (#242): Android
+    // 15+ draws every window edge to edge, so Reddit's page sat under the status
+    // bar and its buttons under the gesture bar, and the keyboard covered the
+    // sign-in fields (no window resize any more). The page is padded by the
+    // system bars, the display cutout and the keyboard.
+    private fun loginWindowContent(page: WebView): View = FrameLayout(this).apply {
+        addView(
+            page,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            ),
+        )
+        ViewCompat.setOnApplyWindowInsetsListener(this) { view, insets ->
+            val clear = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or
+                    WindowInsetsCompat.Type.displayCutout() or
+                    WindowInsetsCompat.Type.ime(),
+            )
+            view.setPadding(clear.left, clear.top, clear.right, clear.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
+    }
+
     private fun createLoginWebView(): WebView = WebView(this).apply {
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
@@ -122,6 +151,7 @@ class RedReaderCompatibilityLoginActivity : ComponentActivity() {
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
         settings.javaScriptCanOpenWindowsAutomatically = false
         settings.setSupportMultipleWindows(false)
+        allowDarkPage(settings)
         webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(
                 view: WebView,
@@ -209,7 +239,7 @@ class RedReaderCompatibilityLoginActivity : ComponentActivity() {
         startActivity(
             Intent(this, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                .putExtra(AUTH_CALLBACK_RESULT_EXTRA, resultToken),
+                .putAuthCallbackResult(resultToken),
         )
         finish()
     }
@@ -271,8 +301,9 @@ internal enum class LoginNavigation {
 
 /**
  * Only the callback (the authorization's redirect scheme and host, RedReader's
- * by default) is the sign-in's answer; Reddit's front page ends or resumes the login; other HTTPS pages
- * load; anything that is not HTTPS is blocked.
+ * by default) is the sign-in's answer; Reddit's front page ends or resumes the
+ * login; HTTPS pages of Reddit and its sign-in providers load; anything else
+ * is blocked.
  */
 internal fun loginNavigationFor(
     uri: Uri,
@@ -281,9 +312,29 @@ internal fun loginNavigationFor(
     uri.scheme.equals(callbackUri.scheme, ignoreCase = true) &&
         uri.host.equals(callbackUri.host, ignoreCase = true) -> LoginNavigation.CALLBACK
     isRedditFrontPage(uri) -> LoginNavigation.LEAVE_FRONT_PAGE
-    uri.scheme == "https" -> LoginNavigation.LOAD
+    uri.scheme == "https" && isLoginWindowHost(uri.host) -> LoginNavigation.LOAD
     else -> LoginNavigation.BLOCK
 }
+
+/**
+ * SECAUDIT11_LOGIN_WINDOW_LOADS_ONLY_REDDIT_AND_ITS_PROVIDERS_V1 (security
+ * audit #11, owner): the login window has no address bar, so a page off Reddit
+ * could not be told apart from Reddit's own while the reader types a password.
+ * Its main frame loads only Reddit and the providers Reddit's login offers:
+ * Google (google.com, its country domains, where its sign-in sets cookies, and
+ * accounts.youtube.com) and Apple.
+ */
+internal fun isLoginWindowHost(host: String?): Boolean {
+    val name = host?.trimEnd('.')?.lowercase() ?: return false
+    fun within(domain: String) = name == domain || name.endsWith(".$domain")
+    return within("reddit.com") ||
+        within("apple.com") ||
+        name == "accounts.youtube.com" ||
+        GOOGLE_HOST.matches(name)
+}
+
+// google.com, google.no, google.co.uk, google.com.au and their subdomains.
+private val GOOGLE_HOST = Regex("""^([a-z0-9-]+\.)*google\.(com|[a-z]{2}|co\.[a-z]{2}|com\.[a-z]{2})$""")
 
 private val REDDIT_FRONT_PAGE_HOSTS = setOf(
     "reddit.com",
@@ -332,3 +383,15 @@ internal fun hasRedditSessionCookie(cookieHeader: String?): Boolean =
     cookieHeader.orEmpty()
         .split(';')
         .any { cookie -> cookie.substringBefore('=').trim() == "reddit_session" }
+
+// ISSUE242_LOGIN_PAGE_FOLLOWS_THE_DARK_THEME_V1 (#242): on Android 13+ the page
+// sees the dark theme (prefers-color-scheme) and is darkened if it has none of
+// its own; Android 10-12 need force dark for the same.
+private fun allowDarkPage(settings: WebSettings) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        settings.isAlgorithmicDarkeningAllowed = true
+    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        @Suppress("DEPRECATION")
+        settings.forceDark = WebSettings.FORCE_DARK_AUTO
+    }
+}

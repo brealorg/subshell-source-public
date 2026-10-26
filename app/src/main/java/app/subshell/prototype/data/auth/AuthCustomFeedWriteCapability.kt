@@ -1,6 +1,7 @@
 package app.subshell.prototype.data.auth
 
 import app.subshell.prototype.data.network.NetworkBearerTokenProvider
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -160,8 +161,13 @@ internal class ConfiguredAuthCustomFeedWriteCapability(
         ) {
             return AuthSessionResult.ReauthenticationRequired
         }
+        // STRICTMODE02_SESSION_DECRYPT_OFF_MAIN_V1 (#243): the custom feed
+        // coordinator calls this on Main; the file read and the keystore
+        // decrypt run on IO, as authorizedSession's already did.
         val stored = try {
-            store.session(pinnedAccountId)
+            withContext(Dispatchers.IO) { store.session(pinnedAccountId) }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (_: Exception) {
             return AuthSessionResult.StorageFailure
         } ?: return AuthSessionResult.ReauthenticationRequired

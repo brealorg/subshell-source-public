@@ -52,10 +52,10 @@ class Step3PostSaveViewModelTest {
         )
         val request = PostSaveRequest(accountStableId = account.stableId, postFullname = "t3_abc123", saved = true)
 
-        viewModel.savePost(request)
+        viewModel.reading().savePost(request)
         shadowOf(Looper.getMainLooper()).idle()
 
         assertEquals(listOf(request), sent)
-        assertEquals(PostSavePhase.SUCCEEDED, viewModel.postSaveUiState.value.phase)
+        assertEquals(PostSavePhase.SUCCEEDED, viewModel.reading().postSaveUiState.value.phase)
     }
 }

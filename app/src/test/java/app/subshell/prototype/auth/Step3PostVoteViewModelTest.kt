@@ -58,11 +58,11 @@ class Step3PostVoteViewModelTest {
     fun aVoteReachesTheWriterOnceAndItsOutcomeIsReported() {
         val viewModel = viewModel(mutableListOf(AuthenticatedPostVoteResult.Voted(request)))
 
-        viewModel.votePost(request)
+        viewModel.reading().votePost(request)
         idle()
 
         assertEquals(listOf(request), sent)
-        assertEquals(PostVotePhase.SUCCEEDED, viewModel.postVoteUiState.value.phase)
+        assertEquals(PostVotePhase.SUCCEEDED, viewModel.reading().postVoteUiState.value.phase)
     }
 
     @Test
@@ -74,14 +74,14 @@ class Step3PostVoteViewModelTest {
             ),
         )
 
-        viewModel.votePost(request)
+        viewModel.reading().votePost(request)
         idle()
-        viewModel.retryPostVote()
+        viewModel.reading().retryPostVote()
         idle()
         assertEquals(2, sent.size)
-        assertEquals(PostVotePhase.FAILED, viewModel.postVoteUiState.value.phase)
+        assertEquals(PostVotePhase.FAILED, viewModel.reading().postVoteUiState.value.phase)
 
-        viewModel.retryPostVote()
+        viewModel.reading().retryPostVote()
         idle()
         assertEquals(2, sent.size)
     }

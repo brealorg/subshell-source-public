@@ -240,6 +240,8 @@ fun ConversationScreen(
     accountStableId: String? = null,
     replyText: String = "",
     onReplyTextChange: (String) -> Unit = {},
+    replyMedia: ComposerMediaAttachment? = null,
+    onReplyMediaChange: (ComposerMediaAttachment?) -> Unit = {},
     replyParentFullname: String? = null,
     messageReplyState: MessageReplyUiState = MessageReplyUiState(),
     directChatLiveState: DirectChatLiveUiState = DirectChatLiveUiState(),
@@ -845,6 +847,8 @@ fun ConversationScreen(
                     replyTargetAvailable = !replyParentFullname.isNullOrBlank(),
                     state = scopedReplyState,
                     onTextChange = onReplyTextChange,
+                    initialMedia = replyMedia,
+                    onMediaChange = onReplyMediaChange,
                     onSend = { text, media ->
                         // OCB-199: the outgoing messages already here when the
                         // reply is sent; any other one is new.
@@ -928,6 +932,8 @@ private fun MessageConversationComposer(
     replyTargetAvailable: Boolean,
     state: MessageReplyUiState,
     onTextChange: (String) -> Unit,
+    initialMedia: ComposerMediaAttachment?,
+    onMediaChange: (ComposerMediaAttachment?) -> Unit,
     onSend: (String, ComposerMediaAttachment?) -> Unit,
     onReconnectInbox: () -> Unit,
     onAuthorizeMediaReply: () -> Unit,
@@ -942,7 +948,11 @@ private fun MessageConversationComposer(
     val mediaAllowed = conversationReplyMediaCapability(kind) ==
         ConversationReplyMediaCapability.IMAGE_AND_GIF
     val editor = rememberTextFieldState(initialText = text)
-    var media by remember(kind) { mutableStateOf<ComposerMediaAttachment?>(null) }
+    // RECREATE02_MESSAGE_ATTACHMENT_SURVIVES_RECREATION_V1 (#241): the field
+    // starts from the draft's attachment and reports every change back.
+    var media by remember(kind) { mutableStateOf(initialMedia) }
+    val latestOnMediaChange by rememberUpdatedState(onMediaChange)
+    LaunchedEffect(media) { latestOnMediaChange(media) }
     var pendingMediaReplacement by remember(kind) {
         mutableStateOf<ComposerMediaAttachment?>(null)
     }

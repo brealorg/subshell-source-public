@@ -381,19 +381,24 @@ internal class InboxBackgroundSyncWorker(
             }
             when (refreshed) {
                 is AuthenticatedRedditInboxResult.Loaded -> {
+                    // INBOXSSOT01_REFRESH_KEEPS_THE_OLDER_PAGES_V1: the stored
+                    // pages below the fresh one may be old (an unread row
+                    // appended weeks ago); only what Reddit just sent can be news.
+                    val freshIds = refreshed.snapshot.freshItemIds
+                    val freshItems = refreshed.snapshot.items.filter { item -> freshIds == null || item.id in freshIds }
                     // LOW_INBOX_WORKER_CLEARS_READ_NOTIFICATIONS_V1 (OCB-561):
                     // items read elsewhere leave the shade without the app open.
                     runCatching {
                         InboxNotificationCenter.reconcileInboxReadState(
                             context = applicationContext,
                             accountStableId = account,
-                            items = refreshed.snapshot.items,
+                            items = freshItems,
                             locallySeenIds = refreshed.snapshot.locallySeenIds,
                             readMutationItemIds = emptySet(),
                         )
                     }
                     val currentKeys = inboxBackgroundUnreadEventKeys(
-                        items = refreshed.snapshot.items,
+                        items = freshItems,
                         locallySeenIds = refreshed.snapshot.locallySeenIds,
                     )
                     val decision = runCatching {
@@ -422,7 +427,7 @@ internal class InboxBackgroundSyncWorker(
                             val posted = InboxNotificationCenter.postNewEvents(
                                 context = applicationContext,
                                 accountStableId = account,
-                                items = refreshed.snapshot.items,
+                                items = freshItems,
                                 locallySeenIds = refreshed.snapshot.locallySeenIds,
                                 newEventKeys = decision.newEventKeys,
                             )

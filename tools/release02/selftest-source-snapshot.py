@@ -16,6 +16,9 @@ import tempfile
 
 TOOL = Path(__file__).resolve().parent / "publish-source-snapshot.py"
 AUTHOR = "brealorg|6815997+brealorg@users.noreply.github.com"
+# SECAUDIT18: the test world scans with the repository's real config, so the
+# pinned sha256 is checked here exactly as in a release.
+SCAN_CONFIG = (Path(__file__).resolve().parents[2] / ".gitleaks.toml").read_text()
 
 
 def sh(*argv: str, cwd: Path | None = None) -> str:
@@ -44,7 +47,7 @@ class World:
         self.runs = 0
 
         sh("git", "init", "-q", "-b", "main", str(self.private))
-        self.write(".gitleaks.toml", "[extend]\nuseDefault = true\n")
+        self.write(".gitleaks.toml", SCAN_CONFIG)
         self.write(".gitignore", "__pycache__/\n")
         self.write("README.md", "subshell\n")
         self.write("app/Main.kt", "fun main() {}\n")
@@ -198,9 +201,17 @@ def refusal_cases(base: Path) -> None:
     git(w.private, "rm", "-q", ".gitleaks.toml")
     git(w.private, "commit", "-q", "-m", "no scan config")
     expect_stop("MISSING_SCAN_CONFIG_IS_REFUSED", w, w.publish(w.state()), "SECRET_SCAN_CONFIG_MISSING", refs)
-    w.write(".gitleaks.toml", "[extend]\nuseDefault = true\n")
+    w.write(".gitleaks.toml", SCAN_CONFIG)
     git(w.private, "add", "-A")
     git(w.private, "commit", "-q", "-m", "scan config back")
+
+    w.write(".gitleaks.toml", SCAN_CONFIG + '\n[[allowlists]]\npaths = [".*"]\n')
+    git(w.private, "add", "-A")
+    git(w.private, "commit", "-q", "-m", "widened scan config")
+    expect_stop("CHANGED_SCAN_CONFIG_IS_REFUSED", w, w.publish(w.state()), "SECRET_SCAN_CONFIG_CHANGED", refs)
+    w.write(".gitleaks.toml", SCAN_CONFIG)
+    git(w.private, "add", "-A")
+    git(w.private, "commit", "-q", "-m", "scan config as pinned")
 
     git(w.private, "push", "-q", str(w.public), "main:refs/heads/leak")
     leaked = w.public_refs()
@@ -215,9 +226,25 @@ def refusal_cases(base: Path) -> None:
     expect_stop("TAG_ON_ANOTHER_TREE_IS_REFUSED", w, w.publish(w.state()), "TAG_EXISTS_ON_ANOTHER_TREE", tagged)
 
 
+def pin_case() -> None:
+    import hashlib
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("release02e", TOOL)
+    assert spec and spec.loader
+    tool = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tool)
+    check(
+        "SCAN_CONFIG_PIN_MATCHES_THE_REPOSITORY",
+        hashlib.sha256(SCAN_CONFIG.encode()).hexdigest() == tool.SECRET_SCAN_CONFIG_SHA256,
+        "update SECRET_SCAN_CONFIG_SHA256 with .gitleaks.toml",
+    )
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory(prefix="releasetool02e-") as raw:
         base = Path(raw)
+        pin_case()
         good_case(base / "good")
         refusal_cases(base)
     if FAILURES:

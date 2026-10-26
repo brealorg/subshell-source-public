@@ -1,11 +1,13 @@
 package app.subshell.prototype.ui.app
 
+import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import app.subshell.prototype.data.account.AccountSessionDirectory
 import kotlinx.coroutines.CancellationException
 
@@ -19,13 +21,20 @@ import kotlinx.coroutines.CancellationException
  * app is now composed once the directory is read; until then only the window
  * background shows (a short moment, mostly under the system splash).
  * Restored instance state is still applied on that first composition.
+ * The startup preference files are read on IO before it too (StartupPreferences).
  */
 @Composable
 internal fun AccountDirectoryGate(
     directory: AccountSessionDirectory?,
+    // Tests replace the startup preference wait.
+    preferencesLoaded: () -> Boolean = { StartupPreferences.loaded },
+    awaitPreferences: (suspend (Context) -> Unit) = { context -> StartupPreferences.await(context) },
     content: @Composable () -> Unit,
 ) {
-    var ready by remember(directory) { mutableStateOf(directory == null || directory.isHydrated) }
+    val context = LocalContext.current
+    var ready by remember(directory) {
+        mutableStateOf((directory == null || directory.isHydrated) && preferencesLoaded())
+    }
     if (!ready) {
         LaunchedEffect(directory) {
             try {
@@ -35,6 +44,8 @@ internal fun AccountDirectoryGate(
             } catch (_: Exception) {
                 // An unreadable directory keeps its fallback; the app still opens.
             }
+            // STRICTMODE02_PREFERENCES_LOAD_BEFORE_THE_FIRST_FRAME_V1 (#243)
+            awaitPreferences(context)
             ready = true
         }
         return

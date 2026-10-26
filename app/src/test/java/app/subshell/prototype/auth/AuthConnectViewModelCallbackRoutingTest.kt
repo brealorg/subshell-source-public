@@ -74,7 +74,7 @@ class AuthConnectViewModelCallbackRoutingTest {
         idle()
         assertEquals(listOf("token-2"), connectFlow.handledTokens)
         assertEquals(0, inbox.cancelled)
-        assertFalse(viewModel.redditInboxUiState.value.authorizationRequired)
+        assertFalse(viewModel.inbox().redditInboxUiState.value.authorizationRequired)
 
         viewModel.resumeStoredCallbackIfPresent()
         idle()
@@ -106,7 +106,7 @@ class AuthConnectViewModelCallbackRoutingTest {
             authorizationOwnerResolver = AuthCapabilityAuthorizationOwnerResolver(store),
             inboxReadCapability = inbox,
         ),
-    )
+    ).withAreaViewModels() // AUTHSPLIT02/03: made with it, as MainActivity does
 
     private fun idle() = shadowOf(Looper.getMainLooper()).idle()
 

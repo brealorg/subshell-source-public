@@ -167,6 +167,7 @@ import app.subshell.prototype.ui.components.SegmentedChoiceRow
 import app.subshell.prototype.ui.components.InlineProgressIndicator
 import app.subshell.prototype.ui.components.ListCard
 import app.subshell.prototype.ui.components.AdaptiveFullScreenDialog
+import app.subshell.prototype.ui.app.PredictiveBackPage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -680,12 +681,11 @@ fun ExploreCommunitiesScreen(
         )
     }
 
-    BackHandler {
-        if (normalizedDraft.isNotEmpty() || discoveryState.searchQuery != null) {
-            clearDiscoverySearch()
-        } else {
-            onBack()
-        }
+    // ISSUE249_IN_SCREEN_PAGES_FOLLOW_THE_BACK_GESTURE_V1: Back clears a search
+    // first; with none, it is left to the route stack, whose predictive Back
+    // closes this route (an always-on handler here hid that preview).
+    BackHandler(enabled = normalizedDraft.isNotEmpty() || discoveryState.searchQuery != null) {
+        clearDiscoverySearch()
     }
 
     val routeTopBarScroll = rememberRouteTopBarScrollBehavior()
@@ -926,20 +926,19 @@ private fun JoinedCommunitiesContent(
         }
     }
 
-    BackHandler(enabled = hiddenSubscriptionsOpen) {
-        hiddenSubscriptionsOpen = false
-    }
-
     if (hiddenSubscriptionsOpen) {
-        HiddenSubscriptionsContent(
-            modifier = modifier,
-            state = state,
-            listState = hiddenListState,
-            liveState = liveState,
-            accountStableId = accountStableId,
-            contentPadding = contentPadding,
-            onLoadRedditSubscriptions = onLoadRedditSubscriptions,
-        )
+        // ISSUE249_IN_SCREEN_PAGES_FOLLOW_THE_BACK_GESTURE_V1
+        PredictiveBackPage(onBack = { hiddenSubscriptionsOpen = false }, modifier = modifier) {
+            HiddenSubscriptionsContent(
+                modifier = Modifier,
+                state = state,
+                listState = hiddenListState,
+                liveState = liveState,
+                accountStableId = accountStableId,
+                contentPadding = contentPadding,
+                onLoadRedditSubscriptions = onLoadRedditSubscriptions,
+            )
+        }
         return
     }
 
@@ -2338,29 +2337,28 @@ internal fun CustomFeedsContent(
         )
     }
 
-    BackHandler(enabled = selectedFeed != null) {
-        selectedFeedPath = null
-    }
-
     if (selectedFeed != null) {
-        CustomFeedBrowser(
-            modifier = modifier,
-            state = state,
-            accountStableId = accountStableId,
-            feed = selectedFeed,
-            postsState = customFeedPostsState,
-            contentPadding = contentPadding,
-            onBack = { selectedFeedPath = null },
-            onRefresh = {
-                onLoadCustomFeedPosts(accountStableId, selectedFeed.path, true)
-            },
-            onLoadInitial = {
-                onLoadCustomFeedPosts(accountStableId, selectedFeed.path, false)
-            },
-            onAppend = {
-                onAppendCustomFeedPosts(accountStableId, selectedFeed.path)
-            },
-        )
+        // ISSUE249_IN_SCREEN_PAGES_FOLLOW_THE_BACK_GESTURE_V1
+        PredictiveBackPage(onBack = { selectedFeedPath = null }, modifier = modifier) {
+            CustomFeedBrowser(
+                modifier = Modifier,
+                state = state,
+                accountStableId = accountStableId,
+                feed = selectedFeed,
+                postsState = customFeedPostsState,
+                contentPadding = contentPadding,
+                onBack = { selectedFeedPath = null },
+                onRefresh = {
+                    onLoadCustomFeedPosts(accountStableId, selectedFeed.path, true)
+                },
+                onLoadInitial = {
+                    onLoadCustomFeedPosts(accountStableId, selectedFeed.path, false)
+                },
+                onAppend = {
+                    onAppendCustomFeedPosts(accountStableId, selectedFeed.path)
+                },
+            )
+        }
         return
     }
 

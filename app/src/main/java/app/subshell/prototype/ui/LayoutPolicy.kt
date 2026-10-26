@@ -3,6 +3,7 @@ package app.subshell.prototype.ui
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.window.core.layout.WindowSizeClass
 import app.subshell.prototype.ui.screens.InboxModSection
 import app.subshell.prototype.ui.screens.InboxPrimaryTab
 import app.subshell.prototype.ui.symbols.Symbols
@@ -33,12 +34,12 @@ internal val navItems = listOf(
 private val CompactNavigationBarHeight = 64.dp
 private val LargeTextNavigationBarHeight = 88.dp
 private const val LargeTextNavigationBarFontScaleThreshold = 1.3f
-private const val ExpandedMainLayoutBreakpointDp = 840
-// M3224_NAVIGATION_RAIL_FROM_MEDIUM_WIDTH_V1 (#224, owner): Material's medium
-// width class starts at 600 dp; from there the rail replaces the bottom bar,
-// on every route. Two panes still start at 840 dp (expanded).
-private const val NavigationRailBreakpointDp = 600
-internal val ExpandedMainNavigationRailWidth = 80.dp
+// M3224_NAVIGATION_RAIL_FROM_MEDIUM_WIDTH_V1 (#224, owner): from Material's
+// medium width class the rail replaces the bottom bar, on every route. Two
+// panes start at the expanded class.
+// ISSUE247_LAYOUT_FOLLOWS_WINDOW_SIZE_CLASSES_V1 (#247): the classes are
+// Google's (currentWindowAdaptiveInfoV2().windowSizeClass, 600 / 840 dp) and
+// come from the window's own size, not hard-coded edges over screenWidthDp.
 // M3224_READING_WIDTH_V1 (#224, owner chose 640 dp): posts, comments, profiles,
 // feeds and settings never run wider than a comfortable reading line.
 internal val ReadingMaxWidth = 640.dp
@@ -69,11 +70,11 @@ internal fun navigationVisualLabel(
     }
 
 // A11Y01A2_EXPANDED_MAIN_BREAKPOINT_V1
-internal fun useExpandedMainLayoutForWidthDp(widthDp: Int): Boolean =
-    widthDp >= ExpandedMainLayoutBreakpointDp
+internal fun useExpandedMainLayout(windowSizeClass: WindowSizeClass): Boolean =
+    windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
 
-internal fun useNavigationRailForWidthDp(widthDp: Int): Boolean =
-    widthDp >= NavigationRailBreakpointDp
+internal fun useNavigationRail(windowSizeClass: WindowSizeClass): Boolean =
+    windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
 // M3224_NAVIGATION_RAIL_FROM_MEDIUM_WIDTH_V1: the rail names the destination
 // as the bottom bar does ("Communities", not "Subs").

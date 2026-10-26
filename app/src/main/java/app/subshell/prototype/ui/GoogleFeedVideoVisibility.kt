@@ -35,6 +35,13 @@ private class GoogleFeedVideoViewportScope {
 private val LocalGoogleFeedVideoViewport =
     staticCompositionLocalOf<GoogleFeedVideoViewportScope?> { null }
 
+/**
+ * VIDEOTABSWITCH01: the main tab a pane of the tab switch belongs to (null
+ * outside the main tabs). A pane fading out after a tap on another tab is
+ * still composed, but it is no longer the tab shown.
+ */
+internal val LocalMainPaneDestination = staticCompositionLocalOf<MainDestination?> { null }
+
 internal fun visibleChromePadding(
     totalPadding: androidx.compose.ui.unit.Dp,
     hiddenFraction: Float,
@@ -67,7 +74,13 @@ internal fun GoogleFeedVideoViewport(
     val scope = remember(state, sessionKey) { GoogleFeedVideoViewportScope() }
     val coordinator = LocalVideoPlaybackCoordinator.current
     // A list behind an expanded post detail must not compete with the detail player.
-    val enabled = state.selectedPost == null && state.selectedMediaPost == null
+    // VIDEOTABSWITCH01_LEAVING_TAB_PAUSES_AT_ONCE_V1: a feed in a tab that is
+    // fading out does not claim the next tab's route; its video pauses on the
+    // tap instead of playing on until the pane is gone (the surface showed
+    // later frames over the incoming tab).
+    val paneDestination = LocalMainPaneDestination.current
+    val paneShown = paneDestination == null || state.destination == paneDestination
+    val enabled = paneShown && state.selectedPost == null && state.selectedMediaPost == null
     val route = state.currentNavigationRoute
     DisposableEffect(state, scope, enabled, route) {
         if (enabled) {
@@ -88,10 +101,14 @@ internal fun GoogleFeedVideoViewport(
         }
         onDispose {
             val wasCurrent = state.isGoogleFeedVideoViewportCurrent(scope.owner)
+            val heldPlayback = state.googleFeedVideoViewportHeldPlayback(scope.owner)
             val previous = state.activeAnimatedMediaId
             state.removeGoogleFeedVideoViewport(scope.owner)
             if (wasCurrent && previous != null && state.activeAnimatedMediaId != previous) {
                 coordinator.pauseForFeedVisibility(previous)
+            } else if (heldPlayback && paneDestination != null && state.destination != paneDestination) {
+                // The tab was left: whatever this feed had playing stops now.
+                (previous ?: coordinator.uiState.mediaId)?.let(coordinator::pauseForFeedVisibility)
             }
         }
     }

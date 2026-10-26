@@ -231,6 +231,13 @@ internal class PostSaveState(
             }
 
             PostSavePhase.SUCCEEDED -> {
+                // VOTESSOT01_SETTLED_ACTIONS_REACH_THE_STORE_V1 (#244): what Reddit
+                // acknowledged goes to the stored post, also when a follow-up is
+                // queued (the follow-up writes its own result).
+                if (postFullname.startsWith("t3_")) {
+                    (repository as? app.subshell.prototype.data.SettledPostActions)
+                        ?.storeSettledSave(activeAccountId, postFullname, saved)
+                }
                 val queuedDesired = authenticatedPostSaveQueuedDesired.remove(postFullname)
                 val queuedFollowUp = queuedPostSaveFollowUp(
                     acknowledgedSaved = saved,
@@ -288,6 +295,36 @@ internal class PostSaveState(
             PostSavePhase.IDLE -> Unit
         }
     }
+
+    // RECREATE01_SETTLED_SAVES_SURVIVE_RECREATION_V1 (#241): as for votes, only
+    // saves Reddit confirmed (none in flight, none with a queued intent).
+    internal fun settledSaveOverridesForSnapshot(): Map<String, Boolean> =
+        authenticatedPostSaveOverrides.filterKeys { target ->
+            target != authenticatedPostSaveInFlight && target !in authenticatedPostSaveQueuedDesired
+        }
+
+    internal fun restoreSettledSaveOverrides(overrides: Map<String, Boolean>) {
+        if (!activeAccountIsAuthenticated) return
+        authenticatedPostSaveOverrides.putAll(overrides)
+    }
+
+    // OPENPOSTSSOT01_SETTLED_OVERRIDES_GIVE_WAY_TO_THE_STORE_V1 (#244): as for
+    // votes; a save in flight or with a queued intent stays.
+    fun releaseSettledOverrides(copiesOf: (target: String) -> List<Boolean>?) {
+        if (!activeAccountIsAuthenticated) return
+        authenticatedPostSaveOverrides.toMap().forEach { (target, saved) ->
+            if (target == authenticatedPostSaveInFlight || target in authenticatedPostSaveQueuedDesired) return@forEach
+            val copies = copiesOf(target) ?: return@forEach
+            if (copies.isNotEmpty() && copies.all { copy -> copy == saved }) {
+                authenticatedPostSaveOverrides.remove(target)
+            }
+        }
+    }
+
+    internal val settledOverrideTargets: Set<String>
+        get() = authenticatedPostSaveOverrides.keys -
+            setOfNotNull(authenticatedPostSaveInFlight) -
+            authenticatedPostSaveQueuedDesired.keys
 
     fun clearAuthenticatedPostSaveState() {
         authenticatedPostSaveOverrides.clear()

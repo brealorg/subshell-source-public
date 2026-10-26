@@ -1,6 +1,5 @@
 package app.subshell.prototype.ui.screens
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.horizontalScroll
@@ -106,7 +105,6 @@ internal fun DiagnosticsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    BackHandler(onBack = onBack)
     val context = LocalContext.current
     val appContext = context.applicationContext
     val store = remember(appContext) { DiagnosticEventStore(appContext) }
@@ -976,6 +974,8 @@ private fun DiagnosticEventRow(
                 val eventDetail = listOfNotNull(
                     event.action?.let { "Action $it" },
                     event.appVersionFrom?.let { from -> event.appVersionTo?.let { to -> "Version $from → $to" } },
+                    event.jankFrames?.let { jank -> event.frames?.let { frames -> "$jank of $frames frames slow" } },
+                    event.worstFrameMs?.let { "Slowest frame $it ms" },
                 ).joinToString(" · ")
                 if (eventDetail.isNotBlank()) {
                     Text(
@@ -1155,6 +1155,7 @@ private fun diagnosticOperationLabel(event: DiagnosticEvent): String = when (eve
     DiagnosticOperation.APP_NOT_RESPONDING -> "subshell stopped responding"
     DiagnosticOperation.APP_UPDATED -> "subshell updated"
     DiagnosticOperation.LISTING_POST_SKIPPED -> "Unreadable post left out"
+    DiagnosticOperation.UI_JANK_OBSERVED -> "Slow frames"
 }
 
 private fun diagnosticLevelLabel(level: DiagnosticLevel): String = when (level) {

@@ -69,6 +69,8 @@ internal class AuthAccountSessionCoordinator(
     // DIAG05_SIGN_IN_FAILURES_ARE_RECORDED_V1: the sign-in's identity read and
     // first feed page fail without a screen of their own; they are recorded here.
     private val recordFailure: (scopeKey: String, details: FailureDetails?) -> Unit = { _, _ -> },
+    // SECAUDIT02_WEB_SESSION_GOES_WITH_ITS_ACCOUNT_V1
+    private val webSession: RedditWebSessionOwnership = RedditWebSessionOwnership.None,
 ) : AccountSessionDirectory, NetworkBearerTokenProvider {
     /** DIAG05_SIGN_IN_FAILURES_ARE_RECORDED_V1: for the capability authorizers, which share this session. */
     internal fun recordUnshownFailure(scopeKey: String, details: FailureDetails?) = recordFailure(scopeKey, details)
@@ -134,6 +136,16 @@ internal class AuthAccountSessionCoordinator(
         }
     }
 
+    // SECAUDIT31_FAILED_REGISTRATION_REVOKES_ITS_GRANT_V1: the local copy goes
+    // first, then the grant is given back through the manager that received it.
+    private suspend fun discardFailedRegistration(
+        manager: OAuthSessionManager,
+        exchanged: StoredOAuthSession,
+    ) {
+        runCatching(store::deleteSession)
+        manager.revokeAbandonedGrant(exchanged.tokens)
+    }
+
     suspend fun completePendingAccount(
         onStage: (AuthAccountRegistrationStage) -> Unit = {},
     ): AuthAccountRegistrationResult =
@@ -191,7 +203,7 @@ internal class AuthAccountSessionCoordinator(
             is AuthIdentityResult.Success -> resolved.identity.normalized()
             is AuthIdentityResult.Failure -> {
                 recordFailure("account_identity", resolved.details)
-                runCatching(store::deleteSession)
+                discardFailedRegistration(unboundManager, exchanged)
                 return AuthAccountRegistrationResult.Failed(
                     AuthAccountRegistrationFailureKind.IDENTITY,
                     retryable = resolved.retryable,
@@ -200,7 +212,7 @@ internal class AuthAccountSessionCoordinator(
         }
 
         if (identity.username.lowercase() in localUsernames) {
-            runCatching(store::deleteSession)
+            discardFailedRegistration(unboundManager, exchanged)
             return AuthAccountRegistrationResult.Failed(
                 AuthAccountRegistrationFailureKind.LOCAL_FIXTURE_USERNAME_COLLISION,
             )
@@ -219,7 +231,7 @@ internal class AuthAccountSessionCoordinator(
             expectedAccountId != null &&
             accountId != expectedAccountId
         ) {
-            runCatching { store.deleteSession() }
+            discardFailedRegistration(unboundManager, exchanged)
             return AuthAccountRegistrationResult.Failed(
                 AuthAccountRegistrationFailureKind
                     .REAUTHENTICATION_ACCOUNT_MISMATCH,
@@ -232,7 +244,7 @@ internal class AuthAccountSessionCoordinator(
                 existing.accountId != accountId
         }
         if (usernameOwner != null) {
-            runCatching(store::deleteSession)
+            discardFailedRegistration(unboundManager, exchanged)
             return AuthAccountRegistrationResult.Failed(
                 AuthAccountRegistrationFailureKind.AUTHENTICATED_USERNAME_COLLISION,
             )
@@ -261,7 +273,7 @@ internal class AuthAccountSessionCoordinator(
         }
 
         val now = clock.epochMillis()
-        return withContext(storageDispatcher) {
+        val registration = withContext(storageDispatcher) {
             try {
                 store.saveSession(accountId, authenticatedSession)
                 store.deleteSession()
@@ -300,6 +312,21 @@ internal class AuthAccountSessionCoordinator(
                     AuthAccountRegistrationFailureKind.STORAGE,
                 )
             }
+        }
+        if (registration is AuthAccountRegistrationResult.Registered) {
+            webSessionSignedInAs(accountId)
+        }
+        return registration
+    }
+
+    // SECAUDIT02_WEB_SESSION_GOES_WITH_ITS_ACCOUNT_V1: the web login's owner is
+    // bookkeeping; failing to record or delete it never fails a sign-in or a logout.
+    internal suspend fun webSessionSignedInAs(accountStableId: String) {
+        try {
+            webSession.signedInAs(accountStableId)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
         }
     }
 
@@ -452,6 +479,15 @@ internal class AuthAccountSessionCoordinator(
                 }
                 publishDirectoryChange()
                 result.copy(removedAccountStableId = active.stableId)
+            }
+        }.also { logout ->
+            logout.removedAccountStableId?.let { removed ->
+                try {
+                    webSession.accountRemoved(removed)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                }
             }
         }
     }

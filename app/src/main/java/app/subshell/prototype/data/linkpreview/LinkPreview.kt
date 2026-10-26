@@ -314,11 +314,12 @@ private fun java.io.InputStream.readBounded(maxBytes: Long): ByteArray? =
         }
     }
 
-private object PublicPreviewDns : Dns {
+// SECAUDIT14_POST_MEDIA_ONLY_FROM_PUBLIC_HOSTS_V1: post media resolves through it too.
+internal object PublicPreviewDns : Dns {
     override fun lookup(hostname: String): List<InetAddress> {
         val addresses = Dns.SYSTEM.lookup(hostname)
         if (addresses.isEmpty() || addresses.any(::isBlockedPreviewAddress)) {
-            throw UnknownHostException("Link preview host is not public")
+            throw UnknownHostException("Host is not public")
         }
         return addresses
     }

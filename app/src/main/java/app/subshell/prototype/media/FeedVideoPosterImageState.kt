@@ -18,8 +18,9 @@ import kotlinx.coroutines.ensureActive
 internal class FeedVideoPosterImageState<T>(
     val mediaId: String,
     val uri: String,
+    initial: T? = null,
 ) {
-    var result: RemoteMediaLoadResult<T>? by mutableStateOf(null)
+    var result: RemoteMediaLoadResult<T>? by mutableStateOf(initial?.let { RemoteMediaLoadResult.Ready(it) })
         private set
     var retryNonce by mutableIntStateOf(0)
         private set

@@ -80,6 +80,14 @@ plain update is offered once. The last time the dialog was shown is device-local
 (`update09.last_update_presented_at_epoch_ms`). An advisory only travels with a
 new release; there is no way yet to publish one without a release.
 
+SECAUDIT05 (security audit 2026-10-22): the message names no link and no other
+way to the fix. Text containing `://`, `www.`, a domain (a label with a letter,
+a dot, two or more letters: `example.com`, not `0.84.1`), "uninstall" or
+"reinstall" (any case) stops the release in Stage B
+(`CHANGELOG_ADVISORY_MESSAGE_UNSAFE`); the app drops such an advisory and keeps
+the release. Write "Update to 0.85." and let the dialog's button open the
+release page.
+
 ## Device-local state
 
 All update/check/acknowledgement state uses the existing

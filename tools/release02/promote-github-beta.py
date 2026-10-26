@@ -212,6 +212,9 @@ def validate_topology(source_commit: str, public_target: str, repo: str) -> None
         fail("SOURCE_COMMIT_INVALID")
 
 
+PUBLIC_SOURCE_REPOSITORY = "brealorg/subshell-source-public"
+
+
 def asset_names(version_name: str) -> tuple[str, str, str]:
     return (
         f"Subshell-{version_name}.apk",
@@ -237,8 +240,14 @@ def public_record_text(
         "",
         f"app_source_commit={record['SOURCE_COMMIT']}",
         f"app_source_tree={record['SOURCE_TREE']}",
-        "app_source_publicly_pushed=NO",
-        "public_repository_source_scope=PROJECT_INFRA_SITE_RELEASES_ONLY",
+        # SECAUDIT26_RELEASE_RECORD_NAMES_THE_PUBLIC_SNAPSHOT_V1 (security
+        # audit 2026-10-22, #26): the source is public as Stage C's snapshot
+        # (same tag, tree == app_source_tree); only the private commit and
+        # its history stay private (rule 7).
+        f"app_source_public_repository={PUBLIC_SOURCE_REPOSITORY}",
+        f"app_source_public_tag={tag}",
+        f"app_source_public_tree={record['SOURCE_TREE']}",
+        "app_source_private_commit_public=NO",
         "",
         f"apk_file={apk_name}",
         f"apk_sha256={record['APK_SHA256']}",

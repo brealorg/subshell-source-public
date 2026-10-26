@@ -1221,7 +1221,8 @@ fun BackupRestoreScreen(
                                 }
                                 result.onSuccess { target ->
                                     runCatching {
-                                        state.restoreBackupState(
+                                        // COMMIT01_BACKUP_RESTORE_WRITES_OFF_MAIN_V1 (#243)
+                                        val prepared = state.prepareBackupRestore(
                                             settings = target.settingsRestoredOver(
                                                 pending.currentSettings,
                                             ),
@@ -1254,6 +1255,8 @@ fun BackupRestoreScreen(
                                             savedSearchesByAccount = target.savedSearchesByAccount,
                                             watchedCommunityNamesByAccount = target.watchedCommunityNamesByAccount,
                                         )
+                                        withContext(Dispatchers.IO) { state.persistBackupRestore(prepared) }
+                                        state.applyBackupRestore(prepared)
                                     }.onSuccess {
                                         refresh()
                                         failureOperation = null

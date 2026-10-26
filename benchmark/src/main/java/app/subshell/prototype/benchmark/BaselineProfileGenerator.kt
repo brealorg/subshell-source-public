@@ -2,6 +2,7 @@ package app.subshell.prototype.benchmark
 
 import androidx.benchmark.macro.junit4.BaselineProfileRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,6 +27,10 @@ import org.junit.runner.RunWith
  * -r` over a signed-in benchmark app keeps the sign-in. The 2026-10-16 profile
  * came from the owner's Pixel 6 (Home, post cards, image loading).
  *
+ * ISSUE259_BENCHMARK_BUILD_OVER_THE_SIGNED_IN_LANE_APP_V1: built with
+ * `-Psubshell.debugSlot=dev2` the benchmark app installs over the signed-in
+ * dev2 app; pass `-e targetPackage io.github.brealorg.subshell.debug.dev2`.
+ *
  * (Gradle's connectedBenchmarkAndroidTest resolves the tested app with JVM
  * variants under AGP 9.4 and fails offline, so the run goes through adb. On the
  * 16 KB-page API 36 emulator Perfetto cannot parse traces, so StartupBenchmark
@@ -38,7 +43,7 @@ class BaselineProfileGenerator {
 
     @Test
     fun coldStart() = baselineProfileRule.collect(
-        packageName = TARGET_PACKAGE,
+        packageName = InstrumentationRegistry.getArguments().getString("targetPackage") ?: TARGET_PACKAGE,
         includeInStartupProfile = true,
     ) {
         pressHome()

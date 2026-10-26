@@ -44,6 +44,7 @@ import app.subshell.prototype.ui.app.ModmailEntryPoints
 import app.subshell.prototype.ui.app.RedditLinkUnavailable
 import app.subshell.prototype.ui.app.RedditLinkUnavailableNoticeEffect
 import app.subshell.prototype.ui.app.InboxNotificationPermissionEffect
+import app.subshell.prototype.ui.app.JankScreenStateEffect
 import app.subshell.prototype.ui.app.SystemMotionEffect
 import app.subshell.prototype.ui.app.RuntimeStateBridge
 import app.subshell.prototype.ui.app.rememberPostVisitPruningStateHolder
@@ -114,7 +115,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -294,8 +295,6 @@ fun SubshellApp(
     // SUBSHELL_MESSAGES02E2A_DIRECT_CHAT_REACTION_WRITE_V1
     onResolveRedditNavigationTarget: (String, String, (Post?) -> Unit) -> Unit =
         { _, _, onResolved -> onResolved(null) },
-    onRequestInboxNotificationPermission: ((Boolean) -> Unit) -> Unit =
-        { onResult -> onResult(false) },
     onRedditConfigurationChanged: () -> Unit = {},
     debugFocusedCommentLaunch: DebugFocusedCommentLaunch? = null,
     onDebugFocusedCommentConsumed: () -> Unit = {},
@@ -329,10 +328,8 @@ fun SubshellApp(
     val onResetConnectAccount = accountConnect.onResetConnectAccount
     val redditLinkUnavailableState = remember { mutableStateOf<RedditLinkUnavailable?>(null) }
     SystemMotionEffect(state)
-    InboxNotificationPermissionEffect(
-        state = state,
-        onRequestPermission = onRequestInboxNotificationPermission,
-    )
+    InboxNotificationPermissionEffect(state = state)
+    JankScreenStateEffect(state = state)
     RuntimeStateBridge(
         accountConnect = accountConnect,
         redditFeed = redditFeed,
@@ -416,6 +413,17 @@ fun SubshellApp(
         )
     }
     var pendingAuthenticatedLandingAccountId by pendingAuthenticatedLandingAccountIdState
+    // ISSUE257_COLD_START_LANDS_ON_CACHED_SUBSCRIPTIONS_V1: the account this
+    // composition started with; once another account is active, every landing
+    // is an activation (sign-in, switch) and waits for Reddit as before.
+    var coldStartAccountId by rememberSaveable {
+        mutableStateOf(state.activeAccountId.takeIf { state.activeAccountIsAuthenticated })
+    }
+    LaunchedEffect(state.activeAccountId, state.activeAccountIsAuthenticated) {
+        if (coldStartAccountId != state.activeAccountId || !state.activeAccountIsAuthenticated) {
+            coldStartAccountId = null
+        }
+    }
 
     var redditOnboardingConnectRequested by rememberSaveable {
         mutableStateOf(false)
@@ -573,7 +581,9 @@ fun SubshellApp(
             noticeHost = viewportErrorHostState,
         )
         val density = LocalDensity.current
-        val configuration = LocalConfiguration.current
+        // ISSUE247_LAYOUT_FOLLOWS_WINDOW_SIZE_CLASSES_V1: Google's window size class
+        // of this window decides the rail and the two panes.
+        val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
         val hapticFeedback = LocalHapticFeedback.current
         val layoutDirection = LocalLayoutDirection.current
         val navInteractionSources = remember {
@@ -673,6 +683,7 @@ fun SubshellApp(
             redditFeed = redditFeed,
             activeCustomFeedPath = activeCustomFeedPath,
             pendingAuthenticatedLandingAccountIdState = pendingAuthenticatedLandingAccountIdState,
+            coldStartAccountId = coldStartAccountId,
         )
 
         AppEffectsBridge(
@@ -735,9 +746,7 @@ fun SubshellApp(
                 earlyPostComposerRoute &&
                     useExpandedYouDraftsWorkspaceListDetail(
                         expandedWindow =
-                            useExpandedMainLayoutForWidthDp(
-                                LocalConfiguration.current.screenWidthDp,
-                            ),
+                            useExpandedMainLayout(windowSizeClass),
                         supportedOrigin =
                             state.currentPostComposerSupportsExpandedYouDraftsListDetail(),
                         selectedTab =
@@ -776,7 +785,7 @@ fun SubshellApp(
             navigationBarBaseHeightForFontScale(density.fontScale) +
                 navigationBarInsetHeight
         val expandedWindowLayout =
-            useExpandedMainLayoutForWidthDp(configuration.screenWidthDp)
+            useExpandedMainLayout(windowSizeClass)
         // NEXT01A3D_SPLIT_AWARE_MODMAIL_THREAD_SHELL_V1
         val modmailWorkspaceListDetail =
             useExpandedInboxModmailWorkspaceListDetail(
@@ -794,7 +803,7 @@ fun SubshellApp(
             !inContext && !modmailThreadOpen && expandedWindowLayout
         // Full-screen media keeps the whole screen.
         val navigationRailShown =
-            useNavigationRailForWidthDp(configuration.screenWidthDp) &&
+            useNavigationRail(windowSizeClass) &&
                 state.currentNavigationRoute !is SubshellRoute.Media &&
                 state.currentNavigationRoute !is SubshellRoute.CommentMedia
         val fabTravelPx = with(density) { 120.dp.toPx() }
@@ -998,9 +1007,8 @@ fun SubshellApp(
                     ) {
                     if (navigationRailShown) {
                         ExpandedMainNavigationRail(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .width(ExpandedMainNavigationRailWidth),
+                            // The wide rail sizes itself (collapsed width).
+                            modifier = Modifier.fillMaxHeight(),
                             state = state,
                             inboxUnreadCount = inboxUnreadCount,
                             navInteractionSources = navInteractionSources,
@@ -1182,7 +1190,6 @@ fun SubshellApp(
                             onAuthorizeRedditProfileHistory = onAuthorizeRedditProfileHistory,
                             redditFeed = redditFeed,
                             redditCommunity = redditCommunity,
-                            onRequestInboxNotificationPermission = onRequestInboxNotificationPermission,
                             onRedditConfigurationChanged = onRedditConfigurationChanged,
                             redditLinkHandlingState = redditLinkHandlingState,
                             onOpenRedditLinkSettings = onOpenRedditLinkSettings,

@@ -17,12 +17,26 @@ internal fun authenticatedMainFeedLandingRouteEligible(
         currentRoute.destination == MainDestination.HOME &&
         activeCustomFeedPath == null
 
+// ISSUE257_COLD_START_LANDS_ON_CACHED_SUBSCRIPTIONS_V1 (#257, owner "1a"): at a
+// cold start of the account that was already active, a cached list that is
+// not empty is enough to choose Home, so Home shows its cached posts while
+// Reddit refreshes (the wait for Reddit's answer cost ~0.9 s on every start).
+// Only a missing or empty cache still waits: the cache never decides that an
+// account has zero communities. A sign-in or account switch waits as before.
 internal fun resolveAuthenticatedLandingFeed(
     accountStableId: String,
     subscriptions: RedditSubscriptionsUiState,
+    coldStart: Boolean = false,
 ): AuthenticatedMainFeedLandingDecision = when {
     !subscriptions.matches(accountStableId) ->
         AuthenticatedMainFeedLandingDecision.WAIT
+
+    coldStart &&
+        subscriptions.loaded &&
+        subscriptions.fromCache &&
+        subscriptions.failureKind == null &&
+        subscriptions.communities.isNotEmpty() ->
+        AuthenticatedMainFeedLandingDecision.HOME
 
     subscriptions.loading ->
         AuthenticatedMainFeedLandingDecision.WAIT

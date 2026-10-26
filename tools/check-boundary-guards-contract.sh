@@ -88,7 +88,7 @@ pass COMMENT_AVATARS_STAY_OUT_OF_MODEL_AND_CODEC
 # From subs04a0: the activity wires community membership (state, action and
 # authorization); a JVM test does not start MainActivity.
 grep -Fq 'communityMembershipUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::updateCommunityMembership' "$M/MainActivity.kt" &&
+grep -Fq 'communitiesViewModel::updateCommunityMembership' "$M/MainActivity.kt" &&
 grep -Fq '::launchCommunityMembershipAuthorization' "$M/MainActivity.kt" &&
 grep -Fq 'beginCommunityMembershipAuthorization()' "$M/MainActivity.kt" ||
     fail ACTIVITY_WIRES_COMMUNITY_MEMBERSHIP
@@ -98,10 +98,10 @@ pass ACTIVITY_WIRES_COMMUNITY_MEMBERSHIP
 # loader) to SubshellApp; CommunitiesScreen and CommunityEntryPoints default
 # both, so the compiler does not prove it, and a JVM test does not start
 # MainActivity.
-rg -U -q 'redditCommunityDiscoveryState by\s*authConnectViewModel\.redditCommunityDiscoveryUiState\.collectAsStateWithLifecycle\(\)' \
+rg -U -q 'redditCommunityDiscoveryState by\s*communitiesViewModel\.redditCommunityDiscoveryUiState\.collectAsStateWithLifecycle\(\)' \
     "$M/MainActivity.kt" &&
 grep -Fq 'redditCommunityDiscoveryState = redditCommunityDiscoveryState,' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::loadRedditCommunityDiscovery' "$M/MainActivity.kt" ||
+grep -Fq 'communitiesViewModel::loadRedditCommunityDiscovery' "$M/MainActivity.kt" ||
     fail ACTIVITY_WIRES_COMMUNITY_DISCOVERY
 pass ACTIVITY_WIRES_COMMUNITY_DISCOVERY
 
@@ -109,11 +109,11 @@ pass ACTIVITY_WIRES_COMMUNITY_DISCOVERY
 # (permission changes and removals with their authorizations) to SubshellApp;
 # every field has a default, so the compiler does not prove it.
 grep -Fq 'moderatorTeamRuntime = moderatorTeamRuntimeEntryPoints(' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::updateModeratorPermissions' "$M/MainActivityEntryPoints.kt" &&
-grep -Fq 'authConnectViewModel::removeModerator' "$M/MainActivityEntryPoints.kt" &&
+grep -Fq 'moderationViewModel::updateModeratorPermissions' "$M/MainActivityEntryPoints.kt" &&
+grep -Fq 'moderationViewModel::removeModerator' "$M/MainActivityEntryPoints.kt" &&
 grep -Fq 'launchRedditModeratorPermissionAuthorization,' "$M/MainActivityEntryPoints.kt" &&
 grep -Fq 'launchRedditModeratorRemovalAuthorization,' "$M/MainActivityEntryPoints.kt" &&
-grep -Fq 'authConnectViewModel::inviteModerator' "$M/MainActivityEntryPoints.kt" &&
+grep -Fq 'moderationViewModel::inviteModerator' "$M/MainActivityEntryPoints.kt" &&
 grep -Fq 'launchRedditModeratorInviteAuthorization,' "$M/MainActivityEntryPoints.kt" ||
     fail ACTIVITY_WIRES_MODERATOR_TEAM
 pass ACTIVITY_WIRES_MODERATOR_TEAM
@@ -122,10 +122,10 @@ pass ACTIVITY_WIRES_MODERATOR_TEAM
 # Publish and dropping a review to SubshellApp; every field of
 # PostComposerWriteRuntimeEntryPoints has a default, so the compiler does not
 # prove it.
-grep -Fq 'authConnectViewModel.crosspostReviewUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::reviewCrosspostDraft,' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::publishReviewedCrosspost,' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::invalidateCrosspostReview,' "$M/MainActivity.kt" ||
+grep -Fq 'postComposerViewModel.crosspostReviewUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
+grep -Fq 'postComposerViewModel::reviewCrosspostDraft,' "$M/MainActivity.kt" &&
+grep -Fq 'postComposerViewModel::publishReviewedCrosspost,' "$M/MainActivity.kt" &&
+grep -Fq 'postComposerViewModel::invalidateCrosspostReview,' "$M/MainActivity.kt" ||
     fail ACTIVITY_WIRES_CROSSPOST_CREATE
 pass ACTIVITY_WIRES_CROSSPOST_CREATE
 
@@ -136,14 +136,14 @@ pass ACTIVITY_WIRES_CROSSPOST_CREATE
 grep -Fq 'moderatorTools = moderatorToolsEntryPoints(' "$M/MainActivity.kt" &&
 grep -Fq 'launchRedditModeratorLogAuthorization = ::launchRedditModeratorLogAuthorization,' "$M/MainActivity.kt" &&
 grep -Fq '::launchRedditModeratorUserManagementAuthorization,' "$M/MainActivity.kt" &&
-grep -Fq 'onOpenModeratorLog = authConnectViewModel::openModeratorLog,' "$M/MainActivityEntryPoints.kt" &&
-grep -Fq 'onAppendModeratorLog = authConnectViewModel::appendModeratorLog,' "$M/MainActivityEntryPoints.kt" &&
-grep -Fq 'authConnectViewModel::openModeratorUserManagement,' "$M/MainActivityEntryPoints.kt" &&
-grep -Fq 'onMutateModeratorUser = authConnectViewModel::mutateModeratorUser,' "$M/MainActivityEntryPoints.kt" &&
-grep -Fq 'authConnectViewModel::mutateMutedModeratorUser,' "$M/MainActivityEntryPoints.kt" &&
-grep -Fq 'authConnectViewModel::mutateApprovedModeratorUser,' "$M/MainActivityEntryPoints.kt" &&
-grep -Fq 'authConnectViewModel::appendMutedModeratorUserManagement,' "$M/MainActivityEntryPoints.kt" &&
-grep -Fq 'authConnectViewModel::appendApprovedModeratorUserManagement,' "$M/MainActivityEntryPoints.kt" &&
+grep -Fq 'onOpenModeratorLog = moderationViewModel::openModeratorLog,' "$M/MainActivityEntryPoints.kt" &&
+grep -Fq 'onAppendModeratorLog = moderationViewModel::appendModeratorLog,' "$M/MainActivityEntryPoints.kt" &&
+grep -Fq 'moderationViewModel::openModeratorUserManagement,' "$M/MainActivityEntryPoints.kt" &&
+grep -Fq 'onMutateModeratorUser = moderationViewModel::mutateModeratorUser,' "$M/MainActivityEntryPoints.kt" &&
+grep -Fq 'moderationViewModel::mutateMutedModeratorUser,' "$M/MainActivityEntryPoints.kt" &&
+grep -Fq 'moderationViewModel::mutateApprovedModeratorUser,' "$M/MainActivityEntryPoints.kt" &&
+grep -Fq 'moderationViewModel::appendMutedModeratorUserManagement,' "$M/MainActivityEntryPoints.kt" &&
+grep -Fq 'moderationViewModel::appendApprovedModeratorUserManagement,' "$M/MainActivityEntryPoints.kt" &&
 grep -Fq 'launchRedditModeratorLogAuthorization,' "$M/MainActivityEntryPoints.kt" &&
 grep -Fq 'launchRedditModeratorUserManagementAuthorization,' "$M/MainActivityEntryPoints.kt" ||
     fail ACTIVITY_WIRES_MODERATOR_TOOLS
@@ -232,8 +232,8 @@ pass SEARCH_PRESENTATION_HAS_NO_NETWORK
 # From profile01a2: the activity hands the signed-in user-posts feed
 # (refresh and next page) to SubshellApp; the parameters have defaults, so
 # the compiler does not prove the wiring.
-grep -Fq 'authConnectViewModel::refreshRedditUserSubmitted' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::appendRedditUserSubmitted' "$M/MainActivity.kt" ||
+grep -Fq 'readingViewModel::refreshRedditUserSubmitted' "$M/MainActivity.kt" &&
+grep -Fq 'readingViewModel::appendRedditUserSubmitted' "$M/MainActivity.kt" ||
     fail ACTIVITY_WIRES_USER_SUBMITTED_FEED
 pass ACTIVITY_WIRES_USER_SUBMITTED_FEED
 
@@ -259,9 +259,9 @@ pass MESSAGE_REPLIES_USE_ONLY_THE_OAUTH_API
 # From messages02c: the activity hands the reply state, the send and its reset
 # to SubshellApp; MessagingEntryPoints' fields have defaults, so the compiler
 # does not prove the wiring.
-grep -Fq 'authConnectViewModel.messageReplyUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
-grep -Fq 'onSendRedditMessageReply = authConnectViewModel::sendRedditMessageReply,' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::resetRedditMessageReplyState,' "$M/MainActivity.kt" ||
+grep -Fq 'inboxViewModel.messageReplyUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
+grep -Fq 'onSendRedditMessageReply = inboxViewModel::sendRedditMessageReply,' "$M/MainActivity.kt" &&
+grep -Fq 'inboxViewModel::resetRedditMessageReplyState,' "$M/MainActivity.kt" ||
     fail ACTIVITY_WIRES_MESSAGE_REPLY
 pass ACTIVITY_WIRES_MESSAGE_REPLY
 
@@ -283,13 +283,13 @@ pass MESSAGE_REPLY_WRITER_HAS_NO_RETRY_LOOP
 # typing, delete, reactions, the first message) to SubshellApp; every field of
 # MessagingEntryPoints has a default, so the compiler does not prove it.
 grep -Fq 'directChatLiveState = directChatLiveState,' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::startRedditDirectChatLive,' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::stopRedditDirectChatLive,' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::updateRedditDirectChatTyping,' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::deleteRedditDirectChatMessage,' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::reactRedditDirectChatMessage,' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::resetRedditDirectChatReactionFailure,' "$M/MainActivity.kt" &&
-grep -Fq 'onStartRedditDirectChat = authConnectViewModel::startRedditDirectChat,' "$M/MainActivity.kt" ||
+grep -Fq 'inboxViewModel::startRedditDirectChatLive,' "$M/MainActivity.kt" &&
+grep -Fq 'inboxViewModel::stopRedditDirectChatLive,' "$M/MainActivity.kt" &&
+grep -Fq 'inboxViewModel::updateRedditDirectChatTyping,' "$M/MainActivity.kt" &&
+grep -Fq 'inboxViewModel::deleteRedditDirectChatMessage,' "$M/MainActivity.kt" &&
+grep -Fq 'inboxViewModel::reactRedditDirectChatMessage,' "$M/MainActivity.kt" &&
+grep -Fq 'inboxViewModel::resetRedditDirectChatReactionFailure,' "$M/MainActivity.kt" &&
+grep -Fq 'onStartRedditDirectChat = inboxViewModel::startRedditDirectChat,' "$M/MainActivity.kt" ||
     fail ACTIVITY_WIRES_DIRECT_CHAT
 pass ACTIVITY_WIRES_DIRECT_CHAT
 
@@ -332,8 +332,8 @@ pass COMMUNITY_WIKI_IS_NOT_PERSISTED
 # authorization to SubshellApp; the parameters have defaults, so the
 # compiler does not prove the wiring.
 grep -Fq 'redditCommunityWikiState = redditCommunityWikiState,' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::loadRedditCommunityWikiIndex' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::loadRedditCommunityWikiPage' "$M/MainActivity.kt" &&
+grep -Fq 'communitiesViewModel::loadRedditCommunityWikiIndex' "$M/MainActivity.kt" &&
+grep -Fq 'communitiesViewModel::loadRedditCommunityWikiPage' "$M/MainActivity.kt" &&
 grep -Fq '::launchCommunityWikiAuthorization,' "$M/MainActivity.kt" ||
     fail ACTIVITY_WIRES_COMMUNITY_WIKI
 pass ACTIVITY_WIRES_COMMUNITY_WIKI
@@ -344,17 +344,17 @@ pass ACTIVITY_WIRES_COMMUNITY_WIKI
 # does not prove the wiring).
 ! grep -rq 'CommunityInfo' "$M/data/cache" || fail COMMUNITY_INFO_IS_NOT_PERSISTED
 pass COMMUNITY_INFO_IS_NOT_PERSISTED
-grep -Fq 'authConnectViewModel.redditCommunityInfoUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
+grep -Fq 'communitiesViewModel.redditCommunityInfoUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
 grep -Fq 'redditCommunityInfoState = redditCommunityInfoState,' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::loadRedditCommunityInfo' "$M/MainActivity.kt" ||
+grep -Fq 'communitiesViewModel::loadRedditCommunityInfo' "$M/MainActivity.kt" ||
     fail ACTIVITY_WIRES_COMMUNITY_INFO
 pass ACTIVITY_WIRES_COMMUNITY_INFO
 
 # ISSUE230_PINNED_POSTS_FIRST_V1 (owner 2026-10-16): the pinned-posts read
 # reaches both community panes; every link has a default, so the compiler does
 # not prove it (Issue230PinnedPostsComposeTest drives CommunityScreen directly).
-grep -Fq 'authConnectViewModel.redditCommunityPinnedPostsUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
-grep -Fq 'onLoadRedditPinnedPosts = authConnectViewModel::loadRedditCommunityPinnedPosts,' "$M/MainActivity.kt" &&
+grep -Fq 'communitiesViewModel.redditCommunityPinnedPostsUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
+grep -Fq 'onLoadRedditPinnedPosts = communitiesViewModel::loadRedditCommunityPinnedPosts,' "$M/MainActivity.kt" &&
 [[ "$(grep -Fc 'onLoadRedditPinnedPosts = redditCommunity.onLoadRedditPinnedPosts,' "$M/ui/app/CommunityRouteHost.kt")" -eq 2 ]] &&
 [[ "$(grep -Fc 'redditPinnedPostsState = redditCommunity.redditPinnedPostsState,' "$M/ui/app/CommunityRouteHost.kt")" -eq 2 ]] ||
     fail ACTIVITY_WIRES_COMMUNITY_PINNED_POSTS
@@ -387,8 +387,8 @@ pass BACKGROUND_SYNC_POSTS_ONLY_NEW_EVENTS
 # with the inbox and modmail states and stops it when destroyed; the runtime is
 # its one owner.
 grep -Fq 'startNotificationReadReconciliation(' "$M/MainActivity.kt" &&
-grep -Fq 'inboxStates = authConnectViewModel.redditInboxUiState,' "$M/MainActivity.kt" &&
-grep -Fq 'modmailStates = authConnectViewModel.redditModmailUiState,' "$M/MainActivity.kt" &&
+grep -Fq 'inboxStates = inboxViewModel.redditInboxUiState,' "$M/MainActivity.kt" &&
+grep -Fq 'modmailStates = moderationViewModel.redditModmailUiState,' "$M/MainActivity.kt" &&
 grep -Fq 'notificationReadReconciliationJob.cancel()' "$M/MainActivity.kt" &&
 ! grep -Fq 'InboxNotificationCenter.reconcile' "$M/MainActivity.kt" ||
     fail ACTIVITY_RUNS_NOTIFICATION_READ_RECONCILIATION
@@ -404,10 +404,14 @@ grep -Fq 'inboxNotificationTarget = inboxNotificationTarget,' "$M/MainActivity.k
     fail ACTIVITY_TAKES_IN_NOTIFICATION_TARGETS
 pass ACTIVITY_TAKES_IN_NOTIFICATION_TARGETS
 
-# From inbox01b22: the activity asks for the notification permission when
-# SubshellApp requests it and reads only its own answer.
-grep -Fq 'onRequestInboxNotificationPermission = ::requestInboxNotificationPermission,' "$M/MainActivity.kt" &&
-grep -Fq 'if (requestCode != INBOX_NOTIFICATION_PERMISSION_REQUEST_CODE) return' "$M/MainActivity.kt" &&
+# From inbox01b22: the app asks for the notification permission when inbox
+# notifications need it. RECREATE02/03 (#241): the automatic question and the
+# Settings switch ask through the activity result registry (the answer reaches
+# a rebuilt screen); the activity's own request code and callback are gone.
+grep -Fq 'rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission())' "$M/ui/app/InboxNotificationPermissionEffect.kt" &&
+grep -Fq 'launcher.launch(Manifest.permission.POST_NOTIFICATIONS)' "$M/ui/app/InboxNotificationPermissionEffect.kt" &&
+grep -Fq 'inboxNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)' "$M/ui/screens/SettingsScreen.kt" &&
+! grep -Fq 'INBOX_NOTIFICATION_PERMISSION_REQUEST_CODE' "$M/MainActivity.kt" &&
 grep -Fq 'android.permission.POST_NOTIFICATIONS' "$ROOT/app/src/main/AndroidManifest.xml" ||
     fail ACTIVITY_ASKS_FOR_THE_NOTIFICATION_PERMISSION
 pass ACTIVITY_ASKS_FOR_THE_NOTIFICATION_PERMISSION
@@ -416,21 +420,21 @@ pass ACTIVITY_ASKS_FOR_THE_NOTIFICATION_PERMISSION
 # read state, triage, authorization, the notification target) to SubshellApp;
 # every field of ModmailEntryPoints has a default, so the compiler does not
 # prove it.
-grep -Fq 'authConnectViewModel.redditModmailUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
+grep -Fq 'moderationViewModel.redditModmailUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
 grep -Fq 'redditModmail = ModmailEntryPoints(' "$M/MainActivity.kt" &&
-grep -Fq 'onLoadRedditModmail = authConnectViewModel::loadRedditModmail,' "$M/MainActivity.kt" &&
-grep -Fq 'onAppendRedditModmail = authConnectViewModel::appendRedditModmail,' "$M/MainActivity.kt" &&
-grep -Fq 'onSelectRedditModmailListMode = authConnectViewModel::selectRedditModmailListMode,' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::openRedditModmailConversation,' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::sendRedditModmailMessage,' "$M/MainActivity.kt" &&
-grep -Fq 'onSetRedditModmailArchived = authConnectViewModel::setRedditModmailArchived,' "$M/MainActivity.kt" &&
-grep -Fq 'onSetRedditModmailUnread = authConnectViewModel::setRedditModmailUnread,' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::verifyRedditModmailReadState,' "$M/MainActivity.kt" &&
-grep -Fq 'onApplyRedditModmailTriage = authConnectViewModel::applyRedditModmailTriage,' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::closeRedditModmailConversation,' "$M/MainActivity.kt" &&
+grep -Fq 'onLoadRedditModmail = moderationViewModel::loadRedditModmail,' "$M/MainActivity.kt" &&
+grep -Fq 'onAppendRedditModmail = moderationViewModel::appendRedditModmail,' "$M/MainActivity.kt" &&
+grep -Fq 'onSelectRedditModmailListMode = moderationViewModel::selectRedditModmailListMode,' "$M/MainActivity.kt" &&
+grep -Fq 'moderationViewModel::openRedditModmailConversation,' "$M/MainActivity.kt" &&
+grep -Fq 'moderationViewModel::sendRedditModmailMessage,' "$M/MainActivity.kt" &&
+grep -Fq 'onSetRedditModmailArchived = moderationViewModel::setRedditModmailArchived,' "$M/MainActivity.kt" &&
+grep -Fq 'onSetRedditModmailUnread = moderationViewModel::setRedditModmailUnread,' "$M/MainActivity.kt" &&
+grep -Fq 'moderationViewModel::verifyRedditModmailReadState,' "$M/MainActivity.kt" &&
+grep -Fq 'onApplyRedditModmailTriage = moderationViewModel::applyRedditModmailTriage,' "$M/MainActivity.kt" &&
+grep -Fq 'moderationViewModel::closeRedditModmailConversation,' "$M/MainActivity.kt" &&
 grep -Fq 'onAuthorizeRedditModmail = ::launchRedditModmailAuthorization,' "$M/MainActivity.kt" &&
 grep -Fq 'modmailNotificationTarget = modmailNotificationTarget,' "$M/MainActivity.kt" &&
-grep -Fq 'takeModmailNotificationTarget(candidate)' "$M/MainActivity.kt" ||
+grep -Fq 'takeModmailNotificationTarget(applicationContext, candidate)' "$M/MainActivity.kt" ||
     fail ACTIVITY_WIRES_MODMAIL
 pass ACTIVITY_WIRES_MODMAIL
 
@@ -438,16 +442,16 @@ pass ACTIVITY_WIRES_MODMAIL
 # retries, removal reasons and their authorizations) to SubshellApp; every
 # field of ModerationQueueEntryPoints has a default.
 grep -Fq 'redditModeration = ModerationQueueEntryPoints(' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel.redditModerationUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel.moderationActionUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel.removalReasonUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::loadRedditModQueue' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::appendRedditModQueue' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::resolveRedditModerationTarget' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::moderateRedditQueueItem' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::retryRedditModerationAction' "$M/MainActivity.kt" &&
+grep -Fq 'moderationViewModel.redditModerationUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
+grep -Fq 'moderationViewModel.moderationActionUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
+grep -Fq 'moderationViewModel.removalReasonUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
+grep -Fq 'moderationViewModel::loadRedditModQueue' "$M/MainActivity.kt" &&
+grep -Fq 'moderationViewModel::appendRedditModQueue' "$M/MainActivity.kt" &&
+grep -Fq 'moderationViewModel::resolveRedditModerationTarget' "$M/MainActivity.kt" &&
+grep -Fq 'moderationViewModel::moderateRedditQueueItem' "$M/MainActivity.kt" &&
+grep -Fq 'moderationViewModel::retryRedditModerationAction' "$M/MainActivity.kt" &&
 grep -Fq '::launchRedditModerationActionAuthorization' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::loadRedditRemovalReasons' "$M/MainActivity.kt" &&
+grep -Fq 'moderationViewModel::loadRedditRemovalReasons' "$M/MainActivity.kt" &&
 grep -Fq '::launchRedditRemovalReasonAuthorization' "$M/MainActivity.kt" ||
     fail ACTIVITY_WIRES_MODERATION_QUEUE
 pass ACTIVITY_WIRES_MODERATION_QUEUE
@@ -462,23 +466,23 @@ pass MODMAIL_WRITER_HAS_NO_RETRY_LOOP
 # From profile01a6/savedcomments01a3: the activity hands the account's post
 # history (upvoted, downvoted, hidden), its saved history, the saved-comment
 # target and the profile-history authorization to SubshellApp.
-grep -Fq 'authConnectViewModel.redditAccountHistoryUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel.redditSavedHistoryUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::refreshRedditAccountHistory,' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::appendRedditAccountHistory,' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::refreshRedditSavedHistory,' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::appendRedditSavedHistory,' "$M/MainActivity.kt" &&
-grep -Fq 'authConnectViewModel::resolveRedditSavedCommentTarget,' "$M/MainActivity.kt" &&
+grep -Fq 'readingViewModel.redditAccountHistoryUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
+grep -Fq 'readingViewModel.redditSavedHistoryUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
+grep -Fq 'readingViewModel::refreshRedditAccountHistory,' "$M/MainActivity.kt" &&
+grep -Fq 'readingViewModel::appendRedditAccountHistory,' "$M/MainActivity.kt" &&
+grep -Fq 'readingViewModel::refreshRedditSavedHistory,' "$M/MainActivity.kt" &&
+grep -Fq 'readingViewModel::appendRedditSavedHistory,' "$M/MainActivity.kt" &&
+grep -Fq 'readingViewModel::resolveRedditSavedCommentTarget,' "$M/MainActivity.kt" &&
 grep -Fq '::launchProfileHistoryAuthorization,' "$M/MainActivity.kt" ||
     fail ACTIVITY_WIRES_PROFILE_HISTORY
 pass ACTIVITY_WIRES_PROFILE_HISTORY
 
 # From useraction01a2: the activity hands block/unblock and the account's
 # authoritative blocked list (refresh, next page, authorization) to SubshellApp.
-grep -Fq 'onSetUserBlocked = authConnectViewModel::setUserBlocked,' "$M/MainActivity.kt" &&
-grep -Fq 'onRefreshBlockedAccounts = authConnectViewModel::refreshBlockedAccounts,' "$M/MainActivity.kt" &&
+grep -Fq 'onSetUserBlocked = readingViewModel::setUserBlocked,' "$M/MainActivity.kt" &&
+grep -Fq 'onRefreshBlockedAccounts = readingViewModel::refreshBlockedAccounts,' "$M/MainActivity.kt" &&
 grep -Fq 'onAuthorizeBlockedAccounts = ::launchBlockedAccountsAuthorization,' "$M/MainActivity.kt" &&
-grep -Fq 'onAppendBlockedAccounts = authConnectViewModel::appendBlockedAccounts,' "$M/MainActivity.kt" ||
+grep -Fq 'onAppendBlockedAccounts = readingViewModel::appendBlockedAccounts,' "$M/MainActivity.kt" ||
     fail ACTIVITY_WIRES_BLOCKED_ACCOUNTS
 pass ACTIVITY_WIRES_BLOCKED_ACCOUNTS
 
@@ -503,7 +507,7 @@ pass ONE_MEDIA3_PLAYER
 # From media-audio-r27: the activity owns the one video player through a
 # ViewModel, hands it to the app, tells it about configuration changes, and
 # only the ViewModel releases it.
-grep -Fq 'ViewModelProvider(this)[VideoPlaybackViewModel::class.java]' "$M/MainActivity.kt" &&
+grep -Fq 'ViewModelProvider(this, VideoPlaybackViewModel.Factory)[VideoPlaybackViewModel::class.java]' "$M/MainActivity.kt" &&
 grep -Fq 'videoPlaybackCoordinator = videoPlaybackViewModel.coordinator,' "$M/MainActivity.kt" &&
 grep -Fq 'videoPlaybackViewModel.coordinator.onHostConfigurationChanged(newConfig)' "$M/MainActivity.kt" &&
 rg -U -q 'override fun onCleared\(\) \{\s*coordinator\.release\(\)' "$M/media/VideoPlaybackViewModel.kt" &&
@@ -550,10 +554,10 @@ pass VIDEO_CACHE_STAYS_OUT_OF_BACKUPS
 # From safety01a3: the activity hands Hide/Unhide, Report, the safety state,
 # its retry and its authorization to SubshellApp (the SubshellApp parameters
 # default to {}, so the compiler does not prove this wiring).
-grep -Fq 'authConnectViewModel.contentSafetyUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
-grep -Fq 'onSetPostHidden = authConnectViewModel::setPostHidden,' "$M/MainActivity.kt" &&
-grep -Fq 'onReportContent = authConnectViewModel::reportContent,' "$M/MainActivity.kt" &&
-grep -Fq 'onRetryContentSafety = authConnectViewModel::retryContentSafetyMutation,' "$M/MainActivity.kt" &&
+grep -Fq 'readingViewModel.contentSafetyUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
+grep -Fq 'onSetPostHidden = readingViewModel::setPostHidden,' "$M/MainActivity.kt" &&
+grep -Fq 'onReportContent = readingViewModel::reportContent,' "$M/MainActivity.kt" &&
+grep -Fq 'onRetryContentSafety = readingViewModel::retryContentSafetyMutation,' "$M/MainActivity.kt" &&
 grep -Fq 'onAuthorizeContentSafety = ::launchContentSafetyAuthorization,' "$M/MainActivity.kt" ||
     fail ACTIVITY_WIRES_CONTENT_SAFETY
 pass ACTIVITY_WIRES_CONTENT_SAFETY
@@ -616,8 +620,8 @@ pass ACTIVITY_ASKS_FOR_A_FRESH_SIGN_IN_WINDOW
 # From followpost01a1b: the activity hands following a post (send, retry,
 # authorization) to the app.
 grep -Fq 'app.subshell.prototype.ui.LocalPostFollowRuntime provides' "$M/MainActivity.kt" &&
-grep -Fq 'onSetFollowed = authConnectViewModel::followPost,' "$M/MainActivity.kt" &&
-grep -Fq 'onRetry = authConnectViewModel::retryPostFollow,' "$M/MainActivity.kt" &&
+grep -Fq 'onSetFollowed = readingViewModel::followPost,' "$M/MainActivity.kt" &&
+grep -Fq 'onRetry = readingViewModel::retryPostFollow,' "$M/MainActivity.kt" &&
 grep -Fq 'onAuthorize = ::launchPostFollowAuthorization,' "$M/MainActivity.kt" ||
     fail ACTIVITY_WIRES_POST_FOLLOW
 pass ACTIVITY_WIRES_POST_FOLLOW
@@ -857,8 +861,8 @@ pass NO_OAUTH_CLIENT_VALUES_IN_SOURCE
 # From #229: the activity hands the composer's mention search (its own
 # state and the search) to SubshellApp, and the post route asks it for the
 # active account; every link has a default, so the compiler does not prove it.
-grep -Fq 'authConnectViewModel.redditMentionSearchUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
-grep -Fq 'onSearchMentions = authConnectViewModel::loadRedditMentionSearch,' "$M/MainActivity.kt" &&
+grep -Fq 'communitiesViewModel.redditMentionSearchUiState.collectAsStateWithLifecycle()' "$M/MainActivity.kt" &&
+grep -Fq 'onSearchMentions = communitiesViewModel::loadRedditMentionSearch,' "$M/MainActivity.kt" &&
 grep -Fq 'mentionSearchState = redditCommunity.redditMentionSearchState,' "$M/ui/app/PostRouteHost.kt" &&
 grep -Fq 'redditCommunity.onSearchMentions(state.activeAccountId, query)' "$M/ui/app/PostRouteHost.kt" &&
 # ISSUE229_POST_BODY_MENTIONS_V1: Create post and a post edit get the same search.

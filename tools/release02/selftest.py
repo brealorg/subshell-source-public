@@ -57,7 +57,14 @@ public_record = module.public_record_text(
     names[0],
 )
 assert "app_source_commit=" + "1" * 40 in public_record
-assert "app_source_publicly_pushed=NO" in public_record
+assert "app_source_private_commit_public=NO" in public_record
+# SECAUDIT26: the record names the public snapshot and no longer says the
+# source is unpublished.
+assert "app_source_public_repository=brealorg/subshell-source-public" in public_record
+assert "app_source_public_tag=v0.80.0-beta.1" in public_record
+assert "app_source_public_tree=" + record["SOURCE_TREE"] in public_record
+assert "app_source_publicly_pushed" not in public_record
+assert "PROJECT_INFRA_SITE_RELEASES_ONLY" not in public_record
 assert "public_release_target_commit=" + "3" * 40 in public_record
 assert "qualified_apk_rebuilt=NO_BIT_IDENTICAL_PREVIEW_PROMOTION" in public_record
 

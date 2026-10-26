@@ -1,10 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Debug-only trust anchor for the localhost HTTPS instrumentation fixture. -->
+    <!-- Debug builds trust the system CAs only, like release. -->
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
-            <certificates src="@raw/subshell_media04a1_test_ca" />
         </trust-anchors>
     </base-config>
+    <!-- SECAUDIT03_DEBUG_TEST_CA_ONLY_FOR_LOCALHOST_V1: the test CA signs the
+         localhost HTTPS instrumentation fixture and is trusted for nothing else,
+         so a certificate it issues can never stand in for Reddit. -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+        <trust-anchors>
+            <certificates src="@raw/subshell_media04a1_test_ca" />
+        </trust-anchors>
+    </domain-config>
 </network-security-config>

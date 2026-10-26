@@ -1,6 +1,5 @@
 package app.subshell.prototype.ui.screens
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -64,6 +63,8 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.subshell.prototype.ui.components.InlineProgressIndicator
+import app.subshell.prototype.ui.app.predictiveBackPage
+import app.subshell.prototype.ui.app.rememberPredictiveBackPage
 
 internal enum class RedditOnboardingEntry {
     CHECKING,
@@ -189,16 +190,14 @@ internal fun RedditOnboardingScreen(
         configured = configured,
     )
 
-    BackHandler(
-        enabled =
-            step != RedditOnboardingStep.INTRO,
-    ) {
-        stepName =
-            RedditOnboardingStep.INTRO.name
+    // ISSUE249_IN_SCREEN_PAGES_FOLLOW_THE_BACK_GESTURE_V1: a step follows the
+    // back gesture back to the introduction.
+    val pageBack = rememberPredictiveBackPage(enabled = step != RedditOnboardingStep.INTRO) {
+        stepName = RedditOnboardingStep.INTRO.name
     }
 
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.predictiveBackPage(pageBack).fillMaxSize(),
         topBar = {
             TopAppBar(
                 title = {

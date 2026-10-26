@@ -540,6 +540,9 @@ fun CommunityScreen(
         }
     }
     val pagingSnapshot = state.postPagingSnapshot(pagingKey)
+    // ISSUE257_HOME_SAYS_LOADING_UNTIL_ITS_STORE_IS_READ_V1: as on Home, a feed
+    // whose stored page is still being read says it is loading.
+    val storedFeedRead = state.postPagingStoreRead(pagingKey)
     val allPosts = pagingSnapshot.items
     // CONTENTFILTER04_FILTERED_SUMMARY_V1
     // CONTENTFILTER06_REVEAL_KEYED_ON_ACCOUNT_V1
@@ -736,7 +739,8 @@ fun CommunityScreen(
         nextCursor = pagingSnapshot.nextCursor,
         state = activeRedditFeedState,
     )
-    val showLivePagingStatus = authenticatedRedditFeed && !mute01a3HidePosts && (
+    val showLivePagingStatus = authenticatedRedditFeed && !mute01a3HidePosts &&
+        (storedFeedRead || activeRedditFeedState.inProgress) && (
         activeRedditFeedState.failureKind == RedditFeedUiFailureKind.END_REACHED ||
             (activeRedditFeedState.failureKind == null &&
                 visiblePosts.isEmpty())
@@ -1493,7 +1497,7 @@ fun CommunityScreen(
                                                 hiddenPostsHideAllPosts -> "All posts are hidden"
                                                 contentFiltersHideAllPosts -> "All posts are filtered"
                                                 nsfwPreferenceHidesAllPosts -> "NSFW posts are hidden"
-                                                authenticatedRedditFeed && activeRedditFeedState.inProgress ->
+                                                authenticatedRedditFeed && (activeRedditFeedState.inProgress || !storedFeedRead) ->
                                                     "Loading from Reddit…"
                                                 authenticatedRedditFeed -> "No cached Reddit posts"
                                                 else -> "No local posts yet"
@@ -1508,7 +1512,7 @@ fun CommunityScreen(
                                                     "Your content filters hide every post here. Change them in Settings."
                                                 nsfwPreferenceHidesAllPosts ->
                                                     "Use the quick switch in the navigation menu to show them."
-                                                authenticatedRedditFeed && activeRedditFeedState.inProgress ->
+                                                authenticatedRedditFeed && (activeRedditFeedState.inProgress || !storedFeedRead) ->
                                                     "The first page is on its way."
                                                 authenticatedRedditFeed ->
                                                     "Pull to refresh, or reconnect the account if the session needs attention."

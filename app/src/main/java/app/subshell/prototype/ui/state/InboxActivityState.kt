@@ -12,6 +12,7 @@ import app.subshell.prototype.inbox.canonicalRedditCommentFullname
 import app.subshell.prototype.model.ActivityKind
 import app.subshell.prototype.model.InboxItem
 import app.subshell.prototype.model.Post
+import app.subshell.prototype.ui.ComposerMediaAttachment
 import app.subshell.prototype.ui.FeedPostOrigin
 import app.subshell.prototype.ui.MainDestination
 import app.subshell.prototype.ui.PendingInboxReadReceipt
@@ -62,6 +63,9 @@ internal class InboxActivityState(
     internal var pendingInboxReadReceipt by mutableStateOf<PendingInboxReadReceipt?>(null)
     // MESSAGES02C_ACCOUNT_THREAD_DRAFTS_V1
     private val messageConversationDrafts = mutableStateMapOf<String, String>()
+    // RECREATE02_MESSAGE_ATTACHMENT_SURVIVES_RECREATION_V1 (#241): the image or
+    // GIF attached to an unsent reply, under the draft's key.
+    private val messageConversationMedia = mutableStateMapOf<String, ComposerMediaAttachment>()
     val readInboxIds = mutableStateListOf<String>()
 
     internal fun consumeInboxReadReceipt(
@@ -99,6 +103,47 @@ internal class InboxActivityState(
             messageConversationDrafts.remove(key)
         } else {
             messageConversationDrafts[key] = bounded
+        }
+    }
+
+    fun messageConversationMedia(
+        accountStableId: String,
+        inboxItemId: String,
+    ): ComposerMediaAttachment? =
+        messageConversationMedia[messageConversationDraftKey(accountStableId, inboxItemId)]
+
+    fun updateMessageConversationMedia(
+        accountStableId: String,
+        inboxItemId: String,
+        media: ComposerMediaAttachment?,
+    ) {
+        val key = messageConversationDraftKey(accountStableId, inboxItemId)
+        if (media == null) {
+            messageConversationMedia.remove(key)
+        } else {
+            messageConversationMedia[key] = media
+        }
+    }
+
+    internal fun messageConversationMediaForSnapshot(): Map<String, ComposerMediaAttachment> =
+        messageConversationMedia.toMap()
+
+    internal fun restoreMessageConversationMedia(media: Map<String, ComposerMediaAttachment>) {
+        media.forEach { (key, attachment) ->
+            if (key.isNotBlank()) messageConversationMedia[key] = attachment
+        }
+    }
+
+    // RECREATE01_MESSAGE_DRAFTS_SURVIVE_RECREATION_V1 (#241): the drafts ride in
+    // the process snapshot under their own keys, so a dark-mode switch or a
+    // process death does not empty an unsent message.
+    internal fun messageConversationDraftsForSnapshot(): Map<String, String> =
+        messageConversationDrafts.toMap()
+
+    internal fun restoreMessageConversationDrafts(drafts: Map<String, String>) {
+        drafts.forEach { (key, text) ->
+            val bounded = text.take(10_000)
+            if (key.isNotBlank() && bounded.isNotEmpty()) messageConversationDrafts[key] = bounded
         }
     }
 

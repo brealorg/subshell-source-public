@@ -175,9 +175,13 @@ class Backup02A2TransactionalRestoreTest {
                 "Could not atomically persist restored backup state",
             ),
         )
+        // COMMIT01 (#243): the screen prepares on Main, commits on IO and
+        // applies after the commit.
+        assertTrue(screenSource.contains("val prepared = state.prepareBackupRestore("))
         assertTrue(
             screenSource.contains(
-                "state.restoreBackupState(",
+                "withContext(Dispatchers.IO) { state.persistBackupRestore(prepared) }\n" +
+                    "                                        state.applyBackupRestore(prepared)",
             ),
         )
         assertFalse(
@@ -189,7 +193,8 @@ class Backup02A2TransactionalRestoreTest {
         // Indentation-free: the restore moved into withContext(NonCancellable)
         // when coroutines 1.11 deprecated launch(NonCancellable).
         assertTrue(
-            Regex("""runCatching \{\s*state\.restoreBackupState\(""").containsMatchIn(screenSource),
+            Regex("""runCatching \{\s*// [^\n]*\n\s*val prepared = state\.prepareBackupRestore\(""")
+                .containsMatchIn(screenSource),
         )
     }
 

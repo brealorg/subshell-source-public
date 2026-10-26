@@ -33,8 +33,8 @@ import org.robolectric.annotation.Config
 
 /**
  * The app effects in their own bridge: an inbox notification for the
- * active account loads the inbox and, once loaded without its item, falls
- * back to the inbox root; a notification for another account does nothing;
+ * active account opens its stored item (asking Reddit only when it is not
+ * stored) and, once loaded without its item, falls back to the inbox root; a notification for another account does nothing;
  * a modmail notification opens the inbox root and loads modmail; the
  * drawer and account-switcher requests open them; an open drawer loads the
  * cached subscriptions.
@@ -69,7 +69,8 @@ class AppEffectsBridgeComposeTest {
             ),
         )
         val state = host(inbox = inbox)
-        assertEquals(listOf(alice.stableId to true), loads)
+        // INBOXSSOT01: a plain load (stored inbox first), not a forced one.
+        assertEquals(listOf(alice.stableId to false), loads)
         assertEquals(0, consumed)
 
         inbox.value = inbox.value.copy(
@@ -165,6 +166,91 @@ class AppEffectsBridgeComposeTest {
         val route = state.currentNavigationRoute
         assertTrue(route.toString(), route is SubshellRoute.Conversation)
         assertEquals("t4_new", (route as SubshellRoute.Conversation).inboxItemId)
+    }
+
+    // INBOXSSOT01_NOTIFICATION_OPENS_THE_STORED_ITEM_V1: the inbox follows
+    // the store, which the background sync filled before it notified.
+    @Test
+    fun aNotifiedItemAlreadyStoredOpensAtOnceWithoutAskingReddit() {
+        val loads = mutableListOf<Pair<String, Boolean>>()
+        var consumed = 0
+        val markedRead = mutableListOf<String>()
+        val inbox = mutableStateOf(
+            InboxEntryPoints(
+                redditInboxState = RedditInboxUiState(
+                    accountStableId = alice.stableId,
+                    items = listOf(message("t4_new"), message("t4_old")),
+                    loaded = true,
+                    contentRevision = 7L,
+                ),
+                onLoadRedditInbox = { account, force -> loads += account to force },
+                onMarkRedditInboxRead = { _, id -> markedRead += id },
+                inboxNotificationTarget = InboxNotificationTarget(
+                    accountStableId = alice.stableId,
+                    inboxItemId = "t4_new",
+                    eventKey = "event-ssot",
+                ),
+                onInboxNotificationConsumed = { consumed += 1 },
+            ),
+        )
+        val state = host(inbox = inbox)
+
+        assertEquals(1, consumed)
+        assertEquals(listOf("t4_new"), markedRead)
+        assertTrue(state.currentNavigationRoute is SubshellRoute.Conversation)
+        assertTrue(loads.none { (_, force) -> force })
+    }
+
+    @Test
+    fun aStoredItemOpensWhileTheInboxStillLoads() {
+        var consumed = 0
+        val inbox = mutableStateOf(
+            InboxEntryPoints(
+                redditInboxState = RedditInboxUiState(
+                    accountStableId = alice.stableId,
+                    items = listOf(message("t4_new")),
+                    loaded = true,
+                    fromCache = true,
+                    loading = true,
+                    contentRevision = 1L,
+                ),
+                onLoadRedditInbox = { _, _ -> },
+                inboxNotificationTarget = InboxNotificationTarget(
+                    accountStableId = alice.stableId,
+                    inboxItemId = "t4_new",
+                    eventKey = "event-loading",
+                ),
+                onInboxNotificationConsumed = { consumed += 1 },
+            ),
+        )
+        val state = host(inbox = inbox)
+
+        assertEquals(1, consumed)
+        assertTrue(state.currentNavigationRoute is SubshellRoute.Conversation)
+    }
+
+    @Test
+    fun aNotifiedItemThatIsNotStoredAsksReddit() {
+        val loads = mutableListOf<Pair<String, Boolean>>()
+        val inbox = mutableStateOf(
+            InboxEntryPoints(
+                redditInboxState = RedditInboxUiState(
+                    accountStableId = alice.stableId,
+                    items = listOf(message("t4_old")),
+                    loaded = true,
+                    contentRevision = 3L,
+                ),
+                onLoadRedditInbox = { account, force -> loads += account to force },
+                inboxNotificationTarget = InboxNotificationTarget(
+                    accountStableId = alice.stableId,
+                    inboxItemId = "t4_new",
+                    eventKey = "event-missing",
+                ),
+            ),
+        )
+        host(inbox = inbox)
+
+        assertTrue(loads.toString(), (alice.stableId to true) in loads)
     }
 
     private fun message(id: String) = InboxItem(

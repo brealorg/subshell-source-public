@@ -21,8 +21,13 @@ import app.subshell.prototype.data.network.SubshellNetworkJson
 import app.subshell.prototype.data.network.reddit.REDDIT_INBOX_MAX_PAGE_SIZE
 import app.subshell.prototype.data.network.reddit.RedditInboxNetworkDataSource
 import app.subshell.prototype.data.network.reddit.RedditInboxTargetNetworkDataSource
+import app.subshell.prototype.model.InboxItem
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import okhttp3.Call
@@ -52,6 +57,20 @@ internal class RedditInboxLoader(
             fromCache = true,
         )
     }
+
+    override fun observe(
+        accountStableId: String,
+    ): Flow<AuthenticatedRedditInboxSnapshot> =
+        cacheStore.observeLiveInboxSnapshot(accountStableId)
+            .filterNotNull()
+            .map { snapshot ->
+                AuthenticatedRedditInboxSnapshot(
+                    items = snapshot.items,
+                    nextCursor = snapshot.nextCursor,
+                    locallySeenIds = snapshot.locallySeenIds,
+                )
+            }
+            .flowOn(ioDispatcher)
 
     override suspend fun synchronize(
         accountStableId: String,
@@ -94,19 +113,26 @@ internal class RedditInboxLoader(
                 cursor = null,
                 limit = REDDIT_INBOX_MAX_PAGE_SIZE,
                 currentUsername = currentUsername,
+                // INBOXFAST01_A_REFRESH_READS_ONLY_THE_FIRST_PAGES_V1
+                balanceHistory = !cacheStore.hasLiveInboxItems(accountStableId),
             )) {
                 is NetworkResult.Success -> {
-                    cacheStore.replaceLiveInboxSnapshot(
-                        accountStableId = accountStableId,
-                        items = result.value.items,
-                        nextCursor = result.value.nextCursor,
+                    val fresh = result.value.items.distinctBy(InboxItem::id)
+                    val stored = requireNotNull(
+                        cacheStore.refreshLiveInboxHead(
+                            accountStableId = accountStableId,
+                            fresh = fresh,
+                            nextCursor = result.value.nextCursor,
+                            completeSinceEpochSeconds = result.value.completeSinceEpochSeconds,
+                            unreadItemIds = result.value.unreadItemIds,
+                        ),
                     )
-                    val stored = requireNotNull(cacheStore.liveInboxSnapshot(accountStableId))
                     AuthenticatedRedditInboxResult.Loaded(
                         snapshot = AuthenticatedRedditInboxSnapshot(
                             items = stored.items,
                             nextCursor = stored.nextCursor,
                             locallySeenIds = stored.locallySeenIds,
+                            freshItemIds = fresh.mapTo(hashSetOf(), InboxItem::id),
                         ),
                         fromCache = false,
                     )

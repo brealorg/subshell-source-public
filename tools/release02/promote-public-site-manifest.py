@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -39,6 +40,12 @@ import public_release_notes as release_notes  # noqa: E402
 
 STATE_VERSION = 1
 FINAL_STATE_VERSION = 1
+
+# SECAUDIT16_PUBLIC_COMMITS_ARE_BREALORG_V1 (security audit 2026-10-22, #16):
+# the site and manifest commits are made as brealorg, like Stage C's
+# snapshot, never with the machine's own git identity.
+PUBLIC_COMMIT_AUTHOR_NAME = "brealorg"
+PUBLIC_COMMIT_AUTHOR_EMAIL = "6815997+brealorg@users.noreply.github.com"
 
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -94,10 +101,12 @@ def run(
     *,
     cwd: Path | None = None,
     check: bool = True,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     result = subprocess.run(
         argv,
         cwd=str(cwd) if cwd else None,
+        env=env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -282,6 +291,25 @@ MAX_ADVISORY_CHARS = 240
 MAX_ADVISORY_VERSIONS = 32
 
 
+# SECAUDIT05_ADVISORY_TEXT_NAMES_NO_LINK_V1: the app drops an advisory that
+# looks like a link or a domain or says to uninstall/reinstall (a forged one
+# could send readers to another build); the release stops on the same text so
+# a real advisory is never silently lost. Keep in step with
+# advisoryMessageIsUnsafe in update/UpdateModels.kt.
+ADVISORY_DOMAIN_RE = re.compile(r"[a-z0-9-]*[a-z][a-z0-9-]*\.[a-z]{2,}")
+
+
+def advisory_message_is_unsafe(message: str) -> bool:
+    text = message.lower()
+    return (
+        "://" in text
+        or "www." in text
+        or "uninstall" in text
+        or "reinstall" in text
+        or ADVISORY_DOMAIN_RE.search(text) is not None
+    )
+
+
 def validate_changelog_advisory(advisory, version_code: int) -> None:
     if advisory is None:
         return
@@ -291,6 +319,8 @@ def validate_changelog_advisory(advisory, version_code: int) -> None:
     codes = advisory["affectedVersionCodes"]
     if not isinstance(message, str) or not message.strip() or len(message.strip()) > MAX_ADVISORY_CHARS:
         fail("CHANGELOG_ADVISORY_MESSAGE_INVALID")
+    if advisory_message_is_unsafe(message):
+        fail("CHANGELOG_ADVISORY_MESSAGE_UNSAFE")
     if (
         not isinstance(codes, list)
         or not codes
@@ -516,6 +546,25 @@ def verify_public_copy_privacy_boundary(readme: str) -> None:
         fail("PUBLIC_SOURCE_PRIVACY_BOUNDARY_MISSING")
 
 
+def commit_as_brealorg(clone: Path, message: str) -> str:
+    env = dict(os.environ)
+    env.update(
+        {
+            "GIT_AUTHOR_NAME": PUBLIC_COMMIT_AUTHOR_NAME,
+            "GIT_AUTHOR_EMAIL": PUBLIC_COMMIT_AUTHOR_EMAIL,
+            "GIT_COMMITTER_NAME": PUBLIC_COMMIT_AUTHOR_NAME,
+            "GIT_COMMITTER_EMAIL": PUBLIC_COMMIT_AUTHOR_EMAIL,
+        }
+    )
+    run(["git", "-C", str(clone), "commit", "-m", message], env=env)
+    commit = git(clone, "rev-parse", "HEAD")
+    identity = git(clone, "log", "-1", "--format=%an|%ae|%cn|%ce", commit)
+    expected = "|".join([PUBLIC_COMMIT_AUTHOR_NAME, PUBLIC_COMMIT_AUTHOR_EMAIL] * 2)
+    if identity != expected:
+        fail("PUBLIC_COMMIT_AUTHOR_NOT_BREALORG")
+    return commit
+
+
 def reconcile_public_site(
     *,
     repo: str,
@@ -566,17 +615,7 @@ def reconcile_public_site(
 
         run(["git", "-C", str(clone), "diff", "--check"])
         run(["git", "-C", str(clone), "add", "--", *sorted(dirty)])
-        run(
-            [
-                "git",
-                "-C",
-                str(clone),
-                "commit",
-                "-m",
-                f"Publish {current_version} beta download",
-            ]
-        )
-        commit = git(clone, "rev-parse", "HEAD")
+        commit = commit_as_brealorg(clone, f"Publish {current_version} beta download")
         run(["git", "-C", str(clone), "push", "origin", "main"])
         if remote_main(repo) != commit:
             fail("PUBLIC_SITE_REMOTE_MAIN_MISMATCH_AFTER_PUSH")
@@ -630,17 +669,7 @@ def reconcile_pages_manifest(
 
         run(["git", "-C", str(clone), "diff", "--check"])
         run(["git", "-C", str(clone), "add", "--", MANIFEST_PATH])
-        run(
-            [
-                "git",
-                "-C",
-                str(clone),
-                "commit",
-                "-m",
-                f"Publish Subshell beta update manifest for {version_name}",
-            ]
-        )
-        commit = git(clone, "rev-parse", "HEAD")
+        commit = commit_as_brealorg(clone, f"Publish Subshell beta update manifest for {version_name}")
         run(["git", "-C", str(clone), "push", "origin", "main"])
         if remote_main(repo) != commit:
             fail("PAGES_REMOTE_MAIN_MISMATCH_AFTER_PUSH")

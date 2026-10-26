@@ -261,6 +261,17 @@ internal fun ConversationRouteHost(
                 ownUsername = conversationOwnUsername,
                 accountStableId = state.activeAccountId,
                 replyText = conversationDraft,
+                replyMedia = state.messageConversationMedia(
+                    accountStableId = state.activeAccountId,
+                    inboxItemId = conversationItem.id,
+                ),
+                onReplyMediaChange = { media ->
+                    state.updateMessageConversationMedia(
+                        accountStableId = state.activeAccountId,
+                        inboxItemId = conversationItem.id,
+                        media = media,
+                    )
+                },
                 onReplyTextChange = { text ->
                     val actualEdit = text != conversationDraft
                     state.updateMessageConversationDraft(

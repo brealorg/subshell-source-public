@@ -45,6 +45,10 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
 class LowSmall2aTest {
+    @org.junit.Before
+    @org.junit.After
+    fun forgetFileProviderRoots() = app.subshell.prototype.harness.forgetFileProviderRoots()
+
     @get:Rule
     val compose = createComposeRule()
 

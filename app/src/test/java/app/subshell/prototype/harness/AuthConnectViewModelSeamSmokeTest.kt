@@ -1,5 +1,6 @@
 package app.subshell.prototype.harness
 
+import app.subshell.prototype.auth.reading
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import app.subshell.prototype.auth.AuthConnectViewModel
@@ -27,16 +28,16 @@ class AuthConnectViewModelSeamSmokeTest {
         val application = ApplicationProvider.getApplicationContext<Application>()
         val viewModel = AuthConnectViewModel(application, unavailableAuthApplicationRuntime())
 
-        val initial = viewModel.redditCommentsUiState.value
+        val initial = viewModel.reading().redditCommentsUiState.value
         assertNull(initial.postId)
         assertFalse(initial.loading)
 
-        viewModel.loadMoreRedditComments(
+        viewModel.reading().loadMoreRedditComments(
             accountStableId = "reddit:test",
             postId = "abc123",
             sort = RedditCommentSort.BEST,
             moreNodeId = "more-1",
         )
-        assertEquals(initial, viewModel.redditCommentsUiState.value)
+        assertEquals(initial, viewModel.reading().redditCommentsUiState.value)
     }
 }

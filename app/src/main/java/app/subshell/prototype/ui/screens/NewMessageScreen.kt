@@ -73,6 +73,8 @@ import app.subshell.prototype.ui.components.rememberComposerMediaPicker
 import kotlinx.coroutines.delay
 import app.subshell.prototype.ui.components.SubshellSearchField
 import app.subshell.prototype.ui.components.ListCard
+import app.subshell.prototype.ui.app.predictiveBackPage
+import app.subshell.prototype.ui.app.rememberPredictiveBackPage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -194,7 +196,12 @@ fun NewMessageScreen(
             onBack()
         }
     }
-    BackHandler {
+    // ISSUE249_IN_SCREEN_PAGES_FOLLOW_THE_BACK_GESTURE_V1: an empty message
+    // closes with the back gesture's preview; a message with content asks
+    // first and a start in flight keeps the screen, both without a preview.
+    val closesDirectly = !startInProgress && editorText.isBlank() && media == null
+    val pageBack = rememberPredictiveBackPage(enabled = closesDirectly, onBack = ::leave)
+    BackHandler(enabled = !closesDirectly) {
         if (!startInProgress) leave()
     }
     if (discardConfirmationVisible) {
@@ -237,7 +244,7 @@ fun NewMessageScreen(
 
     val routeTopBarScroll = rememberRouteTopBarScrollBehavior(ChromeBehavior.ALWAYS_SHOW)
     Scaffold(
-        modifier = Modifier.nestedScroll(routeTopBarScroll.nestedScrollConnection),
+        modifier = Modifier.predictiveBackPage(pageBack).nestedScroll(routeTopBarScroll.nestedScrollConnection),
         topBar = {
             RouteTopBar(
                 scrollBehavior = routeTopBarScroll,

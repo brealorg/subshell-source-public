@@ -52,6 +52,9 @@ internal enum class DiagnosticOperation {
     APP_UPDATED,
     // DIAG04_LISTING_SKIP_EVENT_V1: a read listing left out a post it could not decode.
     LISTING_POST_SKIPPED,
+    // ISSUE248_JANK_SUMMARY_PER_FOREGROUND_SESSION_V1: frames that missed their
+    // deadline while the app was in front (JankStats), once per session.
+    UI_JANK_OBSERVED,
 }
 
 internal enum class DiagnosticPresentationKind {
@@ -150,6 +153,10 @@ internal data class DiagnosticEvent(
     /** DIAG04_APP_UPDATED_EVENT_V1: set on [DiagnosticOperation.APP_UPDATED] only. */
     val appVersionFrom: Long? = null,
     val appVersionTo: Long? = null,
+    /** ISSUE248: set on [DiagnosticOperation.UI_JANK_OBSERVED] only; counts, no content. */
+    val frames: Int? = null,
+    val jankFrames: Int? = null,
+    val worstFrameMs: Long? = null,
 ) {
     init {
         require(id.matches(DIAGNOSTIC_EVENT_ID_PATTERN))
@@ -158,6 +165,9 @@ internal data class DiagnosticEvent(
         require(action == null || action.matches(SAFE_ENUM_TOKEN_PATTERN))
         require(appVersionFrom == null || appVersionFrom >= 0L)
         require(appVersionTo == null || appVersionTo >= 0L)
+        require(frames == null || frames >= 0)
+        require(jankFrames == null || jankFrames >= 0)
+        require(worstFrameMs == null || worstFrameMs >= 0L)
     }
 
     internal fun dedupeKey(): String = buildString {
@@ -320,6 +330,23 @@ internal object DiagnosticEvents {
         outcome = DiagnosticOutcome.OBSERVED,
         appVersionFrom = fromVersionCode,
         appVersionTo = toVersionCode,
+    )
+
+    /** ISSUE248_JANK_SUMMARY_PER_FOREGROUND_SESSION_V1 */
+    internal fun jankObserved(
+        summary: JankSummary,
+        nowEpochMs: Long = System.currentTimeMillis(),
+    ): DiagnosticEvent = DiagnosticEvent(
+        id = newDiagnosticEventId(),
+        timestampEpochMs = nowEpochMs,
+        level = DiagnosticLevel.INFO,
+        subsystem = DiagnosticSubsystem.APP,
+        operation = DiagnosticOperation.UI_JANK_OBSERVED,
+        outcome = DiagnosticOutcome.OBSERVED,
+        action = summary.worstScreen,
+        frames = summary.frames,
+        jankFrames = summary.jankFrames,
+        worstFrameMs = summary.worstFrameMs,
     )
 
     internal fun listingPostSkipped(

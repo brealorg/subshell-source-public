@@ -258,6 +258,8 @@ internal object FocusedCommentScrollOwnershipRegistry {
     }
 }
 
+private const val PUBLISHED_COMMENT_WAIT_MS = 10_000L
+
 internal fun focusedCommentTopLevelIndex(
     comments: List<Comment>,
     focusedCommentId: String?,
@@ -2373,6 +2375,31 @@ fun PostScreen(
         if (header != null && item != null) {
             val hidden = header.offset + header.size - item.offset
             if (hidden > 0) listState.animateScrollBy(-hidden.toFloat())
+        }
+    }
+    // COMMENTJUMP01_THE_THREAD_SCROLLS_TO_A_POSTED_COMMENT_V1: once the comment
+    // the reader just posted is in the thread, it is scrolled to just below the
+    // sort header. One that does not show up (a reply under a collapsed comment,
+    // a reload that failed) is given up quietly.
+    val publishedComment = state.publishedComment
+    LaunchedEffect(publishedComment, post.id) {
+        val target = publishedComment?.takeIf { candidate -> candidate.isOn(post.id) } ?: return@LaunchedEffect
+        val listIndex = withTimeoutOrNull(PUBLISHED_COMMENT_WAIT_MS) {
+            snapshotFlow {
+                focusedCommentLazyListIndex(
+                    rows = latestCommentRows,
+                    focusedCommentId = target.commentId,
+                    addCommentVisible = addCommentVisible,
+                    liveStatusVisible = latestLiveStatusVisible,
+                )
+            }.first { index -> index >= 0 }
+        }
+        // The target is a key of this effect: dropping it first would cancel
+        // the scroll it starts.
+        try {
+            if (listIndex != null) scrollCommentRowBelowHeader(listIndex)
+        } finally {
+            state.consumePublishedComment(target)
         }
     }
     val jumpToTopLevelComment: (TopLevelCommentJumpDirection) -> Unit = { direction ->

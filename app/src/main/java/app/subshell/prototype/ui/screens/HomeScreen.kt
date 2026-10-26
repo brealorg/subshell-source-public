@@ -1,6 +1,7 @@
 package app.subshell.prototype.ui.screens
 
 import android.util.Log
+import androidx.activity.compose.ReportDrawnWhen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -201,6 +202,10 @@ fun HomeScreen(
         }
     }
     val pagingSnapshot = state.postPagingSnapshot(pagingKey)
+    // ISSUE257_HOME_SAYS_LOADING_UNTIL_ITS_STORE_IS_READ_V1 (#257): right after
+    // the landing the stored page is still being read; until then Home says
+    // it is loading instead of "No cached Reddit posts" with a Refresh button.
+    val storedFeedRead = state.postPagingStoreRead(pagingKey)
     val allPosts = pagingSnapshot.items
     // FEEDS04_DERIVED_ID_SET_READS_V1: the id lists are read inside
     // derivedStateOf instead of being copied as remember keys on every
@@ -422,6 +427,20 @@ fun HomeScreen(
             !authenticatedLandingPending &&
             !authenticatedHomeWithoutSubscriptions &&
             liveReadFailure != null
+    // ISSUE248_FIRST_FEED_PAGE_REPORTS_FULLY_DRAWN_V1 (#248): the start counts
+    // as fully drawn once Home shows posts or a settled answer (an empty
+    // listing, a read failure, no subscriptions), so StartupTimingMetric's
+    // timeToFullDisplay measures a usable feed, not the first frame. Reported
+    // once per activity; a start on another screen reports nothing.
+    val liveFeedSettled = !authenticatedRedditFeed || (
+        !activeRedditFeedState.inProgress &&
+            (activeRedditFeedState.lastAppliedOperation != null || liveReadFailure != null)
+        )
+    ReportDrawnWhen {
+        visiblePosts.isNotEmpty() ||
+            authenticatedHomeWithoutSubscriptions ||
+            (!authenticatedLandingPending && liveFeedSettled)
+    }
     val degradedFeedErrorPresentation = if (
         liveReadFailure != null &&
         showLiveReadError &&
@@ -475,7 +494,8 @@ fun HomeScreen(
     val showLivePagingStatus =
         authenticatedRedditFeed &&
             !authenticatedLandingPending &&
-            !authenticatedHomeWithoutSubscriptions && (
+            !authenticatedHomeWithoutSubscriptions &&
+            (storedFeedRead || activeRedditFeedState.inProgress) && (
         activeRedditFeedState.inProgress ||
             activeRedditFeedState.failureKind == RedditFeedUiFailureKind.END_REACHED ||
             visiblePosts.isEmpty() ||
@@ -800,7 +820,7 @@ fun HomeScreen(
                                     "Nothing saved yet"
                                 } else if (successfulEmptyRedditListing) {
                                     "Reddit returned no posts"
-                                } else if (authenticatedRedditFeed && activeRedditFeedState.inProgress) {
+                                } else if (authenticatedRedditFeed && (activeRedditFeedState.inProgress || !storedFeedRead)) {
                                     // LOWUX3_FIRST_LOAD_SAYS_LOADING_V1 (OCB-218): a first page
                                     // on its way read "No cached Reddit posts / reconnect".
                                     "Loading from Reddit…"
@@ -830,7 +850,7 @@ fun HomeScreen(
                                 } else if (successfulEmptyRedditListing) {
                                     "$activeRedditListingLabel returned an empty listing. " +
                                         "Try another sort or time period."
-                                } else if (authenticatedRedditFeed && activeRedditFeedState.inProgress) {
+                                } else if (authenticatedRedditFeed && (activeRedditFeedState.inProgress || !storedFeedRead)) {
                                     "The first page is on its way."
                                 } else if (authenticated) {
                                     "Pull to refresh, or reconnect the account if the session needs attention."

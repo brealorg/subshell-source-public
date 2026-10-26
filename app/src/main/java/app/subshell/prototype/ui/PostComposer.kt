@@ -241,12 +241,37 @@ internal fun composerKnownCommunityOptions(
         }
 }
 
+// ISSUE262_POST_TO_YOUR_PROFILE_V1: Reddit takes a post to a user's profile as
+// a post to the profile's own community u_<username> (shown u/<username>); the
+// composer policy and the submit already work with that name. Community names
+// cannot start with "u_", so the prefix names a profile.
+internal fun composerProfileDestination(username: String): String = "u_${username.trim()}"
+
+internal fun isComposerProfileDestination(community: String): Boolean =
+    community.trim().removePrefix("/r/").removePrefix("r/").startsWith("u_", ignoreCase = true)
+
+/** "u/<name>" for a profile, "r/<name>" for a community. */
+internal fun composerDestinationLabel(community: String): String {
+    val name = community.trim().removePrefix("/r/").removePrefix("r/")
+    return if (isComposerProfileDestination(name)) "u/${name.drop(2)}" else "r/$name"
+}
+
 internal fun composerCommunityPickerOptions(
     known: List<ComposerCommunityOption>,
     remoteMatches: List<ComposerCommunityOption>,
     query: String,
     authenticated: Boolean,
+    profileUsername: String? = null,
 ): List<ComposerCommunityOption> {
+    // ISSUE262_POST_TO_YOUR_PROFILE_V1: the signed-in account's profile comes
+    // first, as in Reddit's own picker; typed, it matches its name or "profile".
+    val profile = profileUsername?.trim()?.takeIf { authenticated && it.isNotEmpty() }?.let { username ->
+        ComposerCommunityOption(name = composerProfileDestination(username), title = "Your profile")
+    }?.takeIf { option ->
+        val typed = query.trim().removePrefix("u/").removePrefix("/u/")
+        typed.isBlank() || option.name.drop(2).contains(typed, ignoreCase = true) ||
+            "your profile".contains(query.trim(), ignoreCase = true)
+    }
     val localMatches = known
         .filter { option ->
             if (query.isBlank()) {
@@ -261,7 +286,7 @@ internal fun composerCommunityPickerOptions(
                 .thenByDescending { it.joined }
                 .thenBy { it.name.lowercase() },
         )
-    return (remoteMatches + localMatches).distinctBy { option -> option.name.lowercase() }
+    return (listOfNotNull(profile) + remoteMatches + localMatches).distinctBy { option -> option.name.lowercase() }
 }
 
 @Immutable

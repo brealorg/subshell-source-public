@@ -353,6 +353,11 @@ for bad, marker in (
     ({"affectedVersionCodes": [245], "message": "x", "extra": 1}, "CHANGELOG_ADVISORY_INVALID"),
     ({"affectedVersionCodes": [245], "message": "M" * 241}, "CHANGELOG_ADVISORY_MESSAGE_INVALID"),
     ({"affectedVersionCodes": [245], "message": "  "}, "CHANGELOG_ADVISORY_MESSAGE_INVALID"),
+    ({"affectedVersionCodes": [245], "message": "Get the fix at https://x.invalid"}, "CHANGELOG_ADVISORY_MESSAGE_UNSAFE"),
+    ({"affectedVersionCodes": [245], "message": "See www.x for help."}, "CHANGELOG_ADVISORY_MESSAGE_UNSAFE"),
+    ({"affectedVersionCodes": [245], "message": "Install the fix from subshell-fix.app"}, "CHANGELOG_ADVISORY_MESSAGE_UNSAFE"),
+    ({"affectedVersionCodes": [245], "message": "Uninstall Subshell first."}, "CHANGELOG_ADVISORY_MESSAGE_UNSAFE"),
+    ({"affectedVersionCodes": [245], "message": "Please REINSTALL the app."}, "CHANGELOG_ADVISORY_MESSAGE_UNSAFE"),
     ({"affectedVersionCodes": [], "message": "x"}, "CHANGELOG_ADVISORY_VERSIONS_INVALID"),
     ({"affectedVersionCodes": [300], "message": "x"}, "CHANGELOG_ADVISORY_VERSIONS_INVALID"),
     ({"affectedVersionCodes": [245, 245], "message": "x"}, "CHANGELOG_ADVISORY_VERSIONS_INVALID"),
@@ -364,6 +369,10 @@ for bad, marker in (
         lambda bad=bad: module.load_release_from_changelog(changelog_with_advisory(bad), "0.80-beta", 300),
         marker,
     )
+# Version numbers and ordinary sentences stay allowed.
+for fine in ("0.81 can lose a draft.", "0.84.1 stops videos after 30 s. Update to 0.85.", "Drafts, e.g. replies, may be lost."):
+    assert not module.advisory_message_is_unsafe(fine), fine
+print("PASS=SECAUDIT05_ADVISORY_TEXT_NAMES_NO_LINK")
 print("UPDATE09_ADVISORY_SELFTEST=PASS")
 
 
@@ -448,3 +457,46 @@ with tempfile.TemporaryDirectory() as temp:
 
 assert module.load_changelog_releases(ROOT)[0]["versionName"]
 print("PASS=RELEASETOOL02C_SITE_RELEASE_NOTES")
+
+# SECAUDIT16_PUBLIC_COMMITS_ARE_BREALORG_V1: the public commits are brealorg's
+# whatever the machine's git identity is, and the identity is Stage C's.
+snapshot_spec = importlib.util.spec_from_file_location(
+    "release02e", ROOT / "tools/release02/publish-source-snapshot.py"
+)
+assert snapshot_spec and snapshot_spec.loader
+snapshot_module = importlib.util.module_from_spec(snapshot_spec)
+snapshot_spec.loader.exec_module(snapshot_module)
+assert module.PUBLIC_COMMIT_AUTHOR_NAME == snapshot_module.SNAPSHOT_AUTHOR_NAME
+assert module.PUBLIC_COMMIT_AUTHOR_EMAIL == snapshot_module.SNAPSHOT_AUTHOR_EMAIL
+
+with tempfile.TemporaryDirectory() as temp:
+    repo = Path(temp) / "repo"
+    repo.mkdir()
+    module.run(["git", "init", "-b", "main"], cwd=repo)
+    module.run(["git", "config", "user.name", "A Real Name"], cwd=repo)
+    module.run(["git", "config", "user.email", "someone@example.invalid"], cwd=repo)
+    (repo / "README.md").write_text("x\n")
+    module.run(["git", "add", "-A"], cwd=repo)
+    commit = module.commit_as_brealorg(repo, "Publish 0.85-beta beta download")
+    assert module.git(repo, "log", "-1", "--format=%an|%ae|%cn|%ce", commit) == "|".join(
+        [module.PUBLIC_COMMIT_AUTHOR_NAME, module.PUBLIC_COMMIT_AUTHOR_EMAIL] * 2
+    )
+
+    # Control: a commit made without the identity is refused.
+    (repo / "README.md").write_text("y\n")
+    module.run(["git", "add", "-A"], cwd=repo)
+    real_run = module.run
+
+    def run_without_env(argv, *, cwd=None, check=True, env=None):
+        return real_run(argv, cwd=cwd, check=check)
+
+    module.run = run_without_env
+    try:
+        expect_error(
+            lambda: module.commit_as_brealorg(repo, "Publish 0.86-beta beta download"),
+            "PUBLIC_COMMIT_AUTHOR_NOT_BREALORG",
+        )
+    finally:
+        module.run = real_run
+
+print("PASS=SECAUDIT16_PUBLIC_COMMITS_ARE_BREALORG")

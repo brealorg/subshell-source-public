@@ -56,7 +56,6 @@ internal fun SecondaryRouteHost(
     onAuthorizeRedditProfileHistory: (String, String) -> Unit,
     redditFeed: FeedEntryPoints,
     redditCommunity: CommunityEntryPoints,
-    onRequestInboxNotificationPermission: ((Boolean) -> Unit) -> Unit,
     onRedditConfigurationChanged: () -> Unit,
     redditLinkHandlingState: RedditLinkHandlingState,
     onOpenRedditLinkSettings: () -> Unit,
@@ -134,8 +133,6 @@ internal fun SecondaryRouteHost(
                         requestedSettingsDestinationName =
                             SettingsDestination.ROOT.name
                     },
-                    onRequestInboxNotificationPermission =
-                        onRequestInboxNotificationPermission,
                     onRedditConfigurationChanged =
                         onRedditConfigurationChanged,
                     redditLinkHandlingState =

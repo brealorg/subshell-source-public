@@ -29,6 +29,9 @@ internal class PostVoteCoordinator(
     private val writer: AuthenticatedPostVoteWriter?,
     private val clientMode: OAuthClientMode?,
     private val activeAccountStableId: () -> String?,
+    // COMMENTSSOT01_SETTLED_COMMENT_ACTIONS_REACH_THE_THREAD_V1 (#244): told of
+    // every vote Reddit took, before the state shows it.
+    private val onVoted: (PostVoteRequest) -> Unit = {},
 ) {
     private val mutationMutex = Mutex()
     private val mutableUiState = MutableStateFlow(PostVoteUiState())
@@ -109,6 +112,7 @@ internal class PostVoteCoordinator(
             when (result) {
                 is AuthenticatedPostVoteResult.Voted -> {
                     pendingRequest = null
+                    onVoted(result.request)
                     val nextRevision = mutableUiState.value.completionRevision + 1L
                     mutableUiState.value = PostVoteUiState(
                         phase = PostVotePhase.SUCCEEDED,

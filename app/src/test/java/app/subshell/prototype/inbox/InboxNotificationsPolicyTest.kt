@@ -55,6 +55,10 @@ class InboxNotificationsPolicyTest {
                     title = "Thread",
                     sender = "u/sender",
                     preview = "message",
+                    // ISSUE253: a message carries its thread; these ids are not
+                    // Reddit's base-36 ones, so there is no message to reply to.
+                    conversation = message.conversation,
+                    replyParentFullname = null,
                 ),
             ),
             inboxNotificationEvents(

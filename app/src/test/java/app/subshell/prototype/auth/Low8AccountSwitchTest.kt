@@ -177,10 +177,14 @@ class Low8AccountSwitchTest {
         assertEquals(1, capability.cancels)
     }
 
-    private fun viewModel(loader: AuthenticatedRedditModerationLoader): AuthConnectViewModel =
-        AuthConnectViewModel(
-            ApplicationProvider.getApplicationContext<Application>(),
-            unavailableAuthApplicationRuntime().copy(redditModerationLoader = loader),
+    // AUTHSPLIT01: the mod queue lives in ModerationViewModel, sharing the
+    // runtime AuthConnectViewModel owns.
+    private fun viewModel(loader: AuthenticatedRedditModerationLoader): ModerationViewModel =
+        ModerationViewModel(
+            AuthConnectViewModel(
+                ApplicationProvider.getApplicationContext<Application>(),
+                unavailableAuthApplicationRuntime().copy(redditModerationLoader = loader),
+            ).sharedRuntime,
         )
 
     private fun idle() = shadowOf(Looper.getMainLooper()).idle()

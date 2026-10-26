@@ -3,6 +3,13 @@ package app.subshell.prototype.data.network
 data class NetworkPage<T>(
     val items: List<T>,
     val nextCursor: String?,
+    // INBOXFAST01_A_REFRESH_IS_COMPLETE_ONLY_SINCE_ITS_OLDER_EDGE_V1: for a
+    // first page read from more than one listing (the inbox and sent), the
+    // time from which every item is on it; 0 = everything, null = unknown.
+    val completeSinceEpochSeconds: Long? = null,
+    // INBOXORDER01_STORED_ROWS_READ_ELSEWHERE_TURN_READ_V1: on a first inbox
+    // page, every item Reddit holds unread now; null when not known whole.
+    val unreadItemIds: Set<String>? = null,
 )
 
 data class NetworkRateLimit(

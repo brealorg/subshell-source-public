@@ -24,7 +24,7 @@ import app.subshell.prototype.ui.error.ViewportErrorHostState
 internal const val SETTINGS_REVIEW_NUDGE_SCOPE = "settings-review-nudge"
 internal const val SETTINGS_REVIEW_NUDGE_DELAY_MS = 3L * 24L * 60L * 60L * 1_000L
 
-private const val NUDGE_PREFERENCES = "subshell_settings_review_nudge"
+internal const val NUDGE_PREFERENCES = "subshell_settings_review_nudge"
 private const val FIRST_RUN_AT_KEY = "first_run_at_epoch_ms"
 private const val DONE_KEY = "done"
 

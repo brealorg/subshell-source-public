@@ -1,6 +1,7 @@
 package app.subshell.prototype.applock
 
 import android.content.Context
+import android.os.StrictMode
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -171,8 +172,19 @@ internal object AppLockSettingsStore {
 class AppLockViewModel : ViewModel() {
     private var controller: AppLockController? = null
 
+    // STRICTMODE02_APP_LOCK_READ_BEFORE_THE_FIRST_FRAME_V1 (#243): whether the
+    // app is locked must be known before anything is drawn, so this one small
+    // file is read on Main on purpose (once per process; the view model keeps
+    // the controller across rebuilds). The permit covers only this read.
     internal fun controller(context: Context): AppLockController =
-        controller ?: AppLockController(AppLockSettingsStore.read(context)).also { controller = it }
+        controller ?: run {
+            val policy = StrictMode.allowThreadDiskReads()
+            try {
+                AppLockController(AppLockSettingsStore.read(context))
+            } finally {
+                StrictMode.setThreadPolicy(policy)
+            }
+        }.also { controller = it }
 }
 
 /**

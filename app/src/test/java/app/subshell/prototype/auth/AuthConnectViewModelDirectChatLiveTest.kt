@@ -55,9 +55,9 @@ class AuthConnectViewModelDirectChatLiveTest {
         val reader = FakeReader()
         val viewModel = viewModel(reader)
 
-        viewModel.startRedditDirectChatLive(account, item, peer)
+        viewModel.inbox().startRedditDirectChatLive(account, item, peer)
         idle()
-        var state = viewModel.directChatLiveUiState.value
+        var state = viewModel.inbox().directChatLiveUiState.value
         assertTrue(state.connecting)
         assertFalse(state.live)
         assertEquals(1, reader.streams)
@@ -67,76 +67,76 @@ class AuthConnectViewModelDirectChatLiveTest {
         reader.callbacks!!.messages(listOf(bubble("\$m1", outgoing = true), bubble("\$m2", outgoing = false)))
         reader.callbacks!!.cursor("cur-1")
         idle()
-        state = viewModel.directChatLiveUiState.value
+        state = viewModel.inbox().directChatLiveUiState.value
         assertTrue(state.live)
         assertFalse(state.connecting)
         assertEquals(listOf("\$m1", "\$m2"), state.messages.map { it.id })
         assertEquals(1L, state.contentRevision)
 
-        viewModel.startRedditDirectChatLive(account, item, peer)
+        viewModel.inbox().startRedditDirectChatLive(account, item, peer)
         idle()
         assertEquals(1, reader.streams)
 
         // A peer-typing signal reaches the state; an incoming message clears it.
         reader.callbacks!!.peerTyping(true)
         idle()
-        assertTrue(viewModel.directChatLiveUiState.value.peerTyping)
+        assertTrue(viewModel.inbox().directChatLiveUiState.value.peerTyping)
         reader.callbacks!!.messages(listOf(bubble("\$m3", outgoing = false)))
         idle()
-        assertFalse(viewModel.directChatLiveUiState.value.peerTyping)
+        assertFalse(viewModel.inbox().directChatLiveUiState.value.peerTyping)
     }
 
     @Test
     fun stopEndsTheSessionAndARestartResumesFromTheRecordedCursorWithTheMessagesKept() {
         val reader = FakeReader()
         val viewModel = viewModel(reader)
-        viewModel.startRedditDirectChatLive(account, item, peer)
+        viewModel.inbox().startRedditDirectChatLive(account, item, peer)
         idle()
         reader.callbacks!!.connected()
         reader.callbacks!!.messages(listOf(bubble("\$m1", outgoing = true)))
         reader.callbacks!!.cursor("cur-7")
         idle()
 
-        viewModel.stopRedditDirectChatLive(account, item)
+        viewModel.inbox().stopRedditDirectChatLive(account, item)
         idle()
-        var state = viewModel.directChatLiveUiState.value
+        var state = viewModel.inbox().directChatLiveUiState.value
         assertFalse(state.live)
         assertFalse(state.connecting)
         assertTrue(reader.lastCancelled)
         assertEquals(listOf("\$m1"), state.messages.map { it.id })
 
-        viewModel.startRedditDirectChatLive(account, item, peer)
+        viewModel.inbox().startRedditDirectChatLive(account, item, peer)
         idle()
         assertEquals(2, reader.streams)
         assertEquals("cur-7", reader.lastSince)
-        state = viewModel.directChatLiveUiState.value
+        state = viewModel.inbox().directChatLiveUiState.value
         assertTrue(state.connecting)
         assertEquals(listOf("\$m1"), state.messages.map { it.id })
 
         // Another target starts fresh, without the cursor.
-        viewModel.startRedditDirectChatLive(account, "t4_other", "someone")
+        viewModel.inbox().startRedditDirectChatLive(account, "t4_other", "someone")
         idle()
         assertEquals(3, reader.streams)
         assertNull(reader.lastSince)
-        assertTrue(viewModel.directChatLiveUiState.value.messages.isEmpty())
+        assertTrue(viewModel.inbox().directChatLiveUiState.value.messages.isEmpty())
     }
 
     @Test
     fun aFailedStreamReportsTheKindAndASessionFailureForgetsTheCursor() {
         val reader = FakeReader()
         val viewModel = viewModel(reader)
-        viewModel.startRedditDirectChatLive(account, item, peer)
+        viewModel.inbox().startRedditDirectChatLive(account, item, peer)
         idle()
         reader.callbacks!!.connected()
         reader.callbacks!!.cursor("cur-1")
         idle()
         reader.finish(AuthenticatedRedditDirectChatLiveResult.Failed(DirectChatLiveFailureKind.SESSION))
         idle()
-        val state = viewModel.directChatLiveUiState.value
+        val state = viewModel.inbox().directChatLiveUiState.value
         assertFalse(state.live)
         assertEquals(DirectChatLiveFailureKind.SESSION, state.failureKind)
 
-        viewModel.startRedditDirectChatLive(account, item, peer)
+        viewModel.inbox().startRedditDirectChatLive(account, item, peer)
         idle()
         assertEquals(2, reader.streams)
         assertNull(reader.lastSince)
@@ -147,27 +147,27 @@ class AuthConnectViewModelDirectChatLiveTest {
     fun peerTypingIsClearedWhenTheStreamStopsOrFails() {
         val reader = FakeReader()
         val viewModel = viewModel(reader)
-        viewModel.startRedditDirectChatLive(account, item, peer)
+        viewModel.inbox().startRedditDirectChatLive(account, item, peer)
         idle()
         reader.callbacks!!.connected()
         reader.callbacks!!.peerTyping(true)
         idle()
-        assertTrue(viewModel.directChatLiveUiState.value.peerTyping)
+        assertTrue(viewModel.inbox().directChatLiveUiState.value.peerTyping)
 
-        viewModel.stopRedditDirectChatLive(account, item)
+        viewModel.inbox().stopRedditDirectChatLive(account, item)
         idle()
-        assertFalse(viewModel.directChatLiveUiState.value.peerTyping)
+        assertFalse(viewModel.inbox().directChatLiveUiState.value.peerTyping)
 
-        viewModel.startRedditDirectChatLive(account, item, peer)
+        viewModel.inbox().startRedditDirectChatLive(account, item, peer)
         idle()
         reader.callbacks!!.connected()
         reader.callbacks!!.peerTyping(true)
         idle()
-        assertTrue(viewModel.directChatLiveUiState.value.peerTyping)
+        assertTrue(viewModel.inbox().directChatLiveUiState.value.peerTyping)
 
         reader.finish(AuthenticatedRedditDirectChatLiveResult.Failed(DirectChatLiveFailureKind.TRANSPORT))
         idle()
-        assertFalse(viewModel.directChatLiveUiState.value.peerTyping)
+        assertFalse(viewModel.inbox().directChatLiveUiState.value.peerTyping)
     }
 
     @Test
@@ -177,15 +177,15 @@ class AuthConnectViewModelDirectChatLiveTest {
         val viewModel = viewModel(reader, typing = typing)
 
         // Not live yet: a typing=true update is dropped.
-        viewModel.updateRedditDirectChatTyping(account, item, peer, typing = true)
+        viewModel.inbox().updateRedditDirectChatTyping(account, item, peer, typing = true)
         idle()
         assertEquals(emptyList<Boolean>(), typing.sent)
 
-        viewModel.startRedditDirectChatLive(account, item, peer)
+        viewModel.inbox().startRedditDirectChatLive(account, item, peer)
         idle()
         reader.callbacks!!.connected()
         idle()
-        viewModel.updateRedditDirectChatTyping(account, item, peer, typing = true)
+        viewModel.inbox().updateRedditDirectChatTyping(account, item, peer, typing = true)
         idle()
         assertEquals(listOf(true), typing.sent)
 
@@ -194,7 +194,7 @@ class AuthConnectViewModelDirectChatLiveTest {
         assertEquals(listOf(true, false), typing.sent)
 
         // stop while typing sends false too (already false here: no extra send).
-        viewModel.stopRedditDirectChatLive(account, item)
+        viewModel.inbox().stopRedditDirectChatLive(account, item)
         idle()
         assertEquals(listOf(true, false), typing.sent)
     }
@@ -204,31 +204,31 @@ class AuthConnectViewModelDirectChatLiveTest {
         val reader = FakeReader()
         val redaction = FakeRedaction()
         val viewModel = viewModel(reader, redaction = redaction)
-        viewModel.startRedditDirectChatLive(account, item, peer)
+        viewModel.inbox().startRedditDirectChatLive(account, item, peer)
         idle()
         reader.callbacks!!.connected()
         reader.callbacks!!.messages(listOf(bubble("\$mine", outgoing = true), bubble("\$theirs", outgoing = false)))
         idle()
 
-        viewModel.deleteRedditDirectChatMessage(account, item, peer, "\$theirs")
+        viewModel.inbox().deleteRedditDirectChatMessage(account, item, peer, "\$theirs")
         idle()
-        assertEquals(DirectChatDeleteFailureKind.NOT_OWNER, viewModel.directChatLiveUiState.value.deleteFailureKind)
+        assertEquals(DirectChatDeleteFailureKind.NOT_OWNER, viewModel.inbox().directChatLiveUiState.value.deleteFailureKind)
         assertEquals(0, redaction.calls)
 
-        viewModel.deleteRedditDirectChatMessage(account, item, peer, "\$mine")
+        viewModel.inbox().deleteRedditDirectChatMessage(account, item, peer, "\$mine")
         idle()
-        var state = viewModel.directChatLiveUiState.value
+        var state = viewModel.inbox().directChatLiveUiState.value
         assertEquals("\$mine", state.deletingEventId)
         assertNull(state.deleteFailureKind)
         assertEquals(1, redaction.calls)
         // A second delete while one is in flight is ignored.
-        viewModel.deleteRedditDirectChatMessage(account, item, peer, "\$mine")
+        viewModel.inbox().deleteRedditDirectChatMessage(account, item, peer, "\$mine")
         idle()
         assertEquals(1, redaction.calls)
 
         redaction.gate.complete(AuthenticatedRedditDirectChatRedactionResult.Accepted("\$redaction"))
         idle()
-        state = viewModel.directChatLiveUiState.value
+        state = viewModel.inbox().directChatLiveUiState.value
         assertNull(state.deletingEventId)
         assertTrue("\$mine" in state.redactedMessageIds)
         assertEquals(2L, state.contentRevision)
@@ -239,7 +239,7 @@ class AuthConnectViewModelDirectChatLiveTest {
     fun theLiveWindowKeepsTheNewest100Messages() {
         val reader = FakeReader()
         val viewModel = viewModel(reader)
-        viewModel.startRedditDirectChatLive(account, item, peer)
+        viewModel.inbox().startRedditDirectChatLive(account, item, peer)
         idle()
         reader.callbacks!!.connected()
         reader.callbacks!!.messages(
@@ -247,7 +247,7 @@ class AuthConnectViewModelDirectChatLiveTest {
         )
         idle()
 
-        val ids = viewModel.directChatLiveUiState.value.messages.map { it.id }
+        val ids = viewModel.inbox().directChatLiveUiState.value.messages.map { it.id }
         assertEquals(100, ids.size)
         assertEquals((51..150).map { "\$m$it" }, ids)
     }
@@ -260,15 +260,15 @@ class AuthConnectViewModelDirectChatLiveTest {
         val viewModel = reactionViewModel(reader, writer)
         goLive(viewModel, reader)
 
-        viewModel.reactRedditDirectChatMessage(account, item, peer, "\$m1", reactionKey)
+        viewModel.inbox().reactRedditDirectChatMessage(account, item, peer, "\$m1", reactionKey)
         idle()
-        assertEquals("\$m1", viewModel.directChatLiveUiState.value.reactingEventId)
+        assertEquals("\$m1", viewModel.inbox().directChatLiveUiState.value.reactingEventId)
         assertEquals(listOf("\$m1" to reactionKey), writer.calls)
 
         writer.gate.complete(AuthenticatedRedditDirectChatReactionResult.Accepted("\$r1", "\$m1", reactionKey))
         idle()
 
-        val state = viewModel.directChatLiveUiState.value
+        val state = viewModel.inbox().directChatLiveUiState.value
         assertNull(state.reactingEventId)
         assertNull(state.reactionFailureKind)
         assertEquals(listOf(DirectChatReaction("\$r1", "\$m1", reactionKey, senderIsSelf = true)), state.reactions)
@@ -284,14 +284,14 @@ class AuthConnectViewModelDirectChatLiveTest {
         val viewModel = reactionViewModel(reader, writer)
         goLive(viewModel, reader)
 
-        viewModel.reactRedditDirectChatMessage(account, item, peer, "\$m1", reactionKey)
+        viewModel.inbox().reactRedditDirectChatMessage(account, item, peer, "\$m1", reactionKey)
         idle()
-        viewModel.reactRedditDirectChatMessage(account, item, peer, "\$m2", reactionKey)
-        viewModel.reactRedditDirectChatMessage(account, item, peer, "\$m1", otherReactionKey)
+        viewModel.inbox().reactRedditDirectChatMessage(account, item, peer, "\$m2", reactionKey)
+        viewModel.inbox().reactRedditDirectChatMessage(account, item, peer, "\$m1", otherReactionKey)
         idle()
 
         assertEquals(1, writer.calls.size)
-        assertEquals("\$m1", viewModel.directChatLiveUiState.value.reactingEventId)
+        assertEquals("\$m1", viewModel.inbox().directChatLiveUiState.value.reactingEventId)
     }
 
     // STEP3 (messages02e2a, E2A3): leaving the chat while a reaction is sent
@@ -302,13 +302,13 @@ class AuthConnectViewModelDirectChatLiveTest {
         val writer = FakeReactionWriter()
         val viewModel = reactionViewModel(reader, writer)
         goLive(viewModel, reader)
-        viewModel.reactRedditDirectChatMessage(account, item, peer, "\$m1", reactionKey)
+        viewModel.inbox().reactRedditDirectChatMessage(account, item, peer, "\$m1", reactionKey)
         idle()
 
-        viewModel.stopRedditDirectChatLive(account, item)
+        viewModel.inbox().stopRedditDirectChatLive(account, item)
         idle()
 
-        val state = viewModel.directChatLiveUiState.value
+        val state = viewModel.inbox().directChatLiveUiState.value
         assertNull(state.reactingEventId)
         assertEquals(DirectChatReactionFailureKind.OUTCOME_UNKNOWN, state.reactionFailureKind)
         assertTrue(writer.cancelled)
@@ -323,10 +323,10 @@ class AuthConnectViewModelDirectChatLiveTest {
         val viewModel = reactionViewModel(reader, writer)
         goLive(viewModel, reader)
 
-        viewModel.reactRedditDirectChatMessage(account, item, peer, "\$m1", reactionKey)
+        viewModel.inbox().reactRedditDirectChatMessage(account, item, peer, "\$m1", reactionKey)
         idle()
 
-        val state = viewModel.directChatLiveUiState.value
+        val state = viewModel.inbox().directChatLiveUiState.value
         assertNull(state.reactingEventId)
         assertEquals(DirectChatReactionFailureKind.OUTCOME_UNKNOWN, state.reactionFailureKind)
         assertEquals(1, writer.calls.size)
@@ -340,16 +340,16 @@ class AuthConnectViewModelDirectChatLiveTest {
         val viewModel = reactionViewModel(reader, writer)
         goLive(viewModel, reader)
 
-        viewModel.reactRedditDirectChatMessage(account, item, peer, "\$missing", reactionKey)
+        viewModel.inbox().reactRedditDirectChatMessage(account, item, peer, "\$missing", reactionKey)
         idle()
-        assertEquals(DirectChatReactionFailureKind.TARGET, viewModel.directChatLiveUiState.value.reactionFailureKind)
+        assertEquals(DirectChatReactionFailureKind.TARGET, viewModel.inbox().directChatLiveUiState.value.reactionFailureKind)
 
         reader.callbacks!!.redactions(listOf("\$m1"))
         idle()
-        viewModel.reactRedditDirectChatMessage(account, item, peer, "\$m1", reactionKey)
+        viewModel.inbox().reactRedditDirectChatMessage(account, item, peer, "\$m1", reactionKey)
         idle()
 
-        assertEquals(DirectChatReactionFailureKind.TARGET, viewModel.directChatLiveUiState.value.reactionFailureKind)
+        assertEquals(DirectChatReactionFailureKind.TARGET, viewModel.inbox().directChatLiveUiState.value.reactionFailureKind)
         assertEquals(emptyList<Pair<String, String>>(), writer.calls)
     }
 
@@ -368,9 +368,9 @@ class AuthConnectViewModelDirectChatLiveTest {
         val probe = FakeProbe()
         val viewModel = reactionViewModel(reader, FakeReactionWriter(), probe)
 
-        viewModel.startRedditDirectChatLive(account, item, peer)
+        viewModel.inbox().startRedditDirectChatLive(account, item, peer)
         idle()
-        assertEquals(listOf("\$cached"), viewModel.directChatLiveUiState.value.reactions.map { it.reactionEventId })
+        assertEquals(listOf("\$cached"), viewModel.inbox().directChatLiveUiState.value.reactions.map { it.reactionEventId })
         assertEquals(0, probe.calls)
 
         reader.callbacks!!.messages(listOf(bubble("\$m1", outgoing = true), bubble("\$m2", outgoing = false)))
@@ -378,7 +378,7 @@ class AuthConnectViewModelDirectChatLiveTest {
         idle()
         assertEquals(1, probe.calls)
         assertEquals(setOf("\$m1", "\$m2"), probe.targets.toSet())
-        assertEquals(listOf("\$cached"), viewModel.directChatLiveUiState.value.reactions.map { it.reactionEventId })
+        assertEquals(listOf("\$cached"), viewModel.inbox().directChatLiveUiState.value.reactions.map { it.reactionEventId })
 
         probe.onBatch!!(
             RedditChatMatrixReactionRelationsReadResult(
@@ -387,9 +387,9 @@ class AuthConnectViewModelDirectChatLiveTest {
             ),
         )
         idle()
-        assertEquals(listOf("\$fresh"), viewModel.directChatLiveUiState.value.reactions.map { it.reactionEventId })
+        assertEquals(listOf("\$fresh"), viewModel.inbox().directChatLiveUiState.value.reactions.map { it.reactionEventId })
 
-        viewModel.stopRedditDirectChatLive(account, item)
+        viewModel.inbox().stopRedditDirectChatLive(account, item)
         idle()
         assertTrue(probe.cancelled)
     }
@@ -403,7 +403,7 @@ class AuthConnectViewModelDirectChatLiveTest {
     )
 
     private fun goLive(viewModel: AuthConnectViewModel, reader: FakeReader) {
-        viewModel.startRedditDirectChatLive(account, item, peer)
+        viewModel.inbox().startRedditDirectChatLive(account, item, peer)
         idle()
         reader.callbacks!!.connected()
         reader.callbacks!!.messages(listOf(bubble("\$m1", outgoing = true), bubble("\$m2", outgoing = false)))

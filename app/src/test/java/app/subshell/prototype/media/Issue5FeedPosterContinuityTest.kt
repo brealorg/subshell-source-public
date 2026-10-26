@@ -131,7 +131,8 @@ class Issue5FeedPosterContinuityTest {
         val remembered = player.indexOf("val feedPosterImage = rememberFeedVideoPosterImage(")
         assertTrue(remembered >= 0)
         assertTrue(remembered < player.indexOf("if (posterOnly)"))
-        assertTrue(remembered < player.indexOf("if (!surfaceSelected)"))
+        // VIDEOTABSWITCH01 successor: the static branch is also taken in a leaving tab.
+        assertTrue(remembered < player.indexOf("if (!surfaceSelected || paneLeaving)"))
         val rememberImage = media.substringAfter("private fun rememberFeedVideoPosterImage(")
             .substringBefore("fun LocalVideoPlayer(")
         assertTrue(rememberImage.contains("remember(post.id, uri)"))

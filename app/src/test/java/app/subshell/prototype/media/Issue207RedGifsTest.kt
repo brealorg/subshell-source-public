@@ -57,10 +57,12 @@ class Issue207RedGifsTest {
     }
 
     @Test
-    fun redditsOwnCopyPlaysFirstAndAnUnmarkedPostStaysALink() {
+    fun redditsOwnCopyFollowsTheRedGifsOriginalAndAnUnmarkedPostStaysALink() {
+        // #256 reversed #207's order: Reddit's copy has no audio.
         val withCopy = listingPost(over18 = true, redditPreview = true)
         assertEquals(PostKind.VIDEO, withCopy.kind)
-        assertEquals("https://v.redd.it/abc/HLSPlaylist.m3u8", withCopy.remoteVideoUri)
+        assertEquals("subshell-redgifs://squeakyhelplesswisent", withCopy.remoteVideoUri)
+        assertEquals("https://v.redd.it/abc/HLSPlaylist.m3u8", withCopy.remoteVideoHlsUri)
 
         val unmarked = listingPost(over18 = false, redditPreview = false)
         assertEquals(PostKind.LINK, unmarked.kind)

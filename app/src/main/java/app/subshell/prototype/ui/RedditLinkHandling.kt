@@ -192,10 +192,14 @@ internal class RedditExternalPollHandoffStore(
             clear()
             return false
         }
-        return preferences.edit()
+        // STRICTMODE02_POLL_HANDOFF_WRITES_OFF_MAIN_V1 (#243): apply() writes on
+        // a background thread; Android finishes pending writes before the
+        // activity stops, so the mark is on disk when Reddit's app opens.
+        preferences.edit()
             .putString(PENDING_POST_ID, postId.trim().lowercase())
             .putLong(PENDING_STARTED_AT, nowEpochMillis)
-            .commit()
+            .apply()
+        return true
     }
 
     fun consumeIfMatching(
@@ -205,6 +209,7 @@ internal class RedditExternalPollHandoffStore(
         val pendingPostId = preferences.getString(PENDING_POST_ID, null)
         val pendingStartedAt = preferences.getLong(PENDING_STARTED_AT, Long.MIN_VALUE)
         val ageMillis = nowEpochMillis - pendingStartedAt
+        if (pendingPostId == null && pendingStartedAt == Long.MIN_VALUE) return false
         if (
             pendingPostId.isNullOrBlank() ||
             pendingStartedAt == Long.MIN_VALUE ||
@@ -230,13 +235,13 @@ internal class RedditExternalPollHandoffStore(
         preferences.edit()
             .remove(PENDING_POST_ID)
             .remove(PENDING_STARTED_AT)
-            .commit()
+            .apply()
     }
 
-    private companion object {
+    internal companion object {
         const val PREFERENCES_NAME = "subshell_external_poll_handoff"
-        const val PENDING_POST_ID = "pending_post_id"
-        const val PENDING_STARTED_AT = "pending_started_at_epoch_millis"
+        private const val PENDING_POST_ID = "pending_post_id"
+        private const val PENDING_STARTED_AT = "pending_started_at_epoch_millis"
     }
 }
 

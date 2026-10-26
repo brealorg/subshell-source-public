@@ -2,6 +2,34 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "versionCode": 250,
+      "versionName": "0.86-beta",
+      "date": "2026-10-26",
+      "headline": "Subshell 0.86: reply from notifications, RedGIFs with sound and a faster inbox",
+      "highlights": [
+        "Private messages and chats arrive as conversation notifications, and you can reply right from the notification.",
+        "RedGIFs clips play with sound, videos pause the moment you switch tabs, and headset or Bluetooth buttons play and pause them.",
+        "The inbox refreshes several times faster, and messages you read elsewhere no longer count as unread.",
+        "You can post to your own profile, and galleries posted from the app show their images again.",
+        "Subshell opens straight to your feeds, and switching dark mode or text size keeps your place, drafts and votes."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v0.86-beta"
+    },
+    {
+      "versionCode": 249,
+      "versionName": "0.85-beta",
+      "date": "2026-10-23",
+      "headline": "Subshell 0.85: a security update for sign-in, notifications and media",
+      "highlights": [
+        "Signing out of an account now also removes Reddit's web login, unless another signed-in account still uses it.",
+        "The sign-in window opens only Reddit, Google and Apple pages, and a sign-in that fails is also withdrawn at Reddit.",
+        "Other apps can no longer open accounts or screens in subshell. Notifications from before the update just open the app.",
+        "With the app lock on, the recent-apps preview stays blank on Android 12 and older, and new-post notifications from hidden communities don't name them.",
+        "Post images and videos load only from public addresses, images and GIFs share one memory limit, and nothing is written to the system log."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v0.85-beta"
+    },
+    {
       "versionCode": 248,
       "versionName": "0.84-beta",
       "date": "2026-10-21",

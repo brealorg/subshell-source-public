@@ -27,6 +27,9 @@ import app.subshell.prototype.data.network.reddit.normalizeRedditProfileComments
 import app.subshell.prototype.model.ProfileCommentFixture
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import okhttp3.Call
@@ -465,6 +468,26 @@ internal class RedditProfileCommentsLoader(
                     details = networkResult.failureDetailsOrNull(),
                 )
         }
+    }
+
+    override fun observeStoredHistory(
+        accountStableId: String,
+        username: String,
+        kind: RedditAccountHistoryKind,
+    ): Flow<List<ProfileCommentFixture>> {
+        if (kind.isPostHistory) return emptyFlow()
+        val queryKey = runCatching {
+            redditAccountHistoryQueryKey(accountStableId = accountStableId, username = username, kind = kind)
+        }.getOrNull() ?: return emptyFlow()
+        return cacheStore.observeProfileComments(queryKey.value).flowOn(ioDispatcher)
+    }
+
+    override suspend fun updateStoredHistoryComment(
+        commentFullname: String,
+        transform: (ProfileCommentFixture) -> ProfileCommentFixture?,
+    ) = withContext(ioDispatcher) {
+        val bare = commentFullname.trim().removePrefix("t1_").takeIf(String::isNotEmpty) ?: return@withContext
+        cacheStore.updateProfileComment(commentIds = listOf("t1_$bare", bare), transform = transform)
     }
 
     private fun cachedComments(

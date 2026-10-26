@@ -25,11 +25,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
+import androidx.window.core.layout.WindowSizeClass
 import app.subshell.prototype.ui.symbols.Symbols
 
 // M3225_FORM_DIALOGS_ARE_FULL_SCREEN_ON_PHONES_V1 (#225, foundations-14, reading-07,
@@ -37,7 +38,6 @@ import app.subshell.prototype.ui.symbols.Symbols
 // dialog below 600 dp (top bar: close X, title, text action) and as a basic
 // dialog at most 560 dp wide on wider windows, instead of a hand-built
 // near-full-screen card.
-internal val FullScreenDialogMaxWidthDp = 600
 private val WideDialogMaxWidth = 560.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,7 +52,10 @@ internal fun AdaptiveFullScreenDialog(
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val fullScreen = LocalConfiguration.current.screenWidthDp < FullScreenDialogMaxWidthDp
+    // ISSUE247_LAYOUT_FOLLOWS_WINDOW_SIZE_CLASSES_V1: full screen below the
+    // medium width class (Material's full-screen dialog rule).
+    val fullScreen = !currentWindowAdaptiveInfoV2().windowSizeClass
+        .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
     Dialog(
         onDismissRequest = { if (closeEnabled) onDismissRequest() },
         properties = DialogProperties(

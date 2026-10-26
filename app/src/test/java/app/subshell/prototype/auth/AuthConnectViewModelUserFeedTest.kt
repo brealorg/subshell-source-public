@@ -38,9 +38,9 @@ class AuthConnectViewModelUserFeedTest {
             unavailableAuthApplicationRuntime().copy(redditFeedUpdater = updater),
         )
 
-        viewModel.refreshRedditUserSubmitted("reddit:test", "alice")
+        viewModel.reading().refreshRedditUserSubmitted("reddit:test", "alice")
         idle()
-        viewModel.appendRedditUserSubmitted("reddit:test", "alice")
+        viewModel.reading().appendRedditUserSubmitted("reddit:test", "alice")
         idle()
 
         assertEquals(

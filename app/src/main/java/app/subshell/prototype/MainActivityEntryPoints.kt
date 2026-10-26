@@ -4,13 +4,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.subshell.prototype.auth.AuthConnectViewModel
+import app.subshell.prototype.auth.ModerationViewModel
 import app.subshell.prototype.ui.ModeratorTeamRuntimeEntryPoints
 import app.subshell.prototype.ui.app.ModeratorToolsEntryPoints
 
 /**
  * The moderator tools entry points SubshellApp receives, built from the
- * AuthConnectViewModel: the state flows are collected here and the
+ * ModerationViewModel: the state flows are collected here and the
  * callbacks are the ViewModel's. The authorization launches stay
  * MainActivity's (they need its auth tab launcher) and arrive as lambdas.
  *
@@ -20,69 +20,69 @@ import app.subshell.prototype.ui.app.ModeratorToolsEntryPoints
  */
 @Composable
 internal fun moderatorToolsEntryPoints(
-    authConnectViewModel: AuthConnectViewModel,
+    moderationViewModel: ModerationViewModel,
     launchRedditModeratorLogAuthorization: () -> Unit,
     launchRedditModeratorUserManagementAuthorization: () -> Unit,
 ): ModeratorToolsEntryPoints {
     val moderatorReportsState by
-        authConnectViewModel.moderatorReportsUiState.collectAsStateWithLifecycle()
+        moderationViewModel.moderatorReportsUiState.collectAsStateWithLifecycle()
     val moderatorContentControlsState by
-        authConnectViewModel.moderatorContentControlsUiState.collectAsStateWithLifecycle()
+        moderationViewModel.moderatorContentControlsUiState.collectAsStateWithLifecycle()
     val moderatorLogState by
-        authConnectViewModel.moderatorLogUiState.collectAsStateWithLifecycle()
+        moderationViewModel.moderatorLogUiState.collectAsStateWithLifecycle()
     val moderatorUserManagementState by
-        authConnectViewModel.moderatorUserManagementUiState.collectAsStateWithLifecycle()
+        moderationViewModel.moderatorUserManagementUiState.collectAsStateWithLifecycle()
     return ModeratorToolsEntryPoints(
         onLoadRedditModeratorCommunities =
-            authConnectViewModel::loadRedditModeratorCommunities,
+            moderationViewModel::loadRedditModeratorCommunities,
         moderatorReportsState = moderatorReportsState,
-        onOpenModeratorReports = authConnectViewModel::openModeratorReports,
-        onRefreshModeratorReports = authConnectViewModel::refreshModeratorReports,
-        onConfirmModeratorReports = authConnectViewModel::confirmModeratorReports,
-        onDismissModeratorReports = authConnectViewModel::dismissModeratorReports,
-        onModeratorReportsAccountChanged = authConnectViewModel::moderatorReportsAccountChanged,
+        onOpenModeratorReports = moderationViewModel::openModeratorReports,
+        onRefreshModeratorReports = moderationViewModel::refreshModeratorReports,
+        onConfirmModeratorReports = moderationViewModel::confirmModeratorReports,
+        onDismissModeratorReports = moderationViewModel::dismissModeratorReports,
+        onModeratorReportsAccountChanged = moderationViewModel::moderatorReportsAccountChanged,
         moderatorContentControlsState = moderatorContentControlsState,
         onOpenModeratorContentControls =
-            authConnectViewModel::openModeratorContentControls,
+            moderationViewModel::openModeratorContentControls,
         onRefreshModeratorContentControls =
-            authConnectViewModel::refreshModeratorContentControls,
+            moderationViewModel::refreshModeratorContentControls,
         onConfirmModeratorContentControl =
-            authConnectViewModel::confirmModeratorContentControl,
+            moderationViewModel::confirmModeratorContentControl,
         onDismissModeratorContentControls =
-            authConnectViewModel::dismissModeratorContentControls,
+            moderationViewModel::dismissModeratorContentControls,
         onModeratorContentControlsAccountChanged =
-            authConnectViewModel::moderatorContentControlsAccountChanged,
+            moderationViewModel::moderatorContentControlsAccountChanged,
         moderatorLogState = moderatorLogState,
-        onOpenModeratorLog = authConnectViewModel::openModeratorLog,
-        onRefreshModeratorLog = authConnectViewModel::refreshModeratorLog,
-        onAppendModeratorLog = authConnectViewModel::appendModeratorLog,
-        onDismissModeratorLog = authConnectViewModel::dismissModeratorLog,
+        onOpenModeratorLog = moderationViewModel::openModeratorLog,
+        onRefreshModeratorLog = moderationViewModel::refreshModeratorLog,
+        onAppendModeratorLog = moderationViewModel::appendModeratorLog,
+        onDismissModeratorLog = moderationViewModel::dismissModeratorLog,
         onModeratorLogAccountChanged =
-            authConnectViewModel::moderatorLogAccountChanged,
+            moderationViewModel::moderatorLogAccountChanged,
         onAuthorizeModeratorLog =
             launchRedditModeratorLogAuthorization,
         onCancelModeratorLogAuthorization =
-            authConnectViewModel::cancelRedditModeratorLogAuthorization,
+            moderationViewModel::cancelRedditModeratorLogAuthorization,
         moderatorUserManagementState = moderatorUserManagementState,
         onOpenModeratorUserManagement =
-            authConnectViewModel::openModeratorUserManagement,
+            moderationViewModel::openModeratorUserManagement,
         onRefreshModeratorUserManagement =
-            authConnectViewModel::refreshModeratorUserManagement,
+            moderationViewModel::refreshModeratorUserManagement,
         onAppendModeratorUserManagement =
-            authConnectViewModel::appendModeratorUserManagement,
+            moderationViewModel::appendModeratorUserManagement,
         onAppendMutedModeratorUserManagement =
-            authConnectViewModel::appendMutedModeratorUserManagement,
+            moderationViewModel::appendMutedModeratorUserManagement,
         onAppendApprovedModeratorUserManagement =
-            authConnectViewModel::appendApprovedModeratorUserManagement,
-        onMutateModeratorUser = authConnectViewModel::mutateModeratorUser,
+            moderationViewModel::appendApprovedModeratorUserManagement,
+        onMutateModeratorUser = moderationViewModel::mutateModeratorUser,
         onMutateMutedModeratorUser =
-            authConnectViewModel::mutateMutedModeratorUser,
+            moderationViewModel::mutateMutedModeratorUser,
         onMutateApprovedModeratorUser =
-            authConnectViewModel::mutateApprovedModeratorUser,
+            moderationViewModel::mutateApprovedModeratorUser,
         onDismissModeratorUserManagement =
-            authConnectViewModel::dismissModeratorUserManagement,
+            moderationViewModel::dismissModeratorUserManagement,
         onModeratorUserManagementAccountChanged =
-            authConnectViewModel::moderatorUserManagementAccountChanged,
+            moderationViewModel::moderatorUserManagementAccountChanged,
         onAuthorizeModeratorUserManagement =
             launchRedditModeratorUserManagementAuthorization,
     )
@@ -91,49 +91,49 @@ internal fun moderatorToolsEntryPoints(
 /** The moderator team (invite, permissions, removal) runtime entry points. */
 @Composable
 internal fun moderatorTeamRuntimeEntryPoints(
-    authConnectViewModel: AuthConnectViewModel,
+    moderationViewModel: ModerationViewModel,
     launchRedditModeratorInviteAuthorization: () -> Unit,
     launchRedditModeratorPermissionAuthorization: () -> Unit,
     launchRedditModeratorRemovalAuthorization: () -> Unit,
 ): ModeratorTeamRuntimeEntryPoints {
     val moderatorInviteState by
-        authConnectViewModel.moderatorInviteUiState.collectAsStateWithLifecycle()
+        moderationViewModel.moderatorInviteUiState.collectAsStateWithLifecycle()
     val moderatorPermissionUpdateState by
-        authConnectViewModel.moderatorPermissionUpdateUiState.collectAsStateWithLifecycle()
+        moderationViewModel.moderatorPermissionUpdateUiState.collectAsStateWithLifecycle()
     val moderatorRemovalState by
-        authConnectViewModel.moderatorRemovalUiState.collectAsStateWithLifecycle()
+        moderationViewModel.moderatorRemovalUiState.collectAsStateWithLifecycle()
     return ModeratorTeamRuntimeEntryPoints(
         moderatorInviteState = moderatorInviteState,
         onOpenModeratorInvite =
-            authConnectViewModel::openModeratorInvite,
+            moderationViewModel::openModeratorInvite,
         onInviteModerator =
-            authConnectViewModel::inviteModerator,
+            moderationViewModel::inviteModerator,
         onDismissModeratorInvite =
-            authConnectViewModel::dismissModeratorInvite,
+            moderationViewModel::dismissModeratorInvite,
         onModeratorInviteAccountChanged =
-            authConnectViewModel::moderatorInviteAccountChanged,
+            moderationViewModel::moderatorInviteAccountChanged,
         onAuthorizeModeratorInvite =
             launchRedditModeratorInviteAuthorization,
         moderatorPermissionUpdateState = moderatorPermissionUpdateState,
         onOpenModeratorPermissionUpdate =
-            authConnectViewModel::openModeratorPermissionUpdate,
+            moderationViewModel::openModeratorPermissionUpdate,
         onUpdateModeratorPermissions =
-            authConnectViewModel::updateModeratorPermissions,
+            moderationViewModel::updateModeratorPermissions,
         onDismissModeratorPermissionUpdate =
-            authConnectViewModel::dismissModeratorPermissionUpdate,
+            moderationViewModel::dismissModeratorPermissionUpdate,
         onModeratorPermissionUpdateAccountChanged =
-            authConnectViewModel::moderatorPermissionUpdateAccountChanged,
+            moderationViewModel::moderatorPermissionUpdateAccountChanged,
         onAuthorizeModeratorPermissionUpdate =
             launchRedditModeratorPermissionAuthorization,
         moderatorRemovalState = moderatorRemovalState,
         onOpenModeratorRemoval =
-            authConnectViewModel::openModeratorRemoval,
+            moderationViewModel::openModeratorRemoval,
         onRemoveModerator =
-            authConnectViewModel::removeModerator,
+            moderationViewModel::removeModerator,
         onDismissModeratorRemoval =
-            authConnectViewModel::dismissModeratorRemoval,
+            moderationViewModel::dismissModeratorRemoval,
         onModeratorRemovalAccountChanged =
-            authConnectViewModel::moderatorRemovalAccountChanged,
+            moderationViewModel::moderatorRemovalAccountChanged,
         onAuthorizeModeratorRemoval =
             launchRedditModeratorRemovalAuthorization,
     )

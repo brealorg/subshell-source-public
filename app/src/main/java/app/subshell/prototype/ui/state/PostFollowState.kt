@@ -234,6 +234,18 @@ internal class PostFollowState(
         }
     }
 
+    // RECREATE02_SETTLED_HIDES_AND_FOLLOWS_SURVIVE_RECREATION_V1 (#241): only
+    // follows Reddit confirmed (none in flight, none with a queued intent).
+    internal fun settledFollowOverridesForSnapshot(): Map<String, Boolean> =
+        authenticatedPostFollowOverrides.filterKeys { target ->
+            target != authenticatedPostFollowInFlight && target !in authenticatedPostFollowQueuedDesired
+        }
+
+    internal fun restoreSettledFollowOverrides(overrides: Map<String, Boolean>) {
+        if (!activeAccountIsAuthenticated) return
+        authenticatedPostFollowOverrides.putAll(overrides)
+    }
+
     fun clearAuthenticatedPostFollowState() {
         authenticatedPostFollowOverrides.clear()
         authenticatedPostFollowRollback.clear()

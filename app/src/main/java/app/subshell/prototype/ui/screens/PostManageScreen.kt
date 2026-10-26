@@ -58,6 +58,8 @@ import app.subshell.prototype.ui.error.ErrorActionKind
 import app.subshell.prototype.ui.error.postManageErrorPresentation
 import app.subshell.prototype.ui.components.InlineProgressIndicator
 import app.subshell.prototype.ui.symbols.Symbols
+import app.subshell.prototype.ui.app.predictiveBackPage
+import app.subshell.prototype.ui.app.rememberPredictiveBackPage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -126,13 +128,14 @@ fun PostManageScreen(
     // nothing while loading or waiting for the browser (no timeout). Leaving
     // cancels the authorization; only saving on Reddit keeps the screen.
     val closeLocked = postManageCloseLocked(scopedState.phase)
-    BackHandler {
-        if (!closeLocked) {
-            onCancelAuthorization()
-            onReset()
-            onClose()
-        }
+    // ISSUE249_IN_SCREEN_PAGES_FOLLOW_THE_BACK_GESTURE_V1: leaving follows the
+    // back gesture; while a save locks the screen, Back is swallowed as before.
+    val pageBack = rememberPredictiveBackPage(enabled = !closeLocked) {
+        onCancelAuthorization()
+        onReset()
+        onClose()
     }
+    BackHandler(enabled = closeLocked) {}
 
     if (scopedState.phase == PostManagePhase.AUTHORIZATION_REQUIRED) {
         AlertDialog(
@@ -204,7 +207,7 @@ fun PostManageScreen(
 
     val routeTopBarScroll = rememberRouteTopBarScrollBehavior(ChromeBehavior.ALWAYS_SHOW)
     Scaffold(
-        modifier = modifier.fillMaxSize()
+        modifier = modifier.predictiveBackPage(pageBack).fillMaxSize()
             .nestedScroll(routeTopBarScroll.nestedScrollConnection),
         topBar = {
             RouteTopBar(

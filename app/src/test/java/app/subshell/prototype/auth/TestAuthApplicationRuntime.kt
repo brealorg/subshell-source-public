@@ -110,3 +110,30 @@ internal fun unavailableAuthApplicationRuntime(): AuthApplicationRuntime = AuthA
     // LOW11 (OCB-404): tests route callbacks inline, as before.
     callbackRoutingDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
 )
+
+// AUTHSPLIT02–05: the inbox, post composing, communities and reading areas live in their own
+// ViewModels, made on the runtime an AuthConnectViewModel owns. A test gets
+// the ones that belong to its AuthConnectViewModel; where callbacks are
+// routed it makes them at once ([withAreaViewModels]), as MainActivity does.
+private class AreaViewModels(auth: AuthConnectViewModel) {
+    val inbox = InboxViewModel(auth.sharedRuntime)
+    val postComposer = PostComposerViewModel(auth.sharedRuntime)
+    val communities = CommunitiesViewModel(auth.sharedRuntime)
+    val reading = ReadingViewModel(auth.sharedRuntime)
+}
+
+private val areaViewModels = java.util.WeakHashMap<AuthConnectViewModel, AreaViewModels>()
+
+private fun AuthConnectViewModel.areas(): AreaViewModels = synchronized(areaViewModels) {
+    areaViewModels.getOrPut(this) { AreaViewModels(this) }
+}
+
+internal fun AuthConnectViewModel.withAreaViewModels(): AuthConnectViewModel = also { it.areas() }
+
+internal fun AuthConnectViewModel.inbox(): InboxViewModel = areas().inbox
+
+internal fun AuthConnectViewModel.postComposer(): PostComposerViewModel = areas().postComposer
+
+internal fun AuthConnectViewModel.communities(): CommunitiesViewModel = areas().communities
+
+internal fun AuthConnectViewModel.reading(): ReadingViewModel = areas().reading

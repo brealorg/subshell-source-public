@@ -27,6 +27,9 @@ internal fun AccountScopedEffects(
     redditFeed: FeedEntryPoints,
     activeCustomFeedPath: String?,
     pendingAuthenticatedLandingAccountIdState: MutableState<String?>,
+    // ISSUE257_COLD_START_LANDS_ON_CACHED_SUBSCRIPTIONS_V1: the account the app
+    // was composed with (null once another account became active).
+    coldStartAccountId: String? = null,
 ) {
     val onLoadRedditModeratorCommunities = moderatorTools.onLoadRedditModeratorCommunities
     val redditSubscriptionsState = redditFeed.redditSubscriptionsState
@@ -89,6 +92,7 @@ internal fun AccountScopedEffects(
             resolveAuthenticatedLandingFeed(
                 accountStableId = pendingAccountId,
                 subscriptions = redditSubscriptionsState,
+                coldStart = pendingAccountId == coldStartAccountId,
             )
         ) {
             AuthenticatedMainFeedLandingDecision.WAIT -> Unit

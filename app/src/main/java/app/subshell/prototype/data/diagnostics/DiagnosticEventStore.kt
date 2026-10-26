@@ -9,15 +9,32 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import app.subshell.prototype.data.error.FailureDetails
 
-internal class DiagnosticEventStore internal constructor(
-    private val directory: File,
-    private val maxEvents: Int = DEFAULT_MAX_DIAGNOSTIC_EVENTS,
-    private val maxBytes: Int = DEFAULT_MAX_DIAGNOSTIC_BYTES,
+internal class DiagnosticEventStore private constructor(
+    directoryProvider: () -> File,
+    private val maxEvents: Int,
+    private val maxBytes: Int,
     // DIAG04_NETWORK_STATE_V1: read when a background failure is recorded without one.
-    private val networkState: () -> DiagnosticNetworkState? = { null },
+    private val networkState: () -> DiagnosticNetworkState?,
 ) {
+    // STRICTMODE02_DIAGNOSTIC_FOLDER_RESOLVED_ON_FIRST_USE_V1 (#243): every
+    // error report on screen makes a store in composition, and resolving
+    // noBackupFilesDir checks the disk; the folder is resolved by the first
+    // read or write, which run on IO.
+    private val directory: File by lazy(directoryProvider)
+
+    internal constructor(
+        directory: File,
+        maxEvents: Int = DEFAULT_MAX_DIAGNOSTIC_EVENTS,
+        maxBytes: Int = DEFAULT_MAX_DIAGNOSTIC_BYTES,
+        networkState: () -> DiagnosticNetworkState? = { null },
+    ) : this({ directory }, maxEvents, maxBytes, networkState)
+
     constructor(context: Context) : this(
-        directory = File(context.applicationContext.noBackupFilesDir, DIAGNOSTIC_DIRECTORY_NAME),
+        directoryProvider = {
+            File(context.applicationContext.noBackupFilesDir, DIAGNOSTIC_DIRECTORY_NAME)
+        },
+        maxEvents = DEFAULT_MAX_DIAGNOSTIC_EVENTS,
+        maxBytes = DEFAULT_MAX_DIAGNOSTIC_BYTES,
         networkState = { currentDiagnosticNetworkState(context.applicationContext) },
     )
 
@@ -138,6 +155,14 @@ internal class DiagnosticEventStore internal constructor(
         }
         if (previous != versionCode) writeLastVersionCode(versionCode)
         recordLocked(DiagnosticEvents.appSessionStarted(nowEpochMs))
+    }
+
+    /** ISSUE248_JANK_SUMMARY_PER_FOREGROUND_SESSION_V1 */
+    fun recordJankSummary(
+        summary: JankSummary,
+        nowEpochMs: Long = System.currentTimeMillis(),
+    ): DiagnosticSnapshot = recordingSafely {
+        recordLocked(DiagnosticEvents.jankObserved(summary, nowEpochMs))
     }
 
     /** DIAG04_LISTING_SKIP_EVENT_V1 */
@@ -408,6 +433,11 @@ internal class DiagnosticEventStore internal constructor(
         event.failure?.deviceIdle.encodeBoolean(),
         event.appVersionFrom?.toString() ?: NULL_TOKEN,
         event.appVersionTo?.toString() ?: NULL_TOKEN,
+        // ISSUE248_JANK_SUMMARY_PER_FOREGROUND_SESSION_V1: appended; a 24-field
+        // line from before reads with these empty.
+        event.frames?.toString() ?: NULL_TOKEN,
+        event.jankFrames?.toString() ?: NULL_TOKEN,
+        event.worstFrameMs?.toString() ?: NULL_TOKEN,
     ).joinToString(separator = "|")
 
     private fun Boolean?.encodeBoolean(): String = when (this) {
@@ -449,6 +479,9 @@ internal class DiagnosticEventStore internal constructor(
                 action = parts.getOrNull(17)?.nullableToken(),
                 appVersionFrom = parts.getOrNull(22)?.nullableLong(),
                 appVersionTo = parts.getOrNull(23)?.nullableLong(),
+                frames = parts.getOrNull(24)?.nullableLong()?.toInt(),
+                jankFrames = parts.getOrNull(25)?.nullableLong()?.toInt(),
+                worstFrameMs = parts.getOrNull(26)?.nullableLong(),
             )
         }.getOrNull()
     }
@@ -534,7 +567,7 @@ private const val SCOPE_FINGERPRINT_BYTES = 8
 private const val DIAGNOSTIC_HEADER_PREFIX = "SUBSHELL_DIAGNOSTICS_V1"
 private const val EVENT_PREFIX = "E"
 private const val LEGACY_EVENT_FIELD_COUNT = 16
-private const val EVENT_FIELD_COUNT = 24
+private const val EVENT_FIELD_COUNT = 27
 private const val NULL_TOKEN = "-"
 private const val TRUE_TOKEN = "1"
 private const val FALSE_TOKEN = "0"

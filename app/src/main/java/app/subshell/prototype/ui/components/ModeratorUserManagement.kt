@@ -2,7 +2,6 @@ package app.subshell.prototype.ui.components
 
 
 import app.subshell.prototype.ui.error.ReportFailureDiagnostic
-import androidx.activity.compose.BackHandler
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -80,6 +79,7 @@ import app.subshell.prototype.data.account.RedditModeratorUserMuteRequest
 import app.subshell.prototype.data.account.RedditPeopleSearchUiState
 import app.subshell.prototype.data.account.normalizeRedditSafetyUsername
 import app.subshell.prototype.model.RedditPeopleSearchItem
+import app.subshell.prototype.ui.app.PredictiveBackPage
 import java.time.Duration
 import java.time.Instant
 import kotlinx.coroutines.delay
@@ -154,17 +154,8 @@ fun ModeratorUserManagementDialog(
         mutableStateOf(ModeratorUserManagementSection.BANNED)
     }
     var showBanEditor by remember(accountStableId, community) { mutableStateOf(false) }
-    BackHandler(enabled = embeddedInModToolsWorkspace && showBanEditor) {
-        showBanEditor = false
-    }
     var showMuteEditor by remember(accountStableId, community) { mutableStateOf(false) }
-    BackHandler(enabled = embeddedInModToolsWorkspace && showMuteEditor) {
-        showMuteEditor = false
-    }
     var showApproveEditor by remember(accountStableId, community) { mutableStateOf(false) }
-    BackHandler(enabled = embeddedInModToolsWorkspace && showApproveEditor) {
-        showApproveEditor = false
-    }
     var pendingUnban by remember(accountStableId, community) {
         mutableStateOf<RedditBannedUser?>(null)
     }
@@ -300,24 +291,57 @@ fun ModeratorUserManagementDialog(
     val content: @Composable () -> Unit = {
                 if (showBanEditor) {
                     editorDrafts.SaveableStateProvider(banDraftKey) {
-                        ModeratorBanUserEditor(
-                            accountStableId = accountStableId,
-                            communityName = community,
-                            activeUsername = activeUsername,
-                            busy = state.mutationInProgress,
-                            peopleSearchState = entryPoints.peopleSearchState(),
-                            onSearchPeople = entryPoints.searchPeople,
-                            onConfirm = { request ->
-                                showBanEditor = false
-                                pendingDraftKey = banDraftKey
-                                onMutate(request)
-                            },
+                        // ISSUE249_IN_SCREEN_PAGES_FOLLOW_THE_BACK_GESTURE_V1
+                        PredictiveBackPage(
+                            enabled = embeddedInModToolsWorkspace,
                             onBack = { showBanEditor = false },
-                        )
+                        ) {
+                            ModeratorBanUserEditor(
+                                accountStableId = accountStableId,
+                                communityName = community,
+                                activeUsername = activeUsername,
+                                busy = state.mutationInProgress,
+                                peopleSearchState = entryPoints.peopleSearchState(),
+                                onSearchPeople = entryPoints.searchPeople,
+                                onConfirm = { request ->
+                                    showBanEditor = false
+                                    pendingDraftKey = banDraftKey
+                                    onMutate(request)
+                                },
+                                onBack = { showBanEditor = false },
+                            )
+                        }
                     }
                 } else if (showMuteEditor) {
                     editorDrafts.SaveableStateProvider(muteDraftKey) {
-                        ModeratorMuteUserEditor(
+                        // ISSUE249_IN_SCREEN_PAGES_FOLLOW_THE_BACK_GESTURE_V1
+                        PredictiveBackPage(
+                            enabled = embeddedInModToolsWorkspace,
+                            onBack = { showMuteEditor = false },
+                        ) {
+                            ModeratorMuteUserEditor(
+                                accountStableId = accountStableId,
+                                communityName = community,
+                                activeUsername = activeUsername,
+                                busy = state.mutationInProgress,
+                                peopleSearchState = entryPoints.peopleSearchState(),
+                                onSearchPeople = entryPoints.searchPeople,
+                                onConfirm = { request ->
+                                    showMuteEditor = false
+                                    pendingDraftKey = muteDraftKey
+                                    onMutateMuted(request)
+                                },
+                                onBack = { showMuteEditor = false },
+                            )
+                        }
+                    }
+                } else if (showApproveEditor) {
+                    // ISSUE249_IN_SCREEN_PAGES_FOLLOW_THE_BACK_GESTURE_V1
+                    PredictiveBackPage(
+                        enabled = embeddedInModToolsWorkspace,
+                        onBack = { showApproveEditor = false },
+                    ) {
+                        ModeratorApproveUserEditor(
                             accountStableId = accountStableId,
                             communityName = community,
                             activeUsername = activeUsername,
@@ -325,27 +349,12 @@ fun ModeratorUserManagementDialog(
                             peopleSearchState = entryPoints.peopleSearchState(),
                             onSearchPeople = entryPoints.searchPeople,
                             onConfirm = { request ->
-                                showMuteEditor = false
-                                pendingDraftKey = muteDraftKey
-                                onMutateMuted(request)
+                                showApproveEditor = false
+                                onMutateApproved(request)
                             },
-                            onBack = { showMuteEditor = false },
+                            onBack = { showApproveEditor = false },
                         )
                     }
-                } else if (showApproveEditor) {
-                    ModeratorApproveUserEditor(
-                        accountStableId = accountStableId,
-                        communityName = community,
-                        activeUsername = activeUsername,
-                        busy = state.mutationInProgress,
-                        peopleSearchState = entryPoints.peopleSearchState(),
-                        onSearchPeople = entryPoints.searchPeople,
-                        onConfirm = { request ->
-                            showApproveEditor = false
-                            onMutateApproved(request)
-                        },
-                        onBack = { showApproveEditor = false },
-                    )
                 } else {
                     ModeratorUserManagementOverview(
                         community = community,

@@ -73,12 +73,30 @@ internal class CommentDraftState(
         commentComposerVisible = false
     }
 
+    /**
+     * COMMENTJUMP01_THE_THREAD_SCROLLS_TO_A_POSTED_COMMENT_V1: the comment just
+     * posted (on Reddit or locally) and its post, until the post screen has
+     * scrolled to it. The reader stayed at the top of the post and had to find
+     * their own comment.
+     */
+    var publishedComment by mutableStateOf<PublishedCommentTarget?>(null)
+        private set
+
+    fun notePublishedComment(postId: String, commentId: String) {
+        publishedComment = PublishedCommentTarget(postId = postId, commentId = commentId)
+    }
+
+    fun consumePublishedComment(target: PublishedCommentTarget) {
+        if (publishedComment == target) publishedComment = null
+    }
+
     fun publishLocalCommentComposer(post: Post): Comment? {
         val draft = commentComposerDraft ?: return null
         if (draft.target.postId != post.id) return null
         val created = addLocalComment(post, draft.body, draft.media) ?: return null
         commentComposerDraft = null
         commentComposerVisible = false
+        notePublishedComment(post.id, created.id)
         return created
     }
 
@@ -90,4 +108,13 @@ internal class CommentDraftState(
         commentComposerVisible = false
         return draft.target.stableKey == targetStableKey
     }
+}
+
+internal data class PublishedCommentTarget(
+    val postId: String,
+    val commentId: String,
+) {
+    // Reddit's write state names the post as a fullname, the screen by its id.
+    fun isOn(postId: String): Boolean =
+        this.postId.removePrefix("t3_") == postId.removePrefix("t3_")
 }

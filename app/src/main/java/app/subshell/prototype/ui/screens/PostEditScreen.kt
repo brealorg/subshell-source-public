@@ -65,6 +65,8 @@ import app.subshell.prototype.ui.components.rememberRouteTopBarScrollBehavior
 import app.subshell.prototype.ui.error.ErrorActionKind
 import app.subshell.prototype.ui.error.postEditErrorPresentation
 import app.subshell.prototype.ui.symbols.Symbols
+import app.subshell.prototype.ui.app.predictiveBackPage
+import app.subshell.prototype.ui.app.rememberPredictiveBackPage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -167,7 +169,11 @@ fun PostEditScreen(
     // LOWUI8_BACK_WAITS_FOR_THE_EDIT_V1 (OCB-231): while the edit is sent or
     // checked, Back is swallowed (as the close button is disabled) instead of
     // falling through to close the post before the result is applied.
-    BackHandler(enabled = true) {
+    // ISSUE249_IN_SCREEN_PAGES_FOLLOW_THE_BACK_GESTURE_V1: without unsaved
+    // edits and nothing in flight, Back closes with the gesture's preview.
+    val closesDirectly = closeEnabled && !editHasUnsavedChanges(sourceBody, body)
+    val pageBack = rememberPredictiveBackPage(enabled = closesDirectly, onBack = ::close)
+    BackHandler(enabled = !closesDirectly) {
         if (closeEnabled) requestClose()
     }
     if (discardConfirmVisible) {
@@ -184,6 +190,7 @@ fun PostEditScreen(
     val routeTopBarScroll = rememberRouteTopBarScrollBehavior(ChromeBehavior.ALWAYS_SHOW)
     Scaffold(
         modifier = modifier
+            .predictiveBackPage(pageBack)
             .fillMaxSize()
             .imePadding()
             .nestedScroll(routeTopBarScroll.nestedScrollConnection),

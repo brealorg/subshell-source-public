@@ -44,10 +44,86 @@ internal class CommentThreadCoordinator(
     val redditCommentsUiState: StateFlow<RedditCommentsUiState> =
         _redditCommentsUiState.asStateFlow()
 
+    // COMMENTSSOT01_THE_THREAD_FOLLOWS_ITS_CACHE_V1 (#244): the stored thread is
+    // the source of truth (Google's offline-first pattern, as INBOXSSOT01).
+    // The screen's state follows the stored thread of the account, post and
+    // sort last loaded, so whatever reaches the cache (a refresh, "load more",
+    // a posted reply, an edit, a delete) is what the thread shows.
+    private var followedThread: Triple<String, String, RedditCommentSort>? = null
+    private var followStoredThreadJob: Job? = null
+
+    private fun followStoredThread(
+        loader: AuthenticatedRedditCommentLoader,
+        accountStableId: String,
+        postId: String,
+        sort: RedditCommentSort,
+    ) {
+        val thread = Triple(accountStableId, postId, sort)
+        if (followedThread == thread && followStoredThreadJob?.isActive == true) return
+        followStoredThreadJob?.cancel()
+        followedThread = thread
+        followStoredThreadJob = scope.launch {
+            try {
+                loader.observeStoredThread(accountStableId, postId, sort).collect { stored ->
+                    applyStoredThread(thread, stored)
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // A failed read leaves the thread as shown; the next load
+                // follows the store again.
+                followedThread = null
+            }
+        }
+    }
+
+    private fun stopFollowingStoredThread() {
+        followStoredThreadJob?.cancel()
+        followStoredThreadJob = null
+        followedThread = null
+    }
+
+    private fun applyStoredThread(
+        thread: Triple<String, String, RedditCommentSort>,
+        stored: List<app.subshell.prototype.model.Comment>,
+    ) {
+        val current = _redditCommentsUiState.value
+        // Empty is a thread not stored (not read yet, or evicted to keep the
+        // cache small), never a reason to blank the thread on screen.
+        if (stored.isEmpty() || !current.matches(thread.first, thread.second, thread.third)) return
+        if (current.comments == stored) return
+        _redditCommentsUiState.value = current.copy(
+            comments = stored,
+            fullDiscussionLoaded = true,
+            contentRevision = current.contentRevision + 1L,
+        )
+    }
+
+    // COMMENTSSOT01_LOCAL_WRITES_REACH_THE_CACHE_V1: a confirmed edit, delete
+    // or moderation is written to every stored sort of the thread, not only
+    // to the thread on screen.
+    private fun updateStoredThread(
+        accountStableId: String,
+        postId: String,
+        transform: (List<app.subshell.prototype.model.Comment>) -> List<app.subshell.prototype.model.Comment>?,
+    ) {
+        val loader = commentLoader ?: return
+        scope.launch {
+            try {
+                loader.updateStoredThread(accountStableId, postId, transform)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // The screen already shows the change; the next read rebinds.
+            }
+        }
+    }
+
     /** ViewModel.onCleared: stop in-flight thread loads. */
     fun cancelPending() {
         redditCommentJob?.cancel()
         redditCommentMoreJob?.cancel()
+        followStoredThreadJob?.cancel()
     }
 
     fun loadRedditComments(
@@ -72,6 +148,7 @@ internal class CommentThreadCoordinator(
         ) {
             return
         }
+        followStoredThread(loader, accountStableId, postId, sort)
         redditCommentJob?.cancel()
         redditCommentMoreJob?.cancel()
         _redditCommentsUiState.value =
@@ -184,6 +261,7 @@ internal class CommentThreadCoordinator(
             )
             return
         }
+        followStoredThread(loader, accountStableId, postId, sort)
         redditCommentJob?.cancel()
         redditCommentMoreJob?.cancel()
         _redditCommentsUiState.value =
@@ -269,6 +347,7 @@ internal class CommentThreadCoordinator(
         val focusedContext = focusedCommentContextForTarget(currentComments, targetId)
         val continuityLoader =
             loader as? AuthenticatedRedditFocusedCommentContinuityLoader
+        followStoredThread(loader, accountStableId, postId, sort)
         redditCommentJob?.cancel()
         _redditCommentsUiState.value =
             _redditCommentsUiState.value
@@ -370,6 +449,12 @@ internal class CommentThreadCoordinator(
             )
             return
         }
+        // COMMENTSSOT01_A_FOCUSED_VIEW_IS_NOT_THE_STORED_THREAD_V1: a comment
+        // link shows the stored thread with that comment's fresh context,
+        // which is never stored as the discussion (profile01a5); the stored
+        // thread is not followed until the discussion is loaded again, or a
+        // write there would take the context off the screen.
+        stopFollowingStoredThread()
         redditCommentJob?.cancel()
         redditCommentMoreJob?.cancel()
         _redditCommentsUiState.value =
@@ -544,6 +629,10 @@ internal class CommentThreadCoordinator(
     }
 
     fun applyEditedComment(request: CommentEditRequest) {
+        updateStoredThread(request.accountStableId, request.postId) { stored ->
+            stored.replaceEditedCommentBody(request.commentFullname, request.text.trim())
+                .let { (updated, changed) -> updated.takeIf { changed } }
+        }
         val current = _redditCommentsUiState.value
         if (!current.matches(request.accountStableId, request.postId, request.sort)) return
         cancelLoadOverwrittenByLocalWrite()
@@ -568,6 +657,12 @@ internal class CommentThreadCoordinator(
     fun applyModeratedComment(accountStableId: String, commentFullname: String, removed: Boolean) {
         val current = _redditCommentsUiState.value
         if (current.accountStableId != accountStableId) return
+        current.postId?.let { postId ->
+            updateStoredThread(accountStableId, postId) { stored ->
+                stored.markModeratedComment(commentFullname, removed)
+                    .let { (updated, changed) -> updated.takeIf { changed } }
+            }
+        }
         val replacement = current.comments.markModeratedComment(commentFullname, removed)
         if (!replacement.second) return
         _redditCommentsUiState.value = current.copy(
@@ -595,7 +690,51 @@ internal class CommentThreadCoordinator(
         }
         return updated to replaced
     }
+    // COMMENTSSOT01_SETTLED_COMMENT_ACTIONS_REACH_THE_THREAD_V1 (#244): a comment
+    // vote or save Reddit took is written to every stored sort of the thread
+    // shown for that account; the thread on screen follows the store. A comment
+    // outside that thread is left (its override stays until a copy agrees).
+    fun applySettledCommentAction(
+        accountStableId: String,
+        commentFullname: String,
+        transform: (app.subshell.prototype.model.Comment) -> app.subshell.prototype.model.Comment,
+    ) {
+        val current = _redditCommentsUiState.value
+        if (current.accountStableId != accountStableId) return
+        val postId = current.postId ?: return
+        if (!current.comments.mapComment(commentFullname, transform).second) return
+        updateStoredThread(accountStableId, postId) { stored ->
+            stored.mapComment(commentFullname, transform)
+                .let { (updated, changed) -> updated.takeIf { changed } }
+        }
+    }
+
+    private fun List<app.subshell.prototype.model.Comment>.mapComment(
+        commentFullname: String,
+        transform: (app.subshell.prototype.model.Comment) -> app.subshell.prototype.model.Comment,
+    ): Pair<List<app.subshell.prototype.model.Comment>, Boolean> {
+        val target = runCatching { normalizeCommentEditFullname(commentFullname) }.getOrNull()
+            ?: return this to false
+        var replaced = false
+        val updated = map { comment ->
+            val commentId = runCatching { normalizeCommentEditFullname(comment.id) }.getOrNull()
+            if (!replaced && commentId == target) {
+                replaced = true
+                transform(comment)
+            } else {
+                val childResult = comment.children.mapComment(target, transform)
+                if (childResult.second) replaced = true
+                comment.copy(children = childResult.first)
+            }
+        }
+        return updated to replaced
+    }
+
     fun applyDeletedComment(request: CommentDeleteRequest) {
+        updateStoredThread(request.accountStableId, request.postId) { stored ->
+            stored.replaceDeletedComment(request.commentFullname)
+                .let { (updated, changed) -> updated.takeIf { changed } }
+        }
         val current = _redditCommentsUiState.value
         if (!current.matches(request.accountStableId, request.postId, request.sort)) return
         cancelLoadOverwrittenByLocalWrite()

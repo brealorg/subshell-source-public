@@ -3,6 +3,7 @@ package app.subshell.prototype.share
 import app.subshell.prototype.ui.components.convertImageToJpeg
 import app.subshell.prototype.ui.components.imageNeedsJpegConversion
 import android.content.ComponentName
+import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -98,7 +99,7 @@ internal fun readSharedPost(context: Context, intent: Intent): SharedPostContent
             skipped += 1
             return@forEach
         }
-        val copied = copySharedImage(context, uri)
+        val copied = if (isForeignSharedStream(context, uri)) copySharedImage(context, uri) else null
         if (copied == null) skipped += 1 else images += copied
     }
     return sharedPostFromImages(images, text, subject, skipped)
@@ -120,6 +121,18 @@ internal fun sharedStreams(intent: Intent): List<Uri> = when (intent.action) {
         },
     )
 }
+
+/**
+ * SECAUDIT23_SHARE_TAKES_ONLY_OTHER_APPS_FILES_V1 (security audit #23): a share
+ * from another app is read inside Subshell's process, so it could name
+ * Subshell's own files (`content://<package>.files/…`: copied shares,
+ * diagnostics reports) or a `file://` path. A shared stream must be another
+ * app's content URI. (A pasted image keeps using copySharedImage directly: an
+ * image copied inside Subshell is pasted from its own provider.)
+ */
+internal fun isForeignSharedStream(context: Context, uri: Uri): Boolean =
+    uri.scheme.equals(ContentResolver.SCHEME_CONTENT, ignoreCase = true) &&
+        !uri.authority.equals("${context.packageName}.files", ignoreCase = true)
 
 // COMPOSER16_PASTED_IMAGE_COPIED_V1: also used for pasted images (owner-approved cross-lane change).
 internal fun copySharedImage(context: Context, uri: Uri): ComposerMediaAttachment? {

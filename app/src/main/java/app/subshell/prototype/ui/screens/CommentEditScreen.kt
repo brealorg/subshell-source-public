@@ -59,6 +59,8 @@ import app.subshell.prototype.ui.components.ComposerContextNote
 import app.subshell.prototype.ui.components.ComposerDiscardChangesDialog
 import app.subshell.prototype.ui.components.editHasUnsavedChanges
 import app.subshell.prototype.ui.symbols.Symbols
+import app.subshell.prototype.ui.app.predictiveBackPage
+import app.subshell.prototype.ui.app.rememberPredictiveBackPage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -141,7 +143,11 @@ internal fun CommentEditScreen(
     fun requestClose() {
         if (editHasUnsavedChanges(sourceBody, body)) discardConfirmVisible = true else onClose()
     }
-    BackHandler(onBack = ::requestClose)
+    // ISSUE249_IN_SCREEN_PAGES_FOLLOW_THE_BACK_GESTURE_V1: without unsaved
+    // edits Back closes with the gesture's preview; with them it asks first.
+    val unsavedEdits = editHasUnsavedChanges(sourceBody, body)
+    val pageBack = rememberPredictiveBackPage(enabled = !unsavedEdits, onBack = onClose)
+    BackHandler(enabled = unsavedEdits, onBack = ::requestClose)
     if (discardConfirmVisible) {
         ComposerDiscardChangesDialog(
             subject = "comment",
@@ -165,7 +171,7 @@ internal fun CommentEditScreen(
 
     val routeTopBarScroll = rememberRouteTopBarScrollBehavior(ChromeBehavior.ALWAYS_SHOW)
     Scaffold(
-        modifier = modifier.fillMaxSize()
+        modifier = modifier.predictiveBackPage(pageBack).fillMaxSize()
             .nestedScroll(routeTopBarScroll.nestedScrollConnection),
         topBar = {
             RouteTopBar(

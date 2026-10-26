@@ -61,7 +61,7 @@ internal object UpdateCheckCoordinator {
         // UPDATE03: a stale copy never replaces a newer release we know; a
         // later correction does, and reopens the markers below it.
         val known = store.knownRelease()
-        if (!updateManifestSupersedes(release, known)) return true
+        if (!updateManifestSupersedes(release, known, nowEpochMillis)) return true
         // UPDATE06_ONLY_A_CORRECTION_REOPENS_MARKERS_V1 (#63): a repeat check of
         // the same (or a newer) release keeps its notified/presented markers.
         if (updateManifestCorrects(release, known)) {

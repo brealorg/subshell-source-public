@@ -200,13 +200,39 @@ interface SubshellRepository :
 }
 
 /**
- * PERF03_LIST_CACHE_WRITES_INVALIDATE_V1 (#69): counts single-item writes to
- * the cached community, user and inbox lists (identity lookups, item reads).
- * They change those lists without a repository revision, so a reader that
- * keeps a list per revision also re-reads when this count moves.
+ * LISTSSOT01_LISTS_FOLLOW_THE_STORE_V1 (#244): one signal per change to what
+ * the stored community, user and inbox lists hold (identity lookups, item
+ * reads write them without a repository revision). Replaces PERF03's write
+ * counter, which no composition observed.
  */
-internal interface ListCacheWriteCounter {
-    val listCacheWrites: Int
+internal interface ListStoreChanges {
+    fun listStoreChanges(): kotlinx.coroutines.flow.Flow<Unit>
+}
+
+/**
+ * FEEDSSOT01_FEEDS_FOLLOW_THE_STORE_V1 (#244): one signal per committed change
+ * to the stored posts or to which posts a query lists, so the feeds read the
+ * store again instead of waiting for a hand-made push after each writer.
+ */
+internal interface PostStoreChanges {
+    fun postStoreChanges(): kotlinx.coroutines.flow.Flow<Unit>
+}
+
+/**
+ * VOTESSOT01_SETTLED_ACTIONS_REACH_THE_STORE_V1 (#244): a vote or save Reddit
+ * confirmed is written to the stored post (it lived only in the screen's
+ * override map and the process snapshot; the stored post kept the vote it was
+ * loaded with). Written off the calling thread; a post that is not stored is
+ * left alone.
+ */
+internal interface SettledPostActions {
+    fun storeSettledVote(accountStableId: String, postFullname: String, direction: Int)
+
+    fun storeSettledSave(accountStableId: String, postFullname: String, saved: Boolean)
+
+    // OPENPOSTSSOT01_POST_EDITS_REACH_THE_STORE_V1: a confirmed body edit or
+    // flair/NSFW/spoiler change, so the next store read keeps it.
+    fun storeEditedPost(accountStableId: String, postFullname: String, transform: (Post) -> Post)
 }
 
 internal interface IdentityMetadataCacheRepository {

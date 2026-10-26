@@ -60,43 +60,43 @@ class AuthConnectViewModelCustomFeedsTest {
         val reader = FakeReader()
         val viewModel = viewModel(reader)
 
-        viewModel.loadCustomFeeds(account, forceRefresh = false)
+        viewModel.communities().loadCustomFeeds(account, forceRefresh = false)
         idle()
-        assertTrue(viewModel.customFeedsUiState.value.loading)
-        viewModel.loadCustomFeeds(account, forceRefresh = true)
+        assertTrue(viewModel.communities().customFeedsUiState.value.loading)
+        viewModel.communities().loadCustomFeeds(account, forceRefresh = true)
         idle()
         assertEquals(1, reader.loadCalls)
 
         reader.pendingGate!!.complete(loaded(feed("user/tester/m/alpha", "Alpha")))
         idle()
-        var state = viewModel.customFeedsUiState.value
+        var state = viewModel.communities().customFeedsUiState.value
         assertFalse(state.loading)
         assertEquals(listOf("Alpha"), state.feeds.map { it.displayName })
         assertEquals(1L, state.contentRevision)
 
         // Loaded and not forced: refused. Forced: reloads.
-        viewModel.loadCustomFeeds(account, forceRefresh = false)
+        viewModel.communities().loadCustomFeeds(account, forceRefresh = false)
         idle()
         assertEquals(1, reader.loadCalls)
-        viewModel.loadCustomFeeds(account, forceRefresh = true)
+        viewModel.communities().loadCustomFeeds(account, forceRefresh = true)
         idle()
         assertEquals(2, reader.loadCalls)
         reader.pendingGate!!.complete(CustomFeedReadResult.Failed(CustomFeedFailureKind.HTTP, retryable = true, statusCode = 502))
         idle()
-        state = viewModel.customFeedsUiState.value
+        state = viewModel.communities().customFeedsUiState.value
         assertEquals(CustomFeedFailureKind.HTTP, state.failureKind)
         assertEquals(502, state.failureStatusCode)
         assertEquals(listOf("Alpha"), state.feeds.map { it.displayName })
 
         // After a failure an unforced load is allowed again.
-        viewModel.loadCustomFeeds(account, forceRefresh = false)
+        viewModel.communities().loadCustomFeeds(account, forceRefresh = false)
         idle()
         assertEquals(3, reader.loadCalls)
 
         // Another account starts from an empty state.
-        viewModel.loadCustomFeeds("reddit:other", forceRefresh = false)
+        viewModel.communities().loadCustomFeeds("reddit:other", forceRefresh = false)
         idle()
-        state = viewModel.customFeedsUiState.value
+        state = viewModel.communities().customFeedsUiState.value
         assertEquals("reddit:other", state.accountStableId)
         assertTrue(state.feeds.isEmpty())
     }
@@ -107,22 +107,22 @@ class AuthConnectViewModelCustomFeedsTest {
         val creator = FakeCreator()
         val viewModel = viewModel(reader, creator)
 
-        val launch = viewModel.beginCustomFeedCreation(
+        val launch = viewModel.communities().beginCustomFeedCreation(
             CustomFeedCreateRequest(account, displayName = "  ", subredditNames = listOf("android")),
         )
         idle()
         assertEquals(AuthBrowserLaunchResult.NotStarted, launch)
-        var state = viewModel.customFeedsUiState.value
+        var state = viewModel.communities().customFeedsUiState.value
         assertEquals(CustomFeedCreatePhase.FAILED, state.createPhase)
         assertEquals(CustomFeedCreateFailureKind.VALIDATION, state.createFailureKind)
         assertEquals(0, creator.createCalls)
 
-        val ok = viewModel.beginCustomFeedCreation(
+        val ok = viewModel.communities().beginCustomFeedCreation(
             CustomFeedCreateRequest(account, displayName = " Alpha ", subredditNames = listOf(" android ", "Android", "kotlin")),
         )
         idle()
         assertEquals(AuthBrowserLaunchResult.NotStarted, ok)
-        state = viewModel.customFeedsUiState.value
+        state = viewModel.communities().customFeedsUiState.value
         assertEquals(CustomFeedCreatePhase.CREATING, state.createPhase)
         assertEquals("Alpha", creator.lastCreate?.displayName)
         assertEquals(listOf("android", "kotlin"), creator.lastCreate?.subredditNames)
@@ -130,7 +130,7 @@ class AuthConnectViewModelCustomFeedsTest {
 
         creator.createGate.complete(CustomFeedCreateResult.Created)
         idle()
-        state = viewModel.customFeedsUiState.value
+        state = viewModel.communities().customFeedsUiState.value
         assertEquals(CustomFeedCreatePhase.SUCCEEDED, state.createPhase)
         assertEquals(1L, state.createCompletionRevision)
         // Success forces a list reload.
@@ -143,11 +143,11 @@ class AuthConnectViewModelCustomFeedsTest {
         val reader = FakeReader()
         val creator = FakeCreator()
         val viewModel = viewModel(reader, creator)
-        viewModel.beginCustomFeedCreation(CustomFeedCreateRequest(account, "Alpha", listOf("android")))
+        viewModel.communities().beginCustomFeedCreation(CustomFeedCreateRequest(account, "Alpha", listOf("android")))
         idle()
         creator.createGate.complete(CustomFeedCreateResult.Failed(CustomFeedCreateFailureKind.OUTCOME_UNKNOWN, retryable = true))
         idle()
-        var state = viewModel.customFeedsUiState.value
+        var state = viewModel.communities().customFeedsUiState.value
         assertEquals(CustomFeedCreatePhase.FAILED, state.createPhase)
         assertEquals(CustomFeedCreateFailureKind.OUTCOME_UNKNOWN, state.createFailureKind)
         assertEquals(0, reader.loadCalls)
@@ -157,7 +157,7 @@ class AuthConnectViewModelCustomFeedsTest {
         assertEquals(1, reader.loadCalls)
         reader.pendingGate!!.complete(loaded(feed("user/tester/m/alpha", "alpha")))
         idle()
-        state = viewModel.customFeedsUiState.value
+        state = viewModel.communities().customFeedsUiState.value
         assertEquals(CustomFeedCreatePhase.SUCCEEDED, state.createPhase)
         assertNull(state.createFailureKind)
         assertEquals(1L, state.createCompletionRevision)
@@ -171,7 +171,7 @@ class AuthConnectViewModelCustomFeedsTest {
         val reader = FakeReader()
         val creator = FakeCreator()
         val viewModel = viewModel(reader, creator)
-        viewModel.beginCustomFeedCreation(CustomFeedCreateRequest(account, "Alpha", listOf("android")))
+        viewModel.communities().beginCustomFeedCreation(CustomFeedCreateRequest(account, "Alpha", listOf("android")))
         idle()
         creator.createGate.complete(CustomFeedCreateResult.Failed(CustomFeedCreateFailureKind.OUTCOME_UNKNOWN, retryable = true))
         idle()
@@ -184,14 +184,14 @@ class AuthConnectViewModelCustomFeedsTest {
             idle()
             assertEquals(
                 CustomFeedCreateFailureKind.OUTCOME_UNKNOWN,
-                viewModel.customFeedsUiState.value.createFailureKind,
+                viewModel.communities().customFeedsUiState.value.createFailureKind,
             )
         }
         idleFor(15_000)
         assertEquals(4, reader.loadCalls)
         reader.pendingGate!!.complete(loaded(feed("user/tester/m/other", "Other")))
         idle()
-        val state = viewModel.customFeedsUiState.value
+        val state = viewModel.communities().customFeedsUiState.value
         assertEquals(CustomFeedCreatePhase.IDLE, state.createPhase)
         assertNull(state.createFailureKind)
         assertEquals(CUSTOM_FEED_CREATE_NOT_CONFIRMED_MESSAGE, state.createMessage)
@@ -207,21 +207,21 @@ class AuthConnectViewModelCustomFeedsTest {
         val viewModel = viewModel(reader, creator)
 
         // Invalid path: validation failure, no call.
-        viewModel.beginCustomFeedUpdate(CustomFeedUpdateRequest(account, "not/a/path", "Alpha", listOf("android"), CustomFeedVisibility.PRIVATE))
+        viewModel.communities().beginCustomFeedUpdate(CustomFeedUpdateRequest(account, "not/a/path", "Alpha", listOf("android"), CustomFeedVisibility.PRIVATE))
         idle()
-        var state = viewModel.customFeedsUiState.value
+        var state = viewModel.communities().customFeedsUiState.value
         assertEquals(CustomFeedManagePhase.FAILED, state.managePhase)
         assertEquals(CustomFeedManageFailureKind.VALIDATION, state.manageFailureKind)
         assertEquals(0, creator.updateCalls)
 
-        viewModel.beginCustomFeedUpdate(CustomFeedUpdateRequest(account, "user/tester/m/alpha", "Alpha 2", listOf("android"), CustomFeedVisibility.PUBLIC))
+        viewModel.communities().beginCustomFeedUpdate(CustomFeedUpdateRequest(account, "user/tester/m/alpha", "Alpha 2", listOf("android"), CustomFeedVisibility.PUBLIC))
         idle()
-        state = viewModel.customFeedsUiState.value
+        state = viewModel.communities().customFeedsUiState.value
         assertEquals(CustomFeedManagePhase.SAVING, state.managePhase)
         assertEquals(1, creator.updateCalls)
         creator.manageGate.complete(CustomFeedManageResult.Updated)
         idle()
-        state = viewModel.customFeedsUiState.value
+        state = viewModel.communities().customFeedsUiState.value
         assertEquals(CustomFeedManagePhase.SUCCEEDED, state.managePhase)
         assertEquals(1L, state.manageCompletionRevision)
         assertEquals(1, reader.loadCalls)
@@ -229,13 +229,13 @@ class AuthConnectViewModelCustomFeedsTest {
         idle()
 
         creator.manageGate = CompletableDeferred()
-        viewModel.beginCustomFeedDeletion(CustomFeedDeleteRequest(account, "user/tester/m/alpha", "Alpha 2"))
+        viewModel.communities().beginCustomFeedDeletion(CustomFeedDeleteRequest(account, "user/tester/m/alpha", "Alpha 2"))
         idle()
-        assertEquals(CustomFeedManagePhase.DELETING, viewModel.customFeedsUiState.value.managePhase)
+        assertEquals(CustomFeedManagePhase.DELETING, viewModel.communities().customFeedsUiState.value.managePhase)
         assertEquals(1, creator.deleteCalls)
         creator.manageGate.complete(CustomFeedManageResult.Deleted)
         idle()
-        state = viewModel.customFeedsUiState.value
+        state = viewModel.communities().customFeedsUiState.value
         assertEquals(CustomFeedManagePhase.SUCCEEDED, state.managePhase)
         assertEquals(2L, state.manageCompletionRevision)
         assertEquals(2, reader.loadCalls)
@@ -246,11 +246,11 @@ class AuthConnectViewModelCustomFeedsTest {
         val reader = FakeReader()
         val creator = FakeCreator()
         val viewModel = viewModel(reader, creator)
-        viewModel.beginCustomFeedDeletion(CustomFeedDeleteRequest(account, "user/tester/m/alpha", "Alpha"))
+        viewModel.communities().beginCustomFeedDeletion(CustomFeedDeleteRequest(account, "user/tester/m/alpha", "Alpha"))
         idle()
         creator.manageGate.complete(CustomFeedManageResult.Failed(CustomFeedManageFailureKind.OUTCOME_UNKNOWN, retryable = true))
         idle()
-        assertEquals(CustomFeedManageFailureKind.OUTCOME_UNKNOWN, viewModel.customFeedsUiState.value.manageFailureKind)
+        assertEquals(CustomFeedManageFailureKind.OUTCOME_UNKNOWN, viewModel.communities().customFeedsUiState.value.manageFailureKind)
 
         // MED3 (OCB-585): still listed on every read of the backoff: the
         // outcome stays unknown until the last read, then a non-blocking
@@ -261,7 +261,7 @@ class AuthConnectViewModelCustomFeedsTest {
             reader.pendingGate!!.complete(loaded(feed("user/tester/m/alpha", "Alpha")))
             idle()
         }
-        var state = viewModel.customFeedsUiState.value
+        var state = viewModel.communities().customFeedsUiState.value
         assertEquals(CustomFeedManagePhase.IDLE, state.managePhase)
         assertEquals(CUSTOM_FEED_DELETE_NOT_CONFIRMED_MESSAGE, state.manageMessage)
         idleFor(30_000)
@@ -269,7 +269,7 @@ class AuthConnectViewModelCustomFeedsTest {
 
         // The same failure with the feed gone: SUCCEEDED.
         creator.manageGate = CompletableDeferred()
-        viewModel.beginCustomFeedDeletion(CustomFeedDeleteRequest(account, "user/tester/m/alpha", "Alpha"))
+        viewModel.communities().beginCustomFeedDeletion(CustomFeedDeleteRequest(account, "user/tester/m/alpha", "Alpha"))
         idle()
         creator.manageGate.complete(CustomFeedManageResult.Failed(CustomFeedManageFailureKind.OUTCOME_UNKNOWN, retryable = true))
         idle()
@@ -277,7 +277,7 @@ class AuthConnectViewModelCustomFeedsTest {
         assertEquals(5, reader.loadCalls)
         reader.pendingGate?.complete(loaded())
         idle()
-        state = viewModel.customFeedsUiState.value
+        state = viewModel.communities().customFeedsUiState.value
         assertEquals(CustomFeedManagePhase.SUCCEEDED, state.managePhase)
         assertEquals(1L, state.manageCompletionRevision)
     }
@@ -289,7 +289,7 @@ class AuthConnectViewModelCustomFeedsTest {
         val viewModel = viewModel(reader)
         var resolved: CustomFeedSummary? = null
 
-        viewModel.resolveCustomFeed("reddit:tester", "/user/other/m/rust/") { feed -> resolved = feed }
+        viewModel.communities().resolveCustomFeed("reddit:tester", "/user/other/m/rust/") { feed -> resolved = feed }
         idle()
 
         assertEquals(listOf("reddit:tester" to "/user/other/m/rust/"), reader.feedCalls)
@@ -302,17 +302,17 @@ class AuthConnectViewModelCustomFeedsTest {
         val reader = FakeReader()
         val creator = FakeCreator()
         val viewModel = viewModel(reader, creator)
-        viewModel.beginCustomFeedCreation(CustomFeedCreateRequest(account, displayName = "Alpha", subredditNames = listOf("android")))
+        viewModel.communities().beginCustomFeedCreation(CustomFeedCreateRequest(account, displayName = "Alpha", subredditNames = listOf("android")))
         idle()
         assertEquals(1, creator.createCalls)
 
-        viewModel.loadCustomFeeds("reddit:other", forceRefresh = false)
+        viewModel.communities().loadCustomFeeds("reddit:other", forceRefresh = false)
         idle()
         val loadsBefore = reader.loadCalls
         creator.createGate.complete(CustomFeedCreateResult.Created)
         idle()
 
-        val state = viewModel.customFeedsUiState.value
+        val state = viewModel.communities().customFeedsUiState.value
         assertEquals("reddit:other", state.accountStableId)
         assertEquals(0L, state.createCompletionRevision)
         assertEquals(loadsBefore, reader.loadCalls)

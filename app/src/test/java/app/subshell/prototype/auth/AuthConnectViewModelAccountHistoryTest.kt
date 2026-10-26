@@ -52,15 +52,15 @@ class AuthConnectViewModelAccountHistoryTest {
             ),
         )
 
-        viewModel.refreshRedditAccountHistory("reddit:test", "alice", RedditAccountHistoryKind.UPVOTED)
+        viewModel.reading().refreshRedditAccountHistory("reddit:test", "alice", RedditAccountHistoryKind.UPVOTED)
         idle()
-        viewModel.refreshRedditSavedHistory("reddit:test", "alice")
+        viewModel.reading().refreshRedditSavedHistory("reddit:test", "alice")
         idle()
 
         assertEquals(listOf("reddit:test:alice:UPVOTED:${RepositoryLoadOperation.REFRESH}"), history)
         assertEquals(listOf("reddit:test:alice"), saved)
-        assertEquals(RedditAccountHistoryKind.UPVOTED, viewModel.redditAccountHistoryUiState.value.kind)
-        assertEquals("alice", viewModel.redditSavedHistoryUiState.value.username)
+        assertEquals(RedditAccountHistoryKind.UPVOTED, viewModel.reading().redditAccountHistoryUiState.value.kind)
+        assertEquals("alice", viewModel.reading().redditSavedHistoryUiState.value.username)
     }
 
     private fun idle() = shadowOf(Looper.getMainLooper()).idle()

@@ -46,8 +46,8 @@ class Issue216CommunityAccessCharacterisationTest {
         val discovery = FakeDiscovery(popular = listOf(item("one"), item("two"), item("safe", nsfw = false)))
         val viewModel = viewModel(discovery = discovery)
 
-        val first = viewModel.randomNsfwCommunity(accountA)
-        val second = viewModel.randomNsfwCommunity(accountA)
+        val first = viewModel.communities().randomNsfwCommunity(accountA)
+        val second = viewModel.communities().randomNsfwCommunity(accountA)
 
         assertEquals(1, discovery.calls.size)
         assertEquals(accountA to AuthenticatedRedditCommunityDiscoveryTarget.popular(true), discovery.calls.single())
@@ -60,9 +60,9 @@ class Issue216CommunityAccessCharacterisationTest {
         val discovery = FakeDiscovery(popular = listOf(item("one"), item("two")))
         val viewModel = viewModel(discovery = discovery)
 
-        viewModel.randomNsfwCommunity(accountA)
-        viewModel.randomNsfwCommunity(accountB)
-        viewModel.randomNsfwCommunity(accountA)
+        viewModel.communities().randomNsfwCommunity(accountA)
+        viewModel.communities().randomNsfwCommunity(accountB)
+        viewModel.communities().randomNsfwCommunity(accountA)
 
         assertEquals(listOf(accountA, accountB, accountA), discovery.calls.map { it.first })
     }
@@ -71,7 +71,7 @@ class Issue216CommunityAccessCharacterisationTest {
     fun thePreviousPickIsSkippedWhileThereIsAnotherChoice() = runBlocking {
         val viewModel = viewModel(discovery = FakeDiscovery(popular = listOf(item("one"), item("two"))))
 
-        val picks = List(20) { viewModel.randomNsfwCommunity(accountA) }
+        val picks = List(20) { viewModel.communities().randomNsfwCommunity(accountA) }
 
         picks.zipWithNext().forEach { (before, after) -> assertNotEquals(before, after) }
     }
@@ -80,8 +80,8 @@ class Issue216CommunityAccessCharacterisationTest {
     fun aSingleCandidateIsPickedAgain() = runBlocking {
         val viewModel = viewModel(discovery = FakeDiscovery(popular = listOf(item("only"))))
 
-        assertEquals("only", viewModel.randomNsfwCommunity(accountA))
-        assertEquals("only", viewModel.randomNsfwCommunity(accountA))
+        assertEquals("only", viewModel.communities().randomNsfwCommunity(accountA))
+        assertEquals("only", viewModel.communities().randomNsfwCommunity(accountA))
     }
 
     @Test
@@ -92,7 +92,7 @@ class Issue216CommunityAccessCharacterisationTest {
         )
         val viewModel = viewModel(discovery = discovery)
 
-        assertEquals("found", viewModel.randomNsfwCommunity(accountA))
+        assertEquals("found", viewModel.communities().randomNsfwCommunity(accountA))
         assertEquals(
             listOf(
                 AuthenticatedRedditCommunityDiscoveryTarget.popular(true),
@@ -111,14 +111,14 @@ class Issue216CommunityAccessCharacterisationTest {
         val discovery = FakeDiscovery(popular = emptyList(), search = emptyList())
         val viewModel = viewModel(discovery = discovery)
 
-        assertNull(viewModel.randomNsfwCommunity(accountA))
-        assertNull(viewModel.randomNsfwCommunity(accountA))
+        assertNull(viewModel.communities().randomNsfwCommunity(accountA))
+        assertNull(viewModel.communities().randomNsfwCommunity(accountA))
         assertEquals(4, discovery.calls.size)
     }
 
     @Test
     fun withoutADiscoveryLoaderNothingIsPicked() = runBlocking {
-        assertNull(viewModel(discovery = null).randomNsfwCommunity(accountA))
+        assertNull(viewModel(discovery = null).communities().randomNsfwCommunity(accountA))
     }
 
     @Test
@@ -126,10 +126,10 @@ class Issue216CommunityAccessCharacterisationTest {
         val service = FakeAccessService()
         val viewModel = viewModel(discovery = null, service = service)
 
-        assertEquals(service.known, viewModel.readNsfwAccountPreferences(accountA))
-        assertEquals(QuarantineOptInResult.Sent, viewModel.optInToQuarantinedCommunity(accountA, "kept"))
-        viewModel.readNsfwAccountPreferences(accountB)
-        viewModel.optInToQuarantinedCommunity(accountB, "kept")
+        assertEquals(service.known, viewModel.communities().readNsfwAccountPreferences(accountA))
+        assertEquals(QuarantineOptInResult.Sent, viewModel.communities().optInToQuarantinedCommunity(accountA, "kept"))
+        viewModel.communities().readNsfwAccountPreferences(accountB)
+        viewModel.communities().optInToQuarantinedCommunity(accountB, "kept")
 
         assertEquals(listOf(accountA to true, accountB to false), service.reads)
         assertEquals(listOf(Triple(accountA, "kept", true), Triple(accountB, "kept", false)), service.optIns)
@@ -139,8 +139,8 @@ class Issue216CommunityAccessCharacterisationTest {
     fun withoutTheServiceTheReadFailsAndTheOptInIsRefused() = runBlocking {
         val viewModel = viewModel(discovery = null, service = null)
 
-        assertEquals(NsfwPreferencesResult.Failed, viewModel.readNsfwAccountPreferences(accountA))
-        assertEquals(QuarantineOptInResult.Refused(null), viewModel.optInToQuarantinedCommunity(accountA, "kept"))
+        assertEquals(NsfwPreferencesResult.Failed, viewModel.communities().readNsfwAccountPreferences(accountA))
+        assertEquals(QuarantineOptInResult.Refused(null), viewModel.communities().optInToQuarantinedCommunity(accountA, "kept"))
     }
 
     @Test

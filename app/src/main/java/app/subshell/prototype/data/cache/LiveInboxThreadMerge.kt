@@ -30,3 +30,23 @@ internal fun mergeAppendedInboxItem(existing: InboxItem, incoming: InboxItem): I
         conversation = conversation,
     )
 }
+
+/**
+ * INBOXFAST01_A_REFRESHED_THREAD_KEEPS_ITS_OLDER_MESSAGES_V1: a refresh reads
+ * only the first inbox and sent pages, so a stored message thread can hold
+ * older messages than the fresh one carries (from the first load's history or
+ * a later page). The thread keeps every message by id; its header and its
+ * read state are Reddit's current ones. Other kinds take the fresh item.
+ */
+internal fun mergeRefreshedInboxItem(stored: InboxItem, fresh: InboxItem): InboxItem {
+    if (stored.kind != ActivityKind.MESSAGE || fresh.kind != ActivityKind.MESSAGE) return fresh
+    val conversation = (stored.conversation + fresh.conversation)
+        .distinctBy(MessageBubble::id)
+        .sortedWith(
+            compareBy<MessageBubble> { bubble -> bubble.createdEpochSeconds ?: 0L }
+                .thenBy { bubble -> bubble.id },
+        )
+    if (conversation.size == fresh.conversation.size) return fresh
+    val peer = conversation.firstOrNull { bubble -> !bubble.outgoing }?.sender ?: fresh.sender
+    return fresh.copy(sender = peer, conversation = conversation)
+}

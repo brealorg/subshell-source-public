@@ -7,13 +7,26 @@
 #
 #   tools/emulator-smoke.sh --apk FILE --out DIR [--avd NAME]...
 #
-# Without --avd it runs subshell-api26, subshell-api30 and Morphe_16KB_API36.
-# Create the first two once with:
+# Without --avd it runs subshell-api26, subshell-api30 and subshell-api36.
+# Create them once with:
 #   avdmanager create avd -n subshell-api26 -d pixel_6 \
 #     -k "system-images;android-26;google_apis;x86_64"
 #   avdmanager create avd -n subshell-api30 -d pixel_6 \
 #     -k "system-images;android-30;google_apis;x86_64"
+#   avdmanager create avd -n subshell-api36 -d pixel_6 \
+#     -k "system-images;android-36;google_apis_ps16k;x86_64"
 # Exit 0 when every emulator passes, 1 when one fails, 2 on wrong usage.
+#
+# EMU02_EMULATORS_BOOT_WITH_4_GB_V1 (owner 2026-10-21): every emulator boots
+# with 4 GB RAM, whatever its AVD says. With its AVD's 2 GB (2.5 GB after the
+# emulator's own bump) the API 36 image's post-boot work let the low-memory
+# killer kill the app in the foreground (0.84-beta smoke; the 0.83 APK that
+# passed on 10-19 failed the same way). The AVDs are not changed.
+#
+# EMU03_API36_IS_SUBSHELLS_OWN_AVD_V1 (owner 2026-10-24): API 36 ran on
+# Morphe_16KB_API36, which belonged to another project and was deleted in a
+# disk cleanup there. subshell-api36 is Subshell's own, with the same 16 KB
+# page-size Google APIs image.
 set -u -o pipefail
 
 APK=""
@@ -28,7 +41,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 [[ -f "$APK" && -n "$OUT" ]] || { echo "STOP=USAGE: $0 --apk FILE --out DIR [--avd NAME]..." >&2; exit 2; }
-[[ ${#AVDS[@]} -gt 0 ]] || AVDS=(subshell-api26 subshell-api30 Morphe_16KB_API36)
+[[ ${#AVDS[@]} -gt 0 ]] || AVDS=(subshell-api26 subshell-api30 subshell-api36)
 mkdir -p "$OUT" || exit 2
 
 SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
@@ -45,7 +58,7 @@ for AVD in "${AVDS[@]}"; do
     SERIAL="emulator-$PORT"
     LOG="$OUT/$AVD-emulator.log"
     "$EMULATOR" -avd "$AVD" -port "$PORT" -no-window -no-audio -no-boot-anim \
-        -no-snapshot -read-only -gpu swiftshader_indirect >"$LOG" 2>&1 &
+        -no-snapshot -read-only -memory 4096 -gpu swiftshader_indirect >"$LOG" 2>&1 &
     EMULATOR_PID=$!
     STATUS=PASS
     REASON=ok

@@ -20,6 +20,10 @@ import java.util.concurrent.Callable
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 
 internal fun interface CacheClock {
     fun nowEpochMs(): Long
@@ -318,6 +322,40 @@ internal class RoomSubshellCacheStore(
             ?.let(::decodePostOrNull)
     }
 
+    /**
+     * VOTESSOT01_SETTLED_ACTIONS_REACH_THE_STORE_V1: rewrites the account's
+     * scoped row and the unscoped row of one post (either id spelling) with
+     * [transform], on the store's thread without waiting (callers are on Main).
+     * A row that is missing, unreadable or unchanged is left.
+     */
+    fun updateStoredPostLater(
+        accountStableId: String,
+        postFullname: String,
+        transform: (Post) -> Post,
+    ) {
+        val bare = postFullname.trim().removePrefix("t3_").takeIf(String::isNotEmpty) ?: return
+        val now = clock.nowEpochMs()
+        executor.execute {
+            runCatching {
+                database.runInTransaction {
+                    val keys = listOf("t3_$bare", bare).flatMap { postId ->
+                        listOf(accountScopedPostRowKey(accountStableId, postId), postId)
+                    }
+                    keys.distinct().forEach { key ->
+                        val entity = dao.post(key) ?: return@forEach
+                        val stored = decodePostOrNull(entity.payload) ?: return@forEach
+                        val updated = transform(stored)
+                        if (updated != stored) {
+                            dao.upsertPosts(
+                                listOf(entity.copy(payload = SubshellCacheCodec.encodePost(updated), lastAccessEpochMs = now)),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // CACHE05_ACCOUNT_SCOPED_POST_ROWS_V1: an unscoped row first, else the
     // most recently used account-scoped row of that post.
     fun post(postId: String): Post? = databaseCall {
@@ -577,34 +615,89 @@ internal class RoomSubshellCacheStore(
         val now = clock.nowEpochMs()
         databaseCall {
             database.runInTransaction {
-                dao.deleteLiveInboxEntries(account)
-                dao.upsertLiveInboxList(
-                    CachedLiveInboxListEntity(
-                        accountStableId = account,
-                        nextCursor = normalizedCursor,
-                        lastSuccessfulRefreshEpochMs = now,
-                        lastAccessEpochMs = now,
-                    ),
-                )
-                if (normalizedItems.isNotEmpty()) {
-                    dao.upsertLiveInboxEntries(
-                        normalizedItems.mapIndexed { index, item ->
-                            CachedLiveInboxEntryEntity(
-                                accountStableId = account,
-                                itemId = item.id,
-                                position = index,
-                                payload = SubshellCacheCodec.encodeInboxItem(item),
-                            )
-                        },
-                    )
-                }
-                // MED4A_REFRESH_KEEPS_LOCAL_SEEN_MARKS_V1 (OCB-500): a seen mark
-                // kept after a failed server read survives the refresh; only
-                // marks for items Reddit now reports as read are dropped.
-                normalizedItems
-                    .filterNot(InboxItem::unread)
-                    .forEach { item -> dao.deleteLiveInboxSeen(account, item.id) }
+                writeLiveInboxSnapshotInTransaction(account, normalizedItems, normalizedCursor, now)
             }
+        }
+    }
+
+    private fun writeLiveInboxSnapshotInTransaction(
+        account: String,
+        normalizedItems: List<InboxItem>,
+        normalizedCursor: String?,
+        now: Long,
+    ) {
+        dao.deleteLiveInboxEntries(account)
+        dao.upsertLiveInboxList(
+            CachedLiveInboxListEntity(
+                accountStableId = account,
+                nextCursor = normalizedCursor,
+                lastSuccessfulRefreshEpochMs = now,
+                lastAccessEpochMs = now,
+            ),
+        )
+        if (normalizedItems.isNotEmpty()) {
+            dao.upsertLiveInboxEntries(
+                normalizedItems.mapIndexed { index, item ->
+                    CachedLiveInboxEntryEntity(
+                        accountStableId = account,
+                        itemId = item.id,
+                        position = index,
+                        payload = SubshellCacheCodec.encodeInboxItem(item),
+                    )
+                },
+            )
+        }
+        // MED4A_REFRESH_KEEPS_LOCAL_SEEN_MARKS_V1 (OCB-500): a seen mark
+        // kept after a failed server read survives the refresh; only
+        // marks for items Reddit now reports as read are dropped.
+        normalizedItems
+            .filterNot(InboxItem::unread)
+            .forEach { item -> dao.deleteLiveInboxSeen(account, item.id) }
+    }
+
+    /**
+     * INBOXSSOT01_REFRESH_KEEPS_THE_OLDER_PAGES_V1: a refresh (the screen's or
+     * the 15-minute background sync) writes the fresh first page on top of
+     * the pages already stored instead of replacing them, so a reader who
+     * scrolled down keeps the list while the inbox updates under it. Returns
+     * the stored list.
+     */
+    fun refreshLiveInboxHead(
+        accountStableId: String,
+        fresh: List<InboxItem>,
+        nextCursor: String?,
+        completeSinceEpochSeconds: Long?,
+        unreadItemIds: Set<String>? = null,
+    ): CachedLiveInboxSnapshot? {
+        val account = accountStableId.trim()
+        require(account.isNotEmpty()) { "Live inbox account stable ID cannot be blank" }
+        val now = clock.nowEpochMs()
+        // Read and write in one transaction, so nothing written between them
+        // (a read mark from the writer) is lost.
+        return databaseCall {
+            database.runInTransaction<CachedLiveInboxSnapshot?> {
+                val stored = readLiveInboxSnapshotInTransaction(account, touch = false)
+                val (items, cursor) = refreshedLiveInboxHead(
+                    storedItems = stored?.items.orEmpty(),
+                    storedCursor = stored?.nextCursor,
+                    freshItems = fresh.distinctBy(InboxItem::id),
+                    freshCursor = nextCursor?.trim()?.takeIf(String::isNotEmpty),
+                    completeSinceEpochSeconds = completeSinceEpochSeconds,
+                    unreadItemIds = unreadItemIds,
+                )
+                writeLiveInboxSnapshotInTransaction(account, items, cursor, now)
+                readLiveInboxSnapshotInTransaction(account, touch = false)
+            }
+        }
+    }
+
+    // INBOXFAST01_A_REFRESH_READS_ONLY_THE_FIRST_PAGES_V1: whether a refresh
+    // has stored pages to keep below the fresh one.
+    fun hasLiveInboxItems(accountStableId: String): Boolean {
+        val account = accountStableId.trim()
+        require(account.isNotEmpty()) { "Live inbox account stable ID cannot be blank" }
+        return databaseCall {
+            dao.liveInboxList(account) != null && dao.liveInboxEntryCount(account) > 0
         }
     }
 
@@ -657,6 +750,7 @@ internal class RoomSubshellCacheStore(
                             )
                         },
                     )
+                    keepLiveInboxInTimeOrder(account)
                 }
                 dao.upsertLiveInboxList(
                     metadata.copy(
@@ -669,25 +763,79 @@ internal class RoomSubshellCacheStore(
         }
     }
 
-    fun liveInboxSnapshot(accountStableId: String): CachedLiveInboxSnapshot? = databaseCall {
+    /**
+     * INBOXORDER01_A_LATER_PAGE_TAKES_ITS_PLACE_IN_TIME_V1: a later inbox page
+     * can hold items newer than stored rows near the end (an old thread that
+     * only your sent history reached), so the list is put back in time order,
+     * newest first, as Reddit's pages are. Rows without a time keep their
+     * place relative to each other at the end; an unreadable row is left.
+     */
+    private fun keepLiveInboxInTimeOrder(account: String) {
+        val entries = dao.liveInboxEntries(account)
+        val timed = entries.map { entity ->
+            entity to runCatching { SubshellCacheCodec.decodeInboxItem(entity.payload).createdEpochSeconds }
+                .getOrElse { return }
+        }
+        val ordered = timed.sortedByDescending { (_, created) -> created ?: Long.MIN_VALUE }.map { (entity, _) -> entity }
+        if (ordered == entries) return
+        dao.deleteLiveInboxEntries(account)
+        dao.upsertLiveInboxEntries(ordered.mapIndexed { index, entity -> entity.copy(position = index) })
+    }
+
+    fun liveInboxSnapshot(accountStableId: String): CachedLiveInboxSnapshot? =
+        liveInboxSnapshot(accountStableId, touch = true)
+
+    /**
+     * INBOXSSOT01_THE_INBOX_FOLLOWS_ITS_CACHE_V1: the stored inbox, read again
+     * whenever one of its tables changes (the background sync, a refresh, an
+     * append, a read mark), the way Google's offline-first guide has the
+     * screen observe the local source of truth. The read does not touch the
+     * last access: that write would invalidate the table and read again
+     * forever. Blocking reads; collect it off the main thread.
+     */
+    fun observeLiveInboxSnapshot(accountStableId: String): Flow<CachedLiveInboxSnapshot?> {
+        val account = accountStableId.trim()
+        require(account.isNotEmpty()) { "Live inbox account stable ID cannot be blank" }
+        return database.invalidationTracker
+            .createFlow(
+                "cached_live_inbox_lists",
+                "cached_live_inbox_entries",
+                "cached_live_inbox_seen",
+                emitInitialState = true,
+            )
+            .map { liveInboxSnapshot(account, touch = false) }
+            .distinctUntilChanged()
+    }
+
+    private fun liveInboxSnapshot(
+        accountStableId: String,
+        touch: Boolean,
+    ): CachedLiveInboxSnapshot? = databaseCall {
         val account = accountStableId.trim()
         require(account.isNotEmpty()) { "Live inbox account stable ID cannot be blank" }
         // CONC01_INBOX_READ_TOUCHES_ONLY_LAST_ACCESS_V1 (OCB-620): the snapshot is
         // read in one transaction and only the last access is written back, so
         // a commit from the other Room instance (inbox worker) is not reverted.
         database.runInTransaction<CachedLiveInboxSnapshot?> {
-            val metadata = dao.liveInboxList(account) ?: return@runInTransaction null
-            dao.touchLiveInboxList(account, clock.nowEpochMs())
-            CachedLiveInboxSnapshot(
-                items = dao.liveInboxEntries(account)
-                    .decodedAllOrNull { entity -> SubshellCacheCodec.decodeInboxItem(entity.payload) }
-                    ?: return@runInTransaction null,
-                nextCursor = metadata.nextCursor,
-                locallySeenIds = dao.liveInboxSeen(account)
-                    .mapTo(linkedSetOf()) { entity -> entity.itemId },
-                lastSuccessfulRefreshEpochMs = metadata.lastSuccessfulRefreshEpochMs,
-            )
+            readLiveInboxSnapshotInTransaction(account, touch)
         }
+    }
+
+    private fun readLiveInboxSnapshotInTransaction(
+        account: String,
+        touch: Boolean,
+    ): CachedLiveInboxSnapshot? {
+        val metadata = dao.liveInboxList(account) ?: return null
+        if (touch) dao.touchLiveInboxList(account, clock.nowEpochMs())
+        return CachedLiveInboxSnapshot(
+            items = dao.liveInboxEntries(account)
+                .decodedAllOrNull { entity -> SubshellCacheCodec.decodeInboxItem(entity.payload) }
+                ?: return null,
+            nextCursor = metadata.nextCursor,
+            locallySeenIds = dao.liveInboxSeen(account)
+                .mapTo(linkedSetOf()) { entity -> entity.itemId },
+            lastSuccessfulRefreshEpochMs = metadata.lastSuccessfulRefreshEpochMs,
+        )
     }
 
     fun markLiveInboxSeen(accountStableId: String, itemId: String) {
@@ -878,6 +1026,93 @@ internal class RoomSubshellCacheStore(
         }
     }
 
+    /**
+     * COMMENTSSOT01_THE_THREAD_FOLLOWS_ITS_CACHE_V1 (#244): the stored thread,
+     * read again whenever `cached_comments` changes (a refresh, "load more", a
+     * posted reply, an edit, a delete), the way Google's offline-first guide
+     * has the screen observe the local source of truth. Reads only, so it does
+     * not wake itself. Blocking reads; collect it off the main thread.
+     */
+    /**
+     * FEEDSSOT01_FEEDS_FOLLOW_THE_STORE_V1: a signal per committed write to
+     * the stored posts or to a query's post list (no initial one). A feed
+     * read touches only `cached_queries`, so reading after a signal does not
+     * signal again.
+     */
+    fun postStoreChanges(): Flow<Unit> =
+        database.invalidationTracker
+            .createFlow("cached_posts", "cached_query_entries", emitInitialState = false)
+            .map { }
+
+    /**
+     * LISTSSOT01_LISTS_FOLLOW_THE_STORE_V1 (#244): one signal when what the
+     * stored community, user or (signed-out) inbox lists hold changes. Their
+     * reads write what the backend returned, so a rewrite of the same rows is
+     * not a change; otherwise a reader that re-reads on the signal would wake
+     * itself for ever. Compared on the IO dispatcher. The first signal is the
+     * state when observing starts (a write just before it is not lost).
+     */
+    fun listStoreChanges(): Flow<Unit> =
+        database.invalidationTracker
+            .createFlow("cached_communities", "cached_users", "cached_inbox", emitInitialState = true)
+            .map { databaseCall { dao.storedListPayloads() }.hashCode() }
+            .distinctUntilChanged()
+            .map { }
+            .flowOn(kotlinx.coroutines.Dispatchers.IO)
+
+    fun observeComments(postId: String): Flow<List<Comment>> =
+        database.invalidationTracker
+            .createFlow("cached_comments", emitInitialState = true)
+            .map { allComments(postId) }
+            .distinctUntilChanged()
+
+    /**
+     * COMMENTSSOT01_LOCAL_WRITES_REACH_THE_CACHE_V1: rewrites each stored
+     * thread in [postIds] with [transform] in one transaction (null or an
+     * unchanged list leaves it). An edit, delete or moderation used to change
+     * only the screen's copy, so the cached thread showed the old body on the
+     * next open, and the thread's other sorts never had it.
+     */
+    fun updateStoredComments(
+        postIds: Collection<String>,
+        transform: (List<Comment>) -> List<Comment>?,
+    ) {
+        if (postIds.isEmpty()) return
+        val now = clock.nowEpochMs()
+        databaseCall {
+            database.runInTransaction {
+                postIds.distinct().forEach { postId ->
+                    val stored = dao.storedThread(postId) ?: return@forEach
+                    if (stored.isEmpty()) return@forEach
+                    val updated = transform(stored) ?: return@forEach
+                    if (updated == stored) return@forEach
+                    dao.deleteCommentsForPost(postId)
+                    dao.upsertComments(
+                        updated.mapIndexed { index, value ->
+                            CachedCommentEntity(
+                                commentId = value.id,
+                                postId = postId,
+                                position = index,
+                                payload = SubshellCacheCodec.encodeComment(value),
+                                lastAccessEpochMs = now,
+                            )
+                        },
+                    )
+                }
+            }
+        }
+    }
+
+    private fun SubshellCacheDao.storedThread(postId: String): List<Comment>? {
+        val entities = mutableListOf<CachedCommentEntity>()
+        while (true) {
+            val page = commentsForPost(postId, entities.size, RepositoryPageRequest.MAX_LIMIT)
+            entities += page
+            if (page.size < RepositoryPageRequest.MAX_LIMIT) break
+        }
+        return entities.decodedAllOrNull { entity -> SubshellCacheCodec.decodeComment(entity.payload) }
+    }
+
     fun cacheProfileComments(
         username: String,
         values: List<ProfileCommentFixture>,
@@ -931,6 +1166,61 @@ internal class RoomSubshellCacheStore(
                 )
                 dao.evictProfileCommentListsBeyond(maxProfileCommentLists)
                 added
+            }
+        }
+    }
+
+    /**
+     * PROFILESSOT01_HISTORY_FOLLOWS_ITS_CACHE_V1 (#244): one stored comment
+     * history (all its rows), read again whenever `cached_profile_comments`
+     * changes. Reads only. Blocking reads; collect it off the main thread.
+     */
+    fun observeProfileComments(username: String): Flow<List<ProfileCommentFixture>> =
+        database.invalidationTracker
+            .createFlow("cached_profile_comments", emitInitialState = true)
+            .map {
+                databaseCall {
+                    database.runInTransaction<List<ProfileCommentFixture>> {
+                        val entities = mutableListOf<CachedProfileCommentEntity>()
+                        while (true) {
+                            val page = dao.profileComments(username, entities.size, RepositoryPageRequest.MAX_LIMIT)
+                            entities += page
+                            if (page.size < RepositoryPageRequest.MAX_LIMIT) break
+                        }
+                        entities
+                            .decodedAllOrNull { entity -> SubshellCacheCodec.decodeProfileComment(entity.payload) }
+                            .orEmpty()
+                    }
+                }
+            }
+            .distinctUntilChanged()
+
+    /**
+     * PROFILESSOT01_HISTORY_KEEPS_EDITS_AND_DELETES_V1: a confirmed edit or
+     * delete of one comment reaches every stored history that lists it
+     * ([commentIds] are its spellings); [transform] gives the new row, or null
+     * to drop it (Reddit leaves a deleted comment out of the history). An
+     * unreadable row is left.
+     */
+    fun updateProfileComment(
+        commentIds: Collection<String>,
+        transform: (ProfileCommentFixture) -> ProfileCommentFixture?,
+    ) {
+        if (commentIds.isEmpty()) return
+        databaseCall {
+            database.runInTransaction {
+                dao.profileCommentRows(commentIds.distinct()).forEach { entity ->
+                    val stored = runCatching { SubshellCacheCodec.decodeProfileComment(entity.payload) }
+                        .getOrNull() ?: return@forEach
+                    val updated = transform(stored)
+                    if (updated == null) {
+                        dao.deleteProfileComment(entity.username, entity.commentId)
+                    } else if (updated != stored) {
+                        dao.upsertProfileComments(
+                            listOf(entity.copy(payload = SubshellCacheCodec.encodeProfileComment(updated))),
+                        )
+                    }
+                }
             }
         }
     }
@@ -1291,7 +1581,10 @@ internal fun processRuntimeCacheStore(context: android.content.Context): RoomSub
     return synchronized(ProcessRuntimeCacheStore) {
         ProcessRuntimeCacheStore.store
             ?.takeIf { ProcessRuntimeCacheStore.context === appContext }
-            ?: RoomSubshellCacheStore(database = SubshellCacheDatabase.open(appContext)).also { created ->
+            ?: RoomSubshellCacheStore(
+                database = SubshellCacheDatabase.processShared(appContext),
+                ownsDatabase = false,
+            ).also { created ->
                 ProcessRuntimeCacheStore.context = appContext
                 ProcessRuntimeCacheStore.store = created
             }

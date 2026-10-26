@@ -1,7 +1,6 @@
 package app.subshell.prototype.ui
 
 import android.content.SharedPreferences
-import android.util.Log
 import app.subshell.prototype.ui.theme.AppTextScale
 import app.subshell.prototype.ui.state.BackgroundPostPagingExecutor
 import app.subshell.prototype.ui.state.PostPagingExecutor
@@ -35,8 +34,6 @@ import app.subshell.prototype.data.usertags.decodeUserTags
 import app.subshell.prototype.data.usertags.encodeUserTags
 import app.subshell.prototype.data.usertags.keepUnreadableUserTags
 import app.subshell.prototype.ui.theme.ThemeMode
-
-private const val SUBSHELL_STATE_LOG_TAG = "SubshellState"
 
 /**
  * Builds the process's SubshellState: opens the preferences and stores,
@@ -85,8 +82,11 @@ fun rememberSubshellState(
     var restoredMediaWasManual by rememberSaveable { mutableStateOf(false) }
 
     fun createState(processSnapshotToken: String?): SubshellState {
-        val preferences = context.getSharedPreferences("subshell_preferences", 0)
-        val devicePreferences = context.getSharedPreferences(
+        // STRICTMODE02_PREFERENCES_LOAD_BEFORE_THE_FIRST_FRAME_V1 (#243): the
+        // application's files, read into memory by StartupPreferences; an
+        // activity context would look up the folder on disk again per activity.
+        val preferences = context.applicationContext.getSharedPreferences("subshell_preferences", 0)
+        val devicePreferences = context.applicationContext.getSharedPreferences(
             RedditLinkHandlingPromptStore.DEVICE_PREFERENCES_NAME,
             0,
         )
@@ -101,11 +101,10 @@ fun rememberSubshellState(
         // LOWUI1_FAILED_PREFERENCE_WRITE_IS_NOT_A_CRASH_V1 (OCB-090): a failed
         // write keeps the selection in memory; the next start migrates again.
         if (activeAccountSelection.migrationRequired) {
-            val migrated = persistActiveAccountSelection(
+            persistActiveAccountSelection(
                 preferences = preferences,
                 account = activeAccountSelection.account,
             )
-            if (!migrated) Log.w(SUBSHELL_STATE_LOG_TAG, "Could not migrate the active account selection")
         }
 
         fun loadPersistedJoinedCommunityIds(username: String): Set<String> {
@@ -120,8 +119,13 @@ fun rememberSubshellState(
             }
         }
 
+        // LOWUI1_FAILED_PREFERENCE_WRITE_IS_NOT_A_CRASH_V1 (OCB-090): the
+        // in-memory list stays; the next change writes it again.
+        // COMMIT01_UI_PREFERENCE_WRITES_APPLY_V1 (#243): apply() writes on a
+        // background thread (the in-memory file updates at once), as Google
+        // advises for UI-thread writes; a failed write is no longer logged.
         fun persistJoinedCommunityIds(username: String, communityIds: Set<String>) {
-            val persisted = preferences.edit()
+            preferences.edit()
                 .putStringSet(
                     joinedCommunitiesPreferenceKey(username),
                     normalizeJoinedCommunityIds(
@@ -129,10 +133,7 @@ fun rememberSubshellState(
                         repository = resolvedRepository,
                     ),
                 )
-                .commit()
-            // LOWUI1_FAILED_PREFERENCE_WRITE_IS_NOT_A_CRASH_V1 (OCB-090): the
-            // in-memory list stays; the next change writes it again.
-            if (!persisted) Log.w(SUBSHELL_STATE_LOG_TAG, "Could not persist joined communities")
+                .apply()
         }
 
         fun persistBackupRestoreState(
@@ -969,14 +970,10 @@ fun rememberSubshellState(
                 ) ?: error("Unknown account session: $accountId")
                 // LOWUI1_FAILED_PREFERENCE_WRITE_IS_NOT_A_CRASH_V1 (OCB-090): the
                 // switch stands in memory; the next start opens the account stored before.
-                if (
-                    !persistActiveAccountSelection(
-                        preferences = preferences,
-                        account = selectedAccount,
-                    )
-                ) {
-                    Log.w(SUBSHELL_STATE_LOG_TAG, "Could not persist the active account")
-                }
+                persistActiveAccountSelection(
+                    preferences = preferences,
+                    account = selectedAccount,
+                )
             },
             persistPreference = { key, value ->
                 preferences.edit { putSubshellPreference(key, value) }
@@ -1030,6 +1027,10 @@ fun rememberSubshellState(
         )
     }
 
+    // ISSUE245_STATE_SURVIVES_CONFIGURATION_CHANGES_V1: a recreated activity
+    // finds the state its ViewModelStore still holds; only a new process (no
+    // held state) builds it from the snapshot.
+    val holder = subshellStateHolder()
     val stateSaver = remember(context, resolvedRepository, accountSessionDirectory) {
         Saver<SubshellState, String>(
             save = { currentState ->
@@ -1038,13 +1039,16 @@ fun rememberSubshellState(
                 )
             },
             restore = { processSnapshotToken ->
-                createState(processSnapshotToken)
+                holder?.stateFor(resolvedRepository, accountSessionDirectory)
+                    ?: createState(processSnapshotToken)
             },
         )
     }
     val state = rememberSaveable(saver = stateSaver) {
-        createState(processSnapshotToken = null)
+        holder?.stateFor(resolvedRepository, accountSessionDirectory)
+            ?: createState(processSnapshotToken = null)
     }
+    holder?.hold(resolvedRepository, accountSessionDirectory, state)
 
     val routeRestoreSnapshot = navigationRouteRestoreSnapshot(state)
     SideEffect {

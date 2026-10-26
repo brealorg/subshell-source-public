@@ -14,6 +14,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import java.io.ByteArrayInputStream
 import java.security.MessageDigest
+import java.util.UUID
 import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -117,6 +118,12 @@ internal class RedditChatWebSessionTokenProvider(
                     REDDIT_ORIGIN + "/"
                 }
 
+                // SECAUDIT12_CHAT_BRIDGE_ANSWERS_ONLY_ITS_OWN_SCRIPT_V1 (security
+                // audit #12): any reddit.com frame in this WebView can call the
+                // bridge. Only the injected script knows this mint's nonce, so
+                // a call without it is ignored (it can neither feed a token nor
+                // end the mint early).
+                val bridgeNonce = UUID.randomUUID().toString()
                 suspendCancellableCoroutine<RedditChatWebTokenResult> { continuation ->
                     val handler = Handler(Looper.getMainLooper())
                     var finished = false
@@ -138,7 +145,8 @@ internal class RedditChatWebSessionTokenProvider(
 
                     val bridge = object {
                         @JavascriptInterface
-                        fun onToken(responseBody: String) {
+                        fun onToken(nonce: String?, responseBody: String) {
+                            if (!redditChatBridgeCallIsOwn(bridgeNonce, nonce)) return
                             handler.post {
                                 val parsed = runCatching { JSONObject(responseBody) }.getOrNull()
                                 val token = parsed
@@ -173,7 +181,8 @@ internal class RedditChatWebSessionTokenProvider(
                         }
 
                         @JavascriptInterface
-                        fun onError(reason: String) {
+                        fun onError(nonce: String?, reason: String) {
+                            if (!redditChatBridgeCallIsOwn(bridgeNonce, nonce)) return
                             @Suppress("UNUSED_VARIABLE")
                             val ignored = reason
                             handler.post { complete(RedditChatWebTokenResult.Failed) }
@@ -185,7 +194,7 @@ internal class RedditChatWebSessionTokenProvider(
                         onRedditPageReady = {
                             if (!fetchStarted) {
                                 fetchStarted = true
-                                webView.evaluateJavascript(TOKEN_FETCH_SCRIPT, null)
+                                webView.evaluateJavascript(redditChatTokenFetchScript(bridgeNonce), null)
                             }
                         },
                     )
@@ -270,30 +279,6 @@ internal class RedditChatWebSessionTokenProvider(
         private const val REDDIT_BOOTSTRAP_URL = "https://www.reddit.com/robots.txt"
         private const val TOKEN_TIMEOUT_MS = 12_000L
         internal const val TOKEN_EXPIRY_SKEW_MS = 5 * 60 * 1_000L
-        private val TOKEN_FETCH_SCRIPT = """
-            (function(){
-              try {
-                var csrfCookie = document.cookie.split(';')
-                  .map(function(v){ return v.trim(); })
-                  .find(function(v){ return v.indexOf('csrf_token=') === 0; });
-                var csrf = csrfCookie ? decodeURIComponent(csrfCookie.substring('csrf_token='.length)) : '';
-                fetch('/svc/shreddit/token', {
-                  method: 'POST',
-                  credentials: 'include',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                  },
-                  body: JSON.stringify({csrf_token: csrf})
-                })
-                .then(function(response){ return response.text(); })
-                .then(function(body){ SubshellChatTokenBridge.onToken(body); })
-                .catch(function(error){ SubshellChatTokenBridge.onError(String(error)); });
-              } catch (error) {
-                SubshellChatTokenBridge.onError(String(error));
-              }
-            })();
-        """.trimIndent()
     }
 }
 
@@ -323,3 +308,41 @@ internal fun redditChatTokenExpiryEpochMs(expires: Any?, token: String): Long? {
 }
 
 private const val EPOCH_MS_THRESHOLD = 1_000_000_000_000L
+
+/** SECAUDIT12_CHAT_BRIDGE_ANSWERS_ONLY_ITS_OWN_SCRIPT_V1 */
+internal fun redditChatBridgeCallIsOwn(expectedNonce: String, receivedNonce: String?): Boolean =
+    receivedNonce != null &&
+        MessageDigest.isEqual(
+            expectedNonce.toByteArray(Charsets.UTF_8),
+            receivedNonce.toByteArray(Charsets.UTF_8),
+        )
+
+/** The token fetch, run in the main frame only; [nonce] is a UUID (no quote can break out). */
+internal fun redditChatTokenFetchScript(nonce: String): String {
+    require(nonce.all { it.isLetterOrDigit() || it == '-' }) { "Bridge nonce must be a UUID" }
+    return """
+            (function(){
+              var nonce = '$nonce';
+              try {
+                var csrfCookie = document.cookie.split(';')
+                  .map(function(v){ return v.trim(); })
+                  .find(function(v){ return v.indexOf('csrf_token=') === 0; });
+                var csrf = csrfCookie ? decodeURIComponent(csrfCookie.substring('csrf_token='.length)) : '';
+                fetch('/svc/shreddit/token', {
+                  method: 'POST',
+                  credentials: 'include',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                  },
+                  body: JSON.stringify({csrf_token: csrf})
+                })
+                .then(function(response){ return response.text(); })
+                .then(function(body){ SubshellChatTokenBridge.onToken(nonce, body); })
+                .catch(function(error){ SubshellChatTokenBridge.onError(nonce, String(error)); });
+              } catch (error) {
+                SubshellChatTokenBridge.onError(nonce, String(error));
+              }
+            })();
+    """.trimIndent()
+}

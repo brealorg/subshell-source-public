@@ -157,7 +157,8 @@ class Backup02A1JoinedCommunitiesStateTest {
             ),
         )
         assertTrue(
-            screen.contains("state.restoreBackupState(") ||
+            screen.contains("state.prepareBackupRestore(") ||
+                screen.contains("state.restoreBackupState(") ||
                 screen.contains(
                     "state.restoreJoinedCommunityIdsByAccount(\n" +
                         "                                    target.joinedCommunityIdsByAccount,",

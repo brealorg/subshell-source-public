@@ -555,6 +555,11 @@ internal object AuthApplicationRuntimeFactory {
                 .accounts()
                 .itemsOrEmpty(),
             recordFailure = { scopeKey, details -> recordFailureWithoutAScreen(appContext, scopeKey, details) },
+            webSession = WebViewRedditSessionOwnership(
+                context = appContext,
+                recordsOwner = configuration.clientMode ==
+                    app.subshell.prototype.data.auth.OAuthClientMode.REDREADER_COMPATIBILITY,
+            ),
         )
         val profileHistoryCapability =
             profileHistorySelection?.let { historySelection ->

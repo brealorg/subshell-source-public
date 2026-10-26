@@ -55,7 +55,7 @@ class AuthConnectViewModelContentSafetyTest {
                 contentSafetyClientMode = OAuthClientMode.REDREADER_COMPATIBILITY,
                 contentSafetyWriter = writer,
             ),
-        )
+        ).withAreaViewModels() // AUTHSPLIT05: made with it, as MainActivity does
 
     @Test
     fun hideAndReportReachTheRuntimesWriterOnce() {
@@ -64,16 +64,16 @@ class AuthConnectViewModelContentSafetyTest {
         idle()
 
         val hide = RedditPostVisibilityRequest("reddit:old", "t3_post1", hidden = true)
-        viewModel.setPostHidden(hide)
+        viewModel.reading().setPostHidden(hide)
         idle()
         assertEquals(listOf(hide), writer.hides)
-        assertEquals(ContentSafetyPhase.SUCCEEDED, viewModel.contentSafetyUiState.value.phase)
+        assertEquals(ContentSafetyPhase.SUCCEEDED, viewModel.reading().contentSafetyUiState.value.phase)
 
         val report = RedditContentReportRequest("reddit:old", "t3_post2", "Spam", communityName = "homelab")
-        viewModel.reportContent(report)
+        viewModel.reading().reportContent(report)
         idle()
         assertEquals(listOf(report), writer.reports)
-        assertEquals(ContentSafetyPhase.SUCCEEDED, viewModel.contentSafetyUiState.value.phase)
+        assertEquals(ContentSafetyPhase.SUCCEEDED, viewModel.reading().contentSafetyUiState.value.phase)
     }
 
     @Test
@@ -84,9 +84,9 @@ class AuthConnectViewModelContentSafetyTest {
         val viewModel = viewModel()
         idle()
 
-        viewModel.reportContent(RedditContentReportRequest("reddit:old", "t3_post1", "Spam"))
+        viewModel.reading().reportContent(RedditContentReportRequest("reddit:old", "t3_post1", "Spam"))
         idle()
-        assertEquals(ContentSafetyPhase.AUTHORIZATION_REQUIRED, viewModel.contentSafetyUiState.value.phase)
+        assertEquals(ContentSafetyPhase.AUTHORIZATION_REQUIRED, viewModel.reading().contentSafetyUiState.value.phase)
 
         // The authorization comes back for the same Reddit account, which the
         // directory now lists under a new stable id.
@@ -96,8 +96,8 @@ class AuthConnectViewModelContentSafetyTest {
         idle()
 
         assertEquals(listOf("reddit:old", "reddit:new"), writer.reports.map { it.accountStableId })
-        assertEquals(ContentSafetyPhase.SUCCEEDED, viewModel.contentSafetyUiState.value.phase)
-        assertEquals("reddit:new", viewModel.contentSafetyUiState.value.accountStableId)
+        assertEquals(ContentSafetyPhase.SUCCEEDED, viewModel.reading().contentSafetyUiState.value.phase)
+        assertEquals("reddit:new", viewModel.reading().contentSafetyUiState.value.accountStableId)
     }
 
     private fun idle() = repeat(3) { shadowOf(Looper.getMainLooper()).idle() }

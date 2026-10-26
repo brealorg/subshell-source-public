@@ -53,6 +53,13 @@ class InboxSent01LaterPageTest {
     private fun source(): RedditInboxNetworkDataSource {
         val callFactory = OkHttpClient.Builder().addInterceptor { chain ->
             val request = chain.request()
+            // INBOXORDER01: a first page also reads the unread list; not part of this test.
+            if (request.url.encodedPath.contains("/message/unread")) {
+                return@addInterceptor Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
+                    .code(200).message("OK")
+                    .body("""{"kind":"Listing","data":{"after":null,"children":[]}}""".toResponseBody("application/json".toMediaType()))
+                    .build()
+            }
             val body = if (request.url.encodedPath.contains("/message/sent")) {
                 val after = request.url.queryParameter("after")
                 sentRequests += after

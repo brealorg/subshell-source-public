@@ -181,11 +181,45 @@ if [[ "$UNIT_RC" -eq 0 ]]; then
     UNIT_TESTS='PASS'
 fi
 
+# SECRETSCAN01_QUALIFICATION_SCANS_THE_WHOLE_TREE_V1: the tree is scanned
+# with gitleaks and its own .gitleaks.toml exactly as Stage C will scan the
+# public snapshot, so a finding stops the release before it is signed (0.85
+# was signed and published before Stage C found two false positives).
+GITLEAKS="${SUBSHELL_GITLEAKS:-$HOME/.local/bin/gitleaks}"
+SCAN_OUT="$OUTPUT/secret-scan"
+SECRET_SCAN='MISSING'
+if [[ -x "$GITLEAKS" ]]; then
+    mkdir -p "$SCAN_OUT"
+    SCAN_TREE="$(mktemp -d)"
+    set +e
+    SCAN_RC=2
+    if git archive "$HEAD" | tar -x -C "$SCAN_TREE" &&
+        [[ -f "$SCAN_TREE/.gitleaks.toml" ]]; then
+        (cd "$SCAN_TREE" && "$GITLEAKS" dir . \
+            --config .gitleaks.toml \
+            --redact=100 \
+            --no-banner \
+            --exit-code 1 \
+            --report-format json \
+            --report-path "$SCAN_OUT/gitleaks-report.json") \
+            >"$SCAN_OUT/gitleaks.log" 2>&1
+        SCAN_RC=$?
+    fi
+    set -e
+    rm -rf "$SCAN_TREE"
+    case "$SCAN_RC" in
+        0) SECRET_SCAN='PASS' ;;
+        1) SECRET_SCAN='FINDINGS' ;;
+        *) SECRET_SCAN='FAILED' ;;
+    esac
+fi
+
 RELEASE_GATE='BLOCKED'
 if [[ "$CONTRACT_GATE" == 'PASS' &&
       "$RELEASE_BLOCKING_FAILURES" == '0' &&
       "$UNIT_TESTS" == 'PASS' &&
-      "$UNIT_KOTLIN_WARNING_COUNT" == '0' ]]; then
+      "$UNIT_KOTLIN_WARNING_COUNT" == '0' &&
+      "$SECRET_SCAN" == 'PASS' ]]; then
     RELEASE_GATE='PASS'
 fi
 
@@ -205,6 +239,7 @@ CONTRACT_GATE=$CONTRACT_GATE
 UNIT_TESTS=$UNIT_TESTS
 UNIT_TEST_RC=$UNIT_RC
 UNIT_KOTLIN_WARNING_COUNT=$UNIT_KOTLIN_WARNING_COUNT
+SECRET_SCAN=$SECRET_SCAN
 RELEASE_GATE=$RELEASE_GATE
 EOF_RECORD
 
@@ -225,6 +260,7 @@ echo "CONTRACT_GATE=$CONTRACT_GATE"
 echo "UNIT_TESTS=$UNIT_TESTS"
 echo "UNIT_TEST_RC=$UNIT_RC"
 echo "UNIT_KOTLIN_WARNING_COUNT=$UNIT_KOTLIN_WARNING_COUNT"
+echo "SECRET_SCAN=$SECRET_SCAN"
 echo "RELEASE_GATE=$RELEASE_GATE"
 echo "QUALIFICATION_RECORD=$RECORD"
 

@@ -120,6 +120,15 @@ internal class PostPagingState(
     ): RepositoryPagingSnapshot<Post> =
         postPagingSnapshots[queryKey] ?: RepositoryPagingSnapshot.initial(queryKey)
 
+    // ISSUE257_HOME_SAYS_LOADING_UNTIL_ITS_STORE_IS_READ_V1: false while the
+    // feed has no posts and its read of the store has not finished (no
+    // snapshot yet, or the first read in flight), so an unread feed is not
+    // taken for an empty one.
+    internal fun postPagingStoreRead(queryKey: RepositoryQueryKey): Boolean {
+        val snapshot = postPagingSnapshots[queryKey] ?: return false
+        return snapshot.items.isNotEmpty() || !(snapshot.initialLoading || snapshot.refreshing)
+    }
+
     internal fun ensurePostPaging(queryKey: RepositoryQueryKey) {
         if (queryKey in postPagingSnapshots || !requestedInitialLoads.add(queryKey)) return
         runPaging(queryKey) { entry ->
@@ -140,6 +149,19 @@ internal class PostPagingState(
         runPaging(queryKey) { entry ->
             entry.pager.synchronizeAfterRemotePageWrite()
             entry.initialLoadDone = true
+        }
+    }
+
+    /**
+     * FEEDSSOT01_FEEDS_FOLLOW_THE_STORE_V1: every feed already loaded reads its
+     * window from the store again (the read the remote-write push uses), on
+     * the paging executor, in order with its other loads.
+     */
+    internal fun synchronizeLoadedPostPaging() {
+        postPagingSnapshots.keys.toList().forEach { queryKey ->
+            runPaging(queryKey) { entry ->
+                if (entry.initialLoadDone) entry.pager.synchronizeAfterRemotePageWrite()
+            }
         }
     }
 

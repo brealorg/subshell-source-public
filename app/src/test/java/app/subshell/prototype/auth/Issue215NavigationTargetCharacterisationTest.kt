@@ -83,7 +83,7 @@ class Issue215NavigationTargetCharacterisationTest {
     fun profileTargetNeedsAValidUsernameAndPostId() {
         val history = FakeHistory { AuthenticatedRedditProfileCommentTargetResult.Loaded(target, fromCache = false) }
         val viewModel = viewModel(history = history)
-        viewModel.refreshRedditAccountHistory(account, "alice", RedditAccountHistoryKind.COMMENTS)
+        viewModel.reading().refreshRedditAccountHistory(account, "alice", RedditAccountHistoryKind.COMMENTS)
         idle()
 
         assertNull(resolveProfile(viewModel, account, "not a name!", "abc"))
@@ -98,7 +98,7 @@ class Issue215NavigationTargetCharacterisationTest {
         val viewModel = viewModel(history = history)
 
         assertNull(resolveProfile(viewModel, account, "alice", "abc"))
-        viewModel.refreshRedditAccountHistory(account, "bob", RedditAccountHistoryKind.COMMENTS)
+        viewModel.reading().refreshRedditAccountHistory(account, "bob", RedditAccountHistoryKind.COMMENTS)
         idle()
         assertNull(resolveProfile(viewModel, account, "alice", "abc"))
         assertTrue(history.targetCalls.isEmpty())
@@ -107,7 +107,7 @@ class Issue215NavigationTargetCharacterisationTest {
     @Test
     fun withoutACommentLoaderNoProfileTargetResolves() {
         val viewModel = viewModel()
-        viewModel.refreshRedditAccountHistory(account, "alice", RedditAccountHistoryKind.COMMENTS)
+        viewModel.reading().refreshRedditAccountHistory(account, "alice", RedditAccountHistoryKind.COMMENTS)
         idle()
 
         assertNull(resolveProfile(viewModel, account, "alice", "abc"))
@@ -117,7 +117,7 @@ class Issue215NavigationTargetCharacterisationTest {
     fun aLoadedProfileTargetIsReturned() {
         val history = FakeHistory { AuthenticatedRedditProfileCommentTargetResult.Loaded(target, fromCache = false) }
         val viewModel = viewModel(history = history)
-        viewModel.refreshRedditAccountHistory(account, "alice", RedditAccountHistoryKind.COMMENTS)
+        viewModel.reading().refreshRedditAccountHistory(account, "alice", RedditAccountHistoryKind.COMMENTS)
         idle()
 
         assertEquals(target, resolveProfile(viewModel, account, "Alice", "t3_abc"))
@@ -128,11 +128,11 @@ class Issue215NavigationTargetCharacterisationTest {
     fun aProfileTargetNeedingAuthorizationMarksTheHistory() {
         val history = FakeHistory { AuthenticatedRedditProfileCommentTargetResult.AuthorizationRequired }
         val viewModel = viewModel(history = history)
-        viewModel.refreshRedditAccountHistory(account, "alice", RedditAccountHistoryKind.COMMENTS)
+        viewModel.reading().refreshRedditAccountHistory(account, "alice", RedditAccountHistoryKind.COMMENTS)
         idle()
 
         assertNull(resolveProfile(viewModel, account, "alice", "abc"))
-        val state = viewModel.redditAccountHistoryUiState.value
+        val state = viewModel.reading().redditAccountHistoryUiState.value
         assertTrue(state.authorizationRequired)
         assertFalse(state.authorizing)
         assertNull(state.failureKind)
@@ -150,11 +150,11 @@ class Issue215NavigationTargetCharacterisationTest {
         ).forEach { (kind, uiKind) ->
             val history = FakeHistory { AuthenticatedRedditProfileCommentTargetResult.Failed(kind, retryable = true) }
             val viewModel = viewModel(history = history)
-            viewModel.refreshRedditAccountHistory(account, "alice", RedditAccountHistoryKind.COMMENTS)
+            viewModel.reading().refreshRedditAccountHistory(account, "alice", RedditAccountHistoryKind.COMMENTS)
             idle()
 
             assertNull(resolveProfile(viewModel, account, "alice", "abc"))
-            val state = viewModel.redditAccountHistoryUiState.value
+            val state = viewModel.reading().redditAccountHistoryUiState.value
             assertEquals(uiKind, state.failureKind)
             assertTrue(state.failureRetryable)
             assertFalse(state.authorizationRequired)
@@ -164,42 +164,42 @@ class Issue215NavigationTargetCharacterisationTest {
     @Test
     fun aThrowingProfileTargetIsARetryableStorageFailure() {
         val viewModel = viewModel(history = FakeHistory { error("disk") })
-        viewModel.refreshRedditAccountHistory(account, "alice", RedditAccountHistoryKind.COMMENTS)
+        viewModel.reading().refreshRedditAccountHistory(account, "alice", RedditAccountHistoryKind.COMMENTS)
         idle()
 
         assertNull(resolveProfile(viewModel, account, "alice", "abc"))
-        assertEquals(RedditAccountHistoryUiFailureKind.STORAGE, viewModel.redditAccountHistoryUiState.value.failureKind)
-        assertTrue(viewModel.redditAccountHistoryUiState.value.failureRetryable)
+        assertEquals(RedditAccountHistoryUiFailureKind.STORAGE, viewModel.reading().redditAccountHistoryUiState.value.failureKind)
+        assertTrue(viewModel.reading().redditAccountHistoryUiState.value.failureRetryable)
     }
 
     @Test
     fun aProfileTargetNotFoundLeavesTheHistoryAsItWas() {
         val viewModel = viewModel(history = FakeHistory { AuthenticatedRedditProfileCommentTargetResult.NotFound })
-        viewModel.refreshRedditAccountHistory(account, "alice", RedditAccountHistoryKind.COMMENTS)
+        viewModel.reading().refreshRedditAccountHistory(account, "alice", RedditAccountHistoryKind.COMMENTS)
         idle()
-        val before = viewModel.redditAccountHistoryUiState.value
+        val before = viewModel.reading().redditAccountHistoryUiState.value
 
         assertNull(resolveProfile(viewModel, account, "alice", "abc"))
-        assertEquals(before, viewModel.redditAccountHistoryUiState.value)
+        assertEquals(before, viewModel.reading().redditAccountHistoryUiState.value)
     }
 
     @Test
     fun aProfileAnswerForAHistoryThatChangedMeanwhileIsDropped() {
         val gate = CompletableDeferred<AuthenticatedRedditProfileCommentTargetResult>()
         val viewModel = viewModel(history = FakeHistory { gate.await() })
-        viewModel.refreshRedditAccountHistory(account, "alice", RedditAccountHistoryKind.COMMENTS)
+        viewModel.reading().refreshRedditAccountHistory(account, "alice", RedditAccountHistoryKind.COMMENTS)
         idle()
         val answers = mutableListOf<Post?>()
-        viewModel.resolveRedditProfileCommentTarget(account, "alice", "abc") { answers += it }
+        viewModel.reading().resolveRedditProfileCommentTarget(account, "alice", "abc") { answers += it }
         idle()
 
-        viewModel.refreshRedditAccountHistory(account, "bob", RedditAccountHistoryKind.COMMENTS)
+        viewModel.reading().refreshRedditAccountHistory(account, "bob", RedditAccountHistoryKind.COMMENTS)
         idle()
         gate.complete(AuthenticatedRedditProfileCommentTargetResult.Loaded(target, fromCache = false))
         idle()
 
         assertEquals(listOf<Post?>(null), answers)
-        assertEquals("bob", viewModel.redditAccountHistoryUiState.value.username)
+        assertEquals("bob", viewModel.reading().redditAccountHistoryUiState.value.username)
     }
 
     // Saved comment target.
@@ -210,7 +210,7 @@ class Issue215NavigationTargetCharacterisationTest {
         val viewModel = viewModel(history = history)
 
         assertNull(resolveSaved(viewModel, account, "alice", "abc"))
-        viewModel.refreshRedditSavedHistory(account, "bob")
+        viewModel.reading().refreshRedditSavedHistory(account, "bob")
         idle()
         assertNull(resolveSaved(viewModel, account, "alice", "abc"))
         assertNull(resolveSaved(viewModel, account, "bob", " t3_ "))
@@ -221,7 +221,7 @@ class Issue215NavigationTargetCharacterisationTest {
     fun aLoadedSavedTargetIsReturned() {
         val history = FakeHistory { AuthenticatedRedditProfileCommentTargetResult.Loaded(target, fromCache = false) }
         val viewModel = viewModel(history = history)
-        viewModel.refreshRedditSavedHistory(account, "alice")
+        viewModel.reading().refreshRedditSavedHistory(account, "alice")
         idle()
 
         assertEquals(target, resolveSaved(viewModel, " $account", "alice", "t3_abc"))
@@ -231,10 +231,10 @@ class Issue215NavigationTargetCharacterisationTest {
     @Test
     fun aSavedTargetNeedingAuthorizationOrFailingMarksTheSavedHistory() {
         val authorizing = viewModel(history = FakeHistory { AuthenticatedRedditProfileCommentTargetResult.AuthorizationRequired })
-        authorizing.refreshRedditSavedHistory(account, "alice")
+        authorizing.reading().refreshRedditSavedHistory(account, "alice")
         idle()
         assertNull(resolveSaved(authorizing, account, "alice", "abc"))
-        authorizing.redditSavedHistoryUiState.value.let { state ->
+        authorizing.reading().redditSavedHistoryUiState.value.let { state ->
             assertTrue(state.authorizationRequired)
             assertNull(state.failureKind)
         }
@@ -244,10 +244,10 @@ class Issue215NavigationTargetCharacterisationTest {
                 AuthenticatedRedditProfileCommentTargetResult.Failed(AuthenticatedRedditProfileCommentsFailureKind.PROTOCOL)
             },
         )
-        failing.refreshRedditSavedHistory(account, "alice")
+        failing.reading().refreshRedditSavedHistory(account, "alice")
         idle()
         assertNull(resolveSaved(failing, account, "alice", "abc"))
-        failing.redditSavedHistoryUiState.value.let { state ->
+        failing.reading().redditSavedHistoryUiState.value.let { state ->
             assertFalse(state.authorizationRequired)
             assertEquals(RedditAccountHistoryUiFailureKind.PROTOCOL, state.failureKind)
             assertFalse(state.failureRetryable)
@@ -258,13 +258,13 @@ class Issue215NavigationTargetCharacterisationTest {
     fun aSavedAnswerForAHistoryThatChangedMeanwhileIsDropped() {
         val gate = CompletableDeferred<AuthenticatedRedditProfileCommentTargetResult>()
         val viewModel = viewModel(history = FakeHistory { gate.await() })
-        viewModel.refreshRedditSavedHistory(account, "alice")
+        viewModel.reading().refreshRedditSavedHistory(account, "alice")
         idle()
         val answers = mutableListOf<Post?>()
-        viewModel.resolveRedditSavedCommentTarget(account, "alice", "abc") { answers += it }
+        viewModel.reading().resolveRedditSavedCommentTarget(account, "alice", "abc") { answers += it }
         idle()
 
-        viewModel.refreshRedditSavedHistory(account, "bob")
+        viewModel.reading().refreshRedditSavedHistory(account, "bob")
         idle()
         gate.complete(AuthenticatedRedditProfileCommentTargetResult.Loaded(target, fromCache = false))
         idle()
@@ -273,13 +273,13 @@ class Issue215NavigationTargetCharacterisationTest {
     }
 
     private fun resolveInbox(viewModel: AuthConnectViewModel, account: String, postId: String): Post? =
-        collect { viewModel.resolveRedditNavigationTargetPost(account, postId, it) }
+        collect { viewModel.reading().resolveRedditNavigationTargetPost(account, postId, it) }
 
     private fun resolveProfile(viewModel: AuthConnectViewModel, account: String, user: String, postId: String): Post? =
-        collect { viewModel.resolveRedditProfileCommentTarget(account, user, postId, it) }
+        collect { viewModel.reading().resolveRedditProfileCommentTarget(account, user, postId, it) }
 
     private fun resolveSaved(viewModel: AuthConnectViewModel, account: String, user: String, postId: String): Post? =
-        collect { viewModel.resolveRedditSavedCommentTarget(account, user, postId, it) }
+        collect { viewModel.reading().resolveRedditSavedCommentTarget(account, user, postId, it) }
 
     private fun collect(start: ((Post?) -> Unit) -> Unit): Post? {
         val answers = mutableListOf<Post?>()

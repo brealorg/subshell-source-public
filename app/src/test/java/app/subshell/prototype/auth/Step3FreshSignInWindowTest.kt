@@ -60,7 +60,9 @@ class Step3FreshSignInWindowTest {
             freshAccountSession = freshAccountSession,
         )
         val window = Robolectric.buildActivity(RedReaderCompatibilityLoginActivity::class.java, intent).setup().get()
-        return window.findViewById<ViewGroup>(android.R.id.content).getChildAt(0) as WebView
+        // ISSUE242: the page sits in a frame that keeps it clear of the system bars.
+        val frame = window.findViewById<ViewGroup>(android.R.id.content).getChildAt(0) as ViewGroup
+        return frame.getChildAt(0) as WebView
     }
 
     @Test

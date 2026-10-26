@@ -129,6 +129,8 @@ import androidx.compose.material3.LeadingIconTab
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import app.subshell.prototype.ui.components.rememberLabelsFitSlots
+import app.subshell.prototype.ui.app.predictiveBackPage
+import app.subshell.prototype.ui.app.rememberPredictiveBackPage
 
 // SUBSHELL_INBOXM3A1_UNIFIED_M3_EXPRESSIVE_WORKSPACE_PREVIEW_V1
 // SUBSHELL_INBOXM3A1R1_VISUAL_REFINEMENT_PREVIEW_V1
@@ -2377,7 +2379,9 @@ internal fun InboxModmailThreadSurface(
         (String, String, RedditModmailTriageAction) -> Unit,
     onCloseRedditModmailConversation: () -> Unit,
 ) {
-    BackHandler(onBack = onCloseRedditModmailConversation)
+    // ISSUE249_IN_SCREEN_PAGES_FOLLOW_THE_BACK_GESTURE_V1: the conversation
+    // follows the back gesture back to the list (also as the detail pane).
+    val pageBack = rememberPredictiveBackPage(enabled = true, onBack = onCloseRedditModmailConversation)
 
     val containerModifier =
         if (applySystemBars) {
@@ -2392,7 +2396,9 @@ internal fun InboxModmailThreadSurface(
     Column(
         // COMPOSER232_COMPOSER_SITS_ON_THE_KEYBOARD_V1 (#232): the thread and its
         // composer fit above the keyboard by the IME ruler.
-        modifier = containerModifier.fitInside(WindowInsetsRulers.Ime.current),
+        modifier = containerModifier
+            .predictiveBackPage(pageBack)
+            .fitInside(WindowInsetsRulers.Ime.current),
     ) {
         InboxModmailThreadHeader(
             conversation = thread.conversation,

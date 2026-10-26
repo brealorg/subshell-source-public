@@ -1,6 +1,5 @@
 package app.subshell.prototype.ui.screens
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -41,6 +40,8 @@ import app.subshell.prototype.ui.ContentFilterDraftError
 import app.subshell.prototype.ui.ContentFilterType
 import app.subshell.prototype.ui.ContentFilters
 import app.subshell.prototype.ui.ScreenMargin
+import app.subshell.prototype.ui.app.predictiveBackPage
+import app.subshell.prototype.ui.app.rememberPredictiveBackPage
 import app.subshell.prototype.ui.components.RouteTopBar
 import app.subshell.prototype.ui.components.SettingsListItem
 import app.subshell.prototype.ui.components.rememberRouteTopBarScrollBehavior
@@ -77,12 +78,20 @@ fun ContentFiltersScreen(
         }
     }
 
-    BackHandler(enabled = activeFiltersVisible || selectedType != null) {
-        navigateUp()
-    }
+    // ISSUE249_IN_SCREEN_PAGES_FOLLOW_THE_BACK_GESTURE_V1: a filter list or
+    // type follows the back gesture back to the level above.
+    val pageBack = rememberPredictiveBackPage(
+        enabled = activeFiltersVisible || selectedType != null,
+        onBack = ::navigateUp,
+    )
 
     val routeTopBarScroll = rememberRouteTopBarScrollBehavior()
-    Column(modifier.fillMaxSize().nestedScroll(routeTopBarScroll.nestedScrollConnection)) {
+    Column(
+        modifier
+            .predictiveBackPage(pageBack)
+            .fillMaxSize()
+            .nestedScroll(routeTopBarScroll.nestedScrollConnection),
+    ) {
         RouteTopBar(
             title = {
                 Text(

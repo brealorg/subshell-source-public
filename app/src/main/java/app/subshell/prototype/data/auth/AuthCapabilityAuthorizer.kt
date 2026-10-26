@@ -364,6 +364,7 @@ internal class ConfiguredAuthCapabilityAuthorizer(
                     }
                 }
             }
+        accountCoordinator.webSessionSignedInAs(boundAccountStableId)
 
         return AuthCapabilityAuthorizationResult.Upgraded(
             accountStableId = boundAccountStableId,

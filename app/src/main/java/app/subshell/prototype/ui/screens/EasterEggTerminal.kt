@@ -1,7 +1,6 @@
 package app.subshell.prototype.ui.screens
 
 import android.os.SystemClock
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -56,6 +55,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.subshell.prototype.BuildConfig
+import app.subshell.prototype.ui.app.predictiveBackPage
+import app.subshell.prototype.ui.app.rememberPredictiveBackPage
 import kotlinx.coroutines.delay
 
 internal val EASTER_EGG_UNLOCK_PULL = 72.dp
@@ -66,7 +67,8 @@ internal fun EasterEggTerminalScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    BackHandler(onBack = onBack)
+    // ISSUE249_IN_SCREEN_PAGES_FOLLOW_THE_BACK_GESTURE_V1
+    val pageBack = rememberPredictiveBackPage(enabled = true, onBack = onBack)
 
     val haptics = LocalHapticFeedback.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -165,6 +167,7 @@ internal fun EasterEggTerminalScreen(
 
     Column(
         modifier = modifier
+            .predictiveBackPage(pageBack)
             .fillMaxSize()
             .background(terminalBackground)
             .imePadding()

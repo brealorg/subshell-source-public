@@ -287,6 +287,27 @@ internal interface AuthenticatedRedditCommentLoader {
     ): AuthenticatedRedditCommentResult =
         cacheSubmittedComment(accountStableId, postId, sort, parentFullname, comment)
 
+    /**
+     * COMMENTSSOT01_THE_THREAD_FOLLOWS_ITS_CACHE_V1 (#244): the stored thread
+     * each time it changes, whoever wrote it. An empty list is a thread that is
+     * not stored (never read, or evicted), not one without comments.
+     */
+    fun observeStoredThread(
+        accountStableId: String,
+        postId: String,
+        sort: RedditCommentSort,
+    ): kotlinx.coroutines.flow.Flow<List<Comment>> = kotlinx.coroutines.flow.emptyFlow()
+
+    /**
+     * COMMENTSSOT01_LOCAL_WRITES_REACH_THE_CACHE_V1: applies a confirmed local
+     * change (edit, delete, moderation) to every stored sort of the thread.
+     */
+    suspend fun updateStoredThread(
+        accountStableId: String,
+        postId: String,
+        transform: (List<Comment>) -> List<Comment>?,
+    ) = Unit
+
     // COMPOSER11_MEDIA_COMMENT_READ_BACK_V1: the current body of one comment
     // (media resolved), or null when it cannot be read.
     suspend fun readCommentBody(

@@ -38,6 +38,8 @@ import app.subshell.prototype.model.Comment
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -82,6 +84,27 @@ internal class RedditCommentLoader(
             throw cancelled
         } catch (_: Exception) {
             failed(AuthenticatedRedditCommentFailureKind.STORAGE, retryable = true)
+        }
+    }
+
+    override fun observeStoredThread(
+        accountStableId: String,
+        postId: String,
+        sort: RedditCommentSort,
+    ): Flow<List<Comment>> =
+        cacheStore.observeComments(live03CommentCacheKey(accountStableId, postId, sort))
+            .flowOn(ioDispatcher)
+
+    override suspend fun updateStoredThread(
+        accountStableId: String,
+        postId: String,
+        transform: (List<Comment>) -> List<Comment>?,
+    ) = withContext(ioDispatcher) {
+        loadMutex.withLock {
+            cacheStore.updateStoredComments(
+                postIds = RedditCommentSort.entries.map { sort -> live03CommentCacheKey(accountStableId, postId, sort) },
+                transform = transform,
+            )
         }
     }
 

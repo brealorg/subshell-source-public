@@ -19,6 +19,7 @@ import app.subshell.prototype.R
 import app.subshell.prototype.applock.AppLockSettingsStore
 import app.subshell.prototype.applock.hidesNotificationContent
 import app.subshell.prototype.model.Post
+import app.subshell.prototype.ui.hiddenCommunityNamesPreferenceKey
 
 internal const val COMMUNITY_POSTS_NOTIFICATION_CHANNEL_ID = "subshell_community_posts"
 
@@ -83,7 +84,12 @@ internal object CommunityPostNotificationCenter {
         if (posts.isEmpty() || !canPost(appContext)) return 0
         ensureChannel(appContext)
         val manager = NotificationManagerCompat.from(appContext)
-        val hideContent = AppLockSettingsStore.read(appContext).hidesNotificationContent
+        // SECAUDIT29_HIDDEN_COMMUNITIES_ARE_NOTIFIED_WITHOUT_THEIR_NAME_V1
+        // (security audit #29): a community the reader hid from the Communities
+        // list can still be watched; its notifications say no more than hidden
+        // content does, so its name does not appear in the shade.
+        val hideContent = AppLockSettingsStore.read(appContext).hidesNotificationContent ||
+            isHiddenCommunity(appContext, accountStableId, communityName)
         val group = groupKey(accountStableId, communityName)
         val publicVersion = NotificationCompat.Builder(appContext, COMMUNITY_POSTS_NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_subshell)
@@ -133,6 +139,14 @@ internal object CommunityPostNotificationCenter {
         }
         return posted
     }
+
+    private fun isHiddenCommunity(context: Context, accountStableId: String, communityName: String): Boolean =
+        runCatching {
+            context.getSharedPreferences(COMMUNITY_POST_WATCH_PREFERENCES, Context.MODE_PRIVATE)
+                .getStringSet(hiddenCommunityNamesPreferenceKey(accountStableId), emptySet())
+                .orEmpty()
+                .any { hidden -> hidden.equals(communityName.removePrefix("r/"), ignoreCase = true) }
+        }.getOrDefault(false)
 
     private fun groupKey(accountStableId: String, communityName: String): String =
         "$COMMUNITY_POSTS_NOTIFICATION_CHANNEL_ID:" + Base64.encodeToString(

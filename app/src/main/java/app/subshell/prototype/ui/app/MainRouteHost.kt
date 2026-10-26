@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.SaveableStateHolder
@@ -59,6 +60,7 @@ import app.subshell.prototype.inbox.ModmailNotificationTarget
 import app.subshell.prototype.model.CommunityDiscoverySort
 import app.subshell.prototype.model.Post
 import app.subshell.prototype.ui.FeedSource
+import app.subshell.prototype.ui.LocalMainPaneDestination
 import app.subshell.prototype.ui.MainDestination
 import app.subshell.prototype.ui.ScreenMargin
 import app.subshell.prototype.ui.SubshellRoute
@@ -216,6 +218,8 @@ Box(
     },
     label = "main navigation",
 ) { destination ->
+    // VIDEOTABSWITCH01: each pane knows its own tab (a feed fading out pauses).
+    CompositionLocalProvider(LocalMainPaneDestination provides destination) {
     screenStateHolder.SaveableStateProvider("main-${destination.name}") {
         when (destination) {
             MainDestination.HOME -> {
@@ -983,6 +987,7 @@ scaffoldPadding = padding,
                 // NEXT01A4A_YOU_CONTENT_WORKSPACE_MAIN_END_V1
             }
         }
+    }
     }
 }
 }

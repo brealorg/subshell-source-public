@@ -28,8 +28,9 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.WideNavigationRail
+import androidx.compose.material3.WideNavigationRailDefaults
+import androidx.compose.material3.WideNavigationRailItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -196,19 +197,21 @@ internal fun ExpandedMainNavigationRail(
     onOpenAccountSwitcher: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    NavigationRail(
+    // ISSUE247_WIDE_NAVIGATION_RAIL_V1 (#247): M3 Expressive's rail, collapsed
+    // as the rail before it (the expanded form is a separate decision).
+    WideNavigationRail(
         modifier = modifier,
         // M3223_CUTOUT_IS_SAFE_V1: clear of a side display cutout too.
         windowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout)
             .only(WindowInsetsSides.Vertical + WindowInsetsSides.Start),
-        containerColor = MaterialTheme.colorScheme.surface,
+        colors = WideNavigationRailDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Spacer(Modifier.height(8.dp))
         navItems.forEach { item ->
             val isYou = item.destination == MainDestination.YOU
             val accessibilityLabel = item.destination.label
             val visualLabel = navigationRailVisualLabel(item.destination)
-            NavigationRailItem(
+            WideNavigationRailItem(
                 modifier = if (isYou) {
                     Modifier.semantics {
                         onLongClick(label = "Switch account") {
@@ -220,6 +223,7 @@ internal fun ExpandedMainNavigationRail(
                     Modifier
                 },
                 selected = state.destination == item.destination,
+                railExpanded = false,
                 onClick = {
                     if (isYou && suppressYouClick) {
                         onSuppressYouClickChange(false)
@@ -270,7 +274,11 @@ internal fun ExpandedMainNavigationRail(
                         )
                     }
                 },
-                label = if (state.navigationLabelMode == NavigationLabelMode.OFF) {
+                // PARTIAL names only the selected destination, as alwaysShowLabel did.
+                label = if (
+                    state.navigationLabelMode == NavigationLabelMode.OFF ||
+                    (state.navigationLabelMode == NavigationLabelMode.PARTIAL && state.destination != item.destination)
+                ) {
                     null
                 } else {
                     {
@@ -286,7 +294,6 @@ internal fun ExpandedMainNavigationRail(
                         )
                     }
                 },
-                alwaysShowLabel = state.navigationLabelMode == NavigationLabelMode.ON,
                 interactionSource =
                     navInteractionSources.getValue(item.destination),
             )

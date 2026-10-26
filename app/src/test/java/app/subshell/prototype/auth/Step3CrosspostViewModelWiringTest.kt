@@ -91,15 +91,15 @@ class Step3CrosspostViewModelWiringTest {
     fun aReviewOnlyReadsAndPublishSendsTheReviewedCrosspostOnce() {
         val draft = crosspost01A1CDraft()
 
-        viewModel.reviewCrosspostDraft(draft)
-        waitFor { viewModel.crosspostReviewUiState.value.phase == CrosspostReviewPhase.READY }
+        viewModel.postComposer().reviewCrosspostDraft(draft)
+        waitFor { viewModel.postComposer().crosspostReviewUiState.value.phase == CrosspostReviewPhase.READY }
 
-        assertEquals(CrosspostReviewPhase.READY, viewModel.crosspostReviewUiState.value.phase)
+        assertEquals(CrosspostReviewPhase.READY, viewModel.postComposer().crosspostReviewUiState.value.phase)
         assertEquals(listOf("owner" to "t3_source123"), sourceReads.toList())
         assertEquals(listOf("owner" to "target"), policyReads.toList())
         assertEquals(emptyList<AuthenticatedTextPostSubmitRequest>(), submits.toList())
 
-        viewModel.publishReviewedCrosspost(draft, viewModel.crosspostReviewUiState.value.revision)
+        viewModel.postComposer().publishReviewedCrosspost(draft, viewModel.postComposer().crosspostReviewUiState.value.revision)
         waitFor { submits.isNotEmpty() }
 
         assertEquals(listOf("t3_source123"), submits.map { it.crosspostFullname })

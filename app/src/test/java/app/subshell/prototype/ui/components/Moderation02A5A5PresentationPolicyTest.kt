@@ -27,7 +27,12 @@ class Moderation02A5A5PresentationPolicyTest {
         assertTrue(team.contains("LocalModeratorUserManagement.current"))
         assertTrue(team.contains("Search Reddit users"))
         assertTrue(team.contains("ModeratorInviteAvatar"))
-        assertTrue(team.contains("BackHandler(enabled = showInviteEditor)"))
+        // ISSUE249_IN_SCREEN_PAGES_FOLLOW_THE_BACK_GESTURE_V1: the invite editor
+        // owns Back as a predictive page (swallowed while it writes).
+        assertTrue(
+            team.contains("BackHandler(enabled = showInviteEditor)") ||
+                (team.contains("PredictiveBackPage(") && team.contains("enabled = !inviteBusy")),
+        )
         assertTrue(team.contains("Back to moderators"))
         assertTrue(team.contains("Invite u/\${pending.username}?"))
         assertTrue(team.contains("Send invitation"))

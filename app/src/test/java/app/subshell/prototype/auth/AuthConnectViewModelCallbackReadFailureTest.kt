@@ -102,7 +102,7 @@ class AuthConnectViewModelCallbackReadFailureTest {
                 authorizationOwnerResolver = AuthCapabilityAuthorizationOwnerResolver(store),
                 inboxReadCapability = inbox,
             ),
-        )
+        ).withAreaViewModels() // AUTHSPLIT02/03: made with it, as MainActivity does
         entryPoint(viewModel)
         shadowOf(Looper.getMainLooper()).idle()
         return Outcome(

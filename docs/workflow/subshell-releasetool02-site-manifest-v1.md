@@ -123,6 +123,14 @@ RELEASE_BLOCKING_FAILURE=NO
 The private Android source commit is checked against the public project
 repository again at the end.
 
+Both public commits (site and manifest) are made as `brealorg`
+`<6815997+brealorg@users.noreply.github.com>`, the same identity as Stage C's
+source snapshot, whatever the machine's git identity is; a commit with any
+other author or committer stops with `PUBLIC_COMMIT_AUTHOR_NOT_BREALORG`
+before it is pushed (SECAUDIT16_PUBLIC_COMMITS_ARE_BREALORG_V1). Commits
+from before 0.85 keep the identity they were made with; a resumed commit is
+reused as it is.
+
 ## Resume and rollback policy
 
 Already verified public state is reconciled, never blindly recreated.
