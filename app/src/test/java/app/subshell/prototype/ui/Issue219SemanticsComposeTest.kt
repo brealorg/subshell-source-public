@@ -15,6 +15,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import app.subshell.prototype.backup.SettingsBackupRepository
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
@@ -60,12 +61,13 @@ class Issue219SemanticsComposeTest {
             }
         }
         composeRule.waitUntil(timeoutMillis = 60_000) {
-            composeRule.onAllNodesWithText("Include muted communities in backup & restore", substring = true)
+            composeRule.onAllNodesWithText("Muted communities", substring = true)
                 .fetchSemanticsNodes().isNotEmpty()
         }
         val row = composeRule.onNode(
-            hasText("Include muted communities in backup & restore", substring = true) and role(Role.Switch),
+            hasText("Muted communities", substring = true) and role(Role.Switch),
         )
+        row.performScrollTo()
         row.assert(toggle(false))
         row.performClick()
         composeRule.waitForIdle()

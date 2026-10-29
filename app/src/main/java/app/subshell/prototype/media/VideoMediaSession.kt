@@ -18,6 +18,7 @@ import androidx.media3.session.MediaSession
 import app.subshell.prototype.ui.SubshellState
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * ISSUE251_MEDIA_BUTTONS_CONTROL_THE_VIDEO_V1 (#251, owner "do it"): headset,
@@ -86,10 +87,17 @@ internal class MediaButtonVideoPlayer(
     }
 }
 
+// VIDEOSESSIONID01_EACH_SESSION_HAS_ITS_OWN_ID_V1 (owner 2026-10-27): Media3
+// refuses a second session with an ID still in use, and a new MainActivity
+// makes its session before the old activity has released its own (a link or
+// notification opening the app while another screen of it is on top), so one
+// fixed ID crashed the new activity.
+private val videoMediaSessionNumber = AtomicInteger()
+
 @AndroidxOptIn(UnstableApi::class)
 internal fun videoMediaSession(context: Context, player: MediaButtonVideoPlayer): MediaSession =
     MediaSession.Builder(context, player)
-        .setId("subshell-video")
+        .setId("subshell-video-${videoMediaSessionNumber.incrementAndGet()}")
         .build()
 
 @Composable

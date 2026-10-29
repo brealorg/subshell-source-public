@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import app.subshell.prototype.backup.PortableModeratorSavedResponse
 import app.subshell.prototype.backup.SettingsBackupRepository
+import app.subshell.prototype.backup.SnapshotKind
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
 import app.subshell.prototype.ui.SubshellSettings
 import app.subshell.prototype.ui.SubshellState
@@ -76,10 +77,11 @@ class Step3ModeratorResponsesRestoreComposeTest {
         // The dialog's own Restore is the last one on screen.
         composeRule.onAllNodes(hasText("Restore") and hasClickAction()).onLast()
             .performSemanticsAction(SemanticsActions.OnClick)
+        // A restore saves the setup before it first, then applies the backup.
         composeRule.waitUntil(10_000) {
-            composeRule.onAllNodes(hasText("Restored Mod setup", substring = true))
-                .fetchSemanticsNodes().isNotEmpty()
+            repository.listSnapshots().any { it.kind == SnapshotKind.SAFETY }
         }
+        composeRule.waitForIdle()
         return composeRule.runOnIdle { state.moderatorSavedResponses.map { it.title } }
     }
 

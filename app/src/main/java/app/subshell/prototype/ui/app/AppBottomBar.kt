@@ -27,15 +27,25 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.subshell.prototype.ui.MainDestination
 import app.subshell.prototype.ui.NavigationLabelMode
+import app.subshell.prototype.ui.SubshellRoute
 import app.subshell.prototype.ui.SubshellState
 import app.subshell.prototype.ui.navItems
 import app.subshell.prototype.ui.navigationVisualLabel
 
+// ISSUE274_LIST_ROUTES_KEEP_THE_NAVIGATION_BAR_V1 (#274, owner): deep in a
+// community, a profile or search results the reader still reaches Home,
+// Communities, Inbox and You, as the rail already allows from 600 dp. A post
+// and a conversation keep their own reply dock at the bottom instead.
+internal fun routeKeepsNavigationBar(route: SubshellRoute): Boolean =
+    route is SubshellRoute.Community ||
+        route is SubshellRoute.User ||
+        route is SubshellRoute.Search
+
 /**
  * The Scaffold's bottom bar: the compact navigation bar with the inbox
  * unread badge, the label mode, and the You item's long-press account
- * switch. Hidden inside a route, in the expanded layout and while a modmail
- * thread is open.
+ * switch. Hidden inside a route other than a list (community, profile,
+ * search), in the expanded layout and while a modmail thread is open.
  *
  * Moved out of SubshellApp verbatim. The hidden fraction arrives as the
  * animated State, so it is still read in the graphics layer only.
@@ -44,6 +54,7 @@ import app.subshell.prototype.ui.navigationVisualLabel
 internal fun AppBottomBar(
     state: SubshellState,
     inContext: Boolean,
+    routeKeepsNavigationBar: Boolean,
     expandedMainLayout: Boolean,
     modmailThreadOpen: Boolean,
     compactNavigationBarHeight: Dp,
@@ -59,7 +70,7 @@ internal fun AppBottomBar(
     var accountSwitcherVisible by accountSwitcherVisibleState
     var suppressYouClick by suppressYouClickState
     var activeCustomFeedPath by activeCustomFeedPathState
-    if (!inContext && !expandedMainLayout && !modmailThreadOpen) {
+    if ((!inContext || routeKeepsNavigationBar) && !expandedMainLayout && !modmailThreadOpen) {
         // M3223_SHORT_NAVIGATION_BAR_V1 (#223): Material's 64 dp ShortNavigationBar
         // instead of the 80 dp NavigationBar squeezed to 64 dp; large text keeps 88 dp
         // (A11Y01A1_LARGE_TEXT_NAVIGATION_HEIGHT_V1).
@@ -77,7 +88,7 @@ internal fun AppBottomBar(
                 val navigationVisualLabel =
                     navigationVisualLabel(
                         destination = item.destination,
-                        fontScale = density.fontScale,
+                        fontScale = app.subshell.prototype.ui.visibleFontScale(),
                     )
                 // "Partial" labels only the selected destination (the short bar has
                 // no alwaysShowLabel); an unlabelled icon carries the name instead.

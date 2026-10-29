@@ -1,5 +1,6 @@
 package app.subshell.prototype.ui
 
+import app.subshell.prototype.harness.ProvideTestVideoPlayback
 import android.app.Application
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.CompositionLocalProvider
@@ -97,20 +98,22 @@ class Feeds02KeysAndStateComposeTest {
             contentRevision = 1L,
         )
         composeRule.setContent {
-            SubshellTheme {
-                CustomFeedBrowser(
-                    modifier = Modifier,
-                    state = state,
-                    accountStableId = "reddit:alice",
-                    feed = selected.value,
-                    postsState = postsFor(selected.value),
-                    contentPadding = PaddingValues(),
-                    showContextHeader = false,
-                    onBack = {},
-                    onRefresh = {},
-                    onLoadInitial = {},
-                    onAppend = {},
-                )
+            ProvideTestVideoPlayback {
+                SubshellTheme {
+                    CustomFeedBrowser(
+                        modifier = Modifier,
+                        state = state,
+                        accountStableId = "reddit:alice",
+                        feed = selected.value,
+                        postsState = postsFor(selected.value),
+                        contentPadding = PaddingValues(),
+                        showContextHeader = false,
+                        onBack = {},
+                        onRefresh = {},
+                        onLoadInitial = {},
+                        onAppend = {},
+                    )
+                }
             }
         }
         composeRule.onNode(hasScrollToIndexAction()).performScrollToIndex(20)

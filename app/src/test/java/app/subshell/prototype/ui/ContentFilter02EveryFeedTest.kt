@@ -1,5 +1,6 @@
 package app.subshell.prototype.ui
 
+import app.subshell.prototype.harness.ProvideTestVideoPlayback
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -86,23 +87,25 @@ class ContentFilter02EveryFeedTest {
             subredditNames = listOf("movies"),
         )
         composeRule.setContent {
-            SubshellTheme {
-                CustomFeedBrowser(
-                    modifier = androidx.compose.ui.Modifier,
-                    state = state,
-                    accountStableId = "reddit:me",
-                    feed = feed,
-                    postsState = CustomFeedPostsUiState(
+            ProvideTestVideoPlayback {
+                SubshellTheme {
+                    CustomFeedBrowser(
+                        modifier = androidx.compose.ui.Modifier,
+                        state = state,
                         accountStableId = "reddit:me",
-                        feedPath = feed.path,
-                        posts = posts,
-                    ),
-                    contentPadding = PaddingValues(),
-                    onBack = {},
-                    onRefresh = {},
-                    onLoadInitial = {},
-                    onAppend = {},
-                )
+                        feed = feed,
+                        postsState = CustomFeedPostsUiState(
+                            accountStableId = "reddit:me",
+                            feedPath = feed.path,
+                            posts = posts,
+                        ),
+                        contentPadding = PaddingValues(),
+                        onBack = {},
+                        onRefresh = {},
+                        onLoadInitial = {},
+                        onAppend = {},
+                    )
+                }
             }
         }
         composeRule.waitForIdle()

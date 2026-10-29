@@ -8,7 +8,7 @@ class UserAction01A2BlockedDestinationPolicyTest {
     @Test
     fun authenticatedOwnProfileExposesBlockedBeforeDrafts() {
         assertEquals(
-            listOf("Posts", "Comments", "Saved", "Upvotes", "Downvotes", "Hidden", "Blocked", "Drafts"),
+            listOf("Posts", "Comments", "Saved", "Upvotes", "Downvotes", "Hidden", "Blocked", "Drafts", "Reading"),
             profileTabsForSession(
                 username = "shelluser",
                 activeAccountUsername = "shelluser",

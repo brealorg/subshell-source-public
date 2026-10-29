@@ -25,6 +25,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasClickAction
 
 /**
  * STEP3 (settings02c): a stricter backup limit asks before it deletes, Cancel
@@ -49,12 +50,17 @@ class Step3BackupRetentionComposeTest {
             }
         }
         composeRule.waitForIdle()
-        // M3225_RETENTION_IS_AN_EXPOSED_DROPDOWN_V1: the field is named by its label.
-        val chooser = hasText("Automatic history")
+        // ISSUE270_BACKUPS_ARE_ONE_LIST_WITH_THREE_TABS_V1: the automatic limit
+        // is under its tab. M3225_RETENTION_IS_AN_EXPOSED_DROPDOWN_V1: the field
+        // is named by its label.
+        val tab = hasText("Automatic", substring = true) and hasClickAction()
+        composeRule.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(tab)
+        composeRule.onNode(tab).performClick()
+        composeRule.waitForIdle()
+        val chooser = hasText("Keep the newest")
         composeRule.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(chooser)
 
         composeRule.onNode(chooser).performClick()
-        // "5 backups" is also the safety snapshots' current value; the menu item is last.
         composeRule.onAllNodesWithText(BackupRetention.FIVE.label).onLast().performClick()
         composeRule.waitForIdle()
         assertTrue(composeRule.onAllNodesWithText("Keep only 5 backups?").fetchSemanticsNodes().isNotEmpty())

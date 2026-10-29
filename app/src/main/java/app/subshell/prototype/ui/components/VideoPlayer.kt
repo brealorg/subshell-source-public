@@ -669,24 +669,40 @@ fun LocalVideoPlayer(
                 .fillMaxWidth()
                 .aspectRatio(aspectRatio)
         }
-        Box(staticFrameModifier.background(Color.Black)) {
+        // ISSUE276_NO_PLAY_BUTTON_WHILE_AUTOPLAY_IS_ABOUT_TO_START_V1: a feed video
+        // that starts by itself waits ~500 ms for the visibility dwell; a play
+        // button then read as "tap to play". It shows only when the video will not
+        // start by itself (autoplay off or Wi-Fi only on mobile data, NSFW still
+        // covered); otherwise the poster alone, and a tap anywhere still plays it.
+        val startsByItself = !fullscreen && !paneLeaving &&
+            state.videoAutoplayAllowed && state.sensitiveMediaAutoplayAllowed(post)
+        val frameModifier = if (startsByItself) {
+            staticFrameModifier
+                .clickable(onClickLabel = "Play video") { state.playVideo(post.id) }
+                .semantics { contentDescription = "Play video" }
+        } else {
+            staticFrameModifier
+        }
+        Box(frameModifier.background(Color.Black)) {
             VideoPosterFrame(
                 post = post,
                 modifier = Modifier.fillMaxSize(),
                 feedImageState = feedPosterImage,
             )
-            Surface(
-                modifier = Modifier.align(Alignment.Center).size(VIDEO_CENTER_BUTTON_SIZE),
-                shape = CircleShape,
-                color = Color.Black.copy(alpha = VIDEO_CENTER_BUTTON_SCRIM_ALPHA),
-                onClick = { state.playVideo(post.id) },
-            ) {
-                Icon(
-                    Symbols.PlayArrowFilled,
-                    contentDescription = "Play video",
-                    modifier = Modifier.padding(12.dp),
-                    tint = Color.White,
-                )
+            if (!startsByItself) {
+                Surface(
+                    modifier = Modifier.align(Alignment.Center).size(VIDEO_CENTER_BUTTON_SIZE),
+                    shape = CircleShape,
+                    color = Color.Black.copy(alpha = VIDEO_CENTER_BUTTON_SCRIM_ALPHA),
+                    onClick = { state.playVideo(post.id) },
+                ) {
+                    Icon(
+                        Symbols.PlayArrowFilled,
+                        contentDescription = "Play video",
+                        modifier = Modifier.padding(12.dp),
+                        tint = Color.White,
+                    )
+                }
             }
         }
         return

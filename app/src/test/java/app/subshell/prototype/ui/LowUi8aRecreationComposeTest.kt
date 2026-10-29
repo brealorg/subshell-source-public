@@ -1,5 +1,6 @@
 package app.subshell.prototype.ui
 
+import app.subshell.prototype.harness.ProvideTestVideoPlayback
 import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -335,14 +336,16 @@ class LowUi8aRecreationComposeTest {
         var feeds by mutableStateOf(loaded)
         val restoration = StateRestorationTester(composeRule)
         restoration.setContent {
-            CommunitiesScreen(
-                state = state,
-                redditSubscriptionsState = RedditSubscriptionsUiState(
-                    accountStableId = account.stableId,
-                    loaded = true,
-                ),
-                customFeedsState = feeds,
-            )
+            ProvideTestVideoPlayback {
+                CommunitiesScreen(
+                    state = state,
+                    redditSubscriptionsState = RedditSubscriptionsUiState(
+                        accountStableId = account.stableId,
+                        loaded = true,
+                    ),
+                    customFeedsState = feeds,
+                )
+            }
         }
         composeRule.waitForIdle()
         composeRule.onAllNodesWithText("Feeds")[0].performClick()

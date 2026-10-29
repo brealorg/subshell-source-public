@@ -9,6 +9,7 @@ import app.subshell.prototype.data.auth.AuthenticatedRedditCommunityDiscoveryTar
 import app.subshell.prototype.model.Community
 import app.subshell.prototype.model.CommunityDiscoveryItem
 import app.subshell.prototype.model.CommunityDiscoverySort
+import app.subshell.prototype.model.RandomNsfwCommunityPick
 
 internal const val RANDOM_NSFW_CANDIDATES_TTL_MS = 10L * 60L * 1000L
 
@@ -37,7 +38,8 @@ internal class CommunityAccessCoordinator(
     }
 
     // ISSUE211_RANDOM_NSFW_COMMUNITY_V1: a random NSFW community for the
-    // active account, or null when Reddit offers none. The candidates are
+    // active account, NoneOffered when Reddit offers none (#263), Failed when
+    // it could not be asked. The candidates are
     // kept per account for RANDOM_NSFW_CANDIDATES_TTL_MS, so a second tap
     // asks Reddit nothing (the owner found each pick slow). A pick is not
     // checked against its about page any more: candidates come from Reddit's
@@ -45,7 +47,7 @@ internal class CommunityAccessCoordinator(
     private var lastRandomNsfwCommunity: String? = null
     private var randomNsfwCandidates: Triple<String, Long, List<String>>? = null
 
-    suspend fun randomNsfwCommunity(account: String): String? {
+    suspend fun randomNsfwCommunity(account: String): RandomNsfwCommunityPick {
         val now = now()
         val cached = randomNsfwCandidates
             ?.takeIf { (cachedAccount, at, names) ->
@@ -53,27 +55,40 @@ internal class CommunityAccessCoordinator(
             }
             ?.third
         val names = cached ?: run {
-            val discovery = discoveryLoader ?: return null
+            val discovery = discoveryLoader ?: return RandomNsfwCommunityPick.Failed
             fun items(result: AuthenticatedRedditCommunityDiscoveryResult) =
-                (result as? AuthenticatedRedditCommunityDiscoveryResult.Loaded)
-                    ?.items.orEmpty()
-            val popular = items(
-                discovery.synchronize(
+                (result as? AuthenticatedRedditCommunityDiscoveryResult.Loaded)?.items.orEmpty()
+            fun nsfwItems(result: AuthenticatedRedditCommunityDiscoveryResult) =
+                items(result).filter { it.nsfw }
+            val popular = discovery.synchronize(
+                account,
+                AuthenticatedRedditCommunityDiscoveryTarget.popular(true),
+            )
+            val candidates = nsfwItems(popular).ifEmpty {
+                val search = discovery.synchronize(
                     account,
-                    AuthenticatedRedditCommunityDiscoveryTarget.popular(true),
-                ),
-            ).filter { it.nsfw }
-            val candidates = popular.ifEmpty {
-                items(
-                    discovery.synchronize(
-                        account,
-                        AuthenticatedRedditCommunityDiscoveryTarget.search(
-                            rawQuery = "nsfw",
-                            sort = CommunityDiscoverySort.RELEVANCE,
-                            includeOver18 = true,
-                        ),
+                    AuthenticatedRedditCommunityDiscoveryTarget.search(
+                        rawQuery = "nsfw",
+                        sort = CommunityDiscoverySort.RELEVANCE,
+                        includeOver18 = true,
                     ),
-                ).filter { it.nsfw }
+                )
+                nsfwItems(search).ifEmpty {
+                    // ISSUE263_NO_NSFW_COMMUNITY_OFFERED_IS_NOT_A_FAILURE_V1:
+                    // only when Reddit answered both reads is "none" its
+                    // answer; a failed read leaves it unknown.
+                    val answered = popular is AuthenticatedRedditCommunityDiscoveryResult.Loaded &&
+                        search is AuthenticatedRedditCommunityDiscoveryResult.Loaded
+                    authDebugLog("subshell-nsfw", "random-nsfw candidates=0 answered=$answered")
+                    return if (answered) {
+                        RandomNsfwCommunityPick.NoneOffered(
+                            popularCommunities = items(popular).size,
+                            searchedCommunities = items(search).size,
+                        )
+                    } else {
+                        RandomNsfwCommunityPick.Failed
+                    }
+                }
             }
             candidates.map { it.community.name }.also { fetched ->
                 randomNsfwCandidates = Triple(account, now, fetched)
@@ -94,7 +109,7 @@ internal class CommunityAccessCoordinator(
         )
         if (picked != null) lastRandomNsfwCommunity = picked
         authDebugLog("subshell-nsfw", "random-nsfw cached=${cached != null} candidates=${names.size} picked=$picked")
-        return picked
+        return picked?.let(RandomNsfwCommunityPick::Found) ?: RandomNsfwCommunityPick.Failed
     }
 
     // ISSUE211_QUARANTINE_OPT_IN_V1: "View anyway" on a quarantined community,

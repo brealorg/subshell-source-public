@@ -11,7 +11,7 @@ enum class CodeFont(
     val typefaceName: String,
 ) {
     JETBRAINS_MONO("Balanced", "JetBrains Mono"),
-    IOSEVKA("Compact", "Iosevka"),
+    IOSEVKA("Narrow", "Iosevka"),
     RECURSIVE_MONO_CASUAL("Casual", "Recursive Mono Casual"),
 }
 

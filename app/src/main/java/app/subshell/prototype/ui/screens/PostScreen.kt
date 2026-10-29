@@ -2593,7 +2593,9 @@ fun PostScreen(
         }
         snapshotFlow {
             val (firstVisible, lastVisible) = commentViewportVisibleRowLazyIndices(
-                listState.layoutInfo.visibleItemsInfo.map { item -> item.index to item.key.toString() },
+                listState.layoutInfo.visibleItemsInfo.map { item ->
+                    VisibleLazyCommentItem(item.index, item.key.toString(), item.offset, item.size)
+                },
             )
             val hydrationAnchorPending = pendingHydrationCommit != null
             // UIPOST04_SEAMLESS_MORE_REPLIES_V1 (owner: loading is seamless,
@@ -2660,9 +2662,7 @@ fun PostScreen(
         canScroll = { listState.canScrollForward || listState.canScrollBackward },
     )
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .nestedScroll(routeTopBarScroll.nestedScrollConnection),
+        modifier = modifier.fillMaxSize(),
     ) {
         RouteTopBar(title = "Post", scrollBehavior = routeTopBarScroll, onBack = onBack)
         Box(
@@ -2676,7 +2676,14 @@ fun PostScreen(
                     rows = mainCommentRows,
                     loading = redditCommentsState.loading,
                 ),
-                modifier = Modifier.fillMaxSize(),
+                // ISSUE273_ONLY_THE_THREAD_MOVES_THE_TOP_BAR_V1 (#273): the bar
+                // hides with the thread's scroll only. On the whole screen it
+                // also took a drag in the reply field over the thread (M3's
+                // enterAlways takes it before the field can scroll), and the
+                // screen moved behind the field.
+                modifier = Modifier
+                    .fillMaxSize()
+                    .nestedScroll(routeTopBarScroll.nestedScrollConnection),
                 userScrollEnabled = !focusedBootstrapGate,
                 enabled = authenticated,
                 isRefreshing = liveStateMatches && redditCommentsState.loading,

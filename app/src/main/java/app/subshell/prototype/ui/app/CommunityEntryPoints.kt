@@ -11,6 +11,7 @@ import app.subshell.prototype.data.account.RedditCommunityInfoUiState
 import app.subshell.prototype.data.account.RedditCommunityWikiUiState
 import app.subshell.prototype.data.account.RedditPeopleSearchUiState
 import app.subshell.prototype.model.CommunityDiscoverySort
+import app.subshell.prototype.model.RandomNsfwCommunityPick
 
 /**
  * The community runtime as SubshellApp receives it from MainActivity: the
@@ -77,5 +78,5 @@ data class CommunityEntryPoints(
     val onViewQuarantinedCommunity:
         (suspend (String, String) -> app.subshell.prototype.data.account.QuarantineOptInResult)? = null,
     // ISSUE211_RANDOM_NSFW_COMMUNITY_V1: a random NSFW community for an account.
-    val randomNsfwCommunity: (suspend (String) -> String?)? = null,
+    val randomNsfwCommunity: (suspend (String) -> RandomNsfwCommunityPick)? = null,
 )

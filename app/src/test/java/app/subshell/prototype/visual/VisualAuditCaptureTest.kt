@@ -8,9 +8,11 @@ import android.graphics.Rect
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
@@ -34,6 +36,7 @@ import app.subshell.prototype.ui.SubshellState
 import app.subshell.prototype.ui.app.CommentLoadingEntryPoints
 import app.subshell.prototype.ui.app.FeedEntryPoints
 import app.subshell.prototype.ui.app.InboxEntryPoints
+import app.subshell.prototype.ui.theme.SubshellThemeSettings
 import app.subshell.prototype.ui.theme.ThemeMode
 import java.io.File
 import org.junit.Assume.assumeTrue
@@ -98,51 +101,7 @@ class VisualAuditCaptureTest(
         val out = System.getenv(OUT_ENV)?.takeIf { it.isNotBlank() }?.let(::File)
         assumeTrue(out != null || (smoke && theme == ThemeMode.LIGHT))
 
-        val context = ApplicationProvider.getApplicationContext<Application>()
-        ensureWorkManagerInitialized(context)
-        val state = SubshellState(
-            initialThemeMode = theme,
-            initialInteractionSideConfigured = true,
-            initialAccountSessions = VisualFixtures.accounts,
-            initialActiveAccountId = VisualFixtures.active.stableId,
-            repository = VisualRepository(),
-            identityMetadataRepository = VisualIdentityRepository,
-        )
-        if (!surface.firstRunDialogs) {
-            SettingsBackupRepository(context, appVersion = "visual").dismissFolderOnboarding()
-        }
-        var comments by mutableStateOf(RedditCommentsUiState())
-        composeRule.setContent {
-            SubshellApp(
-                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
-                state = state,
-                redditFeed = FeedEntryPoints(redditSubscriptionsState = VisualFixtures.subscriptions),
-                redditAccountHistoryState = VisualFixtures.profileComments,
-                redditComments = CommentLoadingEntryPoints(
-                    redditCommentsState = comments,
-                    onLoadRedditComments = { _, postId, sort ->
-                        val post = VisualFixtures.original(postId)
-                        comments = VisualFixtures.comments(postId, sort, state.commentsForPost(post))
-                    },
-                ),
-                redditInbox = InboxEntryPoints(redditInboxState = VisualFixtures.inbox),
-            )
-        }
-        composeRule.waitForIdle()
-        surface.open(state)
-        composeRule.mainClock.advanceTimeBy(SETTLE_MILLIS)
-        composeRule.waitForIdle()
-        if (surface.scrolled) {
-            composeRule.onRoot().performTouchInput {
-                swipeUp(startY = bottom * 0.85f, endY = top + height * 0.15f)
-            }
-            composeRule.mainClock.advanceTimeBy(SETTLE_MILLIS)
-            composeRule.onRoot().performTouchInput {
-                swipeDown(startY = top + height * 0.4f, endY = top + height * 0.55f)
-            }
-            composeRule.mainClock.advanceTimeBy(SETTLE_MILLIS)
-            composeRule.waitForIdle()
-        }
+        composeRule.renderVisualSurface(surface, theme)
 
         val image = captureScreen()
         if (out == null) return
@@ -153,7 +112,6 @@ class VisualAuditCaptureTest(
 
     companion object {
         private const val OUT_ENV = "SUBSHELL_VISUAL_OUT"
-        private const val SETTLE_MILLIS = 1_500L
 
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}-{1}")
@@ -164,12 +122,77 @@ class VisualAuditCaptureTest(
     }
 }
 
+private const val SETTLE_MILLIS = 1_500L
+
+/**
+ * Renders SubshellApp signed in as VisualFixtures' accounts, opens [surface]
+ * and lets it settle; [configure] runs on the state before the first frame.
+ */
+internal fun ComposeContentTestRule.renderVisualSurface(
+    surface: VisualSurface,
+    theme: ThemeMode,
+    configure: (SubshellState) -> Unit = {},
+    // ISSUE278: the audit hosts the app as MainActivity does (UiScaleContext).
+    setAppContent: (@Composable () -> Unit) -> Unit = { content -> setContent(content) },
+    onThemeSettingsChanged: (SubshellThemeSettings) -> Unit = {},
+): SubshellState {
+    val context = ApplicationProvider.getApplicationContext<Application>()
+    ensureWorkManagerInitialized(context)
+    val state = SubshellState(
+        initialThemeMode = theme,
+        initialInteractionSideConfigured = true,
+        initialAccountSessions = VisualFixtures.accounts,
+        initialActiveAccountId = VisualFixtures.active.stableId,
+        repository = VisualRepository(),
+        identityMetadataRepository = VisualIdentityRepository,
+    )
+    configure(state)
+    if (!surface.firstRunDialogs) {
+        SettingsBackupRepository(context, appVersion = "visual").dismissFolderOnboarding()
+    }
+    var comments by mutableStateOf(RedditCommentsUiState())
+    setAppContent {
+        SubshellApp(
+            videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
+            state = state,
+            onThemeSettingsChanged = onThemeSettingsChanged,
+            redditFeed = FeedEntryPoints(redditSubscriptionsState = VisualFixtures.subscriptions),
+            redditAccountHistoryState = VisualFixtures.profileComments,
+            redditComments = CommentLoadingEntryPoints(
+                redditCommentsState = comments,
+                onLoadRedditComments = { _, postId, sort ->
+                    val post = VisualFixtures.original(postId)
+                    comments = VisualFixtures.comments(postId, sort, state.commentsForPost(post))
+                },
+            ),
+            redditInbox = InboxEntryPoints(redditInboxState = VisualFixtures.inbox),
+        )
+    }
+    waitForIdle()
+    surface.open(state)
+    mainClock.advanceTimeBy(SETTLE_MILLIS)
+    waitForIdle()
+    if (surface.scrolled) {
+        onRoot().performTouchInput {
+            swipeUp(startY = bottom * 0.85f, endY = top + height * 0.15f)
+        }
+        mainClock.advanceTimeBy(SETTLE_MILLIS)
+        onRoot().performTouchInput {
+            swipeDown(startY = top + height * 0.4f, endY = top + height * 0.55f)
+        }
+        mainClock.advanceTimeBy(SETTLE_MILLIS)
+        waitForIdle()
+    }
+
+    return state
+}
+
 /**
  * Draws every window the app has open (the activity, then sheets, dialogs
  * and popups in the order they were added) into one bitmap, dimming behind
  * windows that ask for it, so a sheet is captured the way it is seen.
  */
-private fun captureScreen(): Bitmap {
+internal fun captureScreen(): Bitmap {
     // WindowManagerGlobal is hidden from the SDK stubs; Robolectric runs the real class.
     val windowManagerGlobal = ReflectionHelpers.callStaticMethod<Any>(
         Class.forName("android.view.WindowManagerGlobal"),

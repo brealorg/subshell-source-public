@@ -16,6 +16,7 @@ import app.subshell.prototype.data.account.CustomFeedSummary
 import app.subshell.prototype.share.ShareIntoSubshellLaunch
 import app.subshell.prototype.ui.app.AccountScopedEffects
 import app.subshell.prototype.ui.app.AppBottomBar
+import app.subshell.prototype.ui.app.routeKeepsNavigationBar
 import app.subshell.prototype.ui.app.ExpandedMainNavigationRail
 import app.subshell.prototype.ui.app.RuntimeErrorReports
 import app.subshell.prototype.ui.app.AutomaticBackupHistoryEffect
@@ -43,6 +44,7 @@ import app.subshell.prototype.ui.app.MainRouteHost
 import app.subshell.prototype.ui.app.ModmailEntryPoints
 import app.subshell.prototype.ui.app.RedditLinkUnavailable
 import app.subshell.prototype.ui.app.RedditLinkUnavailableNoticeEffect
+import app.subshell.prototype.ui.app.FirstRunSetupScreen
 import app.subshell.prototype.ui.app.InboxNotificationPermissionEffect
 import app.subshell.prototype.ui.app.JankScreenStateEffect
 import app.subshell.prototype.ui.app.SystemMotionEffect
@@ -76,6 +78,7 @@ import app.subshell.prototype.ui.components.ModeratorToolsNavigationEntryPoints
 import app.subshell.prototype.ui.components.LocalModeratorToolsNavigation
 import app.subshell.prototype.data.account.DirectChatStartRequest
 import app.subshell.prototype.data.account.DirectChatStartUiState
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -115,7 +118,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -330,6 +332,8 @@ fun SubshellApp(
     SystemMotionEffect(state)
     InboxNotificationPermissionEffect(state = state)
     JankScreenStateEffect(state = state)
+    // ISSUE268_READING_STATS_COUNT_OPENS_AND_TIME_V1
+    app.subshell.prototype.ui.app.ReadingStatsEffect(state = state)
     RuntimeStateBridge(
         accountConnect = accountConnect,
         redditFeed = redditFeed,
@@ -441,12 +445,18 @@ fun SubshellApp(
     val showRedditOnboarding =
         redditProductAccounts.isEmpty() ||
             redditOnboardingConnectRequested
+    // ISSUE271_ONE_SETUP_FLOW_AFTER_SIGN_IN_V1: a fresh install (no side
+    // chosen yet) goes through the setup flow once it has an account; the link
+    // screen and the side and backup dialogs are part of it.
+    val showFirstRunSetup =
+        redditProductAccounts.isNotEmpty() && state.commentActionOnboardingVisible
     val showRedditLinkHandlingPrompt =
-        shouldShowRedditLinkHandlingPrompt(
-            hasAuthenticatedAccounts = redditProductAccounts.isNotEmpty(),
-            promptSeen = redditLinkHandlingPromptSeen,
-            state = redditLinkHandlingState,
-        )
+        !showFirstRunSetup &&
+            shouldShowRedditLinkHandlingPrompt(
+                hasAuthenticatedAccounts = redditProductAccounts.isNotEmpty(),
+                promptSeen = redditLinkHandlingPromptSeen,
+                state = redditLinkHandlingState,
+            )
 
     val moderatorToolsRoot = moderatorToolsRootEntryPoints(
         state = state,
@@ -479,6 +489,7 @@ fun SubshellApp(
                 dynamicColor = state.dynamicColor,
                 pureBlack = state.pureBlackDarkTheme,
                 textScale = state.appTextScale.factor,
+                uiScale = state.appUiScale.factor,
             )
             SideEffect { onThemeSettingsChanged(themeSettings) }
             SubshellTheme(
@@ -486,6 +497,7 @@ fun SubshellApp(
             dynamicColor = state.dynamicColor,
             pureBlack = state.pureBlackDarkTheme,
             textScale = state.appTextScale.factor,
+            uiScale = state.appUiScale.factor,
             codeFontFamily = state.codeFont.fontFamily,
             reduceMotion = state.motionReduced,
             manageSystemBarContrast =
@@ -515,10 +527,21 @@ fun SubshellApp(
                     onRedditConfigurationChanged =
                         onRedditConfigurationChanged,
                     linkHandlingStepPending =
-                        showRedditLinkHandlingPrompt,
+                        showRedditLinkHandlingPrompt || showFirstRunSetup,
                     onFinish = {
                         redditOnboardingConnectRequested = false
                     },
+                )
+                return@SubshellTheme
+            }
+
+            if (showFirstRunSetup) {
+                FirstRunSetupScreen(
+                    state = state,
+                    backupRepository = backupRepository,
+                    linkHandlingState = redditLinkHandlingState,
+                    onOpenRedditLinkSettings = onOpenRedditLinkSettings,
+                    onDismissRedditLinkPrompt = onDismissRedditLinkPrompt,
                 )
                 return@SubshellTheme
             }
@@ -574,6 +597,15 @@ fun SubshellApp(
         }
         val screenStateHolder = rememberPostVisitPruningStateHolder(state.livePostVisitIds)
         val viewportErrorHostState = rememberViewportErrorHostState()
+        // ISSUE268_SUGGESTIONS_HIDE_OR_LEAVE_V1: the signed-in account's
+        // subscriptions and Leave, for "Your reading"'s suggestions.
+        val readingStatsCommunities = app.subshell.prototype.ui.screens.readingStatsCommunities(
+            accountStableId = state.activeAccountId,
+            authenticated = state.activeAccountIsAuthenticated,
+            subscriptions = redditSubscriptionsState,
+            membership = redditCommunity.communityMembershipState,
+            onChangeMembership = redditCommunity.onChangeCommunityMembership,
+        )
         // ISSUE211_RANDOM_NSFW_COMMUNITY_V1: one pick action for every placement.
         val randomNsfwCommunityAction = app.subshell.prototype.ui.app.rememberRandomNsfwCommunityAction(
             state = state,
@@ -583,7 +615,7 @@ fun SubshellApp(
         val density = LocalDensity.current
         // ISSUE247_LAYOUT_FOLLOWS_WINDOW_SIZE_CLASSES_V1: Google's window size class
         // of this window decides the rail and the two panes.
-        val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
+        val windowSizeClass = currentUnscaledWindowSizeClass()
         val hapticFeedback = LocalHapticFeedback.current
         val layoutDirection = LocalLayoutDirection.current
         val navInteractionSources = remember {
@@ -782,7 +814,7 @@ fun SubshellApp(
         val navigationBarInsetHeight =
             with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
         val compactNavigationBarHeight =
-            navigationBarBaseHeightForFontScale(density.fontScale) +
+            navigationBarBaseHeightForFontScale(visibleFontScale()) +
                 navigationBarInsetHeight
         val expandedWindowLayout =
             useExpandedMainLayout(windowSizeClass)
@@ -806,8 +838,17 @@ fun SubshellApp(
             useNavigationRail(windowSizeClass) &&
                 state.currentNavigationRoute !is SubshellRoute.Media &&
                 state.currentNavigationRoute !is SubshellRoute.CommentMedia
+        // ISSUE274_LIST_ROUTES_KEEP_THE_NAVIGATION_BAR_V1: the phone's bar in a
+        // community, a profile or search; it hides and returns with the route's
+        // own scrolling, like on Home.
+        val routeNavigationBarShown =
+            !navigationRailShown && routeKeepsNavigationBar(state.currentNavigationRoute)
         val fabTravelPx = with(density) { 120.dp.toPx() }
-        val chromeScrollConnection = rememberChromeScrollConnection(state = state, density = density)
+        val chromeScrollConnection = rememberChromeScrollConnection(
+            state = state,
+            density = density,
+            chromeShown = !modmailThreadOpen,
+        )
         val subsCommunityActions = !inContext &&
             state.destination == MainDestination.SUBS &&
             state.activeAccountIsAuthenticated
@@ -986,6 +1027,7 @@ fun SubshellApp(
                     LocalLayoutDirection provides layoutDirection,
                     LocalViewportErrorHostState provides viewportErrorHostState,
                     app.subshell.prototype.ui.app.LocalRandomNsfwCommunityAction provides randomNsfwCommunityAction,
+                    app.subshell.prototype.ui.screens.LocalReadingStatsCommunities provides readingStatsCommunities,
                 ) {
                     RuntimeErrorReports(
                         postVoteState = postVoteState,
@@ -1068,6 +1110,7 @@ fun SubshellApp(
                     AppBottomBar(
                         state = state,
                         inContext = inContext,
+                        routeKeepsNavigationBar = routeNavigationBarShown,
                         expandedMainLayout = navigationRailShown, // the rail replaces the bar
                         modmailThreadOpen = modmailThreadOpen,
                         compactNavigationBarHeight = compactNavigationBarHeight,
@@ -1096,12 +1139,22 @@ fun SubshellApp(
                 // behind the status bar, so the route gets no top padding.
                 val routeDrawsStatusBar = !expandedWindowLayout &&
                     state.currentNavigationRoute !is SubshellRoute.Main
-                val padding = if (routeDrawsStatusBar) {
+                // ISSUE274_LIST_ROUTES_KEEP_THE_NAVIGATION_BAR_V1: the route ends where
+                // the bar is now, so a hidden bar leaves no empty strip.
+                val routeBottomPadding = if (routeNavigationBarShown) {
+                    (
+                        scaffoldPadding.calculateBottomPadding() -
+                            navigationBarBaseHeightForFontScale(visibleFontScale()) * bottomBarHiddenFraction
+                        ).coerceAtLeast(0.dp)
+                } else {
+                    scaffoldPadding.calculateBottomPadding()
+                }
+                val padding = if (routeDrawsStatusBar || routeNavigationBarShown) {
                     PaddingValues(
                         start = scaffoldPadding.calculateStartPadding(layoutDirection),
-                        top = 0.dp,
+                        top = if (routeDrawsStatusBar) 0.dp else scaffoldPadding.calculateTopPadding(),
                         end = scaffoldPadding.calculateEndPadding(layoutDirection),
-                        bottom = scaffoldPadding.calculateBottomPadding(),
+                        bottom = routeBottomPadding,
                     )
                 } else {
                     scaffoldPadding
@@ -1110,6 +1163,17 @@ fun SubshellApp(
                     LocalRouteTopBarDrawsStatusBar provides routeDrawsStatusBar,
                     LocalRouteTopBarBehavior provides state.topBarBehavior,
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(
+                                if (routeNavigationBarShown) {
+                                    Modifier.nestedScroll(chromeScrollConnection)
+                                } else {
+                                    Modifier
+                                },
+                            ),
+                    ) {
                     when (val route = state.currentNavigationRoute) {
                         is SubshellRoute.CommentMedia -> {
                             CommentMediaViewerScreen(
@@ -1322,6 +1386,7 @@ fun SubshellApp(
                             }
                         }
                         }
+                    }
                                     }
                 }
                     }

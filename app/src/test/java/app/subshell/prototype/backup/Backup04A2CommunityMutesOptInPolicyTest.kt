@@ -31,8 +31,8 @@ class Backup04A2CommunityMutesOptInPolicyTest {
 
         assertTrue(screen.contains("includeHiddenCommunities"))
         assertTrue(screen.contains("includeCommunityMutes"))
-        assertTrue(screen.contains("Include muted communities in backup & restore"))
-        assertTrue(screen.contains("Timed mutes keep their original end time"))
+        assertTrue(screen.contains("title = \"Muted communities\""))
+        assertTrue(screen.contains("Timed mutes keep their end time"))
         assertTrue(screen.contains("Muted communities · privacy-sensitive"))
         assertTrue(screen.contains("target.communityMutesByAccount.takeIf"))
         assertTrue(screen.contains("includeCommunityMutes"))

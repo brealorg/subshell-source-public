@@ -15,7 +15,7 @@ class Library02A1NestedYouLibraryPolicyTest {
     @Test
     fun libraryPreservesAllExistingPrivateDestinations() {
         assertEquals(
-            listOf("Saved", "Upvotes", "Downvotes", "Hidden", "Blocked", "Drafts"),
+            listOf("Saved", "Upvotes", "Downvotes", "Hidden", "Blocked", "Drafts", "Reading"),
             PROFILE_LIBRARY_DESTINATION_LABELS,
         )
     }

@@ -1,5 +1,6 @@
 package app.subshell.prototype.media
 
+import app.subshell.prototype.offline.OfflineImageStore
 import app.subshell.prototype.data.network.toNetworkTransportFailureKind
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -175,6 +176,30 @@ internal object RemoteImageLoader {
     /** The decoded image already in memory, read without waiting (VIDEOTABSWITCH01). */
     fun cachedBitmap(uri: String): Bitmap? = bitmapCache.get(uri)
 
+    // ISSUE265_SAVE_FOR_OFFLINE_V1: images saved for offline reading are read
+    // before the network. Set once by MainActivity and the save worker; null
+    // in tests that do not provide one.
+    @Volatile
+    internal var offlineImageStore: OfflineImageStore? = null
+
+    /**
+     * Saves one image for offline reading with the same HTTPS, host, redirect,
+     * content-type and size rules as display. True when it is stored (already
+     * or now).
+     */
+    internal suspend fun saveForOffline(
+        uri: String,
+        store: OfflineImageStore,
+        callFactory: Call.Factory = publicMediaReadCallFactory,
+    ): Boolean {
+        if (withContext(Dispatchers.IO) { store.contains(uri) }) return true
+        val bytes = when (val result = loadEncodedBytes(uri, callFactory, skipOfflineStore = true)) {
+            is RemoteMediaLoadResult.Ready -> result.value
+            is RemoteMediaLoadResult.Failed -> return false
+        }
+        return withContext(Dispatchers.IO) { store.write(uri, bytes) }
+    }
+
     suspend fun load(
         uri: String,
         callFactory: Call.Factory = publicMediaReadCallFactory,
@@ -296,16 +321,18 @@ internal object RemoteImageLoader {
         uri: String,
         callFactory: Call.Factory = publicMediaReadCallFactory,
         maxBytes: Long = REMOTE_IMAGE_MAX_BYTES,
+        skipOfflineStore: Boolean = false,
     ): RemoteMediaLoadResult<ByteArray> {
         encodedCache.get(uri)?.let { return RemoteMediaLoadResult.Ready(it) }
         // ISSUE262_FAILED_GALLERY_IMAGES_STILL_SHOW_V1: the first extension
         // i.redd.it serves; each candidate keeps its own gone/encoded caching.
         failedGalleryImageCandidates(uri)?.let { candidates ->
+            if (!skipOfflineStore) readOfflineImage(uri)?.let { return RemoteMediaLoadResult.Ready(it) }
             var last: RemoteMediaLoadResult<ByteArray> = RemoteMediaLoadResult.Failed(
                 FailureDetails(retryable = false, localKind = LocalFailureKind.VALIDATION),
             )
             for (candidate in candidates) {
-                last = loadEncodedBytes(candidate, callFactory, maxBytes)
+                last = loadEncodedBytes(candidate, callFactory, maxBytes, skipOfflineStore)
                 if (last is RemoteMediaLoadResult.Ready) {
                     if (shouldCacheEncodedImage(last.value.size)) encodedCache.put(uri, last.value)
                     return last
@@ -330,6 +357,9 @@ internal object RemoteImageLoader {
                 ),
             )
         }
+        // ISSUE265_SAVE_FOR_OFFLINE_V1: a saved image is read only for an
+        // address that passed the same checks as the network.
+        if (!skipOfflineStore) readOfflineImage(uri)?.let { return RemoteMediaLoadResult.Ready(it) }
 
         val result = try {
             withContext(Dispatchers.IO) {
@@ -358,6 +388,13 @@ internal object RemoteImageLoader {
             goneCache.put(uri, result.details)
         }
         return result
+    }
+
+    private suspend fun readOfflineImage(uri: String): ByteArray? {
+        val store = offlineImageStore ?: return null
+        val saved = withContext(Dispatchers.IO) { store.read(uri) } ?: return null
+        if (shouldCacheEncodedImage(saved.size)) encodedCache.put(uri, saved)
+        return saved
     }
 
     private sealed interface RemoteImageHttpOutcome {

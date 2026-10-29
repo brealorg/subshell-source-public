@@ -12,6 +12,7 @@ import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.harness.ensureWorkManagerInitialized
 import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
+import app.subshell.prototype.model.RandomNsfwCommunityPick
 import app.subshell.prototype.ui.app.CommunityEntryPoints
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -43,6 +44,8 @@ class Issue211RandomNsfwCommunityComposeTest {
     @Test
     fun theMenuOffersItOnlyWithBothSettingsAndOpensThePick() {
         val state = SubshellState(
+            // ISSUE271: an install that has chosen its side shows Home, not the setup flow.
+            initialInteractionSideConfigured = true,
             initialAccountSessions = listOf(account),
             initialActiveAccountId = account.stableId,
         )
@@ -56,7 +59,7 @@ class Issue211RandomNsfwCommunityComposeTest {
                 redditCommunity = CommunityEntryPoints(
                     randomNsfwCommunity = { accountId ->
                         picks += accountId
-                        "nsfwexample"
+                        RandomNsfwCommunityPick.Found("nsfwexample")
                     },
                 ),
             )
@@ -78,9 +81,56 @@ class Issue211RandomNsfwCommunityComposeTest {
         assertEquals("nsfwexample", state.selectedSubreddit)
     }
 
+    // ISSUE263_NO_NSFW_COMMUNITY_OFFERED_IS_NOT_A_FAILURE_V1 (#263): when
+    // Reddit offers no NSFW community the notice says so and does not ask
+    // the reader to try again; a failed read still does.
+    @Test
+    fun noneOfferedSaysRedditOfferedNoneAndAFailureAsksToTryAgain() {
+        val state = SubshellState(
+            // ISSUE271: an install that has chosen its side shows Home, not the setup flow.
+            initialInteractionSideConfigured = true,
+            initialAccountSessions = listOf(account),
+            initialActiveAccountId = account.stableId,
+        )
+        var answer: RandomNsfwCommunityPick = RandomNsfwCommunityPick.NoneOffered(popularCommunities = 49, searchedCommunities = 25)
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        ensureWorkManagerInitialized(context)
+        composeRule.setContent {
+            SubshellApp(
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
+                state = state,
+                redditCommunity = CommunityEntryPoints(randomNsfwCommunity = { answer }),
+            )
+        }
+        state.updateRandomNsfwCommunityPlacement(RandomNsfwCommunityPlacement.MENU)
+        state.updateShowNsfwPosts(true)
+        state.requestDrawer()
+        composeRule.waitForIdle()
+        val before = state.selectedSubreddit
+        composeRule.onNodeWithText("Random NSFW community").performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("Reddit offered no NSFW communities").assertExists()
+        composeRule.onNodeWithText("trying again won't change that", substring = true).assertExists()
+        assertTrue(composeRule.onAllNodesWithText("Try again in a moment", substring = true).fetchSemanticsNodes().isEmpty())
+        assertEquals(before, state.selectedSubreddit)
+
+        answer = RandomNsfwCommunityPick.Failed
+        state.requestDrawer()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Random NSFW community").performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("Couldn't find an NSFW community").assertExists()
+        composeRule.onNodeWithText("Couldn't reach Reddit. Try again in a moment.").assertExists()
+        assertTrue(composeRule.onAllNodesWithText("Reddit offered no NSFW communities").fetchSemanticsNodes().isEmpty())
+    }
+
     @Test
     fun eachPlacementShowsOnlyThere() {
         val state = SubshellState(
+            // ISSUE271: an install that has chosen its side shows Home, not the setup flow.
+            initialInteractionSideConfigured = true,
             initialAccountSessions = listOf(account),
             initialActiveAccountId = account.stableId,
         )

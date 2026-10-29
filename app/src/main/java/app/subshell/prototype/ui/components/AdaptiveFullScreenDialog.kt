@@ -29,7 +29,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.window.core.layout.WindowSizeClass
 import app.subshell.prototype.ui.symbols.Symbols
 
@@ -54,7 +53,7 @@ internal fun AdaptiveFullScreenDialog(
 ) {
     // ISSUE247_LAYOUT_FOLLOWS_WINDOW_SIZE_CLASSES_V1: full screen below the
     // medium width class (Material's full-screen dialog rule).
-    val fullScreen = !currentWindowAdaptiveInfoV2().windowSizeClass
+    val fullScreen = !app.subshell.prototype.ui.currentUnscaledWindowSizeClass()
         .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
     Dialog(
         onDismissRequest = { if (closeEnabled) onDismissRequest() },

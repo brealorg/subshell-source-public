@@ -35,14 +35,16 @@ class Med6NoDialogOverLockComposeTest {
     @Test
     fun theOnboardingWaitsWhileTheAppIsLocked() {
         val locked = mutableStateOf(true)
-        // A fresh install: the interaction side is not chosen yet, so the
-        // onboarding dialog is due.
+        // The backup folder question is due (the side is chosen; since #271 a
+        // fresh install answers both in the setup flow instead).
         val state = SubshellState(
             initialAccountSessions = localFixtureAccountSummaries(listOf("root")),
-            initialInteractionSideConfigured = false,
+            initialInteractionSideConfigured = true,
         )
         val context = ApplicationProvider.getApplicationContext<Application>()
         ensureWorkManagerInitialized(context)
+        context.getSharedPreferences("subshell_backup_preferences", android.content.Context.MODE_PRIVATE)
+            .edit().clear().commit()
         composeRule.setContent {
             SubshellTheme {
                 CompositionLocalProvider(LocalAppLocked provides locked.value) {
@@ -59,10 +61,10 @@ class Med6NoDialogOverLockComposeTest {
             }
         }
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("Which side should subshell favor?").assertDoesNotExist()
+        composeRule.onNodeWithText("Protect your settings").assertDoesNotExist()
 
         locked.value = false
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("Which side should subshell favor?").assertIsDisplayed()
+        composeRule.onNodeWithText("Protect your settings").assertIsDisplayed()
     }
 }

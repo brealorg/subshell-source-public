@@ -1,6 +1,7 @@
 package app.subshell.prototype.ui
 
 import app.subshell.prototype.ui.theme.AppTextScale
+import app.subshell.prototype.ui.theme.AppUiScale
 import app.subshell.prototype.backup.PortableCommunityMute
 import app.subshell.prototype.backup.PortableComposerFlair
 import app.subshell.prototype.backup.PortableComposerFlairRichText
@@ -391,7 +392,7 @@ enum class VideoTimelineSize(
     val scrubbingThumbDiameterDp: Int,
     val touchTargetHeightDp: Int,
 ) {
-    COMPACT("Compact", 3, 10, 14, 48),
+    COMPACT("Thin", 3, 10, 14, 48),
     STANDARD("Standard", 4, 12, 16, 48),
     LARGE("Large", 6, 16, 20, 48),
 }
@@ -743,6 +744,7 @@ class SubshellState(
     initialDynamicColor: Boolean = false,
     initialPureBlackDarkTheme: Boolean = false,
     initialAppTextScale: AppTextScale = AppTextScale.DEFAULT,
+    initialAppUiScale: AppUiScale = AppUiScale.DEFAULT,
     initialVoteColorPalette: VoteColorPalette = VoteColorPalette.NEUTRAL,
     initialVoteControlMode: VoteControlMode = VoteControlMode.COMFORTABLE,
     initialCodeFont: CodeFont = CodeFont.JETBRAINS_MONO,
@@ -774,6 +776,7 @@ class SubshellState(
     initialNotifyModmail: Boolean = true,
     initialShowNsfwPosts: Boolean = false,
     initialSensitiveMediaPreviewMode: SensitiveMediaPreviewMode = SensitiveMediaPreviewMode.BLUR_AND_PRELOAD,
+    initialShowNsfwMedia: Boolean = false,
     initialContentFilters: ContentFilters = ContentFilters(),
     initialCommunitySortPreferences: Map<String, CommunitySort> = emptyMap(),
     initialListingTimePeriod: RedditListingTimePeriod = RedditListingTimePeriod.ALL,
@@ -1044,6 +1047,7 @@ class SubshellState(
         initialDynamicColor = initialDynamicColor,
         initialPureBlackDarkTheme = initialPureBlackDarkTheme,
         initialAppTextScale = initialAppTextScale,
+        initialAppUiScale = initialAppUiScale,
         initialVoteColorPalette = initialVoteColorPalette,
         initialVoteControlMode = initialVoteControlMode,
         initialCodeFont = initialCodeFont,
@@ -1122,6 +1126,7 @@ class SubshellState(
     var pureBlackDarkTheme by settings::pureBlackDarkTheme
         private set
     var appTextScale by settings::appTextScale
+    var appUiScale by settings::appUiScale
         private set
     var voteColorPalette by settings::voteColorPalette
         private set
@@ -1231,6 +1236,8 @@ class SubshellState(
             RedGifsPlayback.allowed = value
         }
     var sensitiveMediaPreviewMode by mutableStateOf(initialSensitiveMediaPreviewMode)
+        private set
+    var showNsfwMedia by mutableStateOf(initialShowNsfwMedia)
         private set
     var contentFilters by mutableStateOf(initialContentFilters)
         private set
@@ -1467,6 +1474,52 @@ class SubshellState(
 
     internal val currentNavigationRoute: SubshellRoute
         get() = routeStack.current
+
+    // ISSUE268_READING_TARGET_FOLLOWS_THE_SCREEN_V1 (#268): what "Your
+    // reading" counts the screen in front as: a community page, a post (its
+    // community), or the Home feed. A full-screen image counts for what is
+    // under it. The visit key changes only when a new page is opened, so
+    // coming back to a page is not counted as another open.
+    internal val readingTarget: app.subshell.prototype.ui.app.ReadingTarget?
+        get() {
+            val entries = routeStack.entries
+            val index = entries.indexOfLast { route ->
+                route !is SubshellRoute.Media &&
+                    route !is SubshellRoute.CommentMedia &&
+                    route !is SubshellRoute.PostComposer
+            }
+            return when (val surface = entries.getOrNull(index)) {
+                is SubshellRoute.Community -> app.subshell.prototype.ui.app.ReadingTarget(
+                    communityName = surface.communityName,
+                    kind = app.subshell.prototype.ui.app.ReadingTargetKind.COMMUNITY,
+                    // The route entry itself is the visit: the same entry is
+                    // the page come back to, a new push a new open.
+                    visitKey = "community:${System.identityHashCode(surface)}:${surface.communityName.lowercase()}",
+                )
+                is SubshellRoute.Post -> {
+                    val route = surface.postRoute
+                    val post = routedPostsByVisitId[route.visitId]
+                        ?: selectedPost?.takeIf { it.id == route.postId }
+                    post?.community?.takeIf { it.isNotBlank() }?.let { community ->
+                        app.subshell.prototype.ui.app.ReadingTarget(
+                            communityName = community,
+                            kind = app.subshell.prototype.ui.app.ReadingTargetKind.POST,
+                            visitKey = "post:${route.visitId}",
+                        )
+                    }
+                }
+                is SubshellRoute.Main -> if (surface.destination == MainDestination.HOME) {
+                    app.subshell.prototype.ui.app.ReadingTarget(
+                        communityName = app.subshell.prototype.data.reading.READING_STATS_HOME_TARGET,
+                        kind = app.subshell.prototype.ui.app.ReadingTargetKind.HOME,
+                        visitKey = "home",
+                    )
+                } else {
+                    null
+                }
+                else -> null
+            }
+        }
 
     internal val navigationRouteDepth: Int
         get() = routeStack.depth
@@ -3981,6 +4034,9 @@ class SubshellState(
                 area = area,
             ),
         )
+        // ISSUE274_LIST_ROUTES_KEEP_THE_NAVIGATION_BAR_V1: search keeps the bottom
+        // navigation, so it starts shown like every other page that has it.
+        showChrome()
         if (refocus) searchFocusRequest += 1
     }
 
@@ -5746,6 +5802,18 @@ class SubshellState(
         persistPreference(SubshellSettings.SENSITIVE_MEDIA_PREVIEW_MODE, mode.name)
     }
 
+    // NSFWMEDIA01_SHOW_NSFW_MEDIA_SETTING_V1
+    fun updateShowNsfwMedia(enabled: Boolean) {
+        if (showNsfwMedia == enabled) return
+        showNsfwMedia = enabled
+        resetSensitiveMediaReveals()
+        persistPreference(SubshellSettings.SHOW_NSFW_MEDIA, enabled.toString())
+    }
+
+    /** True when a post's NSFW media needs no tap: "Show NSFW media" is on and it is no spoiler. */
+    fun nsfwMediaShownUncovered(post: Post): Boolean =
+        nsfwMediaShownUncovered(post, showNsfwMedia)
+
     fun isPostDeleted(postId: String): Boolean {
         val normalizedPostId = normalizedPostIdentity(postId)
         return normalizedPostId.isNotEmpty() && normalizedPostId in remotelyDeletedPostIds
@@ -5755,7 +5823,7 @@ class SubshellState(
         !isPostDeleted(post.id) && postVisibleWithNsfwPreference(post, showNsfwPosts)
 
     fun sensitiveMediaAutoplayAllowed(post: Post): Boolean =
-        sensitiveMediaCanAutoplay(post, revealedMediaIds)
+        sensitiveMediaCanAutoplay(post, revealedMediaIds, showNsfwMedia)
 
     fun addContentFilter(type: ContentFilterType, value: String, community: String? = null) {
         val updated = community
@@ -5814,6 +5882,10 @@ class SubshellState(
 
     fun updatePureBlackDarkTheme(enabled: Boolean) {
         settings.updatePureBlackDarkTheme(enabled)
+    }
+
+    fun updateAppUiScale(scale: AppUiScale) {
+        settings.updateAppUiScale(scale)
     }
 
     fun updateAppTextScale(scale: AppTextScale) {
@@ -6034,6 +6106,7 @@ class SubshellState(
         dynamicColor = dynamicColor,
         pureBlackDarkTheme = pureBlackDarkTheme,
         appTextScale = appTextScale,
+        appUiScale = appUiScale,
         voteColorPalette = voteColorPalette,
         voteControlMode = voteControlMode,
         codeFont = codeFont,
@@ -6061,6 +6134,7 @@ class SubshellState(
         notifyModmail = notifyModmail,
         showNsfwPosts = showNsfwPosts,
         sensitiveMediaPreviewMode = sensitiveMediaPreviewMode,
+        showNsfwMedia = showNsfwMedia,
         contentFilters = contentFilters,
         communitySortPreferences = communitySortPreferences,
         listingTimePeriod = listingTimePeriod,
@@ -6117,6 +6191,7 @@ class SubshellState(
         dynamicColor = settings.dynamicColor
         pureBlackDarkTheme = settings.pureBlackDarkTheme
         appTextScale = settings.appTextScale
+        appUiScale = settings.appUiScale
         voteColorPalette = settings.voteColorPalette
         voteControlMode = settings.voteControlMode
         codeFont = settings.codeFont
@@ -6147,6 +6222,7 @@ class SubshellState(
         notifyModmail = settings.notifyModmail
         showNsfwPosts = settings.showNsfwPosts
         sensitiveMediaPreviewMode = settings.sensitiveMediaPreviewMode
+        showNsfwMedia = settings.showNsfwMedia
         revealedMediaIds.clear()
         revealedNsfwMediaIds.clear()
         activeAnimatedMediaId = null

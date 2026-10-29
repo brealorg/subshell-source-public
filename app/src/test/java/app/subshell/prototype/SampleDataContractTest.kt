@@ -560,7 +560,7 @@ class SampleDataContractTest {
     fun rootOwnsPrivateSavedAndUpvotedHistoryData() {
         assertEquals("root", SampleData.LOCAL_USERNAME)
         assertEquals("root", SampleData.userFor("ROOT").username)
-        assertEquals(listOf("Posts", "Comments", "Saved", "Upvotes", "Downvotes", "Hidden", "Blocked", "Drafts"), profileTabsFor("root", SampleData.LOCAL_USERNAME))
+        assertEquals(listOf("Posts", "Comments", "Saved", "Upvotes", "Downvotes", "Hidden", "Blocked", "Drafts", "Reading"), profileTabsFor("root", SampleData.LOCAL_USERNAME))
 
         val rootPosts = SampleData.posts.filter { it.author == SampleData.LOCAL_USERNAME }
         val rootComments = SampleData.profileComments.filter { it.author == SampleData.LOCAL_USERNAME }

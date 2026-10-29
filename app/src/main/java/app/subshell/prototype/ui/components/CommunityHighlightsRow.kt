@@ -27,7 +27,7 @@ import app.subshell.prototype.ui.symbols.Symbols
 internal const val COMMUNITY_HIGHLIGHTS_TEST_TAG = "community-highlights"
 
 /**
- * ISSUE230_PINNED_POSTS_FIRST_V1: "Compact highlights" — the community's pinned
+ * ISSUE230_PINNED_POSTS_FIRST_V1: "Highlights row" — the community's pinned
  * posts as a row of small cards (title and age) above its feed, so long pinned
  * posts do not push the feed down. A tap opens the post.
  */

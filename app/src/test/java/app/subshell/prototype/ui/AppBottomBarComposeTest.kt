@@ -154,6 +154,22 @@ class AppBottomBarComposeTest {
         composeRule.onNodeWithContentDescription("Inbox").assertIsDisplayed()
     }
 
+    // ISSUE274_LIST_ROUTES_KEEP_THE_NAVIGATION_BAR_V1
+    @Test
+    fun aListRouteKeepsTheBarButNotBesideTheRail() {
+        val expanded = mutableStateOf(false)
+        host(
+            inContext = mutableStateOf(true),
+            routeKeepsNavigationBar = mutableStateOf(true),
+            expanded = expanded,
+        )
+        composeRule.onNodeWithContentDescription("Inbox").assertIsDisplayed()
+
+        expanded.value = true
+        composeRule.waitForIdle()
+        assertEquals(0, composeRule.onAllNodesWithContentDescription("Inbox").fetchSemanticsNodes().size)
+    }
+
     private fun host(
         state: SubshellState = SubshellState(),
         density: Density = Density(density = 2.625f, fontScale = 1.0f),
@@ -162,6 +178,7 @@ class AppBottomBarComposeTest {
         suppressYouClick: MutableState<Boolean> = mutableStateOf(false),
         activeCustomFeedPath: MutableState<String?> = mutableStateOf(null),
         inContext: MutableState<Boolean> = mutableStateOf(false),
+        routeKeepsNavigationBar: MutableState<Boolean> = mutableStateOf(false),
         expanded: MutableState<Boolean> = mutableStateOf(false),
         modmailThreadOpen: MutableState<Boolean> = mutableStateOf(false),
     ): SubshellState {
@@ -173,6 +190,7 @@ class AppBottomBarComposeTest {
                 AppBottomBar(
                     state = state,
                     inContext = inContext.value,
+                    routeKeepsNavigationBar = routeKeepsNavigationBar.value,
                     expandedMainLayout = expanded.value,
                     modmailThreadOpen = modmailThreadOpen.value,
                     compactNavigationBarHeight = 80.dp,

@@ -64,8 +64,38 @@ internal class CommunitiesViewModel internal constructor(
     )
     suspend fun readNsfwAccountPreferences(account: String): app.subshell.prototype.data.account.NsfwPreferencesResult =
         communityAccessCoordinator.readNsfwAccountPreferences(account)
-    suspend fun randomNsfwCommunity(account: String): String? =
-        communityAccessCoordinator.randomNsfwCommunity(account)
+    suspend fun randomNsfwCommunity(account: String): app.subshell.prototype.model.RandomNsfwCommunityPick =
+        communityAccessCoordinator.randomNsfwCommunity(account).also { pick ->
+            if (pick is app.subshell.prototype.model.RandomNsfwCommunityPick.NoneOffered) {
+                recordNsfwCommunitiesNoneOffered(account, pick)
+            }
+        }
+
+    // ISSUE263_NO_NSFW_COMMUNITY_OFFERED_IS_RECORDED_V1 (#263): Reddit offering
+    // no NSFW community depends on the account (and maybe its client or
+    // region), so the diagnostics log keeps how many communities each read
+    // returned and the account's own NSFW preferences, read after the notice
+    // shows. Counts and booleans only, no names.
+    private fun recordNsfwCommunitiesNoneOffered(
+        account: String,
+        pick: app.subshell.prototype.model.RandomNsfwCommunityPick.NoneOffered,
+    ) {
+        viewModelScope.launch {
+            val preferences = (
+                communityAccessCoordinator.readNsfwAccountPreferences(account)
+                    as? app.subshell.prototype.data.account.NsfwPreferencesResult.Known
+                )?.preferences
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                app.subshell.prototype.data.diagnostics.DiagnosticEventStore(shared.application)
+                    .recordNsfwCommunitiesNoneOffered(
+                        popularCommunities = pick.popularCommunities,
+                        searchedCommunities = pick.searchedCommunities,
+                        accountOver18 = preferences?.over18,
+                        accountSearchOver18 = preferences?.searchIncludeOver18,
+                    )
+            }
+        }
+    }
     suspend fun optInToQuarantinedCommunity(
         account: String,
         communityName: String,

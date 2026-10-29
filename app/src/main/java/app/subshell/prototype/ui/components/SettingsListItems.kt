@@ -208,6 +208,8 @@ internal fun <T> SegmentedChoiceRow(
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    // Four short segments on a phone leave no room for the check mark.
+    showSelectedIcon: Boolean = true,
 ) {
     SingleChoiceSegmentedButtonRow(modifier.fillMaxWidth()) {
         options.forEachIndexed { index, option ->
@@ -217,6 +219,9 @@ internal fun <T> SegmentedChoiceRow(
                 enabled = enabled,
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
                 modifier = Modifier.weight(1f),
+                icon = {
+                    if (showSelectedIcon) SegmentedButtonDefaults.Icon(active = option == selected)
+                },
                 // Long words shrink on one line instead of breaking (#220).
                 label = { OneLineAutoSizeLabel(text = label(option)) },
             )

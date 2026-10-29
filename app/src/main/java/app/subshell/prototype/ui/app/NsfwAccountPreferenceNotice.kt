@@ -42,6 +42,30 @@ internal fun nsfwAccountPreferencePresentation(): ErrorPresentation = ErrorPrese
 internal fun nsfwAccountPreferenceNeedsNotice(result: NsfwPreferencesResult): Boolean =
     result is NsfwPreferencesResult.Known && !result.preferences.over18
 
+// ISSUE263_NSFW_SEARCH_PREFERENCE_NOTICE_V1 (#263, the reader's finding): with
+// mature content on but "include mature content in search results" off,
+// Reddit leaves NSFW out of every search and of Popular, so NSFW
+// communities never show in search and Random NSFW community finds none.
+// Reddit's new settings page showed it on while old.reddit.com/prefs had it
+// off; the notice links there.
+internal const val REDDIT_OLD_PREFERENCES_URL = "https://old.reddit.com/prefs/"
+
+/** True when mature content is on but Reddit says NSFW search results are off. */
+internal fun nsfwSearchPreferenceNeedsNotice(result: NsfwPreferencesResult): Boolean =
+    result is NsfwPreferencesResult.Known &&
+        result.preferences.over18 &&
+        result.preferences.searchIncludeOver18 == false
+
+internal fun nsfwSearchPreferencePresentation(): ErrorPresentation = ErrorPresentation(
+    kind = ErrorPresentationKind.DEGRADED,
+    title = "Your Reddit account leaves NSFW out of search",
+    message = "NSFW communities won't show in search, and Random NSFW community finds none, until " +
+        "\"Include mature content in search results\" is on. Reddit's newer settings page may show " +
+        "it on when it isn't; old.reddit.com/prefs shows the real value.",
+    primaryAction = ErrorAction(ErrorActionKind.RETRY, "Open Reddit preferences"),
+    secondaryAction = ErrorAction(ErrorActionKind.DISMISS, "Dismiss"),
+)
+
 @Composable
 internal fun NsfwAccountPreferenceNotice(
     state: SubshellState,
@@ -73,6 +97,14 @@ internal fun NsfwAccountPreferenceNotice(
                 failureDetails = null,
                 onRetry = { openInBrowser(context, REDDIT_PREFERENCES_URL) },
                 tone = TrayTone.INFO, // ISSUE222: information, not an error
+            )
+        } else if (nsfwSearchPreferenceNeedsNotice(result)) {
+            host.present(
+                scopeKey = NSFW_ACCOUNT_PREFERENCE_SCOPE,
+                presentation = nsfwSearchPreferencePresentation(),
+                failureDetails = null,
+                onRetry = { openInBrowser(context, REDDIT_OLD_PREFERENCES_URL) },
+                tone = TrayTone.INFO,
             )
         }
     }

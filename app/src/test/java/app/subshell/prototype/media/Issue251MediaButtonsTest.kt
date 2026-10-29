@@ -12,6 +12,7 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -127,5 +128,22 @@ class Issue251MediaButtonsTest {
         controller.release()
         session.release()
         player.release()
+    }
+
+    // VIDEOSESSIONID01_EACH_SESSION_HAS_ITS_OWN_ID_V1: a second MainActivity
+    // makes its session while the first one's is still open.
+    @Test
+    fun aSecondSessionWhileTheFirstIsOpenDoesNotCrash() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val firstPlayer = buttons { "t3_post" }
+        val secondPlayer = buttons { "t3_post" }
+        val first = videoMediaSession(context, firstPlayer)
+        val second = videoMediaSession(context, secondPlayer)
+
+        assertNotEquals(first.id, second.id)
+        second.release()
+        first.release()
+        secondPlayer.release()
+        firstPlayer.release()
     }
 }

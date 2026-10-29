@@ -58,6 +58,7 @@ class SettingsBackupContractTest {
         showUnreadMarker = true,
         showNsfwPosts = true,
         sensitiveMediaPreviewMode = SensitiveMediaPreviewMode.LOAD_ON_TAP,
+        showNsfwMedia = true,
         contentFilters = ContentFilters(
             words = setOf("giveaway"),
             communities = setOf("example"),
@@ -146,6 +147,7 @@ class SettingsBackupContractTest {
                 SubshellSettings.SHOW_UNREAD_MARKER,
                 SubshellSettings.SHOW_NSFW_POSTS,
                 SubshellSettings.SENSITIVE_MEDIA_PREVIEW_MODE,
+                SubshellSettings.SHOW_NSFW_MEDIA,
                 SubshellSettings.COMMUNITY_SORT_PREFERENCES,
                 SubshellSettings.LISTING_TIME_PERIOD,
                 SubshellSettings.DRAWER_COMMUNITIES_MODE,
@@ -188,6 +190,7 @@ class SettingsBackupContractTest {
         assertEquals(true, restored.showUnreadMarker) // settings audit 2026-10-13
         assertEquals(false, restored.showNsfwPosts)
         assertEquals(SensitiveMediaPreviewMode.BLUR_AND_PRELOAD, restored.sensitiveMediaPreviewMode)
+        assertEquals(false, restored.showNsfwMedia)
         assertEquals(ContentFilters(), restored.contentFilters)
         assertEquals(emptyMap<String, CommunitySort>(), restored.communitySortPreferences)
         assertEquals(RedditListingTimePeriod.ALL, restored.listingTimePeriod)
@@ -287,7 +290,7 @@ class SettingsBackupContractTest {
 
     @Test
     fun videoTimelineSizePresetsRemainCuratedAndTouchSafe() {
-        assertEquals(listOf("Compact", "Standard", "Large"), VideoTimelineSize.entries.map { it.label })
+        assertEquals(listOf("Thin", "Standard", "Large"), VideoTimelineSize.entries.map { it.label })
         assertEquals(listOf(3, 4, 6), VideoTimelineSize.entries.map { it.trackHeightDp })
         assertEquals(listOf(10, 12, 16), VideoTimelineSize.entries.map { it.restingThumbDiameterDp })
         assertEquals(listOf(14, 16, 20), VideoTimelineSize.entries.map { it.scrubbingThumbDiameterDp })

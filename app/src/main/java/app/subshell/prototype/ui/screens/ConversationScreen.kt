@@ -735,8 +735,7 @@ fun ConversationScreen(
             .navigationBarsPadding()
             // COMPOSER232_COMPOSER_SITS_ON_THE_KEYBOARD_V1 (#232): the thread and
             // its composer fit above the keyboard by the IME ruler.
-            .fitInside(WindowInsetsRulers.Ime.current)
-            .nestedScroll(routeTopBarScroll.nestedScrollConnection),
+            .fitInside(WindowInsetsRulers.Ime.current),
     ) {
         RouteTopBar(
             scrollBehavior = routeTopBarScroll,
@@ -760,7 +759,11 @@ fun ConversationScreen(
         )
 
         RefreshableLazyColumn(
-            modifier = Modifier.weight(1f),
+            // ISSUE273_ONLY_THE_THREAD_MOVES_THE_TOP_BAR_V1: the reply field
+            // below the thread does not move the bar.
+            modifier = Modifier
+                .weight(1f)
+                .nestedScroll(routeTopBarScroll.nestedScrollConnection),
             state = listState,
             // SUBSHELL_INBOXM3A2_COMPOSER_SEAM_REMOVAL_V1
             contentPadding = PaddingValues(

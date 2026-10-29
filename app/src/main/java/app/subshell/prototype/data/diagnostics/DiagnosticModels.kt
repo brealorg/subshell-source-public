@@ -55,6 +55,10 @@ internal enum class DiagnosticOperation {
     // ISSUE248_JANK_SUMMARY_PER_FOREGROUND_SESSION_V1: frames that missed their
     // deadline while the app was in front (JankStats), once per session.
     UI_JANK_OBSERVED,
+    // ISSUE263_NO_NSFW_COMMUNITY_OFFERED_IS_RECORDED_V1: Random NSFW community
+    // found Reddit offering none; counts and the account's own NSFW
+    // preferences only.
+    NSFW_COMMUNITIES_NONE_OFFERED,
 }
 
 internal enum class DiagnosticPresentationKind {
@@ -157,6 +161,11 @@ internal data class DiagnosticEvent(
     val frames: Int? = null,
     val jankFrames: Int? = null,
     val worstFrameMs: Long? = null,
+    /** ISSUE263: set on [DiagnosticOperation.NSFW_COMMUNITIES_NONE_OFFERED] only; counts, no names. */
+    val popularCommunities: Int? = null,
+    val searchedCommunities: Int? = null,
+    val accountOver18: Boolean? = null,
+    val accountSearchOver18: Boolean? = null,
 ) {
     init {
         require(id.matches(DIAGNOSTIC_EVENT_ID_PATTERN))
@@ -168,6 +177,8 @@ internal data class DiagnosticEvent(
         require(frames == null || frames >= 0)
         require(jankFrames == null || jankFrames >= 0)
         require(worstFrameMs == null || worstFrameMs >= 0L)
+        require(popularCommunities == null || popularCommunities >= 0)
+        require(searchedCommunities == null || searchedCommunities >= 0)
     }
 
     internal fun dedupeKey(): String = buildString {
@@ -349,6 +360,26 @@ internal object DiagnosticEvents {
         worstFrameMs = summary.worstFrameMs,
     )
 
+    /** ISSUE263_NO_NSFW_COMMUNITY_OFFERED_IS_RECORDED_V1 */
+    internal fun nsfwCommunitiesNoneOffered(
+        popularCommunities: Int,
+        searchedCommunities: Int,
+        accountOver18: Boolean?,
+        accountSearchOver18: Boolean?,
+        nowEpochMs: Long = System.currentTimeMillis(),
+    ): DiagnosticEvent = DiagnosticEvent(
+        id = newDiagnosticEventId(),
+        timestampEpochMs = nowEpochMs,
+        level = DiagnosticLevel.WARNING,
+        subsystem = DiagnosticSubsystem.COMMUNITY,
+        operation = DiagnosticOperation.NSFW_COMMUNITIES_NONE_OFFERED,
+        outcome = DiagnosticOutcome.OBSERVED,
+        popularCommunities = popularCommunities,
+        searchedCommunities = searchedCommunities,
+        accountOver18 = accountOver18,
+        accountSearchOver18 = accountSearchOver18,
+    )
+
     internal fun listingPostSkipped(
         jsonPath: String?,
         nowEpochMs: Long = System.currentTimeMillis(),
@@ -499,7 +530,7 @@ internal fun Throwable.diagnosticExceptionClass(): String? =
 private fun newDiagnosticEventId(): String = UUID.randomUUID().toString()
 
 private const val SAFE_DIAGNOSTIC_CODE_LIMIT = 80
-private val SAFE_ENUM_TOKEN_PATTERN = Regex("[a-z0-9_]{1,64}")
+internal val SAFE_ENUM_TOKEN_PATTERN = Regex("[a-z0-9_]{1,64}")
 private val SAFE_ACTION_NAME_PATTERN = Regex("[a-z]+(_[a-z]+)*")
 private const val SAFE_ACTION_MAX_CHARS = 64
 internal val SAFE_EXCEPTION_CLASS_PATTERN = Regex("[A-Za-z][A-Za-z0-9_]{0,63}")

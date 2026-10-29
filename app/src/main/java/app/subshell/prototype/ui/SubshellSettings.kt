@@ -1,6 +1,7 @@
 package app.subshell.prototype.ui
 
 import app.subshell.prototype.ui.theme.AppTextScale
+import app.subshell.prototype.ui.theme.AppUiScale
 import app.subshell.prototype.data.RedditListingTimePeriod
 import app.subshell.prototype.ui.theme.ThemeMode
 
@@ -24,7 +25,7 @@ enum class RandomNsfwCommunityPlacement(val label: String) {
 // posts show at the top of its feed in every sort; cards by default.
 enum class PinnedPostsPresentation(val label: String) {
     CARDS("Cards at the top"),
-    HIGHLIGHTS("Compact highlights"),
+    HIGHLIGHTS("Highlights row"),
 }
 
 // ISSUE234_FEED_POST_LAYOUTS_V1 (owner 2026-10-18): how feeds show posts.
@@ -83,8 +84,9 @@ enum class VoteColorPalette(val label: String) {
 }
 
 enum class VoteControlMode(val label: String) {
-    COMFORTABLE("Comfortable"),
-    COMPACT("Compact"),
+    // ISSUE278_EACH_COMPACT_SAYS_WHAT_IT_DOES_V1: labels only; stored names unchanged.
+    COMFORTABLE("Thumbs with score"),
+    COMPACT("Arrows"),
 }
 
 // ISSUE16_CONFIGURABLE_SWIPE_ACTIONS_V1
@@ -124,6 +126,7 @@ data class SubshellSettings(
     val dynamicColor: Boolean = true,
     val pureBlackDarkTheme: Boolean = false,
     val appTextScale: AppTextScale = AppTextScale.DEFAULT,
+    val appUiScale: AppUiScale = AppUiScale.DEFAULT,
     val voteColorPalette: VoteColorPalette = VoteColorPalette.NEUTRAL,
     val voteControlMode: VoteControlMode = VoteControlMode.COMFORTABLE,
     val codeFont: CodeFont = CodeFont.JETBRAINS_MONO,
@@ -153,6 +156,9 @@ data class SubshellSettings(
     val notifyModmail: Boolean = true,
     val showNsfwPosts: Boolean = false,
     val sensitiveMediaPreviewMode: SensitiveMediaPreviewMode = SensitiveMediaPreviewMode.BLUR_AND_PRELOAD,
+    // NSFWMEDIA01_SHOW_NSFW_MEDIA_SETTING_V1 (owner): off by default, backed up
+    // under its own key so older builds restore the rest of the backup.
+    val showNsfwMedia: Boolean = false,
     val contentFilters: ContentFilters = ContentFilters(),
     val communitySortPreferences: Map<String, CommunitySort> = emptyMap(),
     val listingTimePeriod: RedditListingTimePeriod = RedditListingTimePeriod.ALL,
@@ -213,6 +219,7 @@ data class SubshellSettings(
         DYNAMIC_COLOR to dynamicColor.toString(),
         PURE_BLACK_DARK_THEME to pureBlackDarkTheme.toString(),
         APP_TEXT_SCALE to appTextScale.name,
+        APP_UI_SCALE to appUiScale.name,
         VOTE_COLOR_PALETTE to voteColorPalette.name,
         VOTE_CONTROL_MODE to voteControlMode.name,
         CODE_FONT to codeFont.name,
@@ -240,6 +247,7 @@ data class SubshellSettings(
         NOTIFY_MODMAIL to notifyModmail.toString(),
         SHOW_NSFW_POSTS to showNsfwPosts.toString(),
         SENSITIVE_MEDIA_PREVIEW_MODE to sensitiveMediaPreviewMode.name,
+        SHOW_NSFW_MEDIA to showNsfwMedia.toString(),
         COMMUNITY_SORT_PREFERENCES to encodeCommunitySortPreferences(communitySortPreferences),
         LISTING_TIME_PERIOD to listingTimePeriod.name,
         DRAWER_COMMUNITIES_MODE to drawerCommunitiesMode.name,
@@ -292,6 +300,7 @@ data class SubshellSettings(
         const val DYNAMIC_COLOR = "dynamic_color"
         const val PURE_BLACK_DARK_THEME = "pure_black_dark_theme"
         const val APP_TEXT_SCALE = "app_text_scale"
+        const val APP_UI_SCALE = "app_ui_scale"
         const val VOTE_COLOR_PALETTE = "vote_color_palette"
         const val VOTE_CONTROL_MODE = "vote_control_mode"
         const val CODE_FONT = "code_font"
@@ -320,6 +329,7 @@ data class SubshellSettings(
         const val NOTIFY_MODMAIL = "notify_modmail"
         const val SHOW_NSFW_POSTS = "show_nsfw_posts"
         const val SENSITIVE_MEDIA_PREVIEW_MODE = "sensitive_media_preview_mode"
+        const val SHOW_NSFW_MEDIA = "show_nsfw_media"
         const val COMMENT_VISIT_HISTORY = "comment_visit_history"
         const val COMMUNITY_SORT_PREFERENCES = "community_sort_preferences"
         const val LISTING_TIME_PERIOD = "listing_time_period"
@@ -390,6 +400,7 @@ data class SubshellSettings(
             DYNAMIC_COLOR,
             PURE_BLACK_DARK_THEME,
             APP_TEXT_SCALE,
+            APP_UI_SCALE,
             VOTE_COLOR_PALETTE,
             VOTE_CONTROL_MODE,
             CODE_FONT,
@@ -417,6 +428,7 @@ data class SubshellSettings(
             NOTIFY_MODMAIL,
             SHOW_NSFW_POSTS,
             SENSITIVE_MEDIA_PREVIEW_MODE,
+            SHOW_NSFW_MEDIA,
             COMMUNITY_SORT_PREFERENCES,
             LISTING_TIME_PERIOD,
             DRAWER_COMMUNITIES_MODE,
@@ -527,6 +539,7 @@ data class SubshellSettings(
                 dynamicColor = booleanValue(DYNAMIC_COLOR, compatibleValues),
                 pureBlackDarkTheme = booleanValue(PURE_BLACK_DARK_THEME, compatibleValues),
                 appTextScale = enumValue(APP_TEXT_SCALE, compatibleValues, AppTextScale.entries),
+                appUiScale = enumValue(APP_UI_SCALE, compatibleValues, AppUiScale.entries),
                 voteColorPalette = enumValue(
                     VOTE_COLOR_PALETTE,
                     compatibleValues,
@@ -621,6 +634,7 @@ data class SubshellSettings(
                     compatibleValues,
                     SensitiveMediaPreviewMode.entries,
                 ),
+                showNsfwMedia = booleanValue(SHOW_NSFW_MEDIA, compatibleValues),
                 contentFilters = ContentFilters.fromStorageMap(compatibleValues),
                 communitySortPreferences = decodeCommunitySortPreferences(
                     compatibleValues.getValue(COMMUNITY_SORT_PREFERENCES),

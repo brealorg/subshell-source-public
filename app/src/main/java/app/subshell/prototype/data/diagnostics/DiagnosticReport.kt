@@ -92,6 +92,9 @@ internal fun buildDiagnosticReport(
     environment: DiagnosticReportEnvironment,
     generatedAtEpochMs: Long = System.currentTimeMillis(),
     crashes: List<CrashRecord> = emptyList(),
+    // ISSUE272: null leaves the [notifications] section out (older callers).
+    notifications: NotificationDiagnostics? = null,
+    inboxStatus: Map<String, InboxCheckSummary>? = null,
 ): String = buildString {
     appendLine("subshell diagnostic report")
     appendLine("schema=DIAG01A1_V1")
@@ -127,6 +130,7 @@ internal fun buildDiagnosticReport(
     // CRASH01_CRASHES_ARE_RECORDED_LOCALLY_V1
     appendLine("exception_messages=not_collected")
     appendLine("crash_details=exception_classes_and_code_locations_only")
+    appendNotificationDiagnostics(notifications, inboxStatus)
     appendLine()
     appendLine("[crashes]")
     crashes.forEach { crash ->
@@ -158,6 +162,10 @@ internal fun buildDiagnosticReport(
         event.frames?.let { append(" frames=$it") }
         event.jankFrames?.let { append(" jank_frames=$it") }
         event.worstFrameMs?.let { append(" worst_frame_ms=$it") }
+        event.popularCommunities?.let { append(" popular_communities=$it") }
+        event.searchedCommunities?.let { append(" searched_communities=$it") }
+        event.accountOver18?.let { append(" account_over_18=$it") }
+        event.accountSearchOver18?.let { append(" account_search_include_over_18=$it") }
         event.failure?.let { failure ->
             failure.httpStatusCode?.let { append(" http=$it") }
             failure.retryable?.let { append(" retryable=$it") }
@@ -343,7 +351,7 @@ private fun safeEnvironmentText(value: String): String =
         .trim()
         .take(MAX_ENVIRONMENT_TEXT_LENGTH)
 
-private fun formatUtcTimestamp(epochMs: Long): String =
+internal fun formatUtcTimestamp(epochMs: Long): String =
     SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
         timeZone = TimeZone.getTimeZone("UTC")
     }.format(Date(epochMs.coerceAtLeast(0L)))

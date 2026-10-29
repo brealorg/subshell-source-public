@@ -1,5 +1,7 @@
 package app.subshell.prototype.ui.screens
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.subshell.prototype.ui.app.onDisk
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
@@ -18,6 +20,7 @@ import app.subshell.prototype.ui.components.rememberRouteTopBarScrollBehavior
 import app.subshell.prototype.ui.error.TrayTone
 import app.subshell.prototype.ui.symbols.Symbols
 import app.subshell.prototype.ui.theme.AppTextScale
+import app.subshell.prototype.ui.theme.AppUiScale
 import app.subshell.prototype.inbox.InboxNotificationCenter
 import app.subshell.prototype.inbox.InboxBackgroundSyncScheduler
 import app.subshell.prototype.inbox.InboxBackgroundEventStore
@@ -487,6 +490,10 @@ fun SettingsScreen(
     val query = if (paneRole == SettingsPaneRole.DETAIL) "" else state.settingsQuery.trim()
     // ISSUE38_APP_LOCK_V1
     val appLock = LocalAppLock.current
+    // ISSUE268: the "Your reading" switch reads and writes its own store.
+    val readingStatsStore = app.subshell.prototype.data.reading.ReadingStats.store(LocalContext.current)
+    val readingStatsEnabled by readingStatsStore.enabled.collectAsStateWithLifecycle()
+    LaunchedEffect(readingStatsStore) { readingStatsStore.onDisk { load() } }
     // LOWUX3_SETTINGS_SEARCH_SKIPS_ROWS_THE_STATE_HIDES_V1 (OCB-267/278): rows the
     // state hides right now are not search hits.
     val searchHiddenKeys = buildSet {
@@ -520,6 +527,17 @@ fun SettingsScreen(
             label = ThemeChoice::label,
             onSelect = { choice ->
                 state.updateThemeChoice(choice)
+                choiceDialogKey = null
+            },
+            onDismiss = { choiceDialogKey = null },
+        )
+        "appearance-ui-size" -> SettingsSingleChoiceDialog(
+            title = "UI size",
+            options = AppUiScale.entries,
+            selected = state.appUiScale,
+            label = AppUiScale::label,
+            onSelect = { scale ->
+                state.updateAppUiScale(scale)
                 choiceDialogKey = null
             },
             onDismiss = { choiceDialogKey = null },
@@ -1662,6 +1680,45 @@ fun SettingsScreen(
                 )
             ) {
                 item("appearance-title") { SettingsSection(settingsSectionTitle(destination, "Appearance")) }
+                if (listOf("ui-size", "text-size", "vote-controls").any(searchResult::isItemVisible)) {
+                    item("size-title") { SettingsSection("Size") }
+                }
+                // ISSUE278_UI_SIZE_SCALES_THE_WHOLE_APP_V1 (owner): one size for the
+                // whole interface, grouped with the other size choices.
+                if (searchResult.isItemVisible("ui-size")) item("ui-size") {
+                    ValueSettingRow(
+                        icon = Symbols.ZoomIn,
+                        title = "UI size",
+                        // ISSUE278 (owner chose A): below 100 % small buttons in dialogs, sheets
+                        // and menus get a smaller tap area, as with Android's Display size.
+                        description = "Makes bars, buttons, rows and text in subshell smaller or larger; " +
+                            "smaller sizes also make some tap areas smaller. " +
+                            "Android's Display size does this for every app.",
+                        value = state.appUiScale.label,
+                        onClick = { choiceDialogKey = "appearance-ui-size" },
+                    )
+                }
+                if (searchResult.isItemVisible("text-size")) item("text-size") {
+                    ValueSettingRow(
+                        icon = Symbols.FormatSize,
+                        title = "Text size",
+                        description = "Scales all text in subshell, on top of the system font size",
+                        value = state.appTextScale.label,
+                        onClick = { choiceDialogKey = "appearance-text-size" },
+                    )
+                }
+                if (searchResult.isItemVisible("vote-controls")) item("vote-controls") {
+                    ValueSettingRow(
+                        icon = Symbols.ThumbUp,
+                        title = "Vote controls",
+                        description = "Thumbs with the score between them, or smaller arrows",
+                        value = state.voteControlMode.label,
+                        onClick = { choiceDialogKey = "appearance-vote-controls" },
+                    )
+                }
+                if (listOf("theme", "dynamic", "vote-colours", "code-font").any(searchResult::isItemVisible)) {
+                    item("colours-title") { SettingsSection("Colours & fonts") }
+                }
                 if (searchResult.isItemVisible("theme")) item("theme") {
                     ValueSettingRow(
                         icon = Symbols.Palette,
@@ -1685,24 +1742,6 @@ fun SettingsScreen(
                         checked = state.dynamicColor && dynamicColorSupported(),
                         onCheckedChange = state::updateDynamicColor,
                         enabled = dynamicColorSupported(),
-                    )
-                }
-                if (searchResult.isItemVisible("text-size")) item("text-size") {
-                    ValueSettingRow(
-                        icon = Symbols.FormatSize,
-                        title = "Text size",
-                        description = "Scales all text in subshell, on top of the system font size",
-                        value = state.appTextScale.label,
-                        onClick = { choiceDialogKey = "appearance-text-size" },
-                    )
-                }
-                if (searchResult.isItemVisible("vote-controls")) item("vote-controls") {
-                    ValueSettingRow(
-                        icon = Symbols.ThumbUp,
-                        title = "Vote controls",
-                        description = "Comfortable thumbs with score, or compact arrow controls",
-                        value = state.voteControlMode.label,
-                        onClick = { choiceDialogKey = "appearance-vote-controls" },
                     )
                 }
                 if (searchResult.isItemVisible("vote-colours")) item("vote-colours") {
@@ -2128,6 +2167,17 @@ fun SettingsScreen(
                         },
                     )
                 }
+                // ISSUE268_YOUR_READING_IS_OFF_UNTIL_TURNED_ON_V1: device-local,
+                // not in backups; turning it off deletes what was counted.
+                if (searchResult.isItemVisible("your-reading")) item("your-reading") {
+                    ToggleRow(
+                        icon = Symbols.Schedule,
+                        title = "Your reading",
+                        description = "Count opens and time per community on this device only, shown in You › Library. Turning it off deletes the counts",
+                        checked = readingStatsEnabled == true,
+                        onCheckedChange = { enabled -> readingStatsStore.onDisk { setEnabled(enabled) } },
+                    )
+                }
             }
 
             if (
@@ -2173,6 +2223,7 @@ fun SettingsScreen(
             ) {
                 if (
                     searchResult.isItemVisible("sensitive-media-previews") ||
+                    searchResult.isItemVisible("show-nsfw-media") ||
                     searchResult.isItemVisible("sensitive-media-reddit-lab") ||
                     searchResult.isItemVisible("media-autoplay")
                 ) {
@@ -2187,6 +2238,16 @@ fun SettingsScreen(
                         description = "Blurred (loaded in the background), load on tap, or hide",
                         value = state.sensitiveMediaPreviewMode.label,
                         onClick = { choiceDialogKey = "media-sensitive-previews" },
+                    )
+                }
+                // NSFWMEDIA01_SHOW_NSFW_MEDIA_SETTING_V1: off by default.
+                if (searchResult.isItemVisible("show-nsfw-media")) item("show-nsfw-media") {
+                    ToggleRow(
+                        icon = Symbols.Visibility,
+                        title = "Show NSFW media",
+                        description = "NSFW images, GIFs and videos show and play without a tap; spoilers stay covered",
+                        checked = state.showNsfwMedia,
+                        onCheckedChange = state::updateShowNsfwMedia,
                     )
                 }
                 if (BuildConfig.DEBUG && BuildConfig.DEBUG_SLOT == "dev2") {
@@ -2472,6 +2533,7 @@ fun SettingsScreen(
 
                 if (
                     searchResult.isItemVisible("media-cache") ||
+                    searchResult.isItemVisible("offline-images") ||
                     searchResult.isItemVisible("video-cache-limit") ||
                     searchResult.isItemVisible("download-storage")
                 ) {
@@ -2497,6 +2559,10 @@ fun SettingsScreen(
                             Text("Clear")
                         }
                     }
+                }
+                // ISSUE265_SAVE_FOR_OFFLINE_V1: images saved for offline reading.
+                if (searchResult.isItemVisible("offline-images")) item("offline-images") {
+                    OfflineImagesRow()
                 }
                 if (searchResult.isItemVisible("video-cache-limit")) item("video-cache-limit") {
                     ValueSettingRow(
@@ -2890,11 +2956,12 @@ fun SettingsScreen(
                 if (searchResult.isItemVisible("backup")) item("backup") {
                     NavigationRow(
                         icon = Symbols.Backup,
-                        title = "Saved setups",
+                        // ISSUE270_BACKUP_SCREEN_SAYS_WHAT_IS_BACKED_UP_V1: one word, backup.
+                        title = "Backups",
                         description = when (backupRepository.status().protection) {
-                            BackupProtection.PROTECTED -> "Automatic history is protected outside the app"
-                            BackupProtection.WAITING -> "Internal history saved; external backup is waiting"
-                            BackupProtection.INTERNAL_ONLY -> "Automatic history is only stored inside this installation"
+                            BackupProtection.PROTECTED -> "Copied to your backup folder"
+                            BackupProtection.WAITING -> "Backup folder isn't reachable"
+                            BackupProtection.INTERNAL_ONLY -> "Only on this device"
                         },
                         onClick = {
                             openSettingsDestination(
@@ -3292,3 +3359,38 @@ internal fun turnOffAfterDeviceUnlock(
 
 /** M3224_SETTINGS_LIST_DETAIL_V1: which pane of a wide-window Settings this is. */
 enum class SettingsPaneRole { SINGLE, LIST, DETAIL }
+
+/** ISSUE265_SAVE_FOR_OFFLINE_V1: how much the offline images take, and Clear. */
+@Composable
+private fun OfflineImagesRow() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val store = remember(context) { app.subshell.prototype.offline.OfflineImageStore.forContext(context) }
+    var bytes by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(store) {
+        bytes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { store.sizeBytes() }
+    }
+    SettingSurface(
+        icon = Symbols.Storage,
+        title = "Saved for offline",
+        description = when (val used = bytes) {
+            null -> "Checking saved images…"
+            0L -> "No images saved. Use Save for offline in the Home menu."
+            else -> "${android.text.format.Formatter.formatShortFileSize(context, used)} of images saved for offline reading"
+        },
+    ) {
+        TextButton(
+            enabled = (bytes ?: 0L) > 0L,
+            onClick = {
+                scope.launch {
+                    bytes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        store.clear()
+                        store.sizeBytes()
+                    }
+                }
+            },
+        ) {
+            Text("Clear")
+        }
+    }
+}

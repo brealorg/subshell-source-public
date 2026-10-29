@@ -1,5 +1,7 @@
 package app.subshell.prototype
 
+import app.subshell.prototype.media.RemoteImageLoader
+import app.subshell.prototype.offline.OfflineImageStore
 import androidx.core.app.ActivityCompat
 import android.content.pm.PackageManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -23,7 +25,6 @@ import android.os.Bundle
 import android.os.SystemClock
 import android.util.Log
 import androidx.fragment.app.FragmentActivity
-import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.browser.auth.AuthTabIntent
@@ -54,6 +55,8 @@ import app.subshell.prototype.applock.LocalAppLocked
 import app.subshell.prototype.applock.LocalAppLockedNow
 import app.subshell.prototype.ui.theme.SubshellTheme
 import app.subshell.prototype.ui.theme.SubshellThemeSettings
+import app.subshell.prototype.ui.theme.UiScaleContext
+import app.subshell.prototype.ui.theme.setScaledContent
 import app.subshell.prototype.auth.takeAuthCallbackResult
 import app.subshell.prototype.auth.AuthBrowserLauncher
 import app.subshell.prototype.auth.dispatchAuthBrowserLaunch
@@ -168,6 +171,7 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
     }
     private var deviceUnlockAvailable by mutableStateOf(false)
     private var appThemeSettings by mutableStateOf(SubshellThemeSettings())
+    private var uiScaleContext: UiScaleContext? = null
     private val appUnlockPromptGate = AppUnlockPromptGate()
     // MEDIA07_APP_LOCK_READ_LIVE_AT_START_V1 (#150): read when called, not when composed.
     private val isAppLockedNow: () -> Boolean = { appLock.locked }
@@ -452,6 +456,8 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
         // CRASH01_CRASHES_ARE_RECORDED_LOCALLY_V1: first, so a crash anywhere
         // after this point is recorded (once per process).
         CrashRecorder.install(applicationContext)
+        // ISSUE265_SAVE_FOR_OFFLINE_V1
+        RemoteImageLoader.offlineImageStore = OfflineImageStore.forContext(applicationContext)
         ListingSkipReports.install(applicationContext)
         installDebugUriGrantCheck(BuildConfig.DEBUG)
         installDebugMainThreadCheck(BuildConfig.DEBUG)
@@ -524,7 +530,11 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
             modmailStates = moderationViewModel.redditModmailUiState,
         )
 
-        setContent {
+        // ISSUE278_EVERY_WINDOW_FOLLOWS_THE_UI_SIZE_V1: the root view carries UI size
+        // and Text size in its context, so dialogs, sheets and menus inherit them.
+        val scaleContext = UiScaleContext(this)
+        uiScaleContext = scaleContext
+        setScaledContent(scaleContext) {
             val connectAccountState by authConnectViewModel.uiState.collectAsStateWithLifecycle()
             val onlineVisibilityState by authConnectViewModel.onlineVisibilityUiState.collectAsStateWithLifecycle()
             val customFeedsState by communitiesViewModel.customFeedsUiState.collectAsStateWithLifecycle()
@@ -649,7 +659,10 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
                 AccountDirectoryGate(authConnectViewModel.accountSessionDirectory) {
                 SubshellApp(
                     videoPlaybackCoordinator = videoPlaybackViewModel.coordinator,
-                    onThemeSettingsChanged = { appThemeSettings = it },
+                    onThemeSettingsChanged = { settings ->
+                        appThemeSettings = settings
+                        scaleContext.update(settings.uiScale, settings.textScale)
+                    },
                     accountConnect = AccountConnectEntryPoints(
                         accountSessionDirectory = authConnectViewModel.accountSessionDirectory,
                         redditUserAgent = authConnectViewModel.redditUserAgent,
@@ -982,6 +995,7 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
                     dynamicColor = appThemeSettings.dynamicColor,
                     pureBlack = appThemeSettings.pureBlack,
                     textScale = appThemeSettings.textScale,
+                    uiScale = appThemeSettings.uiScale,
                     manageSystemBarContrast = false,
                 ) {
                     AppLockOverlay(
@@ -1104,6 +1118,9 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        // Android hands the root view its own, unscaled configuration; the scaled
+        // one follows so LocalConfiguration agrees with the density.
+        window.decorView.post { uiScaleContext?.dispatch() }
         enableEdgeToEdge()
         videoPlaybackViewModel.coordinator.onHostConfigurationChanged(newConfig)
     }

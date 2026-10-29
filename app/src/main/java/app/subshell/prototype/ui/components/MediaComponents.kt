@@ -399,7 +399,8 @@ fun PostMedia(
         else -> false
     }
     val sensitive = hasSensitivePreview && (post.spoiler || post.nsfw)
-    val revealed = !sensitive || post.id in state.revealedMediaIds
+    // NSFWMEDIA01_SHOW_NSFW_MEDIA_SETTING_V1
+    val revealed = !sensitive || post.id in state.revealedMediaIds || state.nsfwMediaShownUncovered(post)
     val mode = state.sensitiveMediaPreviewMode
     val posterOnlySensitiveVideo = sensitiveMediaUsesPosterOnly(
         post = post,

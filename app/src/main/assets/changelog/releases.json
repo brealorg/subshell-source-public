@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "versionCode": 251,
+      "versionName": "0.87-beta",
+      "date": "2026-10-29",
+      "headline": "Subshell 0.87: one size for the whole app, save for offline, and a calmer first start",
+      "highlights": [
+        "Settings › Appearance › Size › UI size makes the whole app smaller or larger, from 85 to 110 %: bars, buttons, lists, dialogs and text.",
+        "Save for offline in the Home menu keeps the top 50 posts, their comments and pictures on your phone for when you have no signal.",
+        "A new setting, Show NSFW media, shows NSFW pictures and videos without a tap on each one. Spoilers stay covered.",
+        "New installs set up hand, look, content and notifications in one short flow, and Backup & restore now says what a backup holds.",
+        "Fixes: a crash when a link or notification opened the app, \"r/name\" searches in Discover, a play button flash before autoplay, comment jumps that stopped short, and more."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v0.87-beta"
+    },
+    {
       "versionCode": 250,
       "versionName": "0.86-beta",
       "date": "2026-10-26",

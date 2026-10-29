@@ -147,6 +147,12 @@ internal fun DiagnosticsScreen(
                                 .apiValuesDiagnosticToken(),
                         ),
                         crashes = crashStore.records(),
+                        // ISSUE272_NOTIFICATION_STATE_IN_THE_REPORT_V1
+                        notifications = runCatching {
+                            app.subshell.prototype.inbox.readNotificationDiagnostics(appContext)
+                        }.getOrNull(),
+                        inboxStatus = app.subshell.prototype.data.diagnostics
+                            .InboxDiagnosticStatusStore(appContext).read(),
                     )
                     val staged = stageDiagnosticReport(appContext, reportText)
                     updated to staged
@@ -204,6 +210,7 @@ internal fun DiagnosticsScreen(
                             snapshot = withContext(Dispatchers.IO) {
                                 store.clear()
                                 crashStore.clear()
+                                app.subshell.prototype.data.diagnostics.InboxDiagnosticStatusStore(appContext).clear()
                                 store.snapshot()
                             }
                             showMessage("Diagnostic history cleared")
@@ -976,6 +983,10 @@ private fun DiagnosticEventRow(
                     event.appVersionFrom?.let { from -> event.appVersionTo?.let { to -> "Version $from → $to" } },
                     event.jankFrames?.let { jank -> event.frames?.let { frames -> "$jank of $frames frames slow" } },
                     event.worstFrameMs?.let { "Slowest frame $it ms" },
+                    event.popularCommunities?.let { "Popular $it communities" },
+                    event.searchedCommunities?.let { "Search $it communities" },
+                    event.accountOver18?.let { "Account over 18 $it" },
+                    event.accountSearchOver18?.let { "Account NSFW search $it" },
                 ).joinToString(" · ")
                 if (eventDetail.isNotBlank()) {
                     Text(
@@ -1156,6 +1167,7 @@ private fun diagnosticOperationLabel(event: DiagnosticEvent): String = when (eve
     DiagnosticOperation.APP_UPDATED -> "subshell updated"
     DiagnosticOperation.LISTING_POST_SKIPPED -> "Unreadable post left out"
     DiagnosticOperation.UI_JANK_OBSERVED -> "Slow frames"
+    DiagnosticOperation.NSFW_COMMUNITIES_NONE_OFFERED -> "Reddit offered no NSFW communities"
 }
 
 private fun diagnosticLevelLabel(level: DiagnosticLevel): String = when (level) {

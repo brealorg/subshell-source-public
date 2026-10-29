@@ -61,20 +61,20 @@ class InteractionSideOnboardingComposeTest {
             )
         }
         composeRule.waitForIdle()
+        // ISSUE271_ONE_SETUP_FLOW_AFTER_SIGN_IN_V1: the side is the setup flow's
+        // first page now, not a dialog over Home.
         assertTrue(state.commentActionOnboardingVisible)
-        composeRule.onNodeWithText("Which side should subshell favor?").assertIsDisplayed()
-        composeRule.onNodeWithText("Use Right").assertIsDisplayed()
+        composeRule.onNodeWithText("Which hand do you use?").assertIsDisplayed()
 
-        composeRule.onNode(hasText("Left") and hasClickAction()).performClick()
+        composeRule.onNode(hasText("Left hand") and hasClickAction()).performClick()
         composeRule.waitForIdle()
         assertEquals(InteractionSide.LEFT, state.interactionSide)
         assertTrue(state.commentActionOnboardingVisible)
-        composeRule.onNodeWithText("Use Left").assertIsDisplayed()
 
-        composeRule.onNodeWithText("Use Left").performClick()
+        composeRule.onNode(hasText("Skip") and hasClickAction()).performClick()
         composeRule.waitForIdle()
         assertFalse(state.commentActionOnboardingVisible)
         assertEquals(InteractionSide.LEFT, state.interactionSide)
-        composeRule.onNodeWithText("Which side should subshell favor?").assertDoesNotExist()
+        composeRule.onNodeWithText("Which hand do you use?").assertDoesNotExist()
     }
 }

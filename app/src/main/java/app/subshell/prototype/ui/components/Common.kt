@@ -617,6 +617,8 @@ fun MainScreenHeader(
     hasReadPosts: Boolean = false,
     onHideReadPostsChanged: (Boolean) -> Unit = {},
     onResetReadPosts: () -> Unit = {},
+    // ISSUE265_SAVE_FOR_OFFLINE_V1: signed-in Home only.
+    onSaveForOffline: (() -> Unit)? = null,
     onExploreClick: (() -> Unit)? = null,
     onSearchClick: (() -> Unit)? = null,
     searchContentDescription: String = "Search",
@@ -767,6 +769,19 @@ fun MainScreenHeader(
                             enabled = hasReadPosts,
                             onClick = {
                                 onResetReadPosts()
+                                sortExpanded = false
+                            },
+                        )
+                    }
+                    if (onSaveForOffline != null) {
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = { Text("Save for offline") },
+                            leadingIcon = {
+                                Icon(Symbols.Download, contentDescription = null)
+                            },
+                            onClick = {
+                                onSaveForOffline()
                                 sortExpanded = false
                             },
                         )

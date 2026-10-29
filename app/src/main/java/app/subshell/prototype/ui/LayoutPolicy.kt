@@ -3,7 +3,13 @@ package app.subshell.prototype.ui
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.window.core.layout.WindowSizeClass
+import app.subshell.prototype.ui.theme.LocalUiScale
 import app.subshell.prototype.ui.screens.InboxModSection
 import app.subshell.prototype.ui.screens.InboxPrimaryTab
 import app.subshell.prototype.ui.symbols.Symbols
@@ -270,3 +276,30 @@ internal fun youContentWorkspacePlaceholder(selectedTab: Int): String =
         2 -> "Select a saved item"
         else -> "Select a post"
     }
+
+/**
+ * ISSUE278_LAYOUT_IGNORES_THE_UI_SIZE_V1: the window size class of the window
+ * as Android measures it. A smaller UI size makes every dp smaller, so read
+ * through the scaled density a phone would look wider and could switch to the
+ * rail or two panes; the class is read with the unscaled density instead.
+ */
+@Composable
+internal fun currentUnscaledWindowSizeClass(): WindowSizeClass {
+    val scale = LocalUiScale.current
+    if (scale == 1f) return currentWindowAdaptiveInfoV2().windowSizeClass
+    val density = LocalDensity.current
+    var sizeClass: WindowSizeClass? = null
+    CompositionLocalProvider(LocalDensity provides Density(density.density / scale, density.fontScale)) {
+        sizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
+    }
+    return requireNotNull(sizeClass)
+}
+
+/**
+ * ISSUE278_LARGE_TEXT_IS_JUDGED_AS_SEEN_V1: how large text looks on screen, the
+ * font scale times the UI size. The bars' large-text layout (a taller bar, the
+ * short "Subs" label) follows this, so a smaller UI with large text gets the
+ * normal bar once the text is no longer large on screen.
+ */
+@Composable
+internal fun visibleFontScale(): Float = LocalDensity.current.fontScale * LocalUiScale.current

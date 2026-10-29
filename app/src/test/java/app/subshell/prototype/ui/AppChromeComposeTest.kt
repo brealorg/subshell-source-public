@@ -108,11 +108,38 @@ class AppChromeComposeTest {
         assertEquals(0f, top.value)
     }
 
-    private fun scrollConnection(state: SubshellState): NestedScrollConnection {
+    // MODMAILCHROME01_A_COVERING_SURFACE_LEAVES_THE_CHROME_ALONE_V1
+    @Test
+    fun aSurfaceCoveringTheBarsLeavesThemAsTheyWere() {
+        val state = SubshellState()
+        val shown = mutableStateOf(false)
+        val connection = scrollConnection(state, shown)
+
+        connection.onPreScroll(Offset(0f, -500f), NestedScrollSource.UserInput)
+        assertTrue("an open modmail thread does not hide the bars", state.chromeVisible)
+
+        state.onMainContentScroll(deltaPx = 500f, atTop = false, hideThresholdPx = 1f, showThresholdPx = 1f)
+        connection.onPostScroll(Offset.Zero, Offset(0f, 30f), NestedScrollSource.UserInput)
+        assertFalse("nor shows them", state.chromeVisible)
+
+        shown.value = true
+        composeRule.waitForIdle()
+        connection.onPostScroll(Offset.Zero, Offset(0f, 30f), NestedScrollSource.UserInput)
+        assertTrue("back on the inbox the list moves them again", state.chromeVisible)
+    }
+
+    private fun scrollConnection(
+        state: SubshellState,
+        chromeShown: androidx.compose.runtime.State<Boolean> = mutableStateOf(true),
+    ): NestedScrollConnection {
         ensureWorkManagerInitialized(ApplicationProvider.getApplicationContext<Application>())
         var connection: NestedScrollConnection? = null
         composeRule.setContent {
-            connection = rememberChromeScrollConnection(state = state, density = density)
+            connection = rememberChromeScrollConnection(
+                state = state,
+                density = density,
+                chromeShown = chromeShown.value,
+            )
         }
         composeRule.waitForIdle()
         return checkNotNull(connection)

@@ -79,7 +79,7 @@ class Issue89BackupScreenOffMainComposeTest {
         }
         assertTrue(held.await(60, TimeUnit.SECONDS))
 
-        composeRule.onNodeWithText("Stop using this folder").performClick()
+        composeRule.onNodeWithText("Stop copying to this folder").performClick()
 
         // The tap returned while the sync still held the repository.
         assertFalse(syncFinished.get())

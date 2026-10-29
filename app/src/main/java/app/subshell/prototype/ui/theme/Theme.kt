@@ -22,10 +22,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.platform.ViewConfiguration
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -141,6 +145,7 @@ data class SubshellThemeSettings(
     val dynamicColor: Boolean = app.subshell.prototype.ui.DefaultSubshellSettings.dynamicColor,
     val pureBlack: Boolean = false,
     val textScale: Float = 1f,
+    val uiScale: Float = 1f,
 )
 
 // M3221_SURFACE_LEVELS_ARE_COLOUR_ROLES_V1 (#221): a level is chosen with the
@@ -156,6 +161,7 @@ fun SubshellTheme(
     dynamicColor: Boolean = false,
     pureBlack: Boolean = false,
     textScale: Float = 1f,
+    uiScale: Float = 1f,
     codeFontFamily: FontFamily = FontFamily.Monospace,
     manageSystemBarContrast: Boolean = true,
     reduceMotion: Boolean = false,
@@ -199,17 +205,47 @@ fun SubshellTheme(
     // sizes keep growing smoothly instead of jumping at 2.0.
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
-    val scaledDensity = remember(density, textScale, configuration, context) {
-        if (textScale == 1f) {
+    // ISSUE278_EVERY_WINDOW_FOLLOWS_THE_UI_SIZE_V1: the outermost theme of the
+    // app's root view finds the scales already in its window (UiScaleContext)
+    // and applies only the rest (a test without that context applies all). A
+    // nested theme (the Appearance preview) scales on top of the outer one.
+    val outer = LocalAppliedUiScale.current
+    val (windowUiScale, windowTextScale) = if (outer == null) windowScales(context) else 1f to 1f
+    val textRest = textScale / windowTextScale
+    val uiRest = uiScale / windowUiScale
+    val appliedUiScale = (outer ?: 1f) * uiScale
+    val scaledDensity = remember(density, textRest, uiRest, configuration, context) {
+        val textScaled = if (textRest == 1f) {
             density
         } else {
-            appTextScaleDensity(context, configuration, density.fontScale * textScale)
+            // The context's configuration, not LocalConfiguration: after a rotation
+            // Android hands the root view its own, unscaled one.
+            appTextScaleDensity(context, context.resources.configuration, density.fontScale * textRest)
         }
+        // ISSUE278_UI_SIZE_SCALES_THE_WHOLE_APP_V1: the UI size scales every dp,
+        // and text with it (sp goes through dp); Text size stays relative on top.
+        if (uiRest == 1f) textScaled else UiScaledDensity(textScaled, uiRest)
     }
+    val viewConfiguration = LocalViewConfiguration.current
     CompositionLocalProvider(
         LocalCodeFontFamily provides codeFontFamily,
         LocalDensity provides scaledDensity,
         LocalReduceMotion provides reduceMotion,
+        LocalUiScale provides appliedUiScale,
+        LocalAppliedUiScale provides appliedUiScale,
+        // ISSUE278_TOUCH_TARGETS_STAY_48_DP_V1 (owner): a smaller UI keeps Google's
+        // 48 dp minimum touch target in physical size.
+        LocalMinimumInteractiveComponentSize provides MinimumTouchTarget / appliedUiScale,
+        // Compose widens a small clickable's hit area to this size (M3's icon
+        // buttons put their click on the 40 dp inner shape); in dp it shrank with
+        // the UI size, 41 dp physical at 85 %.
+        LocalViewConfiguration provides remember(viewConfiguration, appliedUiScale) {
+            if (appliedUiScale == 1f) {
+                viewConfiguration
+            } else {
+                PhysicalTouchTargetViewConfiguration(viewConfiguration, appliedUiScale)
+            }
+        },
     ) {
         // EXPRESSIVE01_SPRING_MOTION_V1 (owner 2026-10-18, test build): M3
         // Expressive's spring motion scheme; the app's own colours, type and
@@ -226,6 +262,32 @@ fun SubshellTheme(
 }
 
 private const val PLATFORM_MAX_FONT_SCALE_TABLE = 2f
+
+private val MinimumTouchTarget = 48.dp
+
+/** ISSUE278: the reader's UI size, 1 = Android's own size. */
+val LocalUiScale = staticCompositionLocalOf { 1f }
+
+/** The UI size an enclosing SubshellTheme applied; null outside every theme. */
+private val LocalAppliedUiScale = staticCompositionLocalOf<Float?> { null }
+
+private class PhysicalTouchTargetViewConfiguration(
+    base: ViewConfiguration,
+    uiScale: Float,
+) : ViewConfiguration by base {
+    override val minimumTouchTargetSize: DpSize = DpSize(MinimumTouchTarget / uiScale, MinimumTouchTarget / uiScale)
+}
+
+/** [base] with every dp [scale] times as large; text keeps [base]'s font curve. */
+private class UiScaledDensity(
+    private val base: Density,
+    private val scale: Float,
+) : Density {
+    override val density: Float get() = base.density * scale
+    override val fontScale: Float get() = base.fontScale
+    override fun TextUnit.toDp(): Dp = with(base) { this@toDp.toDp() }
+    override fun Dp.toSp(): TextUnit = with(base) { this@toSp.toSp() }
+}
 
 /**
  * ISSUE249_IN_SCREEN_PAGES_FOLLOW_THE_BACK_GESTURE_V1: the app's Reduce motion

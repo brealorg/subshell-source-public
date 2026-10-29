@@ -29,9 +29,9 @@ class Backup04A3PostComposerDraftsOptInPolicyTest {
             "app/src/main/java/app/subshell/prototype/ui/screens/BackupRestoreScreen.kt",
         ).readText()
 
-        assertTrue(screen.contains("Include post drafts in backup & restore"))
-        assertTrue(screen.contains("unpublished text and link post drafts"))
-        assertTrue(screen.contains("Media drafts and local attachments stay only on this device"))
+        assertTrue(screen.contains("title = \"Post drafts\""))
+        assertTrue(screen.contains("Text and link drafts; images stay on this device"))
+        assertTrue(screen.contains("Only text and link post drafts are restored."))
         assertTrue(screen.contains("Post drafts · privacy-sensitive"))
         assertTrue(screen.contains("target.postComposerDraftsByAccount.takeIf"))
     }

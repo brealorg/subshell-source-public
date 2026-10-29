@@ -165,6 +165,25 @@ internal class DiagnosticEventStore private constructor(
         recordLocked(DiagnosticEvents.jankObserved(summary, nowEpochMs))
     }
 
+    /** ISSUE263_NO_NSFW_COMMUNITY_OFFERED_IS_RECORDED_V1 */
+    fun recordNsfwCommunitiesNoneOffered(
+        popularCommunities: Int,
+        searchedCommunities: Int,
+        accountOver18: Boolean?,
+        accountSearchOver18: Boolean?,
+        nowEpochMs: Long = System.currentTimeMillis(),
+    ): DiagnosticSnapshot = recordingSafely {
+        recordLocked(
+            DiagnosticEvents.nsfwCommunitiesNoneOffered(
+                popularCommunities = popularCommunities,
+                searchedCommunities = searchedCommunities,
+                accountOver18 = accountOver18,
+                accountSearchOver18 = accountSearchOver18,
+                nowEpochMs = nowEpochMs,
+            ),
+        )
+    }
+
     /** DIAG04_LISTING_SKIP_EVENT_V1 */
     fun recordListingPostSkipped(
         jsonPath: String?,
@@ -438,6 +457,12 @@ internal class DiagnosticEventStore private constructor(
         event.frames?.toString() ?: NULL_TOKEN,
         event.jankFrames?.toString() ?: NULL_TOKEN,
         event.worstFrameMs?.toString() ?: NULL_TOKEN,
+        // ISSUE263_NO_NSFW_COMMUNITY_OFFERED_IS_RECORDED_V1: appended; a
+        // 27-field line from before reads with these empty.
+        event.popularCommunities?.toString() ?: NULL_TOKEN,
+        event.searchedCommunities?.toString() ?: NULL_TOKEN,
+        event.accountOver18.encodeBoolean(),
+        event.accountSearchOver18.encodeBoolean(),
     ).joinToString(separator = "|")
 
     private fun Boolean?.encodeBoolean(): String = when (this) {
@@ -482,6 +507,10 @@ internal class DiagnosticEventStore private constructor(
                 frames = parts.getOrNull(24)?.nullableLong()?.toInt(),
                 jankFrames = parts.getOrNull(25)?.nullableLong()?.toInt(),
                 worstFrameMs = parts.getOrNull(26)?.nullableLong(),
+                popularCommunities = parts.getOrNull(27)?.nullableLong()?.toInt(),
+                searchedCommunities = parts.getOrNull(28)?.nullableLong()?.toInt(),
+                accountOver18 = parts.getOrNull(29)?.nullableBoolean(),
+                accountSearchOver18 = parts.getOrNull(30)?.nullableBoolean(),
             )
         }.getOrNull()
     }
@@ -567,7 +596,7 @@ private const val SCOPE_FINGERPRINT_BYTES = 8
 private const val DIAGNOSTIC_HEADER_PREFIX = "SUBSHELL_DIAGNOSTICS_V1"
 private const val EVENT_PREFIX = "E"
 private const val LEGACY_EVENT_FIELD_COUNT = 16
-private const val EVENT_FIELD_COUNT = 27
+private const val EVENT_FIELD_COUNT = 31
 private const val NULL_TOKEN = "-"
 private const val TRUE_TOKEN = "1"
 private const val FALSE_TOKEN = "0"

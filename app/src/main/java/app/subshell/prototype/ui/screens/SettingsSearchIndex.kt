@@ -42,10 +42,11 @@ internal val settingsSearchEntries: List<SettingsSearchEntry> = listOf(
 
     setting("theme", "Appearance", "theme system light dark pure black oled amoled"),
     setting("dynamic", "Appearance", "dynamic colour color device palette subshell orange"),
+    setting("ui-size", "Appearance", "ui size interface size display size density compact smaller larger scale zoom everything oversized"),
     setting("text-size", "Appearance", "text size font size larger smaller scale readability accessibility"),
-    setting("vote-controls", "Appearance", "vote controls comfortable compact thumbs arrows score"),
+    setting("vote-controls", "Appearance", "vote controls comfortable compact thumbs arrows score smaller"),
     setting("vote-colours", "Appearance", "vote colours colors theme accent red blue upvote downvote"),
-    setting("code-font", "Appearance", "code font monospace JetBrains Mono Iosevka Recursive balanced compact casual"),
+    setting("code-font", "Appearance", "code font monospace JetBrains Mono Iosevka Recursive balanced narrow compact casual"),
 
     setting("top-bar-behavior", "Home & feeds", "top bar always show visible hide on scroll"),
     setting("bottom-navigation-behavior", "Home & feeds", "bottom navigation bar always show visible hide on scroll"),
@@ -66,12 +67,14 @@ internal val settingsSearchEntries: List<SettingsSearchEntry> = listOf(
     setting("hidden-subscriptions-device-unlock", "Privacy", "require device unlock hidden communities subscriptions biometric screen lock"),
     setting("app-lock", "Privacy", "lock subshell app lock biometric fingerprint pin device unlock open launch"),
     setting("app-lock-delay", "Privacy", "lock after delay timeout background minutes hours immediately custom app lock"),
+    setting("your-reading", "Privacy", "your reading statistics time spent screen time communities you read usage stats on device"),
     setting("app-lock-notifications", "Privacy", "hide notification content preview app lock private messages modmail"),
 
     setting("search-keyboard", "Search", "open keyboard entering search focus suggestions scope"),
     setting("saved-searches", "Search", "saved searches save bookmark run again query"),
 
     setting("sensitive-media-previews", "Media & links", "sensitive media previews NSFW spoiler blur preload load on tap hide preview"),
+    setting("show-nsfw-media", "Media & links", "show NSFW media without blur unblur uncovered images videos GIFs autoplay"),
     setting("reddit-link-handling", "Media & links", "Open Reddit links reddit links open links browser default Android app links supported domains"),
     setting("media-autoplay", "Media & links", "autoplay videos GIFs one visible media item"),
     setting("media-muted", "Media & links", "start videos muted volume audio sound"),
@@ -90,6 +93,7 @@ internal val settingsSearchEntries: List<SettingsSearchEntry> = listOf(
     setting("playback-options-placement", "Media & links", "playback options button gear quality audio subtitles post full screen feed"),
     setting("video-timeline-size", "Media & links", "video timeline size seekbar slider compact standard large"),
     setting("media-cache", "Media & links", "media cache storage clear cached disk"),
+    setting("offline-images", "Media & links", "saved for offline images storage clear offline reading"),
     setting("video-cache-limit", "Media & links", "video cache size limit storage space gigabyte megabyte 1 gb"),
     setting("download-storage", "Media & links", "downloaded videos downloads storage offline delete all files"),
     setting("media-captions", "Media & links", "gallery captions media captions image captions overlay below media hidden links"),
@@ -134,9 +138,9 @@ internal val settingsSearchEntries: List<SettingsSearchEntry> = listOf(
     setting(
         "backup",
         "Backup & restore",
-        "saved setups backup restore snapshot import export automatic history folder " +
-            "include hidden communities muted communities post drafts saved moderator responses " +
-            "private notes tags retention safety snapshots",
+        "backups saved setups backup restore snapshot import export automatic history folder " +
+            "privacy-sensitive hidden communities muted communities post drafts saved moderator responses " +
+            "private notes tags keep newest retention before restore safety snapshots",
     ),
 
     setting(

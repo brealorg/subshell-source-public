@@ -48,6 +48,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -150,6 +151,10 @@ private const val PROFILE_DOWNVOTES_TAB = 4
 private const val PROFILE_HIDDEN_TAB = 5
 private const val PROFILE_BLOCKED_TAB = 6
 private const val PROFILE_DRAFTS_TAB = 7
+
+// ISSUE268_YOUR_READING_PAGE_V1: You › Library › Reading, shown only while
+// "Your reading" is on (local counts, no Reddit data).
+internal const val PROFILE_READING_TAB = 8
 private const val PROFILE_HISTORY_FIRST_TAB = PROFILE_SAVED_TAB
 private const val PROFILE_HISTORY_LAST_TAB = PROFILE_HIDDEN_TAB
 
@@ -173,6 +178,7 @@ internal val PROFILE_OWN_DESTINATION_LABELS = listOf(
     "Hidden",
     "Blocked",
     "Drafts",
+    "Reading",
 )
 
 // LIBRARY02A1_NESTED_COMPACT_YOU_LIBRARY_V1
@@ -193,6 +199,7 @@ internal val PROFILE_LIBRARY_DESTINATION_TABS = listOf(
     PROFILE_HIDDEN_TAB,
     PROFILE_BLOCKED_TAB,
     PROFILE_DRAFTS_TAB,
+    PROFILE_READING_TAB,
 )
 
 internal val PROFILE_LIBRARY_DESTINATION_LABELS =
@@ -260,6 +267,7 @@ private fun profileDestinationIcon(tab: Int): ImageVector = when (tab) {
     PROFILE_HIDDEN_TAB -> Symbols.VisibilityOff
     PROFILE_BLOCKED_TAB -> Symbols.PersonOff
     PROFILE_DRAFTS_TAB -> Symbols.Edit
+    PROFILE_READING_TAB -> Symbols.Schedule
     else -> Symbols.Article
 }
 
@@ -430,6 +438,7 @@ fun UserProfileScreen(
         if (
             tab != PROFILE_DRAFTS_TAB &&
                 tab != PROFILE_BLOCKED_TAB &&
+                tab != PROFILE_READING_TAB &&
                 (
                     !authenticated ||
                         authenticatedRedditUserSubmitted ||
@@ -797,7 +806,8 @@ fun UserProfileScreen(
             authenticatedRedditMixedSaved ||
             tab == PROFILE_COMMENTS_TAB ||
             tab == PROFILE_BLOCKED_TAB ||
-            tab == PROFILE_DRAFTS_TAB
+            tab == PROFILE_DRAFTS_TAB ||
+            tab == PROFILE_READING_TAB
     ) {
         null
     } else {
@@ -892,6 +902,7 @@ fun UserProfileScreen(
                     if (profileDrafts.isEmpty()) add("no-drafts")
                     else addAll(profileDrafts.map { draft -> "profile-draft-${draft.id}" })
                 }
+            PROFILE_READING_TAB -> if (isOwnProfile) add("reading-stats")
             }
             if (showProfileCommentsStatus) {
                 add("profile-comments-status")
@@ -1063,6 +1074,7 @@ fun UserProfileScreen(
     val videoPostIds = remember(
         mediaPosts,
         revealedMediaIds,
+        state.showNsfwMedia,
     ) {
         mediaPosts
             .filter { post ->
@@ -1117,6 +1129,7 @@ fun UserProfileScreen(
     val animatedPostIdsByItemKey = remember(
         mediaPosts,
         revealedMediaIds,
+        state.showNsfwMedia,
         savedPostItemKeysByPostId,
         authenticatedRedditMixedSaved,
     ) {
@@ -2177,6 +2190,9 @@ fun UserProfileScreen(
                         }
                     }
                 }
+                PROFILE_READING_TAB -> if (isOwnProfile) {
+                    item("reading-stats") { ReadingStatsPanel(state) }
+                }
             }
 
             if (showProfileCommentsStatus) {
@@ -2277,6 +2293,14 @@ private fun OwnProfileDestinationStrip(
     selectedTab: Int,
     onSelect: (Int) -> Unit,
 ) {
+    // ISSUE268: the Reading tab only while "Your reading" is on.
+    val readingStatsEnabled by app.subshell.prototype.data.reading.ReadingStats
+        .store(androidx.compose.ui.platform.LocalContext.current)
+        .enabled
+        .collectAsStateWithLifecycle()
+    val libraryTabs = PROFILE_LIBRARY_DESTINATION_TABS.filter { destinationTab ->
+        destinationTab != PROFILE_READING_TAB || readingStatsEnabled == true || selectedTab == PROFILE_READING_TAB
+    }
     var lastLibraryTab by rememberSaveable(profileKey) {
         mutableIntStateOf(
             selectedTab.takeIf { it in PROFILE_LIBRARY_DESTINATION_TABS }
@@ -2357,13 +2381,13 @@ private fun OwnProfileDestinationStrip(
         }
 
         if (selectedPrimary == 2) {
-            val selectedLibraryIndex = PROFILE_LIBRARY_DESTINATION_TABS.indexOf(selectedTab).coerceAtLeast(0)
+            val selectedLibraryIndex = libraryTabs.indexOf(selectedTab).coerceAtLeast(0)
             SecondaryScrollableTabRow(
                 selectedTabIndex = selectedLibraryIndex,
                 containerColor = Color.Transparent,
                 edgePadding = 0.dp,
             ) {
-                PROFILE_LIBRARY_DESTINATION_TABS.forEach { destinationTab ->
+                libraryTabs.forEach { destinationTab ->
                     val label = profileDestinationLabel(destinationTab)
                     val selected = destinationTab == selectedTab
                     val showLabel = selected

@@ -1,6 +1,7 @@
 package app.subshell.prototype.ui.state
 
 import app.subshell.prototype.ui.theme.AppTextScale
+import app.subshell.prototype.ui.theme.AppUiScale
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -51,6 +52,7 @@ internal class SettingsState(
     initialDynamicColor: Boolean,
     initialPureBlackDarkTheme: Boolean,
     initialAppTextScale: AppTextScale,
+    initialAppUiScale: AppUiScale,
     initialVoteColorPalette: VoteColorPalette,
     initialVoteControlMode: VoteControlMode,
     initialCodeFont: CodeFont,
@@ -129,6 +131,7 @@ internal class SettingsState(
     var dynamicColor by mutableStateOf(initialDynamicColor)
     var pureBlackDarkTheme by mutableStateOf(initialPureBlackDarkTheme)
     var appTextScale by mutableStateOf(initialAppTextScale)
+    var appUiScale by mutableStateOf(initialAppUiScale)
     var voteColorPalette by mutableStateOf(initialVoteColorPalette)
         internal set
     var voteControlMode by mutableStateOf(initialVoteControlMode)
@@ -406,6 +409,11 @@ internal class SettingsState(
     fun updateAppTextScale(scale: AppTextScale) {
         appTextScale = scale
         persistPreference(SubshellSettings.APP_TEXT_SCALE, scale.name)
+    }
+
+    fun updateAppUiScale(scale: AppUiScale) {
+        appUiScale = scale
+        persistPreference(SubshellSettings.APP_UI_SCALE, scale.name)
     }
 
     fun updateVoteColorPalette(palette: VoteColorPalette) {

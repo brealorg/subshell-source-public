@@ -46,6 +46,8 @@ class SubshellDrawerComposeTest {
             providerLabel = "Reddit",
         )
         val state = SubshellState(
+            // ISSUE271: an install that has chosen its side shows Home, not the setup flow.
+            initialInteractionSideConfigured = true,
             initialAccountSessions = listOf(account),
             initialActiveAccountId = account.stableId,
         )

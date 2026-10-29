@@ -407,7 +407,8 @@ internal fun postThumbnailUri(post: Post): String? =
 @Composable
 internal fun PostThumbnail(post: Post, state: SubshellState, modifier: Modifier = Modifier) {
     val sensitive = (post.spoiler || post.nsfw) && post.kind != PostKind.TEXT
-    val revealed = !sensitive || post.id in state.revealedMediaIds
+    // NSFWMEDIA01_SHOW_NSFW_MEDIA_SETTING_V1
+    val revealed = !sensitive || post.id in state.revealedMediaIds || state.nsfwMediaShownUncovered(post)
     val mode = state.sensitiveMediaPreviewMode
     val hidden = sensitive && !revealed && mode == SensitiveMediaPreviewMode.HIDE_PREVIEW
     val coverOnly = sensitive && !revealed && mode == SensitiveMediaPreviewMode.LOAD_ON_TAP

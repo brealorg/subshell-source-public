@@ -920,7 +920,7 @@ internal object InboxNotificationCenter {
         }
     }
 
-    private fun notificationPolicy(context: Context): InboxNotificationPolicy {
+    internal fun notificationPolicy(context: Context): InboxNotificationPolicy {
         val preferences = context.getSharedPreferences(
             SUBSHELL_PREFERENCES,
             Context.MODE_PRIVATE,

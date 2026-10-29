@@ -14,16 +14,48 @@ class Issue93And94MoreNodeLoadingTest {
     fun thePinnedHeaderDoesNotStretchTheVisibleRangeToTheTop() {
         // Scrolled deep into the thread: the sticky "comment-controls" header
         // (index 3) is pinned above rows 40..48.
-        val visible = listOf(3 to "comment-controls") +
-            (40..48).map { index -> index to "comment:c$index" } +
-            listOf(49 to "more:m49")
+        val visible = listOf(VisibleLazyCommentItem(3, "comment-controls", offset = 0, size = 100)) +
+            (40..48).map { index -> VisibleLazyCommentItem(index, "comment:c$index", offset = 100 + (index - 40) * 100, size = 100) } +
+            listOf(VisibleLazyCommentItem(49, "more:m49", offset = 1_000, size = 1))
 
         assertEquals(40 to 49, commentViewportVisibleRowLazyIndices(visible))
     }
 
+    // ISSUE269_ROWS_UNDER_THE_HEADER_ARE_NOT_ON_SCREEN_V1
+    @Test
+    fun aRowWhollyUnderThePinnedHeaderIsNotOnScreen() {
+        val visible = listOf(
+            VisibleLazyCommentItem(3, "comment-controls", offset = 0, size = 100),
+            VisibleLazyCommentItem(39, "more:m39", offset = 99, size = 1),
+            VisibleLazyCommentItem(40, "comment:c40", offset = 100, size = 300),
+            VisibleLazyCommentItem(41, "comment:c41", offset = 400, size = 300),
+        )
+
+        assertEquals(40 to 41, commentViewportVisibleRowLazyIndices(visible))
+        // A row only partly under the header is still on screen.
+        assertEquals(
+            39 to 40,
+            commentViewportVisibleRowLazyIndices(
+                listOf(
+                    VisibleLazyCommentItem(3, "comment-controls", offset = 0, size = 100),
+                    VisibleLazyCommentItem(39, "comment:c39", offset = 50, size = 60),
+                    VisibleLazyCommentItem(40, "comment:c40", offset = 110, size = 300),
+                ),
+            ),
+        )
+    }
+
     @Test
     fun noVisibleRowsMeansNoRange() {
-        assertEquals(-1 to -1, commentViewportVisibleRowLazyIndices(listOf(0 to "post", 3 to "comment-controls")))
+        assertEquals(
+            -1 to -1,
+            commentViewportVisibleRowLazyIndices(
+                listOf(
+                    VisibleLazyCommentItem(0, "post", offset = 0, size = 400),
+                    VisibleLazyCommentItem(3, "comment-controls", offset = 400, size = 100),
+                ),
+            ),
+        )
     }
 
     private fun comment(id: String, depth: Int = 0) = Comment(

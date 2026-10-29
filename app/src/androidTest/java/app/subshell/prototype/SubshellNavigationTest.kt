@@ -37,7 +37,7 @@ class SubshellNavigationTest {
 
         composeRule.onNodeWithContentDescription("You").performClick()
         composeRule.onNodeWithContentDescription("Settings").performClick()
-        composeRule.onNodeWithText("Saved setups").performClick()
+        composeRule.onNodeWithText("Backups").performClick()
         composeRule.onNodeWithText("Backup & restore").assertIsDisplayed()
 
         composeRule.activityRule.scenario.onActivity { activity ->
@@ -45,12 +45,13 @@ class SubshellNavigationTest {
         }
 
         composeRule.onNodeWithText("Settings").assertIsDisplayed()
-        composeRule.onNodeWithText("Saved setups").assertIsDisplayed()
+        composeRule.onNodeWithText("Backups").assertIsDisplayed()
     }
 
     private fun dismissOnboardingIfNeeded() {
-        if (composeRule.onAllNodesWithText("Use Right").fetchSemanticsNodes().isNotEmpty()) {
-            composeRule.onNodeWithText("Use Right").performClick()
+        // ISSUE271: the setup flow after sign-in.
+        if (composeRule.onAllNodesWithText("Skip").fetchSemanticsNodes().isNotEmpty()) {
+            composeRule.onNodeWithText("Skip").performClick()
         }
         if (composeRule.onAllNodesWithText("Later").fetchSemanticsNodes().isNotEmpty()) {
             composeRule.onNodeWithText("Later").performClick()

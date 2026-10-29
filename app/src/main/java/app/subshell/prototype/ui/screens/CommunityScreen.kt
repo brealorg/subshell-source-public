@@ -71,6 +71,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -839,7 +840,7 @@ fun CommunityScreen(
     )
 
     val revealedMediaIds = state.revealedMediaIds.toSet()
-    val videoPostIds = remember(visiblePosts, revealedMediaIds, postLayout) {
+    val videoPostIds = remember(visiblePosts, revealedMediaIds, state.showNsfwMedia, postLayout) {
         // ISSUE234_FEED_POST_LAYOUTS_V1: only Large plays media in the feed.
         visiblePosts
             .filter { postLayout == PostLayout.LARGE }
@@ -853,7 +854,7 @@ fun CommunityScreen(
 
     ObserveFeedVideoViewport(listState = listState, state = state)
 
-    val animatedPostIds = remember(visiblePosts, revealedMediaIds, postLayout) {
+    val animatedPostIds = remember(visiblePosts, revealedMediaIds, state.showNsfwMedia, postLayout) {
         visiblePosts
             .filter { postLayout == PostLayout.LARGE }
             .filter {
@@ -902,7 +903,35 @@ fun CommunityScreen(
     ) {
         if (showContextHeader) {
             RouteTopBar(
-                title = state.subredditLabel(community.name),
+                // ISSUE274_COMMUNITY_BAR_SHOWS_ITS_ICON_V1 (#274, owner): deep in the
+                // feed the bar says which community this is, with its icon when it
+                // has one.
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (community.iconImageUri != null) {
+                            RemoteIdentityImage(
+                                uri = community.iconImageUri,
+                                contentDescription = null, // decorative beside the visible name (ISSUE219)
+                                modifier = Modifier
+                                    .testTag("community-bar-icon")
+                                    .size(28.dp)
+                                    .clip(CircleShape),
+                            ) {
+                                CommunityAvatar(
+                                    name = community.name,
+                                    accent = accent,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
+                            Spacer(Modifier.width(12.dp))
+                        }
+                        Text(
+                            state.subredditLabel(community.name),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                },
                 scrollBehavior = routeTopBarScroll,
                 onBack = if (showBackButton) onBack else null,
                 actions = {

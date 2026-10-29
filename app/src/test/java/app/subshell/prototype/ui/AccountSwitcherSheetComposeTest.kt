@@ -52,6 +52,8 @@ class AccountSwitcherSheetComposeTest {
             state = AccountSessionState.REAUTHENTICATION_REQUIRED,
         )
         val state = SubshellState(
+            // ISSUE271: an install that has chosen its side shows Home, not the setup flow.
+            initialInteractionSideConfigured = true,
             initialAccountSessions = localFixtureAccountSummaries(listOf("root")) + alice + bob,
             initialActiveAccountId = alice.stableId,
         )

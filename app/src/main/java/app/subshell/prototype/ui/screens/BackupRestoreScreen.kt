@@ -98,6 +98,12 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ListItem
+import app.subshell.prototype.ui.error.LocalViewportErrorHostState
+import app.subshell.prototype.ui.noticeInfo
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.Tab
+import androidx.compose.material3.SecondaryTabRow
+import app.subshell.prototype.ui.PortableBackupState
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.ui.graphics.Color
 
@@ -155,11 +161,14 @@ fun BackupRestoreScreen(
     var safetySnapshotRetention by remember(repository) {
         mutableStateOf(repository.safetySnapshotRetention())
     }
-    var message by remember { mutableStateOf<String?>(null) }
+    // ISSUE270_BACKUP_NOTICES_USE_THE_TRAY_V1: an answer to an action goes to the
+    // app's one message surface (ISSUE222), which shows wherever the reader is.
+    val notices = LocalViewportErrorHostState.current
+    fun showNotice(notice: BackupNotice) = notices.noticeInfo(notice.title, notice.detail)
     var failureOperation by remember { mutableStateOf<BackupFailureOperation?>(null) }
     var failureDetails by remember { mutableStateOf<FailureDetails?>(null) }
     var saveDialogVisible by remember { mutableStateOf(false) }
-    var saveName by remember { mutableStateOf("My setup") }
+    var saveName by remember { mutableStateOf("My backup") }
     var renameTarget by remember { mutableStateOf<SettingsSnapshot?>(null) }
     var renameValue by remember { mutableStateOf("") }
     var deleteTarget by remember { mutableStateOf<SettingsSnapshot?>(null) }
@@ -171,6 +180,7 @@ fun BackupRestoreScreen(
     // which setup to write and left an empty file. The id and name are saved.
     var pendingExportId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingExportName by rememberSaveable { mutableStateOf<String?>(null) }
+    var backupTab by rememberSaveable { mutableStateOf(BackupListTab.YOURS) }
 
     fun refresh() {
         readRevision += 1
@@ -188,7 +198,6 @@ fun BackupRestoreScreen(
         operation: BackupFailureOperation,
         error: Throwable,
     ) {
-        message = null
         failureOperation = operation
         failureDetails = error.toBackupFailureDetails()
         refresh()
@@ -196,20 +205,69 @@ fun BackupRestoreScreen(
 
     fun runInBackground(
         operation: BackupFailureOperation,
-        action: () -> String,
+        action: () -> BackupNotice,
     ) {
         scope.launch {
             val result = withContext(Dispatchers.IO) { runCatching(action) }
-            result.onSuccess { successMessage ->
+            result.onSuccess { notice ->
                 refresh()
                 failureOperation = null
                 failureDetails = null
-                message = successMessage
+                showNotice(notice)
             }.onFailure { error ->
                 reportFailure(operation, error)
             }
         }
     }
+
+    fun recordPortableChange(currentPortable: PortableBackupState) {
+        repository.recordSettingsChange(
+            settings = currentPortable.settings,
+            joinedCommunityIdsByAccount = currentPortable.joinedCommunityIdsByAccount,
+            favoriteCommunityNamesByAccount = currentPortable.favoriteCommunityNamesByAccount,
+            favoriteCustomFeedPathsByAccount = currentPortable.favoriteCustomFeedPathsByAccount,
+            hiddenCommunityNamesByAccount = currentPortable.hiddenCommunityNamesByAccount,
+            communityMutesByAccount = currentPortable.communityMutesByAccount,
+            postComposerDraftsByAccount = currentPortable.postComposerDraftsByAccount,
+            moderatorSavedResponses = currentPortable.moderatorSavedResponses,
+            userTagsByAccount = currentPortable.userTagsByAccount,
+            savedSearchesByAccount = currentPortable.savedSearchesByAccount,
+            watchedCommunityNamesByAccount = currentPortable.watchedCommunityNamesByAccount,
+        )
+    }
+
+    // A privacy-sensitive switch also decides whether a restore applies the data.
+    fun recordBackupChoice(enabled: Boolean, subject: String) {
+        val notice = if (enabled) {
+            BackupNotice("$subject will be backed up", "New backups hold them, and a restore brings them back.")
+        } else {
+            BackupNotice("$subject are left out", "New backups leave them out, and a restore leaves yours as they are.")
+        }
+        if (automaticHistory) {
+            val currentPortable = state.capturePortableBackupState()
+            runInBackground(BackupFailureOperation.SAVE) {
+                recordPortableChange(currentPortable)
+                notice
+            }
+        } else {
+            showNotice(notice)
+        }
+    }
+
+    fun pendingRestoreOf(snapshot: SettingsSnapshot) = PendingRestore(
+        snapshot = snapshot,
+        currentSettings = state.captureSettings(),
+        currentJoinedCommunityIdsByAccount = state.captureJoinedCommunityIdsByAccount(),
+        currentFavoriteCommunityNamesByAccount = state.captureFavoriteCommunityNamesByAccount(),
+        currentFavoriteCustomFeedPathsByAccount = state.captureFavoriteCustomFeedPathsByAccount(),
+        currentHiddenCommunityNamesByAccount = state.captureHiddenCommunityNamesByAccount(),
+        currentCommunityMutesByAccount = state.captureCommunityMutesByAccount(),
+        currentPostComposerDraftsByAccount = state.capturePostComposerDraftsByAccount(),
+        currentModeratorSavedResponses = state.captureModeratorSavedResponses(),
+        currentUserTagsByAccount = state.captureUserTagsByAccount(),
+        currentSavedSearchesByAccount = state.captureSavedSearchesByAccount(),
+        currentWatchedCommunityNamesByAccount = state.captureWatchedCommunityNamesByAccount(),
+    )
 
     ReportViewportError(
         scopeKey = "backup-restore",
@@ -231,8 +289,8 @@ fun BackupRestoreScreen(
                 val connection = repository.connectFolder(uri)
                 when {
                     connection.isProtected && connection.importedSnapshots > 0 ->
-                        "Backup folder connected. Restored ${connection.importedSnapshots} saved states."
-                    connection.isProtected -> "Backup folder connected and protected."
+                        BackupNotice("Backup folder connected", "Found ${connection.importedSnapshots} backups in it.")
+                    connection.isProtected -> BackupNotice("Backup folder connected", "New backups are copied to it.")
                     else -> throw BackupFailureException(
                         connection.failureDetails ?: FailureDetails(
                             retryable = true,
@@ -257,28 +315,43 @@ fun BackupRestoreScreen(
                 requireNotNull(context.contentResolver.openOutputStream(uri, "wt")) {
                     "Could not open the selected location"
                 }.bufferedWriter().use { it.write(json) }
-                "Exported ${snapshotName.orEmpty()}"
+                BackupNotice("Backup exported", "${snapshotName.orEmpty()} is saved as a file.")
             }
         } else if (uri != null) {
             // The picker made the file but nothing says what to write: remove it.
             runCatching { android.provider.DocumentsContract.deleteDocument(context.contentResolver, uri) }
             reportFailure(
                 BackupFailureOperation.EXPORT,
-                IllegalStateException("The setup to export was lost; export it again."),
+                IllegalStateException("The backup to export was lost; export it again."),
             )
         }
     }
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            runInBackground(BackupFailureOperation.IMPORT) {
-                val json = requireNotNull(context.contentResolver.openInputStream(uri)) {
-                    "Could not open the selected backup"
-                }.bufferedReader().use {
-                    it.readBackupTextBounded(BACKUP_IMPORT_MAX_CHARACTERS)
+            // ISSUE270_BACKUP_SCREEN_LEADS_WITH_ITS_ACTIONS_V1: the file joins
+            // Your backups and its restore preview opens; Cancel keeps it there.
+            scope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    runCatching {
+                        val json = requireNotNull(context.contentResolver.openInputStream(uri)) {
+                            "Could not open the selected backup"
+                        }.bufferedReader().use {
+                            it.readBackupTextBounded(BACKUP_IMPORT_MAX_CHARACTERS)
+                        }
+                        repository.importSnapshot(json)
+                    }
                 }
-                val imported = repository.importSnapshot(json)
-                "Imported ${imported.name}. Restore it when you are ready."
+                result.onSuccess { imported ->
+                    refresh()
+                    failureOperation = null
+                    failureDetails = null
+                    backupTab = BackupListTab.YOURS
+                    showNotice(BackupNotice("Added ${imported.displayName()}", "It's under Your backups."))
+                    restoreTarget = pendingRestoreOf(imported)
+                }.onFailure { error ->
+                    reportFailure(BackupFailureOperation.IMPORT, error)
+                }
             }
         }
     }
@@ -312,7 +385,7 @@ fun BackupRestoreScreen(
                     onSync = {
                         runInBackground(BackupFailureOperation.SYNC) {
                             if (repository.syncNow()) {
-                                "Backup folder is up to date."
+                                BackupNotice("Backup folder is up to date", "Every backup is copied to it.")
                             } else {
                                 throw BackupFailureException(
                                     repository.status().failureDetails ?: FailureDetails(
@@ -326,62 +399,63 @@ fun BackupRestoreScreen(
                     onDisconnect = {
                         runInBackground(BackupFailureOperation.SYNC) {
                             repository.disconnectFolder()
-                            "External folder disconnected. Existing backup files were kept."
+                            BackupNotice("Stopped copying to the backup folder", "The backups already in it were kept.")
                         }
                     },
                 )
             }
 
-            item("automatic-history") {
+            // ISSUE270_BACKUP_SCREEN_LEADS_WITH_ITS_ACTIONS_V1 (owner 2026-10-27):
+            // back up and restore come first; "Restore from file" opens the restore
+            // preview of the file it read.
+            item("actions") {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.medium,
                     color = MaterialTheme.colorScheme.surfaceContainerLow,
                 ) {
-                    BackupSwitchRow(
-                        checked = automaticHistory,
-                        onCheckedChange = { enabled ->
-                            automaticHistory = enabled
-                            repository.setAutomaticHistoryEnabled(enabled)
-                            if (enabled) {
-                                val currentPortable = state.capturePortableBackupState()
-                                runInBackground(BackupFailureOperation.SAVE) {
-                                    repository.recordSettingsChange(
-                                        settings = currentPortable.settings,
-                                        joinedCommunityIdsByAccount =
-                                            currentPortable.joinedCommunityIdsByAccount,
-                                        favoriteCommunityNamesByAccount =
-                                            currentPortable.favoriteCommunityNamesByAccount,
-                                        favoriteCustomFeedPathsByAccount =
-                                            currentPortable.favoriteCustomFeedPathsByAccount,
-                                        hiddenCommunityNamesByAccount =
-                                            currentPortable.hiddenCommunityNamesByAccount,
-                                        communityMutesByAccount =
-                                            currentPortable.communityMutesByAccount,
-                                        postComposerDraftsByAccount =
-                                            currentPortable.postComposerDraftsByAccount,
-                                        moderatorSavedResponses =
-                                            currentPortable.moderatorSavedResponses,
-                                        userTagsByAccount =
-                                            currentPortable.userTagsByAccount,
-                                        savedSearchesByAccount =
-                                            currentPortable.savedSearchesByAccount,
-                                        watchedCommunityNamesByAccount =
-                                            currentPortable.watchedCommunityNamesByAccount,
-                                    )
-                                    "Automatic settings history enabled."
-                                }
-                            } else {
-                                message = "Automatic settings history paused. Saved history was kept."
-                            }
-                        },
-                        title = "Automatic settings history",
-                        description = "Captures changed settings states. Retention is controlled separately below.",
-                        icon = Symbols.History,
-                    )
+                    Column {
+                        BackupActionRow(
+                            icon = Symbols.Save,
+                            title = "Back up now",
+                            description = "Keep your current setup as a backup",
+                            onClick = { saveDialogVisible = true },
+                        )
+                        BackupActionRow(
+                            icon = Symbols.UploadFile,
+                            title = "Restore from file",
+                            description = "Choose a backup file to restore",
+                            onClick = {
+                                importLauncher.launch(
+                                    arrayOf("application/json", "text/plain", "application/octet-stream"),
+                                )
+                            },
+                        )
+                    }
                 }
             }
 
+            // ISSUE270_BACKUP_SCREEN_SAYS_WHAT_IS_BACKED_UP_V1: what every backup
+            // holds, then the privacy-sensitive choices, then what never goes in.
+            item("contents-title") { BackupSectionTitle("What's backed up") }
+            item("contents") {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                ) {
+                    Column {
+                        BackupIncludedRow("Settings", "Everything you choose in Settings")
+                        BackupIncludedRow(
+                            "Communities",
+                            "Joined, favorites and favorite custom feeds, for each account",
+                        )
+                        BackupIncludedRow("Saved searches and new-post notifications", "For each account")
+                    }
+                }
+            }
+
+            item("privacy-sensitive-title") { BackupSubsectionTitle("Privacy-sensitive backup data") }
             item("privacy-sensitive-backup") {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -394,147 +468,29 @@ fun BackupRestoreScreen(
                             onCheckedChange = { enabled ->
                                 includeHiddenCommunities = enabled
                                 repository.setHiddenCommunitiesBackupEnabled(enabled)
-                                val currentPortable = state.capturePortableBackupState()
-                                if (automaticHistory) {
-                                    runInBackground(BackupFailureOperation.SAVE) {
-                                        repository.recordSettingsChange(
-                                            settings = currentPortable.settings,
-                                            joinedCommunityIdsByAccount =
-                                                currentPortable.joinedCommunityIdsByAccount,
-                                            favoriteCommunityNamesByAccount =
-                                                currentPortable.favoriteCommunityNamesByAccount,
-                                            favoriteCustomFeedPathsByAccount =
-                                                currentPortable.favoriteCustomFeedPathsByAccount,
-                                            hiddenCommunityNamesByAccount =
-                                                currentPortable.hiddenCommunityNamesByAccount,
-                                            communityMutesByAccount =
-                                                currentPortable.communityMutesByAccount,
-                                            postComposerDraftsByAccount =
-                                                currentPortable.postComposerDraftsByAccount,
-                                            moderatorSavedResponses =
-                                                currentPortable.moderatorSavedResponses,
-                                            userTagsByAccount =
-                                                currentPortable.userTagsByAccount,
-                                            savedSearchesByAccount =
-                                                currentPortable.savedSearchesByAccount,
-                                            watchedCommunityNamesByAccount =
-                                                currentPortable.watchedCommunityNamesByAccount,
-                                        )
-                                        if (enabled) {
-                                            "Hidden communities will be included in new backups and may be restored."
-                                        } else {
-                                            "Hidden communities are excluded from new backups and restore."
-                                        }
-                                    }
-                                } else {
-                                    message = if (enabled) {
-                                        "Hidden communities will be included in new saved setups and may be restored."
-                                    } else {
-                                        "Hidden communities are excluded from new backups and restore."
-                                    }
-                                }
+                                recordBackupChoice(enabled, "Hidden communities")
                             },
-                            overline = "Privacy-sensitive backup data",
-                            title = "Include hidden communities in backup & restore",
-                            description = "Off by default. Hidden community names are added to new backups only while enabled. Existing backups are not rewritten when this is turned off.",
+                            title = "Hidden communities",
                         )
-
                         BackupSwitchRow(
                             checked = includeCommunityMutes,
                             onCheckedChange = { enabled ->
                                 includeCommunityMutes = enabled
                                 repository.setCommunityMutesBackupEnabled(enabled)
-                                val currentPortable = state.capturePortableBackupState()
-                                if (automaticHistory) {
-                                    runInBackground(BackupFailureOperation.SAVE) {
-                                        repository.recordSettingsChange(
-                                            settings = currentPortable.settings,
-                                            joinedCommunityIdsByAccount =
-                                                currentPortable.joinedCommunityIdsByAccount,
-                                            favoriteCommunityNamesByAccount =
-                                                currentPortable.favoriteCommunityNamesByAccount,
-                                            favoriteCustomFeedPathsByAccount =
-                                                currentPortable.favoriteCustomFeedPathsByAccount,
-                                            hiddenCommunityNamesByAccount =
-                                                currentPortable.hiddenCommunityNamesByAccount,
-                                            communityMutesByAccount =
-                                                currentPortable.communityMutesByAccount,
-                                            postComposerDraftsByAccount =
-                                                currentPortable.postComposerDraftsByAccount,
-                                            moderatorSavedResponses =
-                                                currentPortable.moderatorSavedResponses,
-                                            userTagsByAccount =
-                                                currentPortable.userTagsByAccount,
-                                            savedSearchesByAccount =
-                                                currentPortable.savedSearchesByAccount,
-                                            watchedCommunityNamesByAccount =
-                                                currentPortable.watchedCommunityNamesByAccount,
-                                        )
-                                        if (enabled) {
-                                            "Muted communities will be included in new backups and may be restored."
-                                        } else {
-                                            "Muted communities are excluded from new backups and restore."
-                                        }
-                                    }
-                                } else {
-                                    message = if (enabled) {
-                                        "Muted communities will be included in new saved setups and may be restored."
-                                    } else {
-                                        "Muted communities are excluded from new backups and restore."
-                                    }
-                                }
+                                recordBackupChoice(enabled, "Muted communities")
                             },
-                            title = "Include muted communities in backup & restore",
-                            description = "Off by default. Includes timed and indefinite mutes. Timed mutes keep their original end time; already expired mutes are ignored on restore.",
+                            title = "Muted communities",
+                            description = "Timed mutes keep their end time",
                         )
-
                         BackupSwitchRow(
                             checked = includePostComposerDrafts,
                             onCheckedChange = { enabled ->
                                 includePostComposerDrafts = enabled
                                 repository.setPostComposerDraftsBackupEnabled(enabled)
-                                val currentPortable = state.capturePortableBackupState()
-                                if (automaticHistory) {
-                                    runInBackground(BackupFailureOperation.SAVE) {
-                                        repository.recordSettingsChange(
-                                            settings = currentPortable.settings,
-                                            joinedCommunityIdsByAccount =
-                                                currentPortable.joinedCommunityIdsByAccount,
-                                            favoriteCommunityNamesByAccount =
-                                                currentPortable.favoriteCommunityNamesByAccount,
-                                            favoriteCustomFeedPathsByAccount =
-                                                currentPortable.favoriteCustomFeedPathsByAccount,
-                                            hiddenCommunityNamesByAccount =
-                                                currentPortable.hiddenCommunityNamesByAccount,
-                                            communityMutesByAccount =
-                                                currentPortable.communityMutesByAccount,
-                                            postComposerDraftsByAccount =
-                                                currentPortable.postComposerDraftsByAccount,
-                                            moderatorSavedResponses =
-                                                currentPortable.moderatorSavedResponses,
-                                            userTagsByAccount =
-                                                currentPortable.userTagsByAccount,
-                                            savedSearchesByAccount =
-                                                currentPortable.savedSearchesByAccount,
-                                            watchedCommunityNamesByAccount =
-                                                currentPortable.watchedCommunityNamesByAccount,
-                                        )
-                                        if (enabled) {
-                                            "Text and link post drafts will be included in new backups and may be restored."
-                                        } else {
-                                            "Post drafts are excluded from new backups and restore."
-                                        }
-                                    }
-                                } else {
-                                    message = if (enabled) {
-                                        "Text and link post drafts will be included in new saved setups and may be restored."
-                                    } else {
-                                        "Post drafts are excluded from new backups and restore."
-                                    }
-                                }
+                                recordBackupChoice(enabled, "Post drafts")
                             },
-                            title = "Include post drafts in backup & restore",
-                            description = "Off by default. Includes unpublished text and link post drafts. Media drafts and local attachments stay only on this device.",
+                            title = "Post drafts",
+                            description = "Text and link drafts; images stay on this device",
                         )
                         // BACKUP04A4_MODERATOR_SAVED_RESPONSES_SCHEMA_V8_OPT_IN_V1
                         BackupSwitchRow(
@@ -542,48 +498,10 @@ fun BackupRestoreScreen(
                             onCheckedChange = { enabled ->
                                 includeModeratorSavedResponses = enabled
                                 repository.setModeratorSavedResponsesBackupEnabled(enabled)
-                                val currentPortable = state.capturePortableBackupState()
-                                if (automaticHistory) {
-                                    runInBackground(BackupFailureOperation.SAVE) {
-                                        repository.recordSettingsChange(
-                                            settings = currentPortable.settings,
-                                            joinedCommunityIdsByAccount =
-                                                currentPortable.joinedCommunityIdsByAccount,
-                                            favoriteCommunityNamesByAccount =
-                                                currentPortable.favoriteCommunityNamesByAccount,
-                                            favoriteCustomFeedPathsByAccount =
-                                                currentPortable.favoriteCustomFeedPathsByAccount,
-                                            hiddenCommunityNamesByAccount =
-                                                currentPortable.hiddenCommunityNamesByAccount,
-                                            communityMutesByAccount =
-                                                currentPortable.communityMutesByAccount,
-                                            postComposerDraftsByAccount =
-                                                currentPortable.postComposerDraftsByAccount,
-                                            moderatorSavedResponses =
-                                                currentPortable.moderatorSavedResponses,
-                                            userTagsByAccount =
-                                                currentPortable.userTagsByAccount,
-                                            savedSearchesByAccount =
-                                                currentPortable.savedSearchesByAccount,
-                                            watchedCommunityNamesByAccount =
-                                                currentPortable.watchedCommunityNamesByAccount,
-                                        )
-                                        if (enabled) {
-                                            "Saved moderator responses will be included in new backups and may be restored."
-                                        } else {
-                                            "Saved moderator responses are excluded from new backups and restore."
-                                        }
-                                    }
-                                } else {
-                                    message = if (enabled) {
-                                        "Saved moderator responses will be included in new saved setups and may be restored."
-                                    } else {
-                                        "Saved moderator responses are excluded from new backups and restore."
-                                    }
-                                }
+                                recordBackupChoice(enabled, "Saved moderator responses")
                             },
-                            title = "Include saved moderator responses in backup & restore",
-                            description = "Off by default. Includes your reusable removal-response templates; they are shared by every account on this device.",
+                            title = "Saved moderator responses",
+                            description = "Shared by every account on this device",
                         )
                         // BACKUP04A5_USER_TAGS_SCHEMA_V9_OPT_IN_V1
                         BackupSwitchRow(
@@ -591,108 +509,186 @@ fun BackupRestoreScreen(
                             onCheckedChange = { enabled ->
                                 includeUserTags = enabled
                                 repository.setUserTagsBackupEnabled(enabled)
-                                val currentPortable = state.capturePortableBackupState()
-                                if (automaticHistory) {
-                                    runInBackground(BackupFailureOperation.SAVE) {
-                                        repository.recordSettingsChange(
-                                            settings = currentPortable.settings,
-                                            joinedCommunityIdsByAccount =
-                                                currentPortable.joinedCommunityIdsByAccount,
-                                            favoriteCommunityNamesByAccount =
-                                                currentPortable.favoriteCommunityNamesByAccount,
-                                            favoriteCustomFeedPathsByAccount =
-                                                currentPortable.favoriteCustomFeedPathsByAccount,
-                                            hiddenCommunityNamesByAccount =
-                                                currentPortable.hiddenCommunityNamesByAccount,
-                                            communityMutesByAccount =
-                                                currentPortable.communityMutesByAccount,
-                                            postComposerDraftsByAccount =
-                                                currentPortable.postComposerDraftsByAccount,
-                                            moderatorSavedResponses =
-                                                currentPortable.moderatorSavedResponses,
-                                            userTagsByAccount =
-                                                currentPortable.userTagsByAccount,
-                                            savedSearchesByAccount =
-                                                currentPortable.savedSearchesByAccount,
-                                            watchedCommunityNamesByAccount =
-                                                currentPortable.watchedCommunityNamesByAccount,
-                                        )
-                                        if (enabled) {
-                                            "Private notes & tags will be included in new backups and may be restored."
-                                        } else {
-                                            "Private notes & tags are excluded from new backups and restore."
-                                        }
-                                    }
-                                } else {
-                                    message = if (enabled) {
-                                        "Private notes & tags will be included in new saved setups and may be restored."
-                                    } else {
-                                        "Private notes & tags are excluded from new backups and restore."
-                                    }
-                                }
+                                recordBackupChoice(enabled, "Private notes & tags")
                             },
-                            title = "Include private notes & tags in backup & restore",
-                            description = "Off by default. Includes the notes and tags you put on Reddit usernames, per signed-in account.",
+                            title = "Private notes & tags",
+                            description = "The notes and tags you put on users",
                         )
                     }
                 }
             }
 
-            item("retention") {
-                BackupRetentionCard(
-                    automaticHistoryRetention = automaticHistoryRetention,
-                    safetySnapshotRetention = safetySnapshotRetention,
-                    onAutomaticHistoryRetention = { retention ->
-                        if (retention.isStricterThan(automaticHistoryRetention)) {
-                            retentionChangeTarget = PendingRetentionChange(
-                                kind = RetentionKind.AUTOMATIC_HISTORY,
-                                target = retention,
-                            )
-                        } else {
-                            runInBackground(BackupFailureOperation.DELETE) {
-                                repository.setAutomaticHistoryRetention(retention)
-                                "Automatic history retention set to ${retention.label}."
-                            }
-                        }
-                    },
-                    onSafetySnapshotRetention = { retention ->
-                        if (retention.isStricterThan(safetySnapshotRetention)) {
-                            retentionChangeTarget = PendingRetentionChange(
-                                kind = RetentionKind.SAFETY_SNAPSHOTS,
-                                target = retention,
-                            )
-                        } else {
-                            runInBackground(BackupFailureOperation.DELETE) {
-                                repository.setSafetySnapshotRetention(retention)
-                                "Safety snapshot retention set to ${retention.label}."
-                            }
-                        }
-                    },
-                )
-            }
-
-            item("save") {
-                Button(
-                    onClick = { saveDialogVisible = true },
-                    modifier = Modifier.fillMaxWidth(),
+            item("never-backed-up") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.Top,
                 ) {
-                    Icon(Symbols.Save, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Save current setup")
+                    Icon(
+                        Symbols.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.width(16.dp))
+                    Text(
+                        "Never backed up: sign-ins and your Reddit Client ID (sign in again after " +
+                            "restoring), cached posts, history and posts saved for offline.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
-            item("import") {
-                OutlinedButton(
-                    onClick = {
-                        importLauncher.launch(
-                            arrayOf("application/json", "text/plain", "application/octet-stream"),
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
+
+            // ISSUE270_BACKUPS_ARE_ONE_LIST_WITH_THREE_TABS_V1: each kind keeps its
+            // own switch and limit under its tab.
+            item("backups-title") { BackupSectionTitle("Backups") }
+            item("backups-tabs") {
+                // Three equal tabs; each label fits a third of a phone.
+                SecondaryTabRow(
+                    selectedTabIndex = backupTab.ordinal,
+                    containerColor = Color.Transparent,
                 ) {
-                    Icon(Symbols.UploadFile, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Import backup file")
+                    BackupListTab.entries.forEach { tab ->
+                        Tab(
+                            selected = tab == backupTab,
+                            onClick = { backupTab = tab },
+                            text = { Text(tab.label, maxLines = 1, softWrap = false) },
+                        )
+                    }
+                }
+            }
+            when (backupTab) {
+                BackupListTab.YOURS -> item("yours-note") {
+                    BackupListNote("Kept until you delete them.")
+                }
+                BackupListTab.AUTOMATIC -> {
+                    item("automatic-history") {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.medium,
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        ) {
+                            BackupSwitchRow(
+                                checked = automaticHistory,
+                                onCheckedChange = { enabled ->
+                                    automaticHistory = enabled
+                                    repository.setAutomaticHistoryEnabled(enabled)
+                                    if (enabled) {
+                                        val currentPortable = state.capturePortableBackupState()
+                                        runInBackground(BackupFailureOperation.SAVE) {
+                                            recordPortableChange(currentPortable)
+                                            BackupNotice("Automatic backups are on", "A backup is made after you change a setting.")
+                                        }
+                                    } else {
+                                        showNotice(BackupNotice("Automatic backups are off", "The ones already made were kept."))
+                                    }
+                                },
+                                title = "Back up automatically",
+                                description = "After you change a setting",
+                            )
+                        }
+                    }
+                    item("automatic-retention") {
+                        BackupRetentionRow(
+                            title = "Keep the newest",
+                            retention = automaticHistoryRetention,
+                            onRetentionSelected = { retention ->
+                                if (retention.isStricterThan(automaticHistoryRetention)) {
+                                    retentionChangeTarget = PendingRetentionChange(
+                                        kind = RetentionKind.AUTOMATIC_HISTORY,
+                                        target = retention,
+                                    )
+                                } else {
+                                    runInBackground(BackupFailureOperation.DELETE) {
+                                        repository.setAutomaticHistoryRetention(retention)
+                                        BackupNotice("Keeping the newest ${retention.label.lowercase()}", "Of the backups made automatically.")
+                                    }
+                                }
+                            },
+                        )
+                    }
+                }
+                BackupListTab.BEFORE_RESTORE -> {
+                    item("before-restore-note") {
+                        BackupListNote(
+                            "Before every restore, subshell backs up your current setup here, so you can undo it.",
+                        )
+                    }
+                    item("before-restore-retention") {
+                        BackupRetentionRow(
+                            title = "Keep the newest",
+                            retention = safetySnapshotRetention,
+                            onRetentionSelected = { retention ->
+                                if (retention.isStricterThan(safetySnapshotRetention)) {
+                                    retentionChangeTarget = PendingRetentionChange(
+                                        kind = RetentionKind.SAFETY_SNAPSHOTS,
+                                        target = retention,
+                                    )
+                                } else {
+                                    runInBackground(BackupFailureOperation.DELETE) {
+                                        repository.setSafetySnapshotRetention(retention)
+                                        BackupNotice("Keeping the newest ${retention.label.lowercase()}", "Of the backups made before a restore.")
+                                    }
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+            val shownSnapshots = when (backupTab) {
+                BackupListTab.YOURS -> manualSnapshots
+                BackupListTab.AUTOMATIC -> historySnapshots
+                BackupListTab.BEFORE_RESTORE -> safetySnapshots
+            }
+            if (loadedSnapshots == null) {
+                item("backups-loading") {
+                    EmptySnapshots(
+                        icon = Symbols.History,
+                        title = "Loading backups…",
+                        description = "Reading the backups on this device.",
+                    )
+                }
+            } else if (shownSnapshots.isEmpty()) {
+                item("backups-empty") {
+                    when (backupTab) {
+                        BackupListTab.YOURS -> EmptySnapshots(
+                            icon = Symbols.Backup,
+                            title = "No backups yet",
+                            description = "Back up now to keep a backup until you delete it.",
+                        )
+                        BackupListTab.AUTOMATIC -> EmptySnapshots(
+                            icon = Symbols.History,
+                            title = "No automatic backups yet",
+                            description = "A backup is made after you change a setting.",
+                        )
+                        BackupListTab.BEFORE_RESTORE -> EmptySnapshots(
+                            icon = Symbols.History,
+                            title = "Nothing here yet",
+                            description = "A backup is made here before every restore.",
+                        )
+                    }
+                }
+            } else {
+                items(shownSnapshots, key = SettingsSnapshot::id) { snapshot ->
+                    SnapshotCard(
+                        snapshot = snapshot,
+                        onRestore = { restoreTarget = pendingRestoreOf(snapshot) },
+                        onExport = {
+                            pendingExportId = snapshot.id
+                            pendingExportName = snapshot.displayName()
+                            exportLauncher.launch(snapshot.exportFileName())
+                        },
+                        onRename = if (snapshot.kind == SnapshotKind.MANUAL) {
+                            {
+                                renameTarget = snapshot
+                                renameValue = snapshot.name
+                            }
+                        } else {
+                            null
+                        },
+                        onDelete = { deleteTarget = snapshot },
+                    )
                 }
             }
 
@@ -700,7 +696,9 @@ fun BackupRestoreScreen(
                 item("delete-all") {
                     OutlinedButton(
                         onClick = { deleteAllDialogVisible = true },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 14.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.error,
                         ),
@@ -711,216 +709,14 @@ fun BackupRestoreScreen(
                     }
                 }
             }
-
-            message?.let { currentMessage ->
-                item("message") {
-                    Surface(
-                        shape = MaterialTheme.shapes.medium,
-                        color = MaterialTheme.colorScheme.tertiaryContainer,
-                    ) {
-                        Text(
-                            currentMessage,
-                            modifier = Modifier.padding(12.dp),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer,
-                        )
-                    }
-                }
-            }
-
-            item("saved-title") {
-                SnapshotSectionTitle("Saved setups", manualSnapshots.size)
-            }
-            if (loadedSnapshots == null) {
-                item("manual-loading") {
-                    EmptySnapshots(
-                        icon = Symbols.History,
-                        title = "Loading saved setups…",
-                        description = "Reading the backups on this device.",
-                    )
-                }
-            } else if (manualSnapshots.isEmpty()) {
-                item("manual-empty") {
-                    EmptySnapshots(
-                        icon = Symbols.Backup,
-                        title = "No named setups yet",
-                        description = "Save a setup you want to keep until you delete it.",
-                    )
-                }
-            } else {
-                items(manualSnapshots, key = SettingsSnapshot::id) { snapshot ->
-                    SnapshotCard(
-                        snapshot = snapshot,
-                        onRestore = {
-                            restoreTarget = PendingRestore(
-                                snapshot = snapshot,
-                                currentSettings = state.captureSettings(),
-
-                                currentJoinedCommunityIdsByAccount =
-                                    state.captureJoinedCommunityIdsByAccount(),
-                                currentFavoriteCommunityNamesByAccount =
-                                    state.captureFavoriteCommunityNamesByAccount(),
-                                currentFavoriteCustomFeedPathsByAccount =
-                                    state.captureFavoriteCustomFeedPathsByAccount(),
-                                currentHiddenCommunityNamesByAccount =
-                                    state.captureHiddenCommunityNamesByAccount(),
-                                currentCommunityMutesByAccount =
-                                    state.captureCommunityMutesByAccount(),
-                                currentPostComposerDraftsByAccount =
-                                    state.capturePostComposerDraftsByAccount(),
-                                currentModeratorSavedResponses =
-                                    state.captureModeratorSavedResponses(),
-                                currentUserTagsByAccount =
-                                    state.captureUserTagsByAccount(),
-                                currentSavedSearchesByAccount =
-                                    state.captureSavedSearchesByAccount(),
-                                currentWatchedCommunityNamesByAccount =
-                                    state.captureWatchedCommunityNamesByAccount(),
-                            )
-                        },
-                        onExport = {
-                            pendingExportId = snapshot.id
-                            pendingExportName = snapshot.name
-                            exportLauncher.launch(snapshot.exportFileName())
-                        },
-                        onRename = {
-                            renameTarget = snapshot
-                            renameValue = snapshot.name
-                        },
-                        onDelete = { deleteTarget = snapshot },
-                    )
-                }
-            }
-
-            item("history-title") {
-                SnapshotSectionTitle("Automatic history", historySnapshots.size)
-            }
-            if (loadedSnapshots == null) {
-                item("history-loading") {
-                    EmptySnapshots(
-                        icon = Symbols.History,
-                        title = "Loading saved setups…",
-                        description = "Reading the backups on this device.",
-                    )
-                }
-            } else if (historySnapshots.isEmpty()) {
-                item("history-empty") {
-                    EmptySnapshots(
-                        icon = Symbols.History,
-                        title = "No settings changes captured yet",
-                        description = "A changed state is saved after settings settle, and again on the next launch if needed.",
-                    )
-                }
-            } else {
-                items(historySnapshots, key = SettingsSnapshot::id) { snapshot ->
-                    SnapshotCard(
-                        snapshot = snapshot,
-                        onRestore = {
-                            restoreTarget = PendingRestore(
-                                snapshot = snapshot,
-                                currentSettings = state.captureSettings(),
-
-                                currentJoinedCommunityIdsByAccount =
-                                    state.captureJoinedCommunityIdsByAccount(),
-                                currentFavoriteCommunityNamesByAccount =
-                                    state.captureFavoriteCommunityNamesByAccount(),
-                                currentFavoriteCustomFeedPathsByAccount =
-                                    state.captureFavoriteCustomFeedPathsByAccount(),
-                                currentHiddenCommunityNamesByAccount =
-                                    state.captureHiddenCommunityNamesByAccount(),
-                                currentCommunityMutesByAccount =
-                                    state.captureCommunityMutesByAccount(),
-                                currentPostComposerDraftsByAccount =
-                                    state.capturePostComposerDraftsByAccount(),
-                                currentModeratorSavedResponses =
-                                    state.captureModeratorSavedResponses(),
-                                currentUserTagsByAccount =
-                                    state.captureUserTagsByAccount(),
-                                currentSavedSearchesByAccount =
-                                    state.captureSavedSearchesByAccount(),
-                                currentWatchedCommunityNamesByAccount =
-                                    state.captureWatchedCommunityNamesByAccount(),
-                            )
-                        },
-                        onExport = {
-                            pendingExportId = snapshot.id
-                            pendingExportName = snapshot.name
-                            exportLauncher.launch(snapshot.exportFileName())
-                        },
-                        onRename = null,
-                        onDelete = { deleteTarget = snapshot },
-                    )
-                }
-            }
-
-            item("safety-title") {
-                SnapshotSectionTitle("Safety snapshots", safetySnapshots.size)
-            }
-            if (loadedSnapshots == null) {
-                item("safety-loading") {
-                    EmptySnapshots(
-                        icon = Symbols.History,
-                        title = "Loading saved setups…",
-                        description = "Reading the backups on this device.",
-                    )
-                }
-            } else if (safetySnapshots.isEmpty()) {
-                item("safety-empty") {
-                    EmptySnapshots(
-                        icon = Symbols.History,
-                        title = "No safety snapshots yet",
-                        description = "A safety snapshot is created automatically before each restore.",
-                    )
-                }
-            } else {
-                items(safetySnapshots, key = SettingsSnapshot::id) { snapshot ->
-                    SnapshotCard(
-                        snapshot = snapshot,
-                        onRestore = {
-                            PendingRestore(
-                                snapshot = snapshot,
-                                currentSettings = state.captureSettings(),
-
-                                currentJoinedCommunityIdsByAccount =
-                                    state.captureJoinedCommunityIdsByAccount(),
-                                currentFavoriteCommunityNamesByAccount =
-                                    state.captureFavoriteCommunityNamesByAccount(),
-                                currentFavoriteCustomFeedPathsByAccount =
-                                    state.captureFavoriteCustomFeedPathsByAccount(),
-                                currentHiddenCommunityNamesByAccount =
-                                    state.captureHiddenCommunityNamesByAccount(),
-                                currentCommunityMutesByAccount =
-                                    state.captureCommunityMutesByAccount(),
-                                currentPostComposerDraftsByAccount =
-                                    state.capturePostComposerDraftsByAccount(),
-                                currentModeratorSavedResponses =
-                                    state.captureModeratorSavedResponses(),
-                                currentUserTagsByAccount =
-                                    state.captureUserTagsByAccount(),
-                                currentSavedSearchesByAccount =
-                                    state.captureSavedSearchesByAccount(),
-                                currentWatchedCommunityNamesByAccount =
-                                    state.captureWatchedCommunityNamesByAccount(),
-                            ).also { pending -> restoreTarget = pending }
-                        },
-                        onExport = {
-                            pendingExportId = snapshot.id
-                            pendingExportName = snapshot.name
-                            exportLauncher.launch(snapshot.exportFileName())
-                        },
-                        onRename = null,
-                        onDelete = { deleteTarget = snapshot },
-                    )
-                }
-            }
         }
     }
 
     if (saveDialogVisible) {
         NameDialog(
-            title = "Save current setup",
+            title = "Back up now",
             value = saveName,
-            confirmLabel = "Save",
+            confirmLabel = "Back up",
             onValueChange = { saveName = it },
             onDismiss = { saveDialogVisible = false },
             onConfirm = {
@@ -951,17 +747,17 @@ fun BackupRestoreScreen(
                         currentSavedSearches,
                         currentWatchedCommunities,
                     )
-                    "Saved ${saved.name}"
+                    BackupNotice("Backed up", "It's under Your backups as ${saved.name}.")
                 }
                 saveDialogVisible = false
-                saveName = "My setup"
+                saveName = "My backup"
             },
         )
     }
 
     renameTarget?.let { snapshot ->
         NameDialog(
-            title = "Rename saved setup",
+            title = "Rename backup",
             value = renameValue,
             confirmLabel = "Rename",
             onValueChange = { renameValue = it },
@@ -970,7 +766,7 @@ fun BackupRestoreScreen(
                 val name = renameValue
                 runInBackground(BackupFailureOperation.RENAME) {
                     val renamed = repository.renameSnapshot(snapshot.id, name)
-                    "Renamed to ${renamed.name}"
+                    BackupNotice("Renamed", "It's now called ${renamed.name}.")
                 }
                 renameTarget = null
             },
@@ -1046,7 +842,7 @@ fun BackupRestoreScreen(
 
         AlertDialog(
             onDismissRequest = { restoreTarget = null },
-            title = { Text("Restore ${request.snapshot.name}?") },
+            title = { Text("Restore ${request.snapshot.displayName()}?") },
             text = {
                 Column {
                     Text(changedLabel)
@@ -1111,7 +907,7 @@ fun BackupRestoreScreen(
                         diffs = hiddenCommunityDiffs,
                         enabled = includeHiddenCommunities,
                         disabledMessage =
-                            "This backup contains hidden-community state, but privacy-sensitive backup & restore is disabled on this device.",
+                            "In this backup, but turned off under Privacy-sensitive backup data, so it stays as it is.",
                     )
                     Spacer(Modifier.size(8.dp))
                     PortableValuesRestorePreview(
@@ -1121,7 +917,7 @@ fun BackupRestoreScreen(
                         diffs = communityMuteDiffs,
                         enabled = includeCommunityMutes,
                         disabledMessage =
-                            "This backup contains muted-community state, but muted-community backup & restore is disabled on this device.",
+                            "In this backup, but turned off under Privacy-sensitive backup data, so it stays as it is.",
                     )
                     if (!legacyCommunityMutes && includeCommunityMutes) {
                         Text(
@@ -1138,7 +934,7 @@ fun BackupRestoreScreen(
                         diffs = postComposerDraftDiffs,
                         enabled = includePostComposerDrafts,
                         disabledMessage =
-                            "This backup contains text/link post drafts, but post-draft backup & restore is disabled on this device.",
+                            "In this backup, but turned off under Privacy-sensitive backup data, so it stays as it is.",
                     )
                     if (!legacyPostComposerDrafts && includePostComposerDrafts) {
                         Text(
@@ -1155,7 +951,7 @@ fun BackupRestoreScreen(
                         diffs = moderatorSavedResponseDiffs,
                         enabled = includeModeratorSavedResponses,
                         disabledMessage =
-                            "This backup contains saved moderator responses, but their backup & restore is disabled on this device.",
+                            "In this backup, but turned off under Privacy-sensitive backup data, so it stays as it is.",
                     )
                     Spacer(Modifier.size(8.dp))
                     PortableValuesRestorePreview(
@@ -1165,7 +961,7 @@ fun BackupRestoreScreen(
                         diffs = userTagDiffs,
                         enabled = includeUserTags,
                         disabledMessage =
-                            "This backup contains private notes & tags, but their backup & restore is disabled on this device.",
+                            "In this backup, but turned off under Privacy-sensitive backup data, so it stays as it is.",
                     )
                     Spacer(Modifier.size(8.dp))
                     PortableValuesRestorePreview(
@@ -1187,7 +983,7 @@ fun BackupRestoreScreen(
                     )
                     Spacer(Modifier.size(10.dp))
                     Text(
-                        "A safety snapshot of your current setup will be created before restore.",
+                        "subshell backs up your current setup first, so you can undo this.",
                     )
                 }
             },
@@ -1261,7 +1057,7 @@ fun BackupRestoreScreen(
                                         refresh()
                                         failureOperation = null
                                         failureDetails = null
-                                        message = "Restored ${target.name}. A safety snapshot was saved first."
+                                        showNotice(BackupNotice("Restored ${target.displayName()}", "Your setup before it is under Undo."))
                                     }.onFailure { error ->
                                         reportFailure(BackupFailureOperation.RESTORE, error)
                                     }
@@ -1281,20 +1077,20 @@ fun BackupRestoreScreen(
 
     retentionChangeTarget?.let { request ->
         val subject = when (request.kind) {
-            RetentionKind.AUTOMATIC_HISTORY -> "automatic history"
-            RetentionKind.SAFETY_SNAPSHOTS -> "safety snapshots"
+            RetentionKind.AUTOMATIC_HISTORY -> "automatic backups"
+            RetentionKind.SAFETY_SNAPSHOTS -> "backups made before a restore"
         }
         val unaffected = when (request.kind) {
-            RetentionKind.AUTOMATIC_HISTORY -> "Saved setups and safety snapshots are unaffected."
-            RetentionKind.SAFETY_SNAPSHOTS -> "Saved setups and automatic history are unaffected."
+            RetentionKind.AUTOMATIC_HISTORY -> "Your backups and the ones made before a restore stay."
+            RetentionKind.SAFETY_SNAPSHOTS -> "Your backups and automatic backups stay."
         }
         AlertDialog(
             onDismissRequest = { retentionChangeTarget = null },
             title = { Text("Keep only ${request.target.label.lowercase()}?") },
             text = {
                 Text(
-                    "Older $subject backups above this limit will be deleted from this device and " +
-                        "the connected backup folder. $unaffected",
+                    "Older $subject over this limit are deleted from this device and " +
+                        "the backup folder. $unaffected",
                 )
             },
             confirmButton = {
@@ -1309,7 +1105,7 @@ fun BackupRestoreScreen(
                                 RetentionKind.SAFETY_SNAPSHOTS ->
                                     repository.setSafetySnapshotRetention(pending.target)
                             }
-                            "${pending.kind.messageLabel} retention set to ${pending.target.label}."
+                            BackupNotice("Keeping the newest ${pending.target.label.lowercase()}", "Of the backups ${pending.kind.messageLabel}.")
                         }
                     },
                     colors = ButtonDefaults.textButtonColors(
@@ -1326,17 +1122,17 @@ fun BackupRestoreScreen(
     if (deleteAllDialogVisible) {
         val total = snapshots.size
         val automaticHistoryNote = if (automaticHistory) {
-            " Automatic history will start collecting new snapshots again after future settings changes."
+            " New automatic backups are made after your next settings change."
         } else {
-            " Automatic history is currently paused."
+            " Automatic backups are off."
         }
         AlertDialog(
             onDismissRequest = { deleteAllDialogVisible = false },
             title = { Text("Delete all $total backups?") },
             text = {
                 Text(
-                    "This permanently removes all saved setups, automatic history and safety snapshots " +
-                        "from this device and the connected backup folder." +
+                    "This removes your backups, automatic backups and the ones made before a restore " +
+                        "from this device and the backup folder." +
                         automaticHistoryNote,
                 )
             },
@@ -1346,7 +1142,7 @@ fun BackupRestoreScreen(
                         deleteAllDialogVisible = false
                         runInBackground(BackupFailureOperation.DELETE) {
                             val deleted = repository.deleteAllSnapshots()
-                            if (deleted == 1) "Deleted 1 backup." else "Deleted $deleted backups."
+                            BackupNotice(if (deleted == 1) "Deleted 1 backup" else "Deleted $deleted backups", "They're gone from this device and the backup folder.")
                         }
                     },
                     colors = ButtonDefaults.textButtonColors(
@@ -1363,16 +1159,16 @@ fun BackupRestoreScreen(
     deleteTarget?.let { snapshot ->
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
-            title = { Text("Delete ${snapshot.name}?") },
-            text = { Text("This removes the state from internal history and the connected backup folder.") },
+            title = { Text("Delete ${snapshot.displayName()}?") },
+            text = { Text("It's removed from this device and the backup folder.") },
             confirmButton = {
                 TextButton(
                     onClick = {
                         runInBackground(BackupFailureOperation.DELETE) {
                             if (repository.deleteSnapshot(snapshot.id)) {
-                                "Deleted ${snapshot.name}"
+                                BackupNotice("Deleted ${snapshot.displayName()}", "It's gone from this device and the backup folder.")
                             } else {
-                                "That saved state no longer exists"
+                                BackupNotice("Nothing to delete", "That backup no longer exists.")
                             }
                         }
                         deleteTarget = null
@@ -1403,19 +1199,19 @@ private fun BackupProtectionCard(
         BackupProtection.INTERNAL_ONLY -> Symbols.CloudOff
     }
     val title = when (status.protection) {
-        BackupProtection.PROTECTED -> "Protected outside the app"
-        BackupProtection.WAITING -> "Backup folder is waiting"
-        BackupProtection.INTERNAL_ONLY -> "Only saved on this device"
+        BackupProtection.PROTECTED -> "Copied to your backup folder"
+        BackupProtection.WAITING -> "Backup folder isn't reachable"
+        BackupProtection.INTERNAL_ONLY -> "Only on this device"
     }
     val lastSync = status.lastSuccessfulSyncEpochMillis?.let { timestamp ->
         DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(timestamp))
     }
     val description = when {
-        isProtected -> lastSync?.let { "Last protected $it" } ?: "Backup folder connected"
+        isProtected -> lastSync?.let { "Last copy $it" } ?: "Backup folder connected"
         waiting -> status.failureDetails?.toSafeTechnicalDetail()?.let { detail ->
-            "Internal history continues while subshell waits for the folder. $detail"
-        } ?: "Internal history continues while subshell waits for the folder."
-        else -> "Internal history is automatic, but it disappears if subshell is uninstalled or app data is cleared."
+            "Backups are still kept on this device. $detail"
+        } ?: "Backups are still kept on this device."
+        else -> "Backups are lost if subshell is uninstalled or its data is cleared."
     }
 
     Surface(
@@ -1495,7 +1291,7 @@ private fun BackupProtectionCard(
                     TextButton(onClick = onSync) {
                         Icon(Symbols.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Sync")
+                        Text("Copy now")
                     }
                     TextButton(onClick = onChooseFolder) {
                         Icon(Symbols.Folder, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -1511,7 +1307,7 @@ private fun BackupProtectionCard(
                             onDismissRequest = { folderMenuExpanded = false },
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Stop using this folder") },
+                                text = { Text("Stop copying to this folder") },
                                 onClick = {
                                     folderMenuExpanded = false
                                     onDisconnect()
@@ -1522,53 +1318,18 @@ private fun BackupProtectionCard(
                     }
                 }
             } else {
-                Button(onClick = onChooseFolder, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = onChooseFolder, modifier = Modifier.padding(start = 36.dp)) {
                     Icon(Symbols.Folder, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
                     Text("Choose backup folder")
                 }
                 Text(
-                    "Recommended: create Documents/subshell Backups in the folder picker.",
-                    style = MaterialTheme.typography.labelMedium,
+                    "For example, create Documents/subshell Backups in the folder picker.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 36.dp),
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun BackupRetentionCard(
-    automaticHistoryRetention: BackupRetention,
-    safetySnapshotRetention: BackupRetention,
-    onAutomaticHistoryRetention: (BackupRetention) -> Unit,
-    onSafetySnapshotRetention: (BackupRetention) -> Unit,
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-    ) {
-        Column(Modifier.padding(14.dp)) {
-            Text("Backup retention", fontWeight = FontWeight.SemiBold)
-            Text(
-                "Saved setups are never removed automatically. Lowering a limit trims older backups immediately.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
-            )
-            BackupRetentionRow(
-                title = "Automatic history",
-                description = "Newest changed settings states",
-                retention = automaticHistoryRetention,
-                onRetentionSelected = onAutomaticHistoryRetention,
-            )
-            Spacer(Modifier.size(4.dp))
-            BackupRetentionRow(
-                title = "Safety snapshots",
-                description = "Created before restore",
-                retention = safetySnapshotRetention,
-                onRetentionSelected = onSafetySnapshotRetention,
-            )
         }
     }
 }
@@ -1580,7 +1341,6 @@ private fun BackupRetentionCard(
 @Composable
 private fun BackupRetentionRow(
     title: String,
-    description: String,
     retention: BackupRetention,
     onRetentionSelected: (BackupRetention) -> Unit,
 ) {
@@ -1596,7 +1356,6 @@ private fun BackupRetentionRow(
             readOnly = true,
             singleLine = true,
             label = { Text(title) },
-            supportingText = { Text(description) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -1633,21 +1392,78 @@ private fun BackupRetentionRow(
 }
 
 @Composable
-private fun SnapshotSectionTitle(title: String, count: Int) {
-    Row(
+private fun BackupSectionTitle(title: String) {
+    Text(
+        title,
+        style = MaterialTheme.typography.titleLarge,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-        Text(
-            count.toString(),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+            .padding(top = 12.dp),
+    )
 }
+
+@Composable
+private fun BackupSubsectionTitle(title: String) {
+    Text(
+        title,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 4.dp, top = 6.dp),
+    )
+}
+
+/** ISSUE270_BACKUP_SCREEN_LEADS_WITH_ITS_ACTIONS_V1: an action is a list row, like the rest. */
+@Composable
+private fun BackupActionRow(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    onClick: () -> Unit,
+) {
+    ListItem(
+        content = { Text(title) },
+        supportingContent = { Text(description) },
+        leadingContent = { Icon(icon, contentDescription = null) },
+        trailingContent = { Icon(Symbols.ChevronRight, contentDescription = null) },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.clickable(role = Role.Button, onClick = onClick),
+    )
+}
+
+@Composable
+private fun BackupListNote(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 4.dp),
+    )
+}
+
+/** ISSUE270_BACKUP_SCREEN_SAYS_WHAT_IS_BACKED_UP_V1: always in every backup. */
+@Composable
+private fun BackupIncludedRow(title: String, description: String) {
+    ListItem(
+        content = { Text(title) },
+        supportingContent = { Text(description) },
+        leadingContent = {
+            Icon(Symbols.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+    )
+}
+
+private data class BackupNotice(val title: String, val detail: String)
+
+private enum class BackupListTab(val label: String) {
+    YOURS("Yours"),
+    AUTOMATIC("Automatic"),
+    BEFORE_RESTORE("Undo"),
+}
+
+// Automatic backups were named "Automatic settings history" when they were made.
+private fun SettingsSnapshot.displayName(): String =
+    if (kind == SnapshotKind.CHANGE) "Automatic backup" else name
 
 @Composable
 private fun EmptySnapshots(icon: ImageVector, title: String, description: String) {
@@ -1684,11 +1500,6 @@ private fun SnapshotCard(
         DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
             .format(Date(snapshot.createdAtEpochMillis))
     }
-    val label = when (snapshot.kind) {
-        SnapshotKind.MANUAL -> "Saved setup"
-        SnapshotKind.CHANGE -> "Automatic settings history"
-        SnapshotKind.SAFETY -> "Safety snapshot before restore"
-    }
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
@@ -1708,15 +1519,10 @@ private fun SnapshotCard(
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        snapshot.name,
+                        snapshot.displayName(),
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        label,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
                     )
                     Text(
                         "$formattedDate · subshell ${snapshot.appVersion}",
@@ -1802,8 +1608,8 @@ private fun NameDialog(
 }
 
 private enum class RetentionKind(val messageLabel: String) {
-    AUTOMATIC_HISTORY("Automatic history"),
-    SAFETY_SNAPSHOTS("Safety snapshot"),
+    AUTOMATIC_HISTORY("made automatically"),
+    SAFETY_SNAPSHOTS("made before a restore"),
 }
 
 private data class PendingRetentionChange(
@@ -2075,15 +1881,15 @@ private fun BackupSwitchRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     title: String,
-    description: String,
     modifier: Modifier = Modifier,
+    description: String? = null,
     overline: String? = null,
     icon: ImageVector? = null,
 ) {
     ListItem(
         overlineContent = overline?.let { text -> { Text(text) } },
         content = { Text(title) },
-        supportingContent = { Text(description) },
+        supportingContent = description?.let { text -> { Text(text) } },
         leadingContent = icon?.let { vector -> { Icon(vector, contentDescription = null) } },
         trailingContent = { Switch(checked = checked, onCheckedChange = null) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),

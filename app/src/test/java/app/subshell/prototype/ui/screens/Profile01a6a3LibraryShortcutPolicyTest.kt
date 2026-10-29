@@ -13,7 +13,7 @@ class Profile01a6a3LibraryShortcutPolicyTest {
             authenticated = true,
         )
         assertEquals(
-            listOf("Posts", "Comments", "Saved", "Upvotes", "Downvotes", "Hidden", "Blocked", "Drafts"),
+            listOf("Posts", "Comments", "Saved", "Upvotes", "Downvotes", "Hidden", "Blocked", "Drafts", "Reading"),
             tabs,
         )
         assertFalse(tabs.contains("Library"))

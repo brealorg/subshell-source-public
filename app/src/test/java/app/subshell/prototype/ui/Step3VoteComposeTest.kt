@@ -179,7 +179,7 @@ class Step3VoteComposeTest {
             composeRule.waitForIdle()
         }
 
-        choose("Vote controls", "Compact")
+        choose("Vote controls", "Arrows")
         assertEquals(VoteControlMode.COMPACT, state.voteControlMode)
         choose("Vote colours", "Red & blue")
         assertEquals(VoteColorPalette.RED_BLUE, state.voteColorPalette)

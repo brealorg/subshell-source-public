@@ -2,6 +2,7 @@ package app.subshell.prototype.ui
 
 import android.content.SharedPreferences
 import app.subshell.prototype.ui.theme.AppTextScale
+import app.subshell.prototype.ui.theme.AppUiScale
 import app.subshell.prototype.ui.state.BackgroundPostPagingExecutor
 import app.subshell.prototype.ui.state.PostPagingExecutor
 import androidx.core.content.edit
@@ -558,6 +559,11 @@ fun rememberSubshellState(
                 AppTextScale.entries,
                 DefaultSubshellSettings.appTextScale,
             ),
+            initialAppUiScale = enumValue(
+                SubshellSettings.APP_UI_SCALE,
+                AppUiScale.entries,
+                DefaultSubshellSettings.appUiScale,
+            ),
             initialVoteColorPalette = enumValue(
                 SubshellSettings.VOTE_COLOR_PALETTE,
                 VoteColorPalette.entries,
@@ -649,6 +655,10 @@ fun rememberSubshellState(
                 SubshellSettings.SENSITIVE_MEDIA_PREVIEW_MODE,
                 SensitiveMediaPreviewMode.entries,
                 DefaultSubshellSettings.sensitiveMediaPreviewMode,
+            ),
+            initialShowNsfwMedia = preferences.getBoolean(
+                SubshellSettings.SHOW_NSFW_MEDIA,
+                DefaultSubshellSettings.showNsfwMedia,
             ),
             initialContentFilters = ContentFilters.fromStorageMap(
                 ContentFilterType.entries.flatMap { type ->

@@ -434,6 +434,30 @@ class Step3ProfileLibraryComposeTest {
         assertEquals(listOf(RedditPostVisibilityRequest(account.stableId, "t3_upv1", true)), visibility.toList())
         assertEquals(0, count(hasText("A post you upvoted")))
     }
+
+    // ISSUE268_YOUR_READING_PAGE_V1: Library has Reading only while "Your reading" is on.
+    @Test
+    fun libraryShowsReadingOnlyWhileYourReadingIsOn() {
+        val store = app.subshell.prototype.data.reading.ReadingStatsStore(
+            java.nio.file.Files.createTempDirectory("reading").toFile(),
+        )
+        store.load()
+        app.subshell.prototype.data.reading.ReadingStats.installForTest(store)
+        try {
+            val state = signedIn(tab = 2)
+            show(state)
+            assertEquals(0, count(named("Reading")))
+
+            store.setEnabled(true)
+            composeRule.waitForIdle()
+            click(hasContentDescription("Reading"))
+
+            assertEquals(PROFILE_READING_TAB, state.userProfileTab("me_user"))
+            assertTrue(count(hasText("Communities you read")) >= 1)
+        } finally {
+            app.subshell.prototype.data.reading.ReadingStats.installForTest(null)
+        }
+    }
 }
 
 /**

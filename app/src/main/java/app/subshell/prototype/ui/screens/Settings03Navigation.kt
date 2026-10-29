@@ -42,7 +42,7 @@ internal enum class SettingsDestination(
     ),
     BACKUP(
         title = "Backup & restore",
-        description = "Saved setups, history and safety snapshots",
+        description = "What's backed up, your backups and the backup folder",
     ),
     ADVANCED(
         title = "Advanced",

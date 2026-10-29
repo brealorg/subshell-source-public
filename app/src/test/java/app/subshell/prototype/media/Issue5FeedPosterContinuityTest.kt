@@ -147,7 +147,8 @@ class Issue5FeedPosterContinuityTest {
     fun productionStaticPosterAndNativeShutterUseTheSameCardModel() {
         val media = source("ui/components/VideoPlayer.kt")
         val player = media.substringAfter("fun LocalVideoPlayer(")
-        val static = player.substringAfter("Box(staticFrameModifier.background(Color.Black)) {")
+        // ISSUE276: the static frame may be the whole tap target (frameModifier).
+        val static = player.substringAfter("Box(frameModifier.background(Color.Black)) {")
             .substringBefore("Surface(")
         val shutter = player.substringAfter("} else if (feedPausePresentation) {")
             .substringBefore(

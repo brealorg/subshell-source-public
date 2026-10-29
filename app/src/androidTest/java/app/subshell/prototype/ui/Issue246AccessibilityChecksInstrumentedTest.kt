@@ -9,10 +9,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import app.subshell.prototype.data.SampleData
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.model.ActivityKind
 import app.subshell.prototype.model.PostKind
+import app.subshell.prototype.ui.theme.AppUiScale
 import com.google.android.apps.common.testing.accessibility.framework.AccessibilityCheckResult.AccessibilityCheckResultType
 import com.google.android.apps.common.testing.accessibility.framework.integrations.espresso.AccessibilityValidator
 import org.junit.After
@@ -41,6 +43,9 @@ import org.junit.runner.RunWith
  * Every surface is opened from a freshly composed SubshellApp with the
  * built-in sample data, then checked from the root view; all errors of one
  * surface are listed together.
+ *
+ * ISSUE278: `-e subshellUiScale SMALLEST|SMALLER|DEFAULT|LARGER` runs the same
+ * checks at that UI size (default: DEFAULT, Android's own size).
  */
 @RunWith(AndroidJUnit4::class)
 class Issue246AccessibilityChecksInstrumentedTest {
@@ -56,6 +61,7 @@ class Issue246AccessibilityChecksInstrumentedTest {
 
     private fun checkSurface(open: (SubshellState) -> Unit) {
         val state = SubshellState(initialInteractionSideConfigured = true)
+        state.updateAppUiScale(uiScale)
         val coordinator = composeRule.runOnUiThread { VideoPlaybackCoordinator(composeRule.activity) }
         video = coordinator
         composeRule.setContent {
@@ -100,6 +106,9 @@ class Issue246AccessibilityChecksInstrumentedTest {
             .setThrowExceptionFor(null)
             .checkAndReturnResults(composeRule.activity.window.decorView)
             .filter { result -> result.type == type }
+
+    private val uiScale: AppUiScale =
+        InstrumentationRegistry.getArguments().getString(UI_SCALE_ARGUMENT)?.let(AppUiScale::valueOf) ?: AppUiScale.DEFAULT
 
     private fun firstPost(kind: PostKind) = SampleData.posts.first { post -> post.kind == kind }
 
@@ -152,5 +161,6 @@ class Issue246AccessibilityChecksInstrumentedTest {
     private companion object {
         const val SETTLE_MILLIS = 1_500L
         const val A11Y_LOG_TAG = "SubshellA11y"
+        const val UI_SCALE_ARGUMENT = "subshellUiScale"
     }
 }

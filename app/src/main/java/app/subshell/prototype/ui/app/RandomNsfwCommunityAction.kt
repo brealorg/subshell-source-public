@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.subshell.prototype.model.RandomNsfwCommunityPick
 import app.subshell.prototype.ui.RandomNsfwCommunityPlacement
 import app.subshell.prototype.ui.SubshellState
 import app.subshell.prototype.ui.error.ErrorPresentation
@@ -50,7 +51,7 @@ internal const val RANDOM_NSFW_COMMUNITY_SCOPE = "random-nsfw-community"
 @Composable
 internal fun rememberRandomNsfwCommunityAction(
     state: SubshellState,
-    pick: (suspend (String) -> String?)?,
+    pick: (suspend (String) -> RandomNsfwCommunityPick)?,
     noticeHost: ViewportErrorHostState,
 ): RandomNsfwCommunityAction? {
     val scope = rememberCoroutineScope()
@@ -65,17 +66,31 @@ internal fun rememberRandomNsfwCommunityAction(
             noticeHost.clear(RANDOM_NSFW_COMMUNITY_SCOPE)
             scope.launch {
                 try {
-                    val name = picker(account)
+                    val pick = picker(account)
                     if (state.activeAccountId != account) return@launch
-                    if (name != null) {
-                        state.openSubreddit(name)
-                    } else {
-                        noticeHost.present(
+                    when (pick) {
+                        is RandomNsfwCommunityPick.Found -> state.openSubreddit(pick.name)
+                        // ISSUE263_NO_NSFW_COMMUNITY_OFFERED_IS_NOT_A_FAILURE_V1:
+                        // Reddit's own answer is not one a retry changes.
+                        is RandomNsfwCommunityPick.NoneOffered -> noticeHost.present(
+                            scopeKey = RANDOM_NSFW_COMMUNITY_SCOPE,
+                            presentation = ErrorPresentation(
+                                kind = ErrorPresentationKind.DEGRADED,
+                                title = "Reddit offered no NSFW communities",
+                                // ISSUE263_NSFW_SEARCH_PREFERENCE_NOTICE_V1: the usual cause.
+                                message = "Reddit returned none for this account; trying again won't change " +
+                                    "that. Check that \"Include mature content in search results\" is on " +
+                                    "at old.reddit.com/prefs.",
+                            ),
+                            failureDetails = null,
+                            onRetry = null,
+                        )
+                        RandomNsfwCommunityPick.Failed -> noticeHost.present(
                             scopeKey = RANDOM_NSFW_COMMUNITY_SCOPE,
                             presentation = ErrorPresentation(
                                 kind = ErrorPresentationKind.DEGRADED,
                                 title = "Couldn't find an NSFW community",
-                                message = "Reddit didn't offer one subshell could open. Try again in a moment.",
+                                message = "Couldn't reach Reddit. Try again in a moment.",
                             ),
                             failureDetails = null,
                             onRetry = null,

@@ -1,5 +1,6 @@
 package app.subshell.prototype.ui
 
+import app.subshell.prototype.harness.ProvideTestVideoPlayback
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
@@ -80,23 +81,25 @@ class Feeds01CustomFeedPagingComposeTest {
         val calls = Calls()
         val posts = mutableStateOf(initial)
         composeRule.setContent {
-            SubshellTheme {
-                CompositionLocalProvider(LocalViewportErrorHostState provides host) {
-                    CustomFeedBrowser(
-                        modifier = androidx.compose.ui.Modifier,
-                        state = state,
-                        accountStableId = "reddit:me",
-                        feed = feed,
-                        postsState = posts.value,
-                        contentPadding = PaddingValues(),
-                        onBack = {},
-                        onRefresh = { calls.refreshes += 1 },
-                        onLoadInitial = {},
-                        onAppend = {
-                            calls.appends += 1
-                            onAppend(posts)
-                        },
-                    )
+            ProvideTestVideoPlayback {
+                SubshellTheme {
+                    CompositionLocalProvider(LocalViewportErrorHostState provides host) {
+                        CustomFeedBrowser(
+                            modifier = androidx.compose.ui.Modifier,
+                            state = state,
+                            accountStableId = "reddit:me",
+                            feed = feed,
+                            postsState = posts.value,
+                            contentPadding = PaddingValues(),
+                            onBack = {},
+                            onRefresh = { calls.refreshes += 1 },
+                            onLoadInitial = {},
+                            onAppend = {
+                                calls.appends += 1
+                                onAppend(posts)
+                            },
+                        )
+                    }
                 }
             }
         }

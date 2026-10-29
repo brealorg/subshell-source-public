@@ -454,8 +454,10 @@ BACKUP_ONBOARDING="$ROOT/app/src/main/java/app/subshell/prototype/ui/screens/Bac
 SETTINGS_MODEL="$ROOT/app/src/main/java/app/subshell/prototype/ui/SubshellSettings.kt"
 HOME_SCREEN_FILE="$ROOT/app/src/main/java/app/subshell/prototype/ui/screens/HomeScreen.kt"
 
-if rg -Fq 'Save current setup' "$BACKUP_SCREEN" &&
-   rg -Fq 'Import backup file' "$BACKUP_SCREEN" &&
+# ISSUE270: the screen's actions are "Back up now" and "Restore from file"
+# (were "Save current setup" and "Import backup file").
+if rg -Fq 'title = "Back up now"' "$BACKUP_SCREEN" &&
+   rg -Fq 'title = "Restore from file"' "$BACKUP_SCREEN" &&
    rg -Fq 'Restore' "$BACKUP_SCREEN" &&
    rg -Fq 'Before restoring' "$BACKUP_STORE" &&
    rg -Fq 'RECENT_CHANGE_SNAPSHOT_LIMIT = 20' "$BACKUP_MODEL" &&
@@ -703,7 +705,10 @@ text = Path(sys.argv[1]).read_text()
 marker = "// SUBS01B8A_DISABLE_COMPOSE_CONTENT_CAPTURE_V1"
 disable = "androidx.compose.ui.contentcapture.ContentCaptureManager.isEnabled = false"
 super_call = "super.onCreate(savedInstanceState)"
-set_content = "setContent {"
+# ISSUE278_EVERY_WINDOW_FOLLOWS_THE_UI_SIZE_V1: the content is now set through
+# setScaledContent (a ComposeView on the UiScaleContext); either call must
+# still come after the disable and super.onCreate.
+set_content = "setScaledContent(" if "setScaledContent(" in text else "setContent {"
 
 positions = [text.find(token) for token in (marker, disable, super_call, set_content)]
 if any(position < 0 for position in positions):

@@ -589,7 +589,7 @@ fun HomeScreen(
     }
 
     val revealedMediaIds = state.revealedMediaIds.toSet()
-    val videoPostIds = remember(visiblePosts, revealedMediaIds, postLayout) {
+    val videoPostIds = remember(visiblePosts, revealedMediaIds, state.showNsfwMedia, postLayout) {
         // ISSUE234_FEED_POST_LAYOUTS_V1: only Large plays media in the feed.
         visiblePosts
             .filter { postLayout == PostLayout.LARGE }
@@ -603,7 +603,7 @@ fun HomeScreen(
 
     ObserveFeedVideoViewport(listState = listState, state = state)
 
-    val animatedPostIds = remember(visiblePosts, revealedMediaIds, postLayout) {
+    val animatedPostIds = remember(visiblePosts, revealedMediaIds, state.showNsfwMedia, postLayout) {
         visiblePosts
             .filter { postLayout == PostLayout.LARGE }
             .filter {

@@ -11,7 +11,7 @@ class Profile01a6AccountHistoryUiPolicyTest {
     @Test
     fun authenticatedOwnProfileUsesInlinePrivateHistoryDestinations() {
         assertEquals(
-            listOf("Posts", "Comments", "Saved", "Upvotes", "Downvotes", "Hidden", "Blocked", "Drafts"),
+            listOf("Posts", "Comments", "Saved", "Upvotes", "Downvotes", "Hidden", "Blocked", "Drafts", "Reading"),
             profileTabsForSession(
                 username = "brealorg",
                 activeAccountUsername = "BREALORG",
@@ -56,7 +56,7 @@ class Profile01a6AccountHistoryUiPolicyTest {
     @Test
     fun localOwnProfileUsesTheSameInlinePrivateBoundary() {
         assertEquals(
-            listOf("Posts", "Comments", "Saved", "Upvotes", "Downvotes", "Hidden", "Blocked", "Drafts"),
+            listOf("Posts", "Comments", "Saved", "Upvotes", "Downvotes", "Hidden", "Blocked", "Drafts", "Reading"),
             profileTabsForSession(
                 username = "root",
                 activeAccountUsername = "ROOT",

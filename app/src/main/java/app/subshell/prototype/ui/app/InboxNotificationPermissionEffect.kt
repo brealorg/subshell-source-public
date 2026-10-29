@@ -44,8 +44,12 @@ internal fun InboxNotificationPermissionEffect(
         state.activeAccountIsAuthenticated,
         state.activeAccountId,
         state.inboxNotificationsEnabled,
+        state.commentActionOnboardingVisible,
     ) {
         if (!state.activeAccountIsAuthenticated || !state.inboxNotificationsEnabled) return@LaunchedEffect
+        // ISSUE271_ONE_SETUP_FLOW_AFTER_SIGN_IN_V1: the setup flow asks on its own
+        // page; after Skip this asks once, as before.
+        if (state.commentActionOnboardingVisible) return@LaunchedEffect
         if (
             Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==

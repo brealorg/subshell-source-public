@@ -1,5 +1,6 @@
 package app.subshell.prototype.ui
 
+import app.subshell.prototype.harness.ProvideTestVideoPlayback
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -75,24 +76,26 @@ class HiddenIds01IdentityMatchTest {
         )
         val post = livePost("only")
         composeRule.setContent {
-            SubshellTheme {
-                CustomFeedBrowser(
-                    modifier = Modifier,
-                    state = state,
-                    accountStableId = alice.stableId,
-                    feed = feed,
-                    postsState = CustomFeedPostsUiState(
+            ProvideTestVideoPlayback {
+                SubshellTheme {
+                    CustomFeedBrowser(
+                        modifier = Modifier,
+                        state = state,
                         accountStableId = alice.stableId,
-                        feedPath = feed.path,
-                        posts = listOf(post),
-                        contentRevision = 1L,
-                    ),
-                    contentPadding = PaddingValues(),
-                    onBack = {},
-                    onRefresh = {},
-                    onLoadInitial = {},
-                    onAppend = {},
-                )
+                        feed = feed,
+                        postsState = CustomFeedPostsUiState(
+                            accountStableId = alice.stableId,
+                            feedPath = feed.path,
+                            posts = listOf(post),
+                            contentRevision = 1L,
+                        ),
+                        contentPadding = PaddingValues(),
+                        onBack = {},
+                        onRefresh = {},
+                        onLoadInitial = {},
+                        onAppend = {},
+                    )
+                }
             }
         }
         composeRule.waitForIdle()

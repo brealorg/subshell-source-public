@@ -1,5 +1,7 @@
 package app.subshell.prototype.ui.app
 
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.getValue
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
@@ -26,12 +28,19 @@ import app.subshell.prototype.ui.screens.InboxContextualSelection
 internal fun rememberChromeScrollConnection(
     state: SubshellState,
     density: Density,
+    // MODMAILCHROME01_A_COVERING_SURFACE_LEAVES_THE_CHROME_ALONE_V1: false while
+    // a surface covers the bars (an open modmail thread). Its list and reply
+    // field scrolled them away unseen, and back on the inbox they were gone;
+    // at the top of a list a drag down could not bring them back.
+    chromeShown: Boolean = true,
 ): NestedScrollConnection {
     val hideThresholdPx = with(density) { 56.dp.toPx() }
     val showThresholdPx = with(density) { 40.dp.toPx() }
+    val currentChromeShown by rememberUpdatedState(chromeShown)
     val chromeScrollConnection = remember(state, hideThresholdPx, showThresholdPx) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (!currentChromeShown) return Offset.Zero
                 state.onMainContentScroll(
                     deltaPx = -available.y,
                     atTop = false,
@@ -46,6 +55,7 @@ internal fun rememberChromeScrollConnection(
                 available: Offset,
                 source: NestedScrollSource,
             ): Offset {
+                if (!currentChromeShown) return Offset.Zero
                 if (available.y > 0f && consumed.y == 0f) state.showChrome()
                 return Offset.Zero
             }

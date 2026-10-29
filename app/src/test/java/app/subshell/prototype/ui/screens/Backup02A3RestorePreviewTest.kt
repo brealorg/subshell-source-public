@@ -99,7 +99,7 @@ class Backup02A3RestorePreviewTest {
         )
         assertTrue(
             screen.contains(
-                "A safety snapshot of your current setup will be created before restore.",
+                "subshell backs up your current setup first, so you can undo this.",
             ),
         )
         assertFalse(

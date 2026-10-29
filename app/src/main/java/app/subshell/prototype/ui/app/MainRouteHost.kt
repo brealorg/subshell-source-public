@@ -9,6 +9,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -230,6 +232,20 @@ Box(
                     topExtra = 8.dp,
                     bottomExtra = stableMainContentBottomPadding,
                 )
+                val homeVideoViewportPadding = PaddingValues(
+                    top = visibleChromePadding(
+                        totalPadding = padding.calculateTopPadding(),
+                        hiddenFraction = topBarHiddenFraction,
+                        minimumPadding = with(density) {
+                            WindowInsets.statusBars.getTop(this).toDp()
+                        },
+                    ),
+                    bottom = visibleChromePadding(
+                        totalPadding = padding.calculateBottomPadding(),
+                        hiddenFraction = bottomBarHiddenFraction,
+                        minimumPadding = navigationBarInsetHeight,
+                    ),
+                )
                 if (activeCustomFeed != null) {
                     CustomFeedBrowser(
                         modifier = Modifier.readingColumn(),
@@ -238,6 +254,7 @@ Box(
                         feed = activeCustomFeed,
                         postsState = customFeedPostsState,
                         contentPadding = homeContentPadding,
+                        videoViewportPadding = homeVideoViewportPadding,
                         showContextHeader = false,
                         onBack = { activeCustomFeedPath = null },
                         onRefresh = {
@@ -284,20 +301,7 @@ Box(
                             state.openCommunityExplore()
                         },
                         contentPadding = homeContentPadding,
-                        videoViewportPadding = PaddingValues(
-                            top = visibleChromePadding(
-                                totalPadding = padding.calculateTopPadding(),
-                                hiddenFraction = topBarHiddenFraction,
-                                minimumPadding = with(density) {
-                                    WindowInsets.statusBars.getTop(this).toDp()
-                                },
-                            ),
-                            bottom = visibleChromePadding(
-                                totalPadding = padding.calculateBottomPadding(),
-                                hiddenFraction = bottomBarHiddenFraction,
-                                minimumPadding = navigationBarInsetHeight,
-                            ),
-                        ),
+                        videoViewportPadding = homeVideoViewportPadding,
                     )
                 }
             }
@@ -425,8 +429,23 @@ scaffoldPadding = padding,
                         onResetCustomFeedCreate = onResetCustomFeedCreate,
                         onResetCustomFeedManage = onResetCustomFeedManage,
                         // SUBS01B6_COMPACT_EXPLORE_LAUNCHER_SPACING_V1
+                        // ISSUE274_COMMUNITIES_TABS_FOLLOW_THE_TOP_BAR_V1 (owner): the
+                        // tabs sit above four lists, so they stayed put under an empty
+                        // band when the top bar hid. They follow the bar up to the
+                        // status bar, as tabs under a scrolling app bar do.
                         contentPadding = mainContentPadding(
-                            scaffoldPadding = padding,
+                            scaffoldPadding = PaddingValues(
+                                start = padding.calculateStartPadding(layoutDirection),
+                                top = visibleChromePadding(
+                                    totalPadding = padding.calculateTopPadding(),
+                                    hiddenFraction = topBarHiddenFraction,
+                                    minimumPadding = with(density) {
+                                        WindowInsets.statusBars.getTop(this).toDp()
+                                    },
+                                ),
+                                end = padding.calculateEndPadding(layoutDirection),
+                                bottom = padding.calculateBottomPadding(),
+                            ),
                             layoutDirection = layoutDirection,
                             horizontal = ScreenMargin,
                             topExtra = 4.dp,

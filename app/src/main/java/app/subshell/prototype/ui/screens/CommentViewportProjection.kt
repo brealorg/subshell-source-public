@@ -228,12 +228,28 @@ internal fun commentViewportVisibleIdleMoreNode(
 // header is in visibleItemsInfo with an index above the first row, so taking
 // the smallest visible index made the "on screen" range start at row 0 and
 // loaded idle nodes the reader had flung past. Only comment and more rows count.
+// ISSUE269_ROWS_UNDER_THE_HEADER_ARE_NOT_ON_SCREEN_V1 (#269): a row wholly
+// covered by the stuck header is not on screen either. A jump to the next
+// top-level comment leaves the previous comment's idle "more replies" row
+// right above it, under the header; counted as visible it loaded as soon as
+// the jump stopped and its replies pushed the comment off the screen. It
+// loads when the reader scrolls up to it.
+internal data class VisibleLazyCommentItem(
+    val index: Int,
+    val key: String,
+    val offset: Int,
+    val size: Int,
+)
+
 internal fun commentViewportVisibleRowLazyIndices(
-    visibleItems: List<Pair<Int, String>>,
+    visibleItems: List<VisibleLazyCommentItem>,
 ): Pair<Int, Int> {
+    val header = visibleItems.firstOrNull { item -> item.key == COMMENT_CONTROLS_ITEM_KEY }
+    val readingLine = header?.let { it.offset + it.size } ?: Int.MIN_VALUE
     val rowIndices = visibleItems
-        .filter { (_, key) -> key.startsWith("comment:") || key.startsWith("more:") }
-        .map { (index, _) -> index }
+        .filter { item -> item.key.startsWith("comment:") || item.key.startsWith("more:") }
+        .filter { item -> item.offset + item.size > readingLine }
+        .map(VisibleLazyCommentItem::index)
     return (rowIndices.minOrNull() ?: -1) to (rowIndices.maxOrNull() ?: -1)
 }
 

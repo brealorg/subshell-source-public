@@ -133,9 +133,6 @@ internal fun AppSheetsHost(
     // afterwards (What's new after an update, onboarding) was drawn above it.
     // The dialogs the app opens by itself wait until it is unlocked.
     val appLocked = LocalAppLocked.current
-    if (state.commentActionOnboardingVisible && !appLocked) {
-        InteractionSideOnboarding(state)
-    }
     if (!state.commentActionOnboardingVisible && !appLocked) {
         BackupFolderOnboarding(
             repository = backupRepository,

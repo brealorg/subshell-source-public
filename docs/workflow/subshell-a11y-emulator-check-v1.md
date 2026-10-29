@@ -29,18 +29,23 @@ tools/a11y-emulator-check.sh --source <qualified source> --commit <SOURCE_COMMIT
 2. Boots the AVD as `tools/emulator-smoke.sh` does (`-memory 4096`, read-only,
    no window) on port 5590; every adb call names the emulator serial, so the
    phone is never used (a `connected*` Gradle task would use it too).
-3. Installs both APKs, runs the test class with `am instrument`, stops the
-   emulator.
+3. Installs both APKs, waits `--settle` seconds (default 90) for the fresh
+   image's post-boot work, runs the test class with `am instrument`, stops
+   the emulator.
 4. Writes `<out>/a11y-result.env` and prints one of
    - `A11Y_RESULT=PASS` — no surface had an error;
    - `A11Y_RESULT=FINDINGS` — the tests ran and at least one failed
      (`instrument.txt` lists the errors per surface);
    - `A11Y_RESULT=FAILED` — it could not run (build, boot, install).
+     `A11Y_REASON=APP_STARTUP_ANR` means the app missed its startup
+     deadline on a busy emulator (0.86's first run, before the wait; same
+     APKs passed 14/14 after 90 s) — run it again with a longer `--settle`.
 
    It exits 0 for all three (2 only for usage errors).
 
-About five minutes. Checked on 2026-10-25: PASS on `main` `f7b5354d`
-(14 tests); FINDINGS on a planted failing test.
+About eleven minutes (build ~6, boot, the 90 s wait, tests). Checked on 2026-10-25: PASS on `main` `f7b5354d`
+(14 tests); FINDINGS on a planted failing test. 2026-10-27 with the wait: PASS
+on the 0.86 source `1c1e5239` (14 tests, 10 min 42 s).
 
 ## In the release recipe
 

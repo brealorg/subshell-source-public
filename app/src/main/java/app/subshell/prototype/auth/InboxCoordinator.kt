@@ -1,5 +1,10 @@
 package app.subshell.prototype.auth
 
+import kotlinx.coroutines.Dispatchers
+import app.subshell.prototype.data.diagnostics.INBOX_STATUS_APP
+import app.subshell.prototype.data.diagnostics.InboxCheckSummary
+import app.subshell.prototype.data.diagnostics.InboxDiagnosticStatusStore
+import app.subshell.prototype.data.diagnostics.inboxCheckSummary
 import app.subshell.prototype.data.diagnostics.recordFailureWithoutAScreen
 import android.app.Application
 import app.subshell.prototype.data.account.AccountSessionDirectory
@@ -49,6 +54,27 @@ internal class InboxCoordinator(
     private val backgroundSyncKeeper: InboxBackgroundSyncKeeper = InboxBackgroundSyncKeeper(application),
 ) {
     private val _redditInboxUiState = MutableStateFlow(RedditInboxUiState())
+
+    // ISSUE272_INBOX_STATUS_IN_THE_REPORT_V1: what the last load from Reddit
+    // found, in counts, for the diagnostic report (written off the main thread).
+    private fun recordAppInboxLoad(result: AuthenticatedRedditInboxResult) {
+        val now = System.currentTimeMillis()
+        val summary = when (result) {
+            is AuthenticatedRedditInboxResult.Loaded -> inboxCheckSummary(
+                atEpochMs = now,
+                outcome = "loaded",
+                items = result.snapshot.items,
+                fresh = result.snapshot.freshItemIds?.size ?: result.snapshot.items.size,
+                fromCache = result.fromCache,
+            )
+            AuthenticatedRedditInboxResult.AuthorizationRequired -> InboxCheckSummary(now, "authorization_required")
+            AuthenticatedRedditInboxResult.NotCached -> InboxCheckSummary(now, "not_cached")
+            is AuthenticatedRedditInboxResult.Failed -> InboxCheckSummary(now, "failed")
+        }
+        scope.launch(Dispatchers.IO) {
+            InboxDiagnosticStatusStore(application).record(INBOX_STATUS_APP, summary)
+        }
+    }
     private var redditInboxJob: Job? = null
     private val deferredReadItemIds = linkedSetOf<Pair<String, String>>()
 
@@ -238,6 +264,7 @@ internal class InboxCoordinator(
                 )
             }
             if (!_redditInboxUiState.value.matches(account)) return@launch
+            recordAppInboxLoad(refreshed)
             _redditInboxUiState.value = when (refreshed) {
                 is AuthenticatedRedditInboxResult.Loaded -> {
                     authDebugLog(

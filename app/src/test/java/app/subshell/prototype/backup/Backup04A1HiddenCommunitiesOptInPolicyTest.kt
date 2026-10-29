@@ -52,7 +52,7 @@ class Backup04A1HiddenCommunitiesOptInPolicyTest {
     fun restoreRequiresSameOptInAndPreviewDisclosesPrivacySensitivity() {
         val screen = source("ui/screens/BackupRestoreScreen.kt")
 
-        assertTrue(screen.contains("Include hidden communities in backup & restore"))
+        assertTrue(screen.contains("title = \"Hidden communities\""))
         assertTrue(screen.contains("Hidden communities · privacy-sensitive"))
         assertTrue(screen.contains("includeHiddenCommunities"))
         assertTrue(
@@ -62,7 +62,7 @@ class Backup04A1HiddenCommunitiesOptInPolicyTest {
         )
         assertTrue(
             screen.contains(
-                "privacy-sensitive backup & restore is disabled on this device",
+                "Privacy-sensitive backup data, so it stays as it is",
             ),
         )
     }

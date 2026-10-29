@@ -26,7 +26,7 @@ internal const val UPDATE01_EXTRA_RELEASE_URL =
     "app.subshell.prototype.extra.UPDATE_RELEASE_URL"
 
 internal object UpdateNotificationCenter {
-    private const val CHANNEL_ID = "subshell_app_updates_v1"
+    internal const val CHANNEL_ID = "subshell_app_updates_v1"
     private const val NOTIFICATION_ID = 0x55A1
     private const val REQUEST_CODE = 0x55A1
 

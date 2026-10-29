@@ -1,5 +1,9 @@
 package app.subshell.prototype.inbox
 
+import app.subshell.prototype.data.diagnostics.INBOX_STATUS_BACKGROUND
+import app.subshell.prototype.data.diagnostics.InboxCheckSummary
+import app.subshell.prototype.data.diagnostics.InboxDiagnosticStatusStore
+import app.subshell.prototype.data.diagnostics.inboxCheckSummary
 import android.content.Context
 import android.database.SQLException
 import android.net.NetworkCapabilities
@@ -312,10 +316,18 @@ internal class InboxBackgroundSyncWorker(
             ?.takeIf(String::isNotEmpty)
             ?: return Result.success()
 
+        // ISSUE272_INBOX_STATUS_IN_THE_REPORT_V1: what this check found, for the report.
+        val inboxStatus = InboxDiagnosticStatusStore(applicationContext)
+        fun recordCheck(summary: InboxCheckSummary) {
+            inboxStatus.record(INBOX_STATUS_BACKGROUND, summary)
+        }
+        fun recordCheck(outcome: String) = recordCheck(InboxCheckSummary(System.currentTimeMillis(), outcome))
+
         // INBOX02_SYNC_ONLY_WITH_NOTIFICATIONS_V1: work scheduled before
         // notifications were turned off stops itself without syncing.
         if (!inboxNotificationsEnabled(applicationContext)) {
             Log.d(INBOX_BACKGROUND_LOG_TAG, "notifications-off account=$account")
+            recordCheck("notifications_off")
             InboxBackgroundSyncScheduler.cancel(applicationContext)
             return Result.success()
         }
@@ -328,6 +340,7 @@ internal class InboxBackgroundSyncWorker(
             AuthApplicationRuntimeFactory.create(applicationContext)
         }.getOrElse {
             Log.d(INBOX_BACKGROUND_LOG_TAG, "runtime-unavailable account=$account")
+            recordCheck("runtime_unavailable")
             diagnosticStore.recordBackgroundFailureSafely(
                 scopeKey = "inbox_background_runtime",
                 details = FailureDetails(
@@ -342,6 +355,7 @@ internal class InboxBackgroundSyncWorker(
         val accountStillSignedIn = inboxWorkerAccountSignedIn(runtime.accountSessionDirectory, account)
         if (accountStillSignedIn == false) {
             Log.d(INBOX_BACKGROUND_LOG_TAG, "account-gone account=$account")
+            recordCheck("account_gone")
             InboxBackgroundSyncScheduler.cancel(applicationContext)
             return Result.success()
         }
@@ -353,6 +367,7 @@ internal class InboxBackgroundSyncWorker(
         val inboxLoader = runtime.redditInboxLoader
         if (inboxLoader == null) {
             Log.d(INBOX_BACKGROUND_LOG_TAG, "inbox-loader-unavailable account=$account")
+            recordCheck("loader_unavailable")
             diagnosticStore.recordBackgroundFailureSafely(
                 scopeKey = "inbox_background_loader",
                 details = FailureDetails(
@@ -377,6 +392,7 @@ internal class InboxBackgroundSyncWorker(
                     scopeKey = "inbox_background_sync",
                     details = details,
                 )
+                recordCheck("failed")
                 null
             }
             when (refreshed) {
@@ -417,11 +433,30 @@ internal class InboxBackgroundSyncWorker(
                         )
                         null
                     }
+                    if (decision == null) {
+                        recordCheck(
+                            inboxCheckSummary(
+                                atEpochMs = System.currentTimeMillis(),
+                                outcome = "state_failed",
+                                items = refreshed.snapshot.items,
+                                fresh = freshItems.size,
+                            ),
+                        )
+                    }
                     if (decision != null) {
                         if (!decision.initializedBefore) {
                             Log.d(
                                 INBOX_BACKGROUND_LOG_TAG,
                                 "inbox-baseline account=$account unread=${currentKeys.size}",
+                            )
+                            // The first check only learns what is there; it notifies nothing.
+                            recordCheck(
+                                inboxCheckSummary(
+                                    atEpochMs = System.currentTimeMillis(),
+                                    outcome = "baseline",
+                                    items = refreshed.snapshot.items,
+                                    fresh = freshItems.size,
+                                ),
                             )
                         } else {
                             val posted = InboxNotificationCenter.postNewEvents(
@@ -436,17 +471,30 @@ internal class InboxBackgroundSyncWorker(
                                 "inbox-applied account=$account unread=${currentKeys.size} " +
                                     "new=${decision.newEventKeys.size} posted=$posted",
                             )
+                            recordCheck(
+                                inboxCheckSummary(
+                                    atEpochMs = System.currentTimeMillis(),
+                                    outcome = "checked",
+                                    items = refreshed.snapshot.items,
+                                    fresh = freshItems.size,
+                                    newEvents = decision.newEventKeys.size,
+                                    posted = posted,
+                                ),
+                            )
                         }
                     }
                 }
                 AuthenticatedRedditInboxResult.AuthorizationRequired -> {
                     Log.d(INBOX_BACKGROUND_LOG_TAG, "inbox-authorization-required account=$account")
+                    recordCheck("authorization_required")
                     diagnosticStore.recordBackgroundAuthorizationRequiredSafely(
                         scopeKey = "inbox_background_authorization",
                     )
                 }
-                AuthenticatedRedditInboxResult.NotCached ->
+                AuthenticatedRedditInboxResult.NotCached -> {
                     Log.d(INBOX_BACKGROUND_LOG_TAG, "inbox-not-cached account=$account")
+                    recordCheck("not_cached")
+                }
                 is AuthenticatedRedditInboxResult.Failed -> {
                     Log.d(
                         INBOX_BACKGROUND_LOG_TAG,
@@ -460,6 +508,7 @@ internal class InboxBackgroundSyncWorker(
                         scopeKey = "inbox_background_sync",
                         details = details,
                     )
+                    recordCheck("failed")
                 }
                 null -> Unit
             }

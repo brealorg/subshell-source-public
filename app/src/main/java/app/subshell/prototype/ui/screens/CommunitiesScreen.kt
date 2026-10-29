@@ -85,6 +85,14 @@ import app.subshell.prototype.model.CommunityDiscoveryItem
 import app.subshell.prototype.model.CommunityDiscoverySort
 import app.subshell.prototype.ui.CommunityDiscoveryLayout
 import app.subshell.prototype.ui.ObserveLiveFeedAutoAppend
+import app.subshell.prototype.model.Post
+import app.subshell.prototype.model.PostKind
+import app.subshell.prototype.ui.PostLayout
+import app.subshell.prototype.ui.ObserveFeedVideoViewport
+import app.subshell.prototype.ui.GoogleFeedVideoViewport
+import app.subshell.prototype.ui.rememberTerminalVideoId
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import app.subshell.prototype.ui.feedItemSpacing
 import app.subshell.prototype.ui.feedPostItems
 import app.subshell.prototype.ui.rememberFeedGridColumns
@@ -2703,6 +2711,7 @@ internal fun CustomFeedBrowser(
     feed: CustomFeedSummary,
     postsState: CustomFeedPostsUiState,
     contentPadding: PaddingValues,
+    videoViewportPadding: PaddingValues = PaddingValues(0.dp),
     showContextHeader: Boolean = true,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
@@ -2802,6 +2811,61 @@ internal fun CustomFeedBrowser(
         onAppend = onAppend,
     )
 
+    // ISSUE275_CUSTOM_FEED_VIDEOS_PLAY_IN_THE_FEED_V1: a custom feed sets up its
+    // videos like Home and a community. Without its own viewport, a custom feed
+    // shown at Home after the Home feed left Home's route holding playback with
+    // no surfaces: a tap on play started and was revoked at once, and nothing
+    // autoplayed.
+    val revealedMediaIds = state.revealedMediaIds.toSet()
+    val videoPostIds = remember(visiblePosts, revealedMediaIds, state.showNsfwMedia, postLayout) {
+        // ISSUE234_FEED_POST_LAYOUTS_V1: only Large plays media in the feed.
+        visiblePosts
+            .filter { postLayout == PostLayout.LARGE }
+            .filter { it.kind == PostKind.VIDEO && state.sensitiveMediaAutoplayAllowed(it) }
+            .map(Post::id)
+    }
+    val terminalVideoId = rememberTerminalVideoId(
+        videoPostIds,
+        feedExhausted = activeState.nextCursor == null && !activeState.loading,
+    )
+    LaunchedEffect(videoPostIds, terminalVideoId) {
+        state.updateVideoFeedContext(videoPostIds, terminalVideoId)
+    }
+
+    ObserveFeedVideoViewport(listState = listState, state = state)
+
+    val animatedPostIds = remember(visiblePosts, revealedMediaIds, state.showNsfwMedia, postLayout) {
+        visiblePosts
+            .filter { postLayout == PostLayout.LARGE }
+            .filter {
+                it.kind in listOf(PostKind.GIF, PostKind.GALLERY) &&
+                    state.sensitiveMediaAutoplayAllowed(it)
+            }
+            .mapTo(mutableSetOf()) { it.id }
+    }
+    LaunchedEffect(listState, animatedPostIds, state.videoAutoplayAllowed) {
+        if (!state.videoAutoplayAllowed) {
+            state.setFeedAutoplayAnimatedMedia(null)
+        } else {
+            snapshotFlow {
+                listState.layoutInfo.visibleItemsInfo
+                    .filter { it.key in animatedPostIds }
+                    .maxByOrNull { item ->
+                        val start = item.offset.coerceAtLeast(0)
+                        val end = (item.offset + item.size).coerceAtMost(listState.layoutInfo.viewportEndOffset)
+                        (end - start).coerceAtLeast(0)
+                    }
+                    ?.key as? String
+            }.distinctUntilChanged().collect(state::setFeedAutoplayAnimatedMedia)
+        }
+    }
+    // PARITY01_FEED_SURFACE_CLEARS_ONLY_WHAT_IT_OWNS_V1
+    DisposableEffect(Unit) {
+        val owner = Any()
+        state.claimFeedSurface(owner)
+        onDispose { state.releaseFeedSurface(owner) }
+    }
+
     Column(modifier = modifier.fillMaxSize()) {
         if (showContextHeader) {
             Row(
@@ -2834,73 +2898,80 @@ internal fun CustomFeedBrowser(
             }
             HorizontalDivider()
         }
-        RefreshableLazyColumn(
-            modifier = Modifier.weight(1f).then(gridColumns.measureModifier),
-            state = listState,
-            contentPadding = contentPadding,
-            indicatorTopPadding = contentPadding.calculateTopPadding(),
-            verticalArrangement = Arrangement.spacedBy(feedItemSpacing(postLayout, 8.dp)),
-            isRefreshing = activeState.loading && activeState.posts.isNotEmpty(),
-            onRefresh = {
-                refreshGeneration += 1
-                onRefresh()
-            },
-            loadNextEnabled = appendEnabled,
-            loadNextToken = activeState.nextCursor,
-            onLoadNext = onAppend,
+        GoogleFeedVideoViewport(
+            state = state,
+            sessionKey = "custom-feed|$accountStableId|${feed.path}",
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            viewportPadding = videoViewportPadding,
         ) {
-            if (filteredSummaryVisible) {
-                item("custom-feed-filtered-summary") {
-                    FilteredPostsSummaryRow(
-                        filteredCount = filteredCount,
-                        revealed = filteredRevealed,
-                        onToggle = { filteredRevealed = !filteredRevealed },
-                    )
+            RefreshableLazyColumn(
+                modifier = Modifier.fillMaxSize().then(gridColumns.measureModifier),
+                state = listState,
+                contentPadding = contentPadding,
+                indicatorTopPadding = contentPadding.calculateTopPadding(),
+                verticalArrangement = Arrangement.spacedBy(feedItemSpacing(postLayout, 8.dp)),
+                isRefreshing = activeState.loading && activeState.posts.isNotEmpty(),
+                onRefresh = {
+                    refreshGeneration += 1
+                    onRefresh()
+                },
+                loadNextEnabled = appendEnabled,
+                loadNextToken = activeState.nextCursor,
+                onLoadNext = onAppend,
+            ) {
+                if (filteredSummaryVisible) {
+                    item("custom-feed-filtered-summary") {
+                        FilteredPostsSummaryRow(
+                            filteredCount = filteredCount,
+                            revealed = filteredRevealed,
+                            onToggle = { filteredRevealed = !filteredRevealed },
+                        )
+                    }
                 }
-            }
-            when {
-                activeState.loading && activeState.posts.isEmpty() -> item("custom-feed-posts-loading") {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().height(180.dp),
-                        contentAlignment = Alignment.Center,
-                    ) { CircularProgressIndicator() }
+                when {
+                    activeState.loading && activeState.posts.isEmpty() -> item("custom-feed-posts-loading") {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().height(180.dp),
+                            contentAlignment = Alignment.Center,
+                        ) { CircularProgressIndicator() }
+                    }
+                    activeState.failureKind != null && activeState.posts.isEmpty() -> item("custom-feed-posts-error") {
+                        EmptyCommunitySurface(
+                            title = "Couldn’t load ${feed.displayName}",
+                            description = activeState.failureStatusCode?.let { status ->
+                                "Reddit returned HTTP $status. Pull to refresh or try again."
+                            } ?: "Pull to refresh or try again.",
+                        )
+                    }
+                    activeState.posts.isEmpty() -> item("custom-feed-posts-empty") {
+                        EmptyCommunitySurface(
+                            title = "No posts in this feed",
+                            description = "Pull to refresh or edit the communities in this feed.",
+                        )
+                    }
+                    visiblePosts.isEmpty() -> item("custom-feed-posts-filtered") {
+                        EmptyCommunitySurface(
+                            title = "All posts are filtered",
+                            description = "Hidden posts, the NSFW setting or your content filters hide every post loaded so far.",
+                        )
+                    }
+                    else -> feedPostItems(visiblePosts, postLayout, gridColumns.count) { post, itemModifier ->
+                        PostCard(
+                            post = post,
+                            state = state,
+                            layout = postLayout,
+                            onOpen = { state.openFromCustomFeed(post) },
+                            modifier = itemModifier,
+                        )
+                    }
                 }
-                activeState.failureKind != null && activeState.posts.isEmpty() -> item("custom-feed-posts-error") {
-                    EmptyCommunitySurface(
-                        title = "Couldn’t load ${feed.displayName}",
-                        description = activeState.failureStatusCode?.let { status ->
-                            "Reddit returned HTTP $status. Pull to refresh or try again."
-                        } ?: "Pull to refresh or try again.",
-                    )
-                }
-                activeState.posts.isEmpty() -> item("custom-feed-posts-empty") {
-                    EmptyCommunitySurface(
-                        title = "No posts in this feed",
-                        description = "Pull to refresh or edit the communities in this feed.",
-                    )
-                }
-                visiblePosts.isEmpty() -> item("custom-feed-posts-filtered") {
-                    EmptyCommunitySurface(
-                        title = "All posts are filtered",
-                        description = "Hidden posts, the NSFW setting or your content filters hide every post loaded so far.",
-                    )
-                }
-                else -> feedPostItems(visiblePosts, postLayout, gridColumns.count) { post, itemModifier ->
-                    PostCard(
-                        post = post,
-                        state = state,
-                        layout = postLayout,
-                        onOpen = { state.openFromCustomFeed(post) },
-                        modifier = itemModifier,
-                    )
-                }
-            }
-            if (activeState.appending) {
-                item("custom-feed-posts-appending") {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        contentAlignment = Alignment.Center,
-                    ) { InlineProgressIndicator() }
+                if (activeState.appending) {
+                    item("custom-feed-posts-appending") {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            contentAlignment = Alignment.Center,
+                        ) { InlineProgressIndicator() }
+                    }
                 }
             }
         }
@@ -3638,8 +3709,13 @@ internal fun inlineCommunityDiscoveryItems(
         .toList()
 }
 
-private fun normalizeDiscoveryDraft(value: String): String =
-    value.trim().replace(Regex("\\s+"), " ")
+// ISSUE277_DISCOVERY_STRIPS_THE_R_PREFIX_V1: "r/celebs" found nothing; Reddit's
+// community search wants the bare name, as the composer and flair searches give it.
+internal fun normalizeDiscoveryDraft(value: String): String =
+    value.trim()
+        .replace(Regex("^/?[rR]/"), "")
+        .trim()
+        .replace(Regex("\\s+"), " ")
 
 private const val COMMUNITY_TYPEAHEAD_DEBOUNCE_MS = 275L
 private const val INLINE_COMMUNITY_DISCOVERY_CAROUSEL_LIMIT = 6
