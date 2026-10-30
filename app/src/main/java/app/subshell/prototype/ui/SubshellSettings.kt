@@ -159,6 +159,9 @@ data class SubshellSettings(
     // NSFWMEDIA01_SHOW_NSFW_MEDIA_SETTING_V1 (owner): off by default, backed up
     // under its own key so older builds restore the rest of the backup.
     val showNsfwMedia: Boolean = false,
+    // ISSUE239_NEW_COMMENTS_IN_A_WATCHED_COMMUNITY_V1 (owner 2026-10-29): off by
+    // default; watched communities also notify about new comments.
+    val notifyNewComments: Boolean = false,
     val contentFilters: ContentFilters = ContentFilters(),
     val communitySortPreferences: Map<String, CommunitySort> = emptyMap(),
     val listingTimePeriod: RedditListingTimePeriod = RedditListingTimePeriod.ALL,
@@ -248,6 +251,7 @@ data class SubshellSettings(
         SHOW_NSFW_POSTS to showNsfwPosts.toString(),
         SENSITIVE_MEDIA_PREVIEW_MODE to sensitiveMediaPreviewMode.name,
         SHOW_NSFW_MEDIA to showNsfwMedia.toString(),
+        NOTIFY_NEW_COMMENTS to notifyNewComments.toString(),
         COMMUNITY_SORT_PREFERENCES to encodeCommunitySortPreferences(communitySortPreferences),
         LISTING_TIME_PERIOD to listingTimePeriod.name,
         DRAWER_COMMUNITIES_MODE to drawerCommunitiesMode.name,
@@ -330,6 +334,7 @@ data class SubshellSettings(
         const val SHOW_NSFW_POSTS = "show_nsfw_posts"
         const val SENSITIVE_MEDIA_PREVIEW_MODE = "sensitive_media_preview_mode"
         const val SHOW_NSFW_MEDIA = "show_nsfw_media"
+        const val NOTIFY_NEW_COMMENTS = "notify_new_comments"
         const val COMMENT_VISIT_HISTORY = "comment_visit_history"
         const val COMMUNITY_SORT_PREFERENCES = "community_sort_preferences"
         const val LISTING_TIME_PERIOD = "listing_time_period"
@@ -429,6 +434,7 @@ data class SubshellSettings(
             SHOW_NSFW_POSTS,
             SENSITIVE_MEDIA_PREVIEW_MODE,
             SHOW_NSFW_MEDIA,
+            NOTIFY_NEW_COMMENTS,
             COMMUNITY_SORT_PREFERENCES,
             LISTING_TIME_PERIOD,
             DRAWER_COMMUNITIES_MODE,
@@ -635,6 +641,7 @@ data class SubshellSettings(
                     SensitiveMediaPreviewMode.entries,
                 ),
                 showNsfwMedia = booleanValue(SHOW_NSFW_MEDIA, compatibleValues),
+                notifyNewComments = booleanValue(NOTIFY_NEW_COMMENTS, compatibleValues),
                 contentFilters = ContentFilters.fromStorageMap(compatibleValues),
                 communitySortPreferences = decodeCommunitySortPreferences(
                     compatibleValues.getValue(COMMUNITY_SORT_PREFERENCES),

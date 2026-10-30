@@ -62,6 +62,24 @@ internal fun NewPostNotificationsSettingsScreen(
                     modifier = Modifier.padding(horizontal = 4.dp),
                 )
             }
+            // ISSUE239_NEW_COMMENTS_IN_A_WATCHED_COMMUNITY_V1 (owner): the reader
+            // decides; off by default. Their own posts and comments never notify.
+            item("new-posts-comments") {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                ) {
+                    NotificationTypeRow(
+                        title = "Also new comments",
+                        description = "A notification for each new comment in these communities. " +
+                            "Your own posts and comments never notify you.",
+                        checked = state.notifyNewComments,
+                        enabled = state.communityPostNotificationsAvailable,
+                        onCheckedChange = state::updateNotifyNewComments,
+                    )
+                }
+            }
             if (watched.isNotEmpty()) {
                 item("new-posts-communities") {
                     Surface(

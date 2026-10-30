@@ -1,5 +1,8 @@
 package app.subshell.prototype.data.network
 
+import app.subshell.prototype.data.diagnostics.REDDIT_REFUSAL_API
+import app.subshell.prototype.data.diagnostics.RedditRefusals
+import app.subshell.prototype.data.diagnostics.isRedditApiRefusalStatus
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.nio.charset.StandardCharsets
@@ -367,11 +370,13 @@ class SubshellHttpClient(
                 if (response.code == 401) {
                     bearerTokenProvider.onUnauthorized()
                 }
+                val providerReason = if (readsProviderReason(response.code)) response.forbiddenReasonOrNull() else null
+                response.reportRefusal(providerReason)
                 NetworkResult.HttpFailure(
                     statusCode = response.code,
                     retryable = isRetryableHttpStatus(response.code),
                     metadata = metadata,
-                    providerReason = if (readsProviderReason(response.code)) response.forbiddenReasonOrNull() else null,
+                    providerReason = providerReason,
                 )
             }
         }
@@ -440,6 +445,14 @@ class SubshellHttpClient(
         forbiddenReasonFromBody(text)
     }.getOrNull()
 
+    // ISSUE32_REDDIT_REFUSALS_IN_THE_REPORT_V1 (#32): a refusal's status and
+    // Reddit's reason token go to the diagnostic report; nothing else of the
+    // request or answer does.
+    private fun Response.reportRefusal(providerReason: String?) {
+        if (!isRedditApiRefusalStatus(code)) return
+        RedditRefusals.report(REDDIT_REFUSAL_API, code, providerReason ?: forbiddenReasonOrNull())
+    }
+
     private fun <T> Response.toNetworkResult(
         deserializer: DeserializationStrategy<T>,
     ): NetworkResult<T> {
@@ -448,11 +461,13 @@ class SubshellHttpClient(
             if (code == 401) {
                 bearerTokenProvider.onUnauthorized()
             }
+            val providerReason = if (readsProviderReason(code)) forbiddenReasonOrNull() else null
+            reportRefusal(providerReason)
             return NetworkResult.HttpFailure(
                 statusCode = code,
                 retryable = isRetryableHttpStatus(code),
                 metadata = metadata,
-                providerReason = if (readsProviderReason(code)) forbiddenReasonOrNull() else null,
+                providerReason = providerReason,
             )
         }
 

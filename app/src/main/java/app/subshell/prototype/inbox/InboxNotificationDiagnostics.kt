@@ -12,6 +12,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import app.subshell.prototype.communityposts.COMMUNITY_COMMENTS_NOTIFICATION_CHANNEL_ID
 import app.subshell.prototype.communityposts.COMMUNITY_POSTS_NOTIFICATION_CHANNEL_ID
 import app.subshell.prototype.data.diagnostics.NotificationDiagnostics
 import app.subshell.prototype.offline.OFFLINE_SAVE_CHANNEL_ID
@@ -81,6 +82,7 @@ internal fun readNotificationDiagnostics(context: Context): NotificationDiagnost
 private val DIAGNOSED_CHANNEL_IDS = listOf(
     INBOX_NOTIFICATION_CHANNEL_ID,
     COMMUNITY_POSTS_NOTIFICATION_CHANNEL_ID,
+    COMMUNITY_COMMENTS_NOTIFICATION_CHANNEL_ID,
     UpdateNotificationCenter.CHANNEL_ID,
     OFFLINE_SAVE_CHANNEL_ID,
 )

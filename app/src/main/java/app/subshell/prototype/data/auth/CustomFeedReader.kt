@@ -27,6 +27,12 @@ import app.subshell.prototype.data.account.CustomFeedPostsFailureKind
 import app.subshell.prototype.data.account.customFeedPathSegments
 import app.subshell.prototype.data.network.reddit.toNetworkPage
 import app.subshell.prototype.model.Post
+import app.subshell.prototype.data.RepositoryLoadOperation
+import app.subshell.prototype.data.RepositoryPageRequest
+import app.subshell.prototype.data.RepositoryQueryKey
+import app.subshell.prototype.data.cache.RoomSubshellCacheStore
+import app.subshell.prototype.data.network.NetworkPage
+import app.subshell.prototype.data.scopedToAccount
 
 internal sealed interface CustomFeedReadResult {
     data class Loaded(
@@ -76,6 +82,13 @@ internal interface CustomFeedReader {
         accountStableId: String,
         feedPath: String,
     ): CustomFeedSummary? = null
+
+    // ISSUE32_CUSTOM_FEED_POSTS_ARE_STORED_V1: the feed's pages as last read,
+    // shown when Reddit cannot be read (a restart while it refuses access).
+    suspend fun storedPosts(
+        accountStableId: String,
+        feedPath: String,
+    ): CustomFeedPostReadResult.Loaded? = null
 }
 
 internal class ConfiguredCustomFeedReader(
@@ -85,7 +98,47 @@ internal class ConfiguredCustomFeedReader(
     private val configuration: OAuthProviderConfiguration,
     private val accountCoordinator: AuthAccountSessionCoordinator,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val postStore: RoomSubshellCacheStore? = null,
 ) : CustomFeedReader {
+    // ISSUE32_CUSTOM_FEED_POSTS_ARE_STORED_V1: the same account-scoped post
+    // rows and query entries as Home and community feeds; no new table.
+    private fun storedQueryKey(account: String, feedPath: String): RepositoryQueryKey =
+        RepositoryQueryKey("custom_feed|hot|${feedPath.trim().lowercase()}")
+            .scopedToAccount(account, AccountSessionSource.AUTHENTICATED)
+
+    override suspend fun storedPosts(
+        accountStableId: String,
+        feedPath: String,
+    ): CustomFeedPostReadResult.Loaded? = withContext(ioDispatcher) {
+        val store = postStore ?: return@withContext null
+        val account = accountStableId.trim()
+        if (account.isEmpty() || customFeedPathSegments(feedPath) == null) return@withContext null
+        try {
+            store.readPostFeedSnapshot(storedQueryKey(account, feedPath))
+                ?.takeIf { snapshot -> snapshot.posts.isNotEmpty() }
+                ?.let { snapshot -> CustomFeedPostReadResult.Loaded(snapshot.posts, snapshot.remoteNextCursor) }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun storePage(account: String, feedPath: String, after: String?, page: NetworkPage<Post>) {
+        val store = postStore ?: return
+        runCatching {
+            store.writeNetworkPostPage(
+                request = RepositoryPageRequest(
+                    cursor = after,
+                    queryKey = storedQueryKey(account, feedPath),
+                    operation = if (after == null) RepositoryLoadOperation.REFRESH else RepositoryLoadOperation.APPEND,
+                ),
+                page = page,
+                receivedAtEpochMs = System.currentTimeMillis(),
+            )
+        }
+    }
+
     override suspend fun load(
         accountStableId: String,
         preferredSession: StoredOAuthSession?,
@@ -235,6 +288,8 @@ internal class ConfiguredCustomFeedReader(
                         is OAuthEndpointResult.ProtocolFailure -> false
                         is OAuthEndpointResult.Success -> false
                     },
+                    // ISSUE32_REFUSED_READS_CARRY_THEIR_DETAILS_V1
+                    details = tokenResult.result.toFailureDetails(),
                 )
                 else -> return@withContext CustomFeedPostReadResult.Failed(CustomFeedPostsFailureKind.SESSION)
             }
@@ -263,6 +318,7 @@ internal class ConfiguredCustomFeedReader(
                 is NetworkResult.Success -> result.value
                     .toNetworkPage(SubshellNetworkJson.providerJson, System.currentTimeMillis() / 1_000L)
                     .let { page ->
+                        storePage(account, feedPath, after?.trim()?.takeIf(String::isNotEmpty), page)
                         CustomFeedPostReadResult.Loaded(
                             posts = page.items,
                             nextCursor = page.nextCursor,

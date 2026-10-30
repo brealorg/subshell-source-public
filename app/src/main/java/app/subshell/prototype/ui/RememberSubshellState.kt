@@ -660,6 +660,10 @@ fun rememberSubshellState(
                 SubshellSettings.SHOW_NSFW_MEDIA,
                 DefaultSubshellSettings.showNsfwMedia,
             ),
+            initialNotifyNewComments = preferences.getBoolean(
+                SubshellSettings.NOTIFY_NEW_COMMENTS,
+                DefaultSubshellSettings.notifyNewComments,
+            ),
             initialContentFilters = ContentFilters.fromStorageMap(
                 ContentFilterType.entries.flatMap { type ->
                     // CONTENTFILTER03_COMMUNITY_SCOPED_FILTERS_V1

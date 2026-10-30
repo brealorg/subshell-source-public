@@ -469,6 +469,22 @@ internal class CustomFeedCoordinator(
             )
         })
         customFeedPostsJob = scope.launch {
+            // ISSUE32_CUSTOM_FEED_POSTS_ARE_STORED_V1: a feed with nothing in
+            // memory shows its stored pages while Reddit is asked.
+            if (!append && _customFeedPostsUiState.value.let { it.matches(account, normalizedPath) && it.posts.isEmpty() }) {
+                reader.storedPosts(account, normalizedPath)?.let { stored ->
+                    val shown = _customFeedPostsUiState.value
+                    if (shown.matches(account, normalizedPath) && shown.posts.isEmpty()) {
+                        publishCustomFeedPosts(
+                            shown.copy(
+                                posts = stored.posts,
+                                nextCursor = stored.nextCursor,
+                                contentRevision = shown.contentRevision + 1L,
+                            ),
+                        )
+                    }
+                }
+            }
             val preferredSession = when (
                 val writeSession = writeCapability?.ensureAuthorized(account)
             ) {

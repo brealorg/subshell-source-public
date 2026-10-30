@@ -74,6 +74,10 @@ class Diag05UnshownFailuresTest {
 
         shown = true
         composeRule.waitForIdle()
+        // The diagnostic is written on Dispatchers.IO, which waitForIdle does not
+        // wait for: under full-suite load the store could still be empty here.
+        val deadline = System.currentTimeMillis() + 5_000
+        while (events().isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(10)
         val event = events().single()
         assertEquals(DiagnosticOperation.INLINE_ERROR_PRESENTED, event.operation)
         assertEquals("moderator_log", event.action)

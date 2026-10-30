@@ -60,7 +60,7 @@ internal enum class SettingsDestination(
     // ISSUE239_WATCHED_COMMUNITIES_IN_SETTINGS_V1
     NEW_POST_NOTIFICATIONS(
         title = "New posts",
-        description = "Communities that notify you about new posts",
+        description = "Communities that notify you about new posts and comments",
     ),
     CONTENT_FILTERS(
         title = "Content filters",

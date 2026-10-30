@@ -88,6 +88,8 @@ internal fun accountWriteRuntimeParts(
             userAgent = selected.userAgent,
             configuration = configuration,
             accountCoordinator = coordinator,
+            // ISSUE32_CUSTOM_FEED_POSTS_ARE_STORED_V1
+            postStore = liveCacheStore,
         ),
         customFeedCreator = customFeedWriteSelection?.let { writeSelection ->
             ConfiguredCustomFeedCreator(

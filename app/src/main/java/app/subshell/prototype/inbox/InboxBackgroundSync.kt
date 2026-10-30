@@ -238,6 +238,11 @@ internal class InboxBackgroundEventStore(
  * BGSYNCDIAG01_RUNS_ON_A_VALIDATED_NETWORK_V1: CONNECTED alone also accepts a
  * network that cannot reach the internet yet (DNS failures in the reports);
  * from Android 9 the work waits for one Android has validated.
+ *
+ * BGSYNCVPN01_BACKGROUND_WORK_RUNS_OVER_A_VPN_V1 (owner 2026-10-29: new-post
+ * notifications seemed not to work): NetworkRequest.Builder asks for NOT_VPN by
+ * default, so behind an always-on VPN (WireGuard for every app) no network ever
+ * matched and neither the Inbox sync nor the new-post check ran in the background.
  */
 internal fun inboxBackgroundSyncConstraints(): Constraints =
     Constraints.Builder().apply {
@@ -246,6 +251,7 @@ internal fun inboxBackgroundSyncConstraints(): Constraints =
                 NetworkRequest.Builder()
                     .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
                     .addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                    .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
                     .build(),
                 NetworkType.CONNECTED,
             )

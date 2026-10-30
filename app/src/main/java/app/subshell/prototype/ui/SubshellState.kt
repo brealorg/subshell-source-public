@@ -777,6 +777,7 @@ class SubshellState(
     initialShowNsfwPosts: Boolean = false,
     initialSensitiveMediaPreviewMode: SensitiveMediaPreviewMode = SensitiveMediaPreviewMode.BLUR_AND_PRELOAD,
     initialShowNsfwMedia: Boolean = false,
+    initialNotifyNewComments: Boolean = false,
     initialContentFilters: ContentFilters = ContentFilters(),
     initialCommunitySortPreferences: Map<String, CommunitySort> = emptyMap(),
     initialListingTimePeriod: RedditListingTimePeriod = RedditListingTimePeriod.ALL,
@@ -1238,6 +1239,8 @@ class SubshellState(
     var sensitiveMediaPreviewMode by mutableStateOf(initialSensitiveMediaPreviewMode)
         private set
     var showNsfwMedia by mutableStateOf(initialShowNsfwMedia)
+        private set
+    var notifyNewComments by mutableStateOf(initialNotifyNewComments)
         private set
     var contentFilters by mutableStateOf(initialContentFilters)
         private set
@@ -5810,6 +5813,13 @@ class SubshellState(
         persistPreference(SubshellSettings.SHOW_NSFW_MEDIA, enabled.toString())
     }
 
+    // ISSUE239_NEW_COMMENTS_IN_A_WATCHED_COMMUNITY_V1: read by the background check.
+    fun updateNotifyNewComments(enabled: Boolean) {
+        if (notifyNewComments == enabled) return
+        notifyNewComments = enabled
+        persistPreference(SubshellSettings.NOTIFY_NEW_COMMENTS, enabled.toString())
+    }
+
     /** True when a post's NSFW media needs no tap: "Show NSFW media" is on and it is no spoiler. */
     fun nsfwMediaShownUncovered(post: Post): Boolean =
         nsfwMediaShownUncovered(post, showNsfwMedia)
@@ -6135,6 +6145,7 @@ class SubshellState(
         showNsfwPosts = showNsfwPosts,
         sensitiveMediaPreviewMode = sensitiveMediaPreviewMode,
         showNsfwMedia = showNsfwMedia,
+        notifyNewComments = notifyNewComments,
         contentFilters = contentFilters,
         communitySortPreferences = communitySortPreferences,
         listingTimePeriod = listingTimePeriod,
@@ -6223,6 +6234,7 @@ class SubshellState(
         showNsfwPosts = settings.showNsfwPosts
         sensitiveMediaPreviewMode = settings.sensitiveMediaPreviewMode
         showNsfwMedia = settings.showNsfwMedia
+        notifyNewComments = settings.notifyNewComments
         revealedMediaIds.clear()
         revealedNsfwMediaIds.clear()
         activeAnimatedMediaId = null

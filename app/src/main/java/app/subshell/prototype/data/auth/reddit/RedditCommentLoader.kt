@@ -218,6 +218,8 @@ internal class RedditCommentLoader(
                     return@withLock AuthenticatedRedditCommentResult.Failed(
                         kind = AuthenticatedRedditCommentFailureKind.SESSION,
                         retryable = tokenResult.result.retryable,
+                        // ISSUE32_REFUSED_READS_CARRY_THEIR_DETAILS_V1
+                        details = tokenResult.result.toFailureDetails(),
                     )
                 }
                 AuthSessionResult.StorageFailure,

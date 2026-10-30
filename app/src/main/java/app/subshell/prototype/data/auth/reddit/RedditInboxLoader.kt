@@ -265,6 +265,8 @@ internal class RedditInboxLoader(
                         is OAuthEndpointResult.ProtocolFailure -> false
                         is OAuthEndpointResult.Success -> false
                     },
+                    // ISSUE32_REFUSED_READS_CARRY_THEIR_DETAILS_V1
+                    details = result.result.toFailureDetails(),
                 )
             AuthSessionResult.StorageFailure ->
                 return@withContext AuthenticatedRedditInboxTargetResult.Failed(

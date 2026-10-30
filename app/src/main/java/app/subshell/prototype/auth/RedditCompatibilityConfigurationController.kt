@@ -38,6 +38,17 @@ internal class RedditCompatibilityConfigurationController(
     }
 
     // ISSUE240_DIAGNOSTICS_FLAG_CHANGED_API_VALUES_V1
+    // ISSUE32_REDDIT_REFUSALS_IN_THE_REPORT_V1: which kind of client signs in,
+    // never its values.
+    fun oauthClientModeDiagnosticToken(): String =
+        runCatching {
+            when (store.oauthClientSelection()?.mode) {
+                OAuthClientMode.REDREADER_COMPATIBILITY -> "redreader_compatibility"
+                OAuthClientMode.NATIVE_PRODUCTION -> "native"
+                null -> "none"
+            }
+        }.getOrDefault("unknown")
+
     fun apiValuesDiagnosticToken(): String =
         runCatching { if (apiValues().customized) "custom" else "default" }
             .getOrDefault("unknown")

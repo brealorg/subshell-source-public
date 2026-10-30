@@ -27,6 +27,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalAccessibilityManager
@@ -78,6 +82,11 @@ internal fun ViewportErrorTrayHost(
             action.kind == ErrorActionKind.RETRY && current.onRetry != null
         }
         val showDetails = current.failureDetails.hasMeaningfulExpandedDetails()
+        // ISSUE32_TRAY_MESSAGE_CAN_BE_READ_IN_FULL_V1 (owner: a cut-off message
+        // needs a "read more"): a message longer than two lines gets More, which
+        // shows all of it in the tray; every notice and error alike.
+        var messageExpanded by remember(current.fingerprint) { mutableStateOf(false) }
+        var messageCut by remember(current.fingerprint) { mutableStateOf(false) }
         // ISSUE222_TRAY_HAS_A_NEUTRAL_TONE_V1: a notice that is not an error is
         // drawn without the error colour and icon.
         val info = current.tone == TrayTone.INFO
@@ -144,8 +153,9 @@ internal fun ViewportErrorTrayHost(
                     modifier = Modifier.padding(start = 30.dp, end = 8.dp),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
+                    maxLines = if (messageExpanded) Int.MAX_VALUE else 2,
                     overflow = TextOverflow.Ellipsis,
+                    onTextLayout = { layout -> if (!messageExpanded) messageCut = layout.hasVisualOverflow },
                 )
 
                 current.presentation.technicalDetail?.let { detail ->
@@ -164,6 +174,11 @@ internal fun ViewportErrorTrayHost(
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    if (messageCut || messageExpanded) {
+                        TextButton(onClick = { messageExpanded = !messageExpanded }) {
+                            Text(if (messageExpanded) "Less" else "More")
+                        }
+                    }
                     if (showDetails) {
                         TextButton(onClick = state::openDetails) {
                             Text("Details")

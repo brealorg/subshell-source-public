@@ -70,6 +70,13 @@ internal class ViewportErrorHostState {
     ) {
         require(scopeKey.isNotBlank())
         require(presentation.kind == ErrorPresentationKind.DEGRADED)
+        // ISSUE32_REDDIT_REFUSED_ACCESS_IS_ONE_NOTICE_V1: while Reddit refuses
+        // the Client ID, RedditAccessRefusedNotice says so once for every screen.
+        if (failureDetails.isClientAccessRefusal() || presentation.failureDetails.isClientAccessRefusal()) {
+            activeRequests.remove(scopeKey)
+            showNewestActive()
+            return
+        }
 
         val fingerprint = buildFingerprint(
             scopeKey = scopeKey,
@@ -155,6 +162,9 @@ internal fun ViewportErrorHostState.presentNotice(
         dismissesItself = dismissesItself,
     )
 }
+
+internal fun FailureDetails?.isClientAccessRefusal(): Boolean =
+    this?.providerCode?.value == app.subshell.prototype.data.account.CLIENT_ACCESS_REFUSED_PROVIDER_CODE
 
 internal val LocalViewportErrorHostState =
     staticCompositionLocalOf<ViewportErrorHostState?> { null }

@@ -10,7 +10,9 @@ import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import app.subshell.prototype.auth.AuthApplicationRuntimeFactory
+import app.subshell.prototype.data.account.AccountSessionDirectory
 import app.subshell.prototype.data.auth.AuthenticatedRedditCommunityNewPostsLoader
+import app.subshell.prototype.data.auth.CommunityComment
 import app.subshell.prototype.data.diagnostics.DiagnosticEventStore
 import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.error.LocalFailureKind
@@ -22,6 +24,7 @@ import app.subshell.prototype.inbox.inboxBackgroundSyncConstraints
 import app.subshell.prototype.inbox.inboxWorkerAccountSignedIn
 import app.subshell.prototype.inbox.isTransientNetworkFailure
 import app.subshell.prototype.model.Post
+import app.subshell.prototype.ui.SubshellSettings
 import app.subshell.prototype.ui.activeMutedCommunityNamesAt
 import app.subshell.prototype.ui.communityMutesPreferenceKey
 import app.subshell.prototype.ui.decodeCommunityMutes
@@ -59,7 +62,8 @@ internal data class CommunityPostCheckRun(val posted: Int, val transientNetworkF
 
 /**
  * Checks each watched, unmuted community of [accountStableId] once: a silent
- * baseline the first time, afterwards a notification for each new post.
+ * baseline the first time, afterwards a notification for each new post, and
+ * with [includeComments] for each new comment. Nothing by [ownUsername] notifies.
  */
 internal suspend fun runCommunityPostCheck(
     accountStableId: String,
@@ -70,26 +74,45 @@ internal suspend fun runCommunityPostCheck(
     nowEpochMillis: Long,
     recordFailure: (FailureDetails) -> Unit,
     notify: (communityName: String, posts: List<Post>) -> Int,
+    ownUsername: String? = null,
+    includeComments: Boolean = false,
+    notifyComments: (communityName: String, comments: List<CommunityComment>) -> Int = { _, _ -> 0 },
 ): CommunityPostCheckRun {
     seen.forgetAllBut(accountStableId, watched)
     var posted = 0
     var transient = false
+    suspend fun <T> readOrRecord(read: suspend () -> T?): T? = try {
+        read()
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (failure: Exception) {
+        val details = backgroundSyncFailureDetails(failure)
+        if (details.isTransientNetworkFailure()) transient = true
+        recordFailure(details)
+        null
+    }
     watched
         .filterNot { name -> mutedNames.any { it.equals(name, ignoreCase = true) } }
         .forEach { community ->
-            val posts = try {
-                loader.load(accountStableId, community)
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (failure: Exception) {
-                val details = backgroundSyncFailureDetails(failure)
-                if (details.isTransientNetworkFailure()) transient = true
-                recordFailure(details)
-                null
-            } ?: return@forEach
-            val check = checkForNewPosts(posts, seen.watermark(accountStableId, community, nowEpochMillis))
-            posted += notify(community, check.newPosts)
-            seen.save(accountStableId, community, check.watermark, nowEpochMillis)
+            val posts = readOrRecord { loader.load(accountStableId, community) }
+            if (posts != null) {
+                val check = checkForNewPosts(posts, seen.watermark(accountStableId, community, nowEpochMillis), ownUsername)
+                posted += notify(community, check.newPosts)
+                seen.save(accountStableId, community, check.watermark, nowEpochMillis)
+            }
+            // ISSUE239_NEW_COMMENTS_IN_A_WATCHED_COMMUNITY_V1: only while the
+            // setting is on; turned on again later, the old watermark is too old
+            // and the first check is a silent baseline.
+            if (!includeComments) return@forEach
+            val comments = readOrRecord { loader.loadComments(accountStableId, community) } ?: return@forEach
+            val stream = CommunityStream.COMMENTS
+            val commentCheck = checkForNewComments(
+                comments,
+                seen.watermark(accountStableId, community, nowEpochMillis, stream),
+                ownUsername,
+            )
+            posted += notifyComments(community, commentCheck.newComments)
+            seen.save(accountStableId, community, commentCheck.watermark, nowEpochMillis, stream)
         }
     return CommunityPostCheckRun(posted = posted, transientNetworkFailure = transient)
 }
@@ -124,6 +147,7 @@ internal class CommunityPostCheckWorker(
             return Result.success()
         }
         val now = System.currentTimeMillis()
+        val ownUsername = accountUsername(runtime.accountSessionDirectory, account)
         val run = runCommunityPostCheck(
             accountStableId = account,
             watched = watched,
@@ -134,6 +158,11 @@ internal class CommunityPostCheckWorker(
             recordFailure = { details -> diagnostics.recordSafely(details) },
             notify = { community, posts ->
                 CommunityPostNotificationCenter.postNewPosts(applicationContext, account, community, posts)
+            },
+            ownUsername = ownUsername,
+            includeComments = newCommentNotificationsEnabled(applicationContext),
+            notifyComments = { community, comments ->
+                CommunityPostNotificationCenter.postNewComments(applicationContext, account, community, comments)
             },
         )
         Log.d(COMMUNITY_POST_CHECK_LOG_TAG, "checked communities=${watched.size} posted=${run.posted}")
@@ -152,6 +181,25 @@ internal class CommunityPostCheckWorker(
         runCatching { recordBackgroundFailure(scopeKey = COMMUNITY_POST_CHECK_SCOPE, details = details) }
     }
 }
+
+/** The account's Reddit name, so its own posts and comments never notify; null if unknown. */
+private suspend fun accountUsername(directory: AccountSessionDirectory?, accountStableId: String): String? {
+    val snapshot = try {
+        directory?.hydratedSnapshot()
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        null
+    }
+    return snapshot?.accounts?.firstOrNull { it.stableId == accountStableId }?.username
+}
+
+// ISSUE239_NEW_COMMENTS_IN_A_WATCHED_COMMUNITY_V1: off by default (owner).
+internal fun newCommentNotificationsEnabled(context: Context): Boolean =
+    runCatching {
+        context.getSharedPreferences(COMMUNITY_POST_WATCH_PREFERENCES, Context.MODE_PRIVATE)
+            .getBoolean(SubshellSettings.NOTIFY_NEW_COMMENTS, false)
+    }.getOrDefault(false)
 
 // The scope names the community subsystem, never a community (DIAG04 action token).
 internal const val COMMUNITY_POST_CHECK_SCOPE = "community_posts_background_check"

@@ -222,6 +222,10 @@ internal enum class OAuthProtocolFailureKind {
     UNSUPPORTED_TOKEN_TYPE,
     INVALID_EXPIRY,
     MISSING_ACCESS_TOKEN,
+
+    // ISSUE32_REDDIT_REFUSED_ACCESS_IS_ONE_STATE_V1: Reddit refuses the app's
+    // Client ID; answered locally, no request was made.
+    CLIENT_ACCESS_REFUSED,
 }
 
 internal sealed interface OAuthEndpointResult<out T> {

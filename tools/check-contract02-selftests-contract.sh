@@ -38,4 +38,10 @@ PYTHONDONTWRITEBYTECODE=1 timeout 120 python3 tools/release02/selftest-post-redd
     fail RELEASETOOL02F_REDDIT_POST_SELFTEST
 echo 'PASS=RELEASETOOL02F_REDDIT_POST_SELFTEST'
 
+# ISSUE259_BASELINE_PROFILE_IS_A_RELEASE_STEP_V1 (2026-10-29, owner-approved):
+# the baseline profile merge every release preparation runs, on throwaway files.
+PYTHONDONTWRITEBYTECODE=1 python3 tools/perf/selftest-merge-baseline-profile.py >/dev/null ||
+    fail ISSUE259_BASELINE_PROFILE_MERGE_SELFTEST
+echo 'PASS=ISSUE259_BASELINE_PROFILE_MERGE_SELFTEST'
+
 echo 'RESULT=SUBSHELL_CONTRACT02_SELFTESTS_CONTRACT_PASS'

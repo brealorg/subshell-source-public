@@ -66,44 +66,16 @@ internal suspend fun readCommunityListingWithAccount(
     limit: Int,
 ): List<Post>? =
     withContext(ioDispatcher) {
-        if (
-            configuration.clientMode != OAuthClientMode.REDREADER_COMPATIBILITY ||
-            configuration.scopes != RedditOAuth.coreReadScopes
-        ) {
-            return@withContext null
-        }
-        val directory = accountCoordinator.snapshot()
-        val active = directory.accounts.firstOrNull { it.stableId == directory.activeAccountId }
-        if (
-            active == null ||
-            active.source != AccountSessionSource.AUTHENTICATED ||
-            active.stableId != accountStableId
-        ) {
-            return@withContext null
-        }
-        val session = (
-            accountCoordinator.ensureConfiguredAccessTokenForAccount(accountStableId)
-                as? AuthSessionResult.Authenticated
-            )?.session ?: return@withContext null
-        if (
-            session.clientMode != configuration.clientMode ||
-            session.clientIdFingerprint != configuration.clientIdFingerprint ||
-            !session.tokens.grants(RedditOAuth.coreReadScopes)
-        ) {
-            return@withContext null
-        }
-        val source = RedditListingNetworkDataSource(
-            SubshellHttpClient(
-                callFactory = callFactory,
-                endpoint = endpoint,
-                json = SubshellNetworkJson.providerJson,
-                userAgent = userAgent,
-                bearerTokenProvider =
-                    accountCoordinator.sessionBoundBearerTokenProvider(session.tokens.accessToken),
-            ),
-        )
+        val client = activeAccountRedditClient(
+            callFactory = callFactory,
+            endpoint = endpoint,
+            userAgent = userAgent,
+            configuration = configuration,
+            accountCoordinator = accountCoordinator,
+            accountStableId = accountStableId,
+        ) ?: return@withContext null
         when (
-            val result = source.posts(
+            val result = RedditListingNetworkDataSource(client).posts(
                 community = communityName,
                 sort = sort,
                 request = RepositoryPageRequest(limit = limit),
@@ -113,3 +85,52 @@ internal suspend fun readCommunityListingWithAccount(
             else -> null
         }
     }
+
+/**
+ * A Reddit client with [accountStableId]'s own token, or null unless that
+ * account is the active, authenticated one with the read scopes of this
+ * configuration. Call it on the IO dispatcher.
+ */
+internal suspend fun activeAccountRedditClient(
+    callFactory: Call.Factory,
+    endpoint: NetworkEndpoint,
+    userAgent: String,
+    configuration: OAuthProviderConfiguration,
+    accountCoordinator: AuthAccountSessionCoordinator,
+    accountStableId: String,
+): SubshellHttpClient? {
+    if (
+        configuration.clientMode != OAuthClientMode.REDREADER_COMPATIBILITY ||
+        configuration.scopes != RedditOAuth.coreReadScopes
+    ) {
+        return null
+    }
+    val directory = accountCoordinator.snapshot()
+    val active = directory.accounts.firstOrNull { it.stableId == directory.activeAccountId }
+    if (
+        active == null ||
+        active.source != AccountSessionSource.AUTHENTICATED ||
+        active.stableId != accountStableId
+    ) {
+        return null
+    }
+    val session = (
+        accountCoordinator.ensureConfiguredAccessTokenForAccount(accountStableId)
+            as? AuthSessionResult.Authenticated
+        )?.session ?: return null
+    if (
+        session.clientMode != configuration.clientMode ||
+        session.clientIdFingerprint != configuration.clientIdFingerprint ||
+        !session.tokens.grants(RedditOAuth.coreReadScopes)
+    ) {
+        return null
+    }
+    return SubshellHttpClient(
+        callFactory = callFactory,
+        endpoint = endpoint,
+        json = SubshellNetworkJson.providerJson,
+        userAgent = userAgent,
+        bearerTokenProvider =
+            accountCoordinator.sessionBoundBearerTokenProvider(session.tokens.accessToken),
+    )
+}

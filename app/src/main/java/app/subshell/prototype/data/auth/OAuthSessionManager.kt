@@ -2,6 +2,7 @@ package app.subshell.prototype.data.auth
 
 import android.net.Uri
 import androidx.core.net.toUri
+import app.subshell.prototype.data.account.RedditAccessRefusal
 import app.subshell.prototype.data.network.NetworkBearerTokenProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -208,6 +209,7 @@ internal class OAuthSessionManager(
                     clientMode = configuration.clientMode,
                     clientIdFingerprint = configuration.clientIdFingerprint,
                 )
+                RedditAccessRefusal.markAllowed()
                 try {
                     saveStoredSession(session)
                     cachedSession = session
@@ -217,7 +219,12 @@ internal class OAuthSessionManager(
                     AuthSessionResult.StorageFailure
                 }
             }
-            is OAuthEndpointResult.HttpFailure -> AuthSessionResult.EndpointFailure(exchange)
+            is OAuthEndpointResult.HttpFailure -> {
+                if (isClientAccessRefusal(exchange)) {
+                    RedditAccessRefusal.markRefused(configuration.clientIdFingerprint, clock.epochMillis())
+                }
+                AuthSessionResult.EndpointFailure(exchange)
+            }
             is OAuthEndpointResult.TransportFailure -> AuthSessionResult.EndpointFailure(exchange)
             is OAuthEndpointResult.ProtocolFailure -> AuthSessionResult.EndpointFailure(exchange)
         }
@@ -246,7 +253,16 @@ internal class OAuthSessionManager(
             return@withLock AuthSessionResult.ReauthenticationRequired
         }
 
-        if (session.tokens.isUsableAt(clock.epochMillis(), refreshSkewMs)) {
+        // ISSUE32_REDDIT_REFUSED_ACCESS_IS_ONE_STATE_V1: while Reddit refuses
+        // this Client ID nothing goes to Reddit; an allowed check asks the
+        // token endpoint, since a stored access token proves nothing then.
+        val accessRefused = RedditAccessRefusal.refuses(configuration.clientIdFingerprint)
+        if (accessRefused && RedditAccessRefusal.blocks(configuration.clientIdFingerprint)) {
+            cachedSession = null
+            return@withLock AuthSessionResult.EndpointFailure(CLIENT_ACCESS_REFUSED_RESULT)
+        }
+
+        if (!accessRefused && session.tokens.isUsableAt(clock.epochMillis(), refreshSkewMs)) {
             cachedSession = session
             return@withLock AuthSessionResult.Authenticated(session)
         }
@@ -264,6 +280,7 @@ internal class OAuthSessionManager(
                     cachedSession = null
                     return@withLock AuthSessionResult.ReauthenticationRequired
                 }
+                RedditAccessRefusal.markAllowed()
                 val updated = session.copy(tokens = refreshedTokens)
                 try {
                     saveStoredSession(updated)
@@ -274,7 +291,12 @@ internal class OAuthSessionManager(
                 }
             }
             is OAuthEndpointResult.HttpFailure -> {
-                if (isTerminalRefreshRejection(refreshed)) {
+                if (isClientAccessRefusal(refreshed)) {
+                    // The app is refused, not the account: its sign-in is kept.
+                    RedditAccessRefusal.markRefused(configuration.clientIdFingerprint, clock.epochMillis())
+                    cachedSession = null
+                    AuthSessionResult.EndpointFailure(CLIENT_ACCESS_REFUSED_RESULT)
+                } else if (isTerminalRefreshRejection(refreshed)) {
                     runCatching {
                         if (sessionKey == null) {
                             store.deleteSession()

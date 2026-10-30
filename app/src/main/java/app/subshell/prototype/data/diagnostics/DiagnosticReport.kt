@@ -95,6 +95,9 @@ internal fun buildDiagnosticReport(
     // ISSUE272: null leaves the [notifications] section out (older callers).
     notifications: NotificationDiagnostics? = null,
     inboxStatus: Map<String, InboxCheckSummary>? = null,
+    // ISSUE32: null leaves the [reddit_refusals] section out (older callers).
+    oauthClientMode: String? = null,
+    redditRefusals: List<RedditRefusal>? = null,
 ): String = buildString {
     appendLine("subshell diagnostic report")
     appendLine("schema=DIAG01A1_V1")
@@ -131,6 +134,7 @@ internal fun buildDiagnosticReport(
     appendLine("exception_messages=not_collected")
     appendLine("crash_details=exception_classes_and_code_locations_only")
     appendNotificationDiagnostics(notifications, inboxStatus)
+    appendRedditRefusals(oauthClientMode, redditRefusals)
     appendLine()
     appendLine("[crashes]")
     crashes.forEach { crash ->

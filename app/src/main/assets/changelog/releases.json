@@ -2,6 +2,19 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "versionCode": 252,
+      "versionName": "0.88-beta",
+      "date": "2026-10-30",
+      "headline": "Subshell 0.88: notifications behind a VPN and for new comments",
+      "highlights": [
+        "Notifications for messages and new posts now also arrive while a VPN is on for every app. Before, the background check waited for a network without a VPN.",
+        "Watched communities can also notify you about new comments: Settings › Notifications › New posts › Also new comments. Your own posts and comments never notify you.",
+        "If Reddit stops accepting the app's Client ID, subshell shows one notice that says what happened, what still works and where to set another one.",
+        "Long messages in the notice tray open in full with More, and the diagnostic report says when and how Reddit refused a request."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v0.88-beta"
+    },
+    {
       "versionCode": 251,
       "versionName": "0.87-beta",
       "date": "2026-10-29",

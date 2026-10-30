@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.auth.reddit
 
+import app.subshell.prototype.data.auth.toFailureDetails
 import app.subshell.prototype.data.account.ModeratorUserManagementFailureKind
 import app.subshell.prototype.data.account.RedditModeratorUserApprovalRequest
 import app.subshell.prototype.data.account.RedditModeratorUserBanRequest
@@ -125,6 +126,7 @@ internal class RedditModeratorBannedUsersReader(
                     communityName = community,
                     kind = ModeratorUserManagementFailureKind.SESSION,
                     retryable = authorization.result.retryableForModeratorUsers(),
+                    details = authorization.result.toFailureDetails(),
                 )
         }
     }
@@ -224,6 +226,7 @@ internal class RedditModeratorMutedUsersReader(
                     communityName = community,
                     kind = ModeratorUserManagementFailureKind.SESSION,
                     retryable = authorization.result.retryableForModeratorUsers(),
+                    details = authorization.result.toFailureDetails(),
                 )
         }
     }
@@ -325,6 +328,7 @@ internal class RedditModeratorApprovedUsersReader(
                     communityName = community,
                     kind = ModeratorUserManagementFailureKind.SESSION,
                     retryable = authorization.result.retryableForModeratorUsers(),
+                    details = authorization.result.toFailureDetails(),
                 )
         }
     }
@@ -401,6 +405,7 @@ internal class RedditModeratorUserWriter(
                 AuthenticatedRedditModeratorUserMutationResult.Failed(
                     kind = ModeratorUserManagementFailureKind.SESSION,
                     retryable = authorization.result.retryableForModeratorUsers(),
+                    details = authorization.result.toFailureDetails(),
                 )
         }
     }
@@ -477,6 +482,7 @@ internal class RedditModeratorMuteWriter(
                 AuthenticatedRedditModeratorUserMutationResult.Failed(
                     kind = ModeratorUserManagementFailureKind.SESSION,
                     retryable = authorization.result.retryableForModeratorUsers(),
+                    details = authorization.result.toFailureDetails(),
                 )
         }
     }
@@ -553,6 +559,7 @@ internal class RedditModeratorApprovalWriter(
                 AuthenticatedRedditModeratorUserMutationResult.Failed(
                     kind = ModeratorUserManagementFailureKind.SESSION,
                     retryable = authorization.result.retryableForModeratorUsers(),
+                    details = authorization.result.toFailureDetails(),
                 )
         }
     }

@@ -271,6 +271,8 @@ internal fun redditCommunityDiscoverySuggestionErrorPresentation(
 internal const val REDDIT_READ_SERVER_PROBLEM_REASON =
     "Reddit had a server problem. Try again in a moment."
 internal const val REDDIT_READ_RATE_LIMIT_REASON = "Reddit's request limit was reached."
+internal const val REDDIT_READ_ACCESS_REFUSED_REASON =
+    "Reddit has shut out this app's Client ID, and nothing is stored here on this device."
 
 internal fun redditReadHttpStatusHasOwnReason(statusCode: Int?): Boolean =
     statusCode == 429 || statusCode in 500..599
@@ -295,8 +297,13 @@ private fun readErrorPresentation(
         ErrorPresentationKind.BLOCKING
     },
     title = title,
-    message = if (showingCachedContent) "$reason $cachedMessage" else reason,
-    primaryAction = if (retryable) {
+    // ISSUE32_REDDIT_REFUSED_ACCESS_IS_ONE_NOTICE_V1: an empty screen says why.
+    message = when {
+        details.isClientAccessRefusal() -> REDDIT_READ_ACCESS_REFUSED_REASON
+        showingCachedContent -> "$reason $cachedMessage"
+        else -> reason
+    },
+    primaryAction = if (retryable && !details.isClientAccessRefusal()) {
         ErrorAction(
             kind = ErrorActionKind.RETRY,
             label = "Retry",
@@ -304,7 +311,10 @@ private fun readErrorPresentation(
     } else {
         null
     },
-).withFailureDetails(details)
+).withFailureDetails(details).let { presentation ->
+    // ISSUE32: the reason is the message; a provider-code line says nothing more.
+    if (details.isClientAccessRefusal()) presentation.copy(technicalDetail = null) else presentation
+}
 
 
 internal fun redditCommunityInfoErrorPresentation(

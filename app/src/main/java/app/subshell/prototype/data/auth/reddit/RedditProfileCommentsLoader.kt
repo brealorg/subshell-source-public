@@ -548,6 +548,8 @@ internal class RedditProfileCommentsLoader(
                         AuthenticatedRedditProfileCommentsFailureKind.SESSION,
                     retryable =
                         authorization.result.profileHistoryTargetRetryable(),
+                    // ISSUE32_REFUSED_READS_CARRY_THEIR_DETAILS_V1
+                    details = authorization.result.toFailureDetails(),
                 )
 
             AuthSessionResult.StorageFailure ->

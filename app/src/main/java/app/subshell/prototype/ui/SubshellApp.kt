@@ -22,6 +22,7 @@ import app.subshell.prototype.ui.app.RuntimeErrorReports
 import app.subshell.prototype.ui.app.AutomaticBackupHistoryEffect
 import app.subshell.prototype.ui.app.CommunityPostCheckEffect
 import app.subshell.prototype.ui.app.NsfwAccountPreferenceNotice
+import app.subshell.prototype.ui.app.RedditAccessRefusedNotice
 import app.subshell.prototype.ui.app.CustomFeedLinkEffect
 import app.subshell.prototype.ui.app.LauncherShortcutsEffect
 import app.subshell.prototype.ui.app.LauncherShortcutTargetEffect
@@ -669,6 +670,14 @@ fun SubshellApp(
             activeCustomFeedPathState = activeCustomFeedPathState,
             pendingAuthenticatedLandingAccountIdState = pendingAuthenticatedLandingAccountIdState,
             noticeHost = viewportErrorHostState,
+        )
+        // ISSUE32_REDDIT_REFUSED_ACCESS_IS_ONE_NOTICE_V1: Try again asks Reddit
+        // through one small authorized read of the active account.
+        RedditAccessRefusedNotice(
+            noticeHost = viewportErrorHostState,
+            checkAccess = accountConnect.readNsfwAccountPreferences?.let { read ->
+                suspend { read(state.activeAccountId) }
+            },
         )
         // ISSUE211_ACCOUNT_NSFW_PREFERENCE_V1
         NsfwAccountPreferenceNotice(

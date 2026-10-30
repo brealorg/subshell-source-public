@@ -31,6 +31,10 @@ import org.junit.runner.RunWith
  * `-Psubshell.debugSlot=dev2` the benchmark app installs over the signed-in
  * dev2 app; pass `-e targetPackage io.github.brealorg.subshell.debug.dev2`.
  *
+ * ISSUE259_BASELINE_PROFILE_IS_A_RELEASE_STEP_V1: every release preparation
+ * runs `tools/perf/record-baseline-profile.sh --lane devN --serial SERIAL`,
+ * which does all of the above and merges the recording into the current profile.
+ *
  * (Gradle's connectedBenchmarkAndroidTest resolves the tested app with JVM
  * variants under AGP 9.4 and fails offline, so the run goes through adb. On the
  * 16 KB-page API 36 emulator Perfetto cannot parse traces, so StartupBenchmark

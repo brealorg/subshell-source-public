@@ -1,5 +1,7 @@
 package app.subshell.prototype.data.auth
 
+import app.subshell.prototype.data.diagnostics.REDDIT_REFUSAL_TOKEN
+import app.subshell.prototype.data.diagnostics.RedditRefusals
 import app.subshell.prototype.data.network.toNetworkTransportFailureKind
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -104,6 +106,7 @@ internal class OAuthTokenEndpointClient(
         return execute(request) { response ->
             if (!response.isSuccessful) {
                 val error = response.oauthJsonError()
+                reportTokenRefusal(response.code, error?.code)
                 return@execute OAuthEndpointResult.HttpFailure(
                     statusCode = response.code,
                     retryable = isRetryableAuthHttpStatus(response.code),
@@ -158,11 +161,13 @@ internal class OAuthTokenEndpointClient(
             // and {"error": ...}; that is a rejection, not a protocol fault.
             val oauthError = (dto.error as? JsonPrimitive)?.content?.trim()?.takeIf(String::isNotEmpty)
             if (oauthError != null && dto.accessToken.isNullOrBlank()) {
+                val safeOauthError = oauthError.takeIf { it.length <= 64 && it.all { c -> c.isLetterOrDigit() || c == '_' } }
+                reportTokenRefusal(response.code, safeOauthError)
                 return@execute OAuthEndpointResult.HttpFailure(
                     statusCode = response.code,
                     retryable = false,
                     jsonBody = true,
-                    oauthError = oauthError.takeIf { it.length <= 64 && it.all { c -> c.isLetterOrDigit() || c == '_' } },
+                    oauthError = safeOauthError,
                 )
             }
             val accessToken = dto.accessToken?.trim().orEmpty()
@@ -267,6 +272,13 @@ private fun ResponseBody.readBoundedUtf8(maxBytes: Long): String {
         }
     }
     return output.toString(StandardCharsets.UTF_8.name())
+}
+
+// ISSUE32_REDDIT_REFUSALS_IN_THE_REPORT_V1 (#32): a refused sign-in or
+// token refresh goes to the diagnostic report as its status and OAuth error
+// code (invalid_client, invalid_grant …); never the request or a token.
+private fun reportTokenRefusal(statusCode: Int, oauthError: String?) {
+    RedditRefusals.report(REDDIT_REFUSAL_TOKEN, statusCode, oauthError?.lowercase())
 }
 
 private fun isRetryableAuthHttpStatus(statusCode: Int): Boolean =

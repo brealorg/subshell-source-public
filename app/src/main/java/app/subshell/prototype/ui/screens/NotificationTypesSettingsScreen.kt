@@ -142,7 +142,7 @@ fun NotificationTypesSettingsScreen(
 }
 
 @Composable
-private fun NotificationTypeRow(
+internal fun NotificationTypeRow(
     title: String,
     description: String,
     checked: Boolean,
@@ -169,7 +169,7 @@ private fun NotificationTypeRow(
 }
 
 @Composable
-private fun NotificationTypeDivider() {
+internal fun NotificationTypeDivider() {
     HorizontalDivider(
         modifier = Modifier.padding(horizontal = 16.dp),
         color = MaterialTheme.colorScheme.outlineVariant,

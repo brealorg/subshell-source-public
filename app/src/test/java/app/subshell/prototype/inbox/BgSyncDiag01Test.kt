@@ -6,6 +6,8 @@ import android.net.NetworkCapabilities
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import app.subshell.prototype.communityposts.COMMUNITY_POST_CHECK_UNIQUE_WORK
+import app.subshell.prototype.communityposts.CommunityPostCheckScheduler
 import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.error.LocalFailureKind
 import app.subshell.prototype.data.network.NetworkTransportFailureKind
@@ -73,5 +75,24 @@ class BgSyncDiag01Test {
         val request = requireNotNull(work.constraints.requiredNetworkRequest)
         assertTrue(request.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED))
         assertTrue(request.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET))
+    }
+
+    // BGSYNCVPN01_BACKGROUND_WORK_RUNS_OVER_A_VPN_V1: both background checks
+    // accept a VPN; behind an always-on VPN there is no other network.
+    @Test
+    fun theInboxSyncAndTheNewPostCheckRunOverAVpn() {
+        ensureWorkManagerInitialized(context)
+        InboxBackgroundSyncScheduler.schedule(context, "reddit:a")
+        CommunityPostCheckScheduler.schedule(context, "reddit:a")
+
+        for (uniqueWork in listOf(INBOX_BACKGROUND_SYNC_UNIQUE_WORK, COMMUNITY_POST_CHECK_UNIQUE_WORK)) {
+            val work: WorkInfo = WorkManager.getInstance(context)
+                .getWorkInfosForUniqueWork(uniqueWork)
+                .get(5, TimeUnit.SECONDS)
+                .single { !it.state.isFinished }
+            val request = requireNotNull(work.constraints.requiredNetworkRequest)
+            assertFalse("$uniqueWork asks for a network that is not a VPN", request.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN))
+            assertTrue(request.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED))
+        }
     }
 }
