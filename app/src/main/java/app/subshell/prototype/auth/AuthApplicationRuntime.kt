@@ -255,6 +255,7 @@ internal object AuthApplicationRuntimeFactory {
         // ISSUE32_REDDIT_REFUSALS_IN_THE_REPORT_V1: every process that talks
         // to Reddit (the app and each background worker) makes its runtime here.
         app.subshell.prototype.data.diagnostics.RedditRefusals.install(appContext)
+    app.subshell.prototype.data.diagnostics.RedditReadDiagnostics.install(appContext)
         // ISSUE32_REDDIT_REFUSED_ACCESS_IS_ONE_STATE_V1
         app.subshell.prototype.data.account.RedditAccessRefusal.install(appContext)
         val textPostSubmitAttemptStore = TextPostSubmitAttemptStore(

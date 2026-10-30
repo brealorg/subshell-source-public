@@ -1,6 +1,7 @@
 package app.subshell.prototype.data.auth.reddit
 
 import app.subshell.prototype.data.account.normalizeCommentEditFullname
+import app.subshell.prototype.data.auth.normalizeRedditPostFullname
 import app.subshell.prototype.data.auth.AuthCommentWriteTokenSource
 import app.subshell.prototype.data.auth.AuthSessionResult
 import app.subshell.prototype.data.auth.OAuthEndpointResult
@@ -25,7 +26,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.serialization.json.Json
 import okhttp3.Call
 
-internal data class AuthenticatedCommentDeleteRequest(val accountStableId: String, val commentFullname: String)
+internal data class AuthenticatedCommentDeleteRequest(val accountStableId: String, val postId: String, val commentFullname: String)
 internal enum class AuthenticatedCommentDeleteFailureKind { VALIDATION, ALREADY_DELETING, AUTHORIZATION_REQUIRED, SESSION, RATE_LIMIT, HTTP, TRANSPORT, PROTOCOL, OUTCOME_NOT_CONFIRMED }
 internal sealed interface AuthenticatedCommentDeleteResult {
     data class Deleted(val accountStableId: String, val commentFullname: String, val metadata: NetworkResponseMetadata) : AuthenticatedCommentDeleteResult
@@ -72,6 +73,7 @@ internal class ConfiguredRedditCommentDeleter(
                     bearerTokenProvider = capability.bearerTokenProvider(session.tokens.accessToken),
                     clock = networkClock,
                 ),
+                postId = normalized.postId,
             )
             when (val result = dataSource.delete(normalized.commentFullname)) {
                 is RedditCommentDeleteNetworkResult.Deleted -> AuthenticatedCommentDeleteResult.Deleted(normalized.accountStableId, normalized.commentFullname, result.metadata)
@@ -193,6 +195,7 @@ internal class ConfiguredRedditCommentDeleter(
     private fun normalizeRequest(request: AuthenticatedCommentDeleteRequest): AuthenticatedCommentDeleteRequest? = runCatching {
         AuthenticatedCommentDeleteRequest(
             accountStableId = request.accountStableId.trim().also { require(it.isNotEmpty()) { "Account stable ID cannot be blank" } },
+            postId = normalizeRedditPostFullname(request.postId),
             commentFullname = normalizeCommentEditFullname(request.commentFullname),
         )
     }.getOrNull()

@@ -3,7 +3,6 @@ package app.subshell.prototype.data.network.reddit
 import app.subshell.prototype.data.account.POST_EDIT_TEXT_MAX_CHARS
 import app.subshell.prototype.data.account.normalizePostEditFullname
 import app.subshell.prototype.data.network.FormPostRequest
-import app.subshell.prototype.data.network.JsonGetRequest
 import app.subshell.prototype.data.network.NetworkProtocolFailureKind
 import app.subshell.prototype.data.network.NetworkResponseMetadata
 import app.subshell.prototype.data.network.NetworkResult
@@ -82,11 +81,9 @@ internal class RedditPostEditNetworkDataSource(
 ) {
     private suspend fun readPost(target: String): NetworkResult<RedditListingDto> =
         httpClient.getJson(
-            request = JsonGetRequest(
-                pathSegments = listOf("api", "info"),
-                queryParameters = listOf("raw_json" to "1", "id" to target),
-            ),
-            deserializer = RedditListingDto.serializer(),
+            // ISSUE281_READS_AVOID_API_INFO_V1: read back from the post's thread.
+            request = redditPostReadRequest(target),
+            deserializer = redditThreadListing(RedditListingDto.serializer(), REDDIT_THREAD_POST_LISTING),
         )
 
     private fun RedditListingDto.postsNamed(target: String): List<RedditThingDto> =

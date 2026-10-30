@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.auth.reddit
 
+import app.subshell.prototype.data.network.reddit.postThreadAnswer
 import android.app.Application
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -57,7 +58,7 @@ class Step3ProfileCommentTargetTest {
         {"kind":"Listing","data":{"children":[{"kind":"t3","data":{
           "id":"abc","name":"t3_abc","subreddit":"kotlin","author":"someone","title":"The target post",
           "score":1,"num_comments":2,"created_utc":1000,"permalink":"/r/kotlin/comments/abc/the_target_post/"}}]}}
-    """.trimIndent()
+    """.trimIndent().let(::postThreadAnswer)
 
     @After
     fun close() = database.close()

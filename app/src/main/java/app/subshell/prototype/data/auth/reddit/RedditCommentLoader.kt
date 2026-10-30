@@ -20,6 +20,8 @@ import app.subshell.prototype.data.auth.toFailureDetails
 import app.subshell.prototype.data.RedditCommentSort
 import app.subshell.prototype.data.auth.live03CommentCacheKey
 import app.subshell.prototype.data.cache.RoomSubshellCacheStore
+import app.subshell.prototype.data.diagnostics.READ_EVENT_MORE_REPLIES_FAILED
+import app.subshell.prototype.data.diagnostics.RedditReadDiagnostics
 import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.error.LocalFailureKind
 import app.subshell.prototype.data.error.failureDetailsOrNull
@@ -28,6 +30,7 @@ import app.subshell.prototype.data.network.NetworkResult
 import app.subshell.prototype.data.network.SubshellHttpClient
 import app.subshell.prototype.data.network.SubshellNetworkJson
 import app.subshell.prototype.data.network.reddit.RedditCommentNetworkDataSource
+import app.subshell.prototype.data.network.reddit.RedditMoreChildrenPage
 import app.subshell.prototype.data.network.reddit.RedditAccountCommentHistory
 import app.subshell.prototype.data.network.reddit.readRedditAccountRecentComments
 import app.subshell.prototype.data.network.reddit.readRedditCommentResolvedBody
@@ -544,6 +547,7 @@ internal class RedditCommentLoader(
         moreNodeId: String,
         currentComments: List<Comment>?,
     ): AuthenticatedRedditCommentResult = withContext(ioDispatcher) {
+        val report = MoreRepliesFailureReport()
         loadMutex.withLock {
             if (!hasExpectedConfiguration() || !isActiveAuthenticatedAccount(accountStableId)) {
                 return@withLock failed(
@@ -582,6 +586,7 @@ internal class RedditCommentLoader(
                     )
                 }
             val childIds = moreNode.moreChildIds.take(COMMENTS02_MORE_BATCH_SIZE)
+            report.describe(moreNode, mergeBaseComments, requested = childIds.size)
             moreProtocolDebugLog(
                 postId,
                 moreNodeId,
@@ -631,25 +636,51 @@ internal class RedditCommentLoader(
                     mergeBaseComments = mergeBaseComments,
                 )
             }
-            when (
-                val result = RedditCommentNetworkDataSource(httpClient).moreChildren(
+            val dataSource = RedditCommentNetworkDataSource(httpClient)
+            // ISSUE281_MORE_REPLIES_WITHOUT_MORECHILDREN_V1 (#281): once Reddit
+            // refuses morechildren with a 403, the replies load through threads
+            // focused on each child, a few at a time, for the rest of the process.
+            suspend fun byFocus(): Pair<NetworkResult<RedditMoreChildrenPage>, Int> {
+                val focusedIds = childIds.take(MORE_REPLIES_BY_FOCUS_BATCH_SIZE)
+                return dataSource.moreChildrenByFocus(
+                    postId = postId,
+                    childIds = focusedIds,
+                    sort = sort,
+                    childDepth = moreNode.depth,
+                ) to focusedIds.size
+            }
+            val (result, requestedChildCount) = if (moreChildrenRefused) {
+                byFocus()
+            } else {
+                val direct = dataSource.moreChildren(
                     postId = postId,
                     childIds = childIds,
                     sort = sort,
                 )
-            ) {
+                if (direct is NetworkResult.HttpFailure && direct.statusCode == 403) {
+                    moreChildrenRefused = true
+                    moreProtocolDebugLog(postId, moreNodeId, "morechildren_403 reading by focus")
+                    byFocus()
+                } else {
+                    direct to childIds.size
+                }
+            }
+            when (result) {
                 is NetworkResult.Success -> try {
                     val merged = mergeMoreChildrenPage(
                         current = mergeBaseComments,
                         moreNodeId = moreNodeId,
                         page = result.value,
-                        requestedChildCount = childIds.size,
+                        requestedChildCount = requestedChildCount,
                     ) ?: run {
                         moreProtocolDebugLog(
                             postId,
                             moreNodeId,
                             "rejected_by_reddit comments=${result.value.comments.size}",
                         )
+                        report.branch = "rejected_by_reddit"
+                        report.returned = result.value.comments.size
+                        report.code = result.value.rejectionCode
                         return@withLock failed(
                             AuthenticatedRedditCommentFailureKind.PROTOCOL,
                             retryable = true,
@@ -669,6 +700,8 @@ internal class RedditCommentLoader(
                         moreNodeId,
                         "merge_invalid comments=${result.value.comments.size} message=${invalid.message}",
                     )
+                    report.branch = "merge_invalid"
+                    report.returned = result.value.comments.size
                     failed(AuthenticatedRedditCommentFailureKind.PROTOCOL)
                 } catch (_: Exception) {
                     failed(AuthenticatedRedditCommentFailureKind.STORAGE, retryable = true)
@@ -697,7 +730,7 @@ internal class RedditCommentLoader(
                     )
                 }
             }
-        }
+        }.also(report::recordIfFailed)
     }
 
     // ISSUE210_MORE_CHILDREN_FAILURE_IS_NAMED_V1 (#210): debug builds name
@@ -846,6 +879,7 @@ internal class RedditCommentLoader(
 
     override suspend fun readCommentBody(
         accountStableId: String,
+        postId: String,
         commentFullname: String,
     ): String? = withContext(ioDispatcher) {
         if (!hasExpectedConfiguration() || !isActiveAuthenticatedAccount(accountStableId)) {
@@ -869,7 +903,7 @@ internal class RedditCommentLoader(
             userAgent = userAgent,
             bearerTokenProvider = accountCoordinator.sessionBoundBearerTokenProvider(session.tokens.accessToken),
         )
-        readRedditCommentResolvedBody(httpClient, commentFullname)
+        readRedditCommentResolvedBody(httpClient, postId, commentFullname)
     }
 
     override suspend fun readAccountRecentComments(
@@ -1027,3 +1061,52 @@ private val OAuthEndpointResult<Nothing>.retryable: Boolean
         is OAuthEndpointResult.ProtocolFailure -> false
         is OAuthEndpointResult.Success -> false
     }
+
+// ISSUE281_THREAD_READS_IN_THE_REPORT_V1 (#281: a mod comment's replies said
+// "Couldn't load replies" and the report had nothing): a failed replies load
+// is recorded with the branch that failed it and the shape of the node.
+private class MoreRepliesFailureReport {
+    var branch: String? = null
+    var returned: Int? = null
+    var code: String? = null
+    private var node: Comment? = null
+    private var requested: Int = 0
+    private var parentModerator: Boolean? = null
+    private var parentDepth: Int? = null
+
+    fun describe(moreNode: Comment, mergeBase: List<Comment>, requested: Int) {
+        node = moreNode
+        this.requested = requested
+        val parent = moreNode.parentId?.let { id ->
+            mergeBase.findComment(id) ?: mergeBase.findComment(id.removePrefix("t1_"))
+        }
+        parentModerator = parent?.isModerator
+        parentDepth = parent?.depth
+    }
+
+    fun recordIfFailed(result: AuthenticatedRedditCommentResult) {
+        val failed = result as? AuthenticatedRedditCommentResult.Failed ?: return
+        val more = node
+        RedditReadDiagnostics.report(
+            READ_EVENT_MORE_REPLIES_FAILED,
+            "branch" to (branch ?: failed.kind.name.lowercase()),
+            "http" to failed.details?.httpStatusCode,
+            "code" to code,
+            "requested" to requested,
+            "of" to more?.moreChildIds?.size,
+            "count" to more?.moreCount,
+            "returned" to returned,
+            "continue" to more?.isContinueThreadNode,
+            "parent_mod" to parentModerator,
+            "parent_depth" to parentDepth,
+            "retryable" to failed.retryable,
+        )
+    }
+}
+
+// ISSUE281_MORE_REPLIES_WITHOUT_MORECHILDREN_V1: each child is one request.
+internal const val MORE_REPLIES_BY_FOCUS_BATCH_SIZE = 5
+
+/** Reddit refused /api/morechildren in this process (#281); process-wide, not persisted. */
+@Volatile
+internal var moreChildrenRefused: Boolean = false

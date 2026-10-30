@@ -38,14 +38,16 @@ class RedditInboxNetworkDataSourceTest {
     }
 
     @Test
-    fun targetRequestUsesReadOnlyApiInfoWithNormalizedPostFullname() {
-        val request = redditInboxTargetJsonRequest("post123")
+    fun targetRequestReadsThePostFromItsThread() {
+        // ISSUE281_READS_AVOID_API_INFO_V1: Reddit blocks /api/info for this app.
+        val request = redditInboxTargetJsonRequest("t3_post123")
 
-        assertEquals(listOf("api", "info"), request.pathSegments)
+        assertEquals(listOf("comments", "post123"), request.pathSegments)
         assertEquals(
             listOf(
                 "raw_json" to "1",
-                "id" to "t3_post123",
+                "limit" to "1",
+                "depth" to "1",
             ),
             request.queryParameters,
         )

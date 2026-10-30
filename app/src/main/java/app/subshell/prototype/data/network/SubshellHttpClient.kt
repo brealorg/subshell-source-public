@@ -1,6 +1,7 @@
 package app.subshell.prototype.data.network
 
 import app.subshell.prototype.data.diagnostics.REDDIT_REFUSAL_API
+import app.subshell.prototype.data.diagnostics.RedditReadDiagnostics
 import app.subshell.prototype.data.diagnostics.RedditRefusals
 import app.subshell.prototype.data.diagnostics.isRedditApiRefusalStatus
 import java.io.ByteArrayOutputStream
@@ -523,7 +524,11 @@ class SubshellHttpClient(
                     ?.coerceAtLeast(0L),
             ),
             retryAfterMs = header("Retry-After")?.toRetryAfterMs(now),
-        )
+        ).also { metadata ->
+            // ISSUE281_THREAD_READS_IN_THE_REPORT_V1: the headers as last seen go to the report.
+            val limit = metadata.rateLimit
+            RedditReadDiagnostics.observeRateLimit(limit.remaining, limit.used, limit.resetAfterMs, now)
+        }
     }
 
     companion object {

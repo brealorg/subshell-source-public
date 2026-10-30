@@ -25,10 +25,15 @@ data class RedditModeratorReportDetails(
 data class ModeratorReportTarget(
     val fullname: String,
     val communityName: String? = null,
+    // ISSUE281_READS_AVOID_API_INFO_V1: the post a comment is read from
+    // (Reddit no longer answers /api/info); a comment without it is not found.
+    // A post is its own.
+    val postFullname: String? = fullname.takeIf { it.startsWith("t3_") },
 ) {
     init {
         require(fullname.matches(Regex("t[13]_[a-z0-9]{1,32}")))
         require(communityName == null || normalizeRedditCommunityName(communityName) == communityName)
+        require(postFullname == null || postFullname.matches(Regex("t3_[a-z0-9]{1,32}")))
     }
 }
 
@@ -36,6 +41,7 @@ data class ModeratorReportTarget(
 fun moderatorReportTargetOrNull(
     raw: String,
     communityHint: String? = null,
+    postHint: String? = null,
 ): ModeratorReportTarget? {
     val input = raw.trim()
     if (input.isEmpty() || input.length > 2_000) return null
@@ -44,7 +50,13 @@ fun moderatorReportTargetOrNull(
     }
     val fullname = input.lowercase()
     if (fullname.matches(Regex("t[13]_[a-z0-9]{1,32}"))) {
-        return ModeratorReportTarget(fullname, hint)
+        val post = if (fullname.startsWith("t3_")) {
+            fullname
+        } else {
+            postHint?.trim()?.lowercase()?.let { if (it.startsWith("t3_")) it else "t3_$it" }
+                ?.takeIf { it.matches(Regex("t3_[a-z0-9]{1,32}")) }
+        }
+        return ModeratorReportTarget(fullname, hint, post)
     }
     val uri = runCatching { URI(input) }.getOrNull() ?: return null
     val host = uri.host?.lowercase()
@@ -78,6 +90,7 @@ fun moderatorReportTargetOrNull(
     return ModeratorReportTarget(
         fullname = if (commentId == null) "t3_$postId" else "t1_$commentId",
         communityName = community,
+        postFullname = "t3_$postId",
     )
 }
 
@@ -91,7 +104,15 @@ internal fun RedditModeratorAction.desiredReportsIgnored(): Boolean? = when (thi
 }
 
 internal fun RedditModeratorQueueItem.reportTarget(): ModeratorReportTarget =
-    ModeratorReportTarget(fullname, communityName)
+    ModeratorReportTarget(
+        fullname = fullname,
+        communityName = communityName,
+        postFullname = if (fullname.startsWith("t3_")) {
+            fullname
+        } else {
+            permalink?.let { link -> moderatorReportTargetOrNull(link)?.postFullname }
+        },
+    )
 
 internal fun moderatorReportCountLabel(item: RedditModeratorQueueItem): String =
     when (val count = item.reportDetails.totalCount) {

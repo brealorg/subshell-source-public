@@ -94,7 +94,7 @@ class Composer11MediaCommentReadBackTest {
             cachedComments.add(comment)
             return loaded()
         }
-        override suspend fun readCommentBody(accountStableId: String, commentFullname: String): String? {
+        override suspend fun readCommentBody(accountStableId: String, postId: String, commentFullname: String): String? {
             reads += 1
             return readBacks.removeFirstOrNull()
         }

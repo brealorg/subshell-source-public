@@ -12,6 +12,8 @@ import app.subshell.prototype.data.auth.authenticatedAccountId
 import app.subshell.prototype.data.network.NetworkEndpoint
 import app.subshell.prototype.data.network.reddit.RedditMediaImageSourceDto
 import app.subshell.prototype.data.network.reddit.RedditMediaMetadataDto
+import app.subshell.prototype.data.network.reddit.commentThreadAnswer
+import app.subshell.prototype.data.network.reddit.postThreadAnswer
 import app.subshell.prototype.data.network.reddit.redditMediaEditElementKind
 import app.subshell.prototype.data.network.reddit.redditMediaEditMarkdown
 import app.subshell.prototype.data.network.reddit.redditMediaEditRichTextJson
@@ -156,7 +158,7 @@ class Issue8bRichTextMediaEditTest {
 
     private val commentInfo = """{"kind":"Listing","data":{"children":[{"kind":"t1","data":{"id":"abc","name":"t1_abc",
         "author":"test-user","body":"old ![gif](giphy|abc|downsized)",
-        "media_metadata":{"giphy|abc|downsized":{"status":"invalid"}}}}]}}"""
+        "media_metadata":{"giphy|abc|downsized":{"status":"invalid"}}}}]}}""".let(::commentThreadAnswer)
 
     private fun commentEditor(info: String = commentInfo) = ConfiguredRedditCommentEditor(
         capability = TestCapability(session),
@@ -169,12 +171,12 @@ class Issue8bRichTextMediaEditTest {
     @Test
     fun aCommentWithAGiphyIsEditedAsRichTextWithTheGifKept() = runBlocking {
         val result = commentEditor().edit(
-            AuthenticatedCommentEditRequest(account, "t1_abc", "edited text\n\n![gif](giphy|abc|downsized)"),
+            AuthenticatedCommentEditRequest(account, "t3_p1", "t1_abc", "edited text\n\n![gif](giphy|abc|downsized)"),
         )
 
         assertTrue(result.toString(), result is AuthenticatedCommentEditResult.Edited)
         assertEquals(
-            listOf("/api/info", "/api/convert_rte_body_format", "/api/editusertext"),
+            listOf("/comments/p1/_/abc", "/api/convert_rte_body_format", "/api/editusertext"),
             calls.map { (path, _) -> path },
         )
         assertFalse(calls[1].second.getValue("markdown_text").contains("giphy"))
@@ -190,7 +192,7 @@ class Issue8bRichTextMediaEditTest {
     fun aFailedConversionSendsNothingAndSavingAgainIsSafe() = runBlocking {
         convertStatus = 500
         val result = commentEditor().edit(
-            AuthenticatedCommentEditRequest(account, "t1_abc", "edited ![gif](giphy|abc|downsized)"),
+            AuthenticatedCommentEditRequest(account, "t3_p1", "t1_abc", "edited ![gif](giphy|abc|downsized)"),
         )
 
         val failed = result as AuthenticatedCommentEditResult.Failed
@@ -201,7 +203,7 @@ class Issue8bRichTextMediaEditTest {
 
     @Test
     fun plainTextStillGoesAsTextWithoutAConversion() = runBlocking {
-        val result = commentEditor().edit(AuthenticatedCommentEditRequest(account, "t1_abc", "just **words**"))
+        val result = commentEditor().edit(AuthenticatedCommentEditRequest(account, "t3_p1", "t1_abc", "just **words**"))
 
         assertTrue(result.toString(), result is AuthenticatedCommentEditResult.Edited)
         assertEquals(listOf("/api/editusertext"), calls.map { (path, _) -> path })
@@ -212,7 +214,7 @@ class Issue8bRichTextMediaEditTest {
     fun aSelfPostWithAnInlineImageIsEditedAsRichText() = runBlocking {
         val postInfo = """{"kind":"Listing","data":{"children":[{"kind":"t3","data":{"id":"p1","name":"t3_p1",
             "title":"t","selftext":"old","media_metadata":{"pic123":{"status":"valid","e":"Image","m":"image/png",
-            "s":{"u":"https://i.redd.it/pic123.png"}}}}}]}}"""
+            "s":{"u":"https://i.redd.it/pic123.png"}}}}}]}}""".let(::postThreadAnswer)
         val editor = ConfiguredRedditPostEditor(
             capability = TestCapability(session),
             callFactory = client(postInfo),

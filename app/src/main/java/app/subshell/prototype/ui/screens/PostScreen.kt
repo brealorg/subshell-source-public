@@ -25,6 +25,8 @@ import app.subshell.prototype.ui.theme.withMinContrast
 import app.subshell.prototype.ui.uiDebugLog
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import app.subshell.prototype.data.diagnostics.READ_EVENT_THREAD_FIND
+import app.subshell.prototype.data.diagnostics.RedditReadDiagnostics
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.foundation.lazy.LazyListState
@@ -2442,6 +2444,8 @@ fun PostScreen(
     // main thread; the previous result stays until the new one is ready.
     // The query the current matches were computed for (OCB-280).
     var threadFindMatchesQuery by remember(post.id) { mutableStateOf("") }
+    // ISSUE281: the comments the matches were computed for.
+    var threadFindMatchesComments by remember(post.id) { mutableStateOf<List<Comment>?>(null) }
     val threadFindMatches by produceState(
         initialValue = emptyList<String>(),
         viewportSortedComments,
@@ -2456,6 +2460,7 @@ fun PostScreen(
             }
         }
         threadFindMatchesQuery = query
+        threadFindMatchesComments = viewportSortedComments
     }
     val threadFindActiveIndex = threadFindMatches.indexOf(threadFindActiveId)
     // LOWUI8_THREAD_FIND_SEARCH_USES_THE_TYPED_QUERY_V1 (OCB-280): the
@@ -2518,6 +2523,79 @@ fun PostScreen(
         threadFindActiveId = null
     }
     BackHandler(enabled = threadFindOpen, onBack = closeThreadFind)
+    // ISSUE281_FIND_LOADS_THE_REST_OF_THE_THREAD_V1: see ThreadFind.kt. The
+    // loads go through the same path as automatic loading (commit fence,
+    // failed nodes wait for Retry), one at a time.
+    var threadFindLoads by remember(post.id, state.postVisitId, sort.name) { mutableIntStateOf(0) }
+    var threadFindReported by remember(post.id, state.postVisitId, sort.name) { mutableStateOf(false) }
+    LaunchedEffect(threadFindOpen, threadFindAppliedQuery) {
+        if (threadFindOpen) {
+            threadFindLoads = 0
+            threadFindReported = false
+        }
+    }
+    val threadFindCoverage = remember(viewportSortedComments) { threadFindCoverage(viewportSortedComments) }
+    val threadFindSearching = threadFindOpen &&
+        threadFindAppliedQuery.isNotBlank() &&
+        authenticated &&
+        liveStateMatches &&
+        redditCommentsState.fullDiscussionLoaded &&
+        !focusedBootstrapGate
+    val threadFindNextNode = if (threadFindSearching && threadFindLoads < THREAD_FIND_MAX_LOADS) {
+        threadFindNextMoreNode(viewportSortedComments, failedMoreNodeIds)
+    } else {
+        null
+    }
+    val threadFindLoadBusy = redditCommentsState.loadingMoreNodeId != null || pendingHydrationCommit != null
+    LaunchedEffect(threadFindNextNode?.id, threadFindLoadBusy) {
+        val node = threadFindNextNode ?: return@LaunchedEffect
+        if (threadFindLoadBusy || RedditReadDiagnostics.rateLimitIsLow()) return@LaunchedEffect
+        threadFindLoads += 1
+        loadMore(node, false)
+    }
+    val threadFindStillLoading = threadFindNextNode != null && (threadFindLoadBusy || !RedditReadDiagnostics.rateLimitIsLow())
+    // ISSUE281_THREAD_READS_IN_THE_REPORT_V1: how much a find searched, once
+    // its loading stops (counts only, never the query).
+    val threadFindMatchesCurrent = threadFindMatchesQuery == threadFindAppliedQuery &&
+        threadFindMatchesComments === viewportSortedComments
+    LaunchedEffect(threadFindSearching, threadFindStillLoading, threadFindLoadBusy, threadFindMatchesCurrent) {
+        if (
+            !threadFindSearching ||
+            threadFindStillLoading ||
+            threadFindLoadBusy ||
+            !threadFindMatchesCurrent ||
+            threadFindReported
+        ) {
+            return@LaunchedEffect
+        }
+        threadFindReported = true
+        // A find over a thread that was whole from the start is nothing to report.
+        if (threadFindLoads == 0 && threadFindCoverage.unloadedNodes == 0) return@LaunchedEffect
+        val stop = when {
+            threadFindCoverage.unloadedNodes == 0 -> "complete"
+            threadFindLoads >= THREAD_FIND_MAX_LOADS -> "cap"
+            threadFindNextNode != null -> "rate_limit"
+            else -> "failed"
+        }
+        val fields = arrayOf<Pair<String, Any?>>(
+            "loaded" to threadFindCoverage.loadedComments,
+            "total" to post.comments,
+            "left" to threadFindCoverage.unloadedNodes,
+            "loads" to threadFindLoads,
+            "matches" to threadFindMatches.size,
+            "stop" to stop,
+        )
+        withContext(Dispatchers.IO) { RedditReadDiagnostics.report(READ_EVENT_THREAD_FIND, *fields) }
+    }
+    val threadFindCoverageText = if (threadFindSearching && threadFindCoverage.unloadedNodes > 0) {
+        threadFindCoverageLabel(
+            loadedComments = threadFindCoverage.loadedComments,
+            totalComments = post.comments,
+            loading = threadFindStillLoading,
+        )
+    } else {
+        null
+    }
     val threadFindMatchBackground = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
     val threadFindActiveBackground = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
     val threadFindHighlight: (String) -> MarkdownHighlight? = { commentId ->
@@ -2795,6 +2873,7 @@ fun PostScreen(
                                         active = threadFindActiveIndex,
                                         size = threadFindMatches.size,
                                     ),
+                                    coverageLabel = threadFindCoverageText,
                                     onNext = { threadFindGoTo(true) },
                                     onPrevious = { threadFindGoTo(false) },
                                     onClose = closeThreadFind,
@@ -3850,6 +3929,7 @@ private fun CommentRow(
                     moderatorReportTarget = moderatorReportTargetOrNull(
                         if (comment.id.startsWith("t1_")) comment.id else "t1_${comment.id}",
                         post.community,
+                        postHint = post.id,
                     ),
                 )
                 if (reportDialogVisible) {

@@ -11,8 +11,14 @@ import app.subshell.prototype.data.network.SubshellHttpClient
 import app.subshell.prototype.data.network.SubshellNetworkJson
 import app.subshell.prototype.data.network.map
 import app.subshell.prototype.model.Comment
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
 
 internal data class RedditCommentPage(
     val comments: List<Comment>,
@@ -29,6 +35,8 @@ internal data class RedditMoreChildrenPage(
     // DATALAYER02: Reddit refused the request (json.errors, e.g. RATELIMIT)
     // but answered 200; comments is then empty and must not be merged.
     val rejectedByReddit: Boolean = false,
+    // ISSUE281_THREAD_READS_IN_THE_REPORT_V1: Reddit's error code (RATELIMIT …), lowercase.
+    val rejectionCode: String? = null,
 )
 
 internal class RedditCommentNetworkDataSource(
@@ -104,8 +112,59 @@ internal class RedditCommentNetworkDataSource(
                 ),
                 authorFullnames = authorFullnames,
                 rejectedByReddit = response.json.errors.isNotEmpty(),
+                rejectionCode = response.json.errors.firstOrNull()?.redditErrorCodeOrNull(),
             )
         }
+    }
+
+    /**
+     * ISSUE281_MORE_REPLIES_WITHOUT_MORECHILDREN_V1 (#281): Reddit answers
+     * /api/morechildren with a 403 "blocked by network security" page (seen
+     * 2026-10-30 with the RedReader Client ID; other third-party apps too), while a
+     * thread focused on one comment still loads. This reads each of
+     * [childIds] that way (comment=<id>, context=0), in parallel, and gives
+     * the same page morechildren would: each child with its replies, at
+     * [childDepth]. A child that is gone is left out; an id already inside an
+     * earlier child's replies is not read twice. Any failed read fails all.
+     */
+    suspend fun moreChildrenByFocus(
+        postId: String,
+        childIds: List<String>,
+        sort: RedditCommentSort,
+        childDepth: Int,
+        depth: Int = LIVE03_COMMENT_DEPTH,
+    ): NetworkResult<RedditMoreChildrenPage> = coroutineScope {
+        val reads = childIds.map { childId ->
+            async {
+                childId to comments(
+                    postId = postId,
+                    sort = sort,
+                    depth = depth,
+                    focusedCommentId = childId,
+                    context = 0,
+                )
+            }
+        }.awaitAll()
+        reads.firstNotNullOfOrNull { (_, result) -> result.failureOrNull() }?.let { failure ->
+            return@coroutineScope failure
+        }
+        val authorFullnames = linkedMapOf<String, String>()
+        val children = mutableListOf<Comment>()
+        val seen = mutableSetOf<String>()
+        reads.forEach { (childId, result) ->
+            val page = (result as NetworkResult.Success).value
+            val id = childId.trim().removePrefix("t1_")
+            if (id in seen) return@forEach
+            val root = page.comments.findComment("t1_$id") ?: return@forEach
+            val rebased = root.rebasedTo(childDepth)
+            rebased.collectIds(seen)
+            children += rebased
+            authorFullnames.putAll(page.authorFullnames)
+        }
+        NetworkResult.Success(
+            RedditMoreChildrenPage(comments = children, authorFullnames = authorFullnames),
+            reads.first().second.let { (it as NetworkResult.Success).metadata },
+        )
     }
 
     companion object {
@@ -257,4 +316,36 @@ internal fun focusedCommentContextForTarget(
     }
 
     return comments.mapNotNull { comment -> pathToTarget(comment) }
+}
+
+// Reddit's json.errors entries are ["CODE", "message", "field"]; only the code is kept.
+private fun JsonElement.redditErrorCodeOrNull(): String? {
+    val first = (this as? JsonArray)?.firstOrNull() ?: this
+    val code = (first as? JsonPrimitive)?.takeIf { it.isString }?.content
+    return code?.lowercase()?.takeIf { it.matches(Regex("[a-z0-9_]{1,64}")) }
+}
+
+private fun <T> NetworkResult<T>.failureOrNull(): NetworkResult<Nothing>? = when (this) {
+    is NetworkResult.Success -> null
+    is NetworkResult.HttpFailure -> this
+    is NetworkResult.TransportFailure -> this
+    is NetworkResult.ProtocolFailure -> this
+}
+
+private fun Comment.rebasedTo(rootDepth: Int): Comment {
+    val shift = rootDepth - depth
+    fun rebased(comment: Comment): Comment {
+        val newDepth = (comment.depth + shift).coerceAtLeast(0)
+        return comment.copy(
+            depth = newDepth,
+            accent = redditCommentAccent(newDepth),
+            children = comment.children.map(::rebased),
+        )
+    }
+    return rebased(this)
+}
+
+private fun Comment.collectIds(into: MutableSet<String>) {
+    into += id.removePrefix("t1_")
+    children.forEach { it.collectIds(into) }
 }

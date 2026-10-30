@@ -8,6 +8,8 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -1365,17 +1367,19 @@ fun SettingsScreen(
                                 state.userFor(account.username).avatarImageUri
                                     ?.trim()
                                     ?.takeIf(String::isNotEmpty)
+                            val signInAgain =
+                                account.state ==
+                                    app.subshell.prototype.data.account.AccountSessionState
+                                        .REAUTHENTICATION_REQUIRED
                             AccountNavigationRow(
                                 username = account.username,
                                 avatarImageUri = accountAvatarUri,
                                 description = accountSwitcherSessionLabel(account, selected),
+                                selected = selected,
+                                signInAgain = signInAgain,
                                 onClick = {
                                     if (!selected) state.switchAccount(account.stableId)
-                                    if (
-                                        account.state ==
-                                        app.subshell.prototype.data.account.AccountSessionState
-                                            .REAUTHENTICATION_REQUIRED
-                                    ) {
+                                    if (signInAgain) {
                                         accountSettingsRuntime.onResetConnectAccount()
                                         accountSettingsRuntime.onReconnectAccount(account.stableId)
                                     }
@@ -3242,17 +3246,40 @@ private fun <T> SettingsSingleChoiceDialog(
     )
 }
 
+internal const val ACCOUNT_ROW_ARROW_TAG = "account-row-arrow"
+internal const val ACCOUNT_ROW_CURRENT_TAG = "account-row-current"
+internal fun accountRowTag(username: String) = "account-row:$username"
+
+// ISSUE280_ACCOUNT_ROWS_ARE_A_PICKER_V1 (#280, reader report): the account
+// rows pick an account, they lead nowhere. No arrow; the current account has a
+// check mark and does nothing on a tap, another account switches. Only a row
+// that needs signing in again opens something, so only it keeps the arrow.
 @Composable
 private fun AccountNavigationRow(
     username: String,
     avatarImageUri: String?,
     description: String,
+    selected: Boolean,
+    signInAgain: Boolean,
     onClick: () -> Unit,
 ) {
-    SettingsNavigationItem(
+    val acts = signInAgain || !selected
+    SettingsListItem(
         title = "u/$username",
         description = description,
-        onClick = onClick,
+        modifier = Modifier
+            .testTag(accountRowTag(username))
+            .settingsRowBleed()
+            .then(if (acts) Modifier.clickable(onClick = onClick) else Modifier),
+        trailing = when {
+            signInAgain -> {
+                { Icon(Symbols.ArrowForward, contentDescription = null, modifier = Modifier.testTag(ACCOUNT_ROW_ARROW_TAG)) }
+            }
+            selected -> {
+                { Icon(Symbols.Check, contentDescription = null, modifier = Modifier.testTag(ACCOUNT_ROW_CURRENT_TAG)) }
+            }
+            else -> null
+        },
         leading = {
             Surface(
                 modifier = Modifier.size(40.dp),

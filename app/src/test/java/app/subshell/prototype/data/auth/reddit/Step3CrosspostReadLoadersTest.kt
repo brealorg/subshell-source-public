@@ -134,12 +134,14 @@ class Step3CrosspostReadLoadersTest {
         assertEquals(setOf("Bearer token-o"), requests.map { it.header("Authorization") }.toSet())
     }
 
+    // ISSUE281_READS_AVOID_API_INFO_V1: the source comes from its thread
+    // (post listing, then comments).
     private fun sourceListing(crosspostable: Boolean = true, removed: String? = null) =
-        """{"kind":"Listing","data":{"children":[{"kind":"t3","data":{
+        """[{"kind":"Listing","data":{"children":[{"kind":"t3","data":{
             "name":"t3_source123","id":"source123","subreddit":"source","author":"author",
             "title":"Original title","over_18":true,"spoiler":false,"is_crosspostable":$crosspostable
             ${removed?.let { ",\"removed_by_category\":\"$it\"" }.orEmpty()}
-        }}]}}"""
+        }}]}},{"kind":"Listing","data":{"children":[]}}]"""
 
     private fun source(listing: String, scopes: String = "identity mysubreddits read") = runBlocking {
         ConfiguredRedditCrosspostSourceLoader(
@@ -160,8 +162,8 @@ class Step3CrosspostReadLoadersTest {
         assertEquals(false, evidence.spoiler)
         val request = requests.single()
         assertEquals("GET", request.method)
-        assertEquals("/api/info", request.url.encodedPath)
-        assertEquals("t3_source123", request.url.queryParameter("id"))
+        assertEquals("/comments/source123", request.url.encodedPath)
+        assertEquals("1", request.url.queryParameter("limit"))
         assertEquals("Bearer token-o", request.header("Authorization"))
     }
 

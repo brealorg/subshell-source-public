@@ -23,14 +23,17 @@ class RedditCommentDeleteNetworkPolicyTest {
     }
 
     @Test
-    fun readbackUsesTargetedApiInfoLookup() {
-        val request = redditCommentDeleteInfoRequest("t1_abc123")
+    fun readbackReadsTheCommentFromItsThread() {
+        // ISSUE281_READS_AVOID_API_INFO_V1: Reddit blocks /api/info for this app.
+        val request = redditCommentDeleteInfoRequest("t3_post1", "t1_abc123")
 
-        assertEquals(listOf("api", "info"), request.pathSegments)
+        assertEquals(listOf("comments", "post1", "_", "abc123"), request.pathSegments)
         assertEquals(
             listOf(
                 "raw_json" to "1",
-                "id" to "t1_abc123",
+                "limit" to "1",
+                "depth" to "1",
+                "context" to "0",
             ),
             request.queryParameters,
         )

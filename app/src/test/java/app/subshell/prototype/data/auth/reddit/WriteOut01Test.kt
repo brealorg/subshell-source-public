@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.auth.reddit
 
+import app.subshell.prototype.data.network.reddit.commentThreadAnswer
 import app.subshell.prototype.data.account.ModeratorPermissionUpdateFailureKind
 import app.subshell.prototype.data.account.RedditModeratorPermissionUpdateRequest
 import app.subshell.prototype.data.auth.AuthAccountIdentity
@@ -131,11 +132,11 @@ class WriteOut01Test {
         )
     }
 
-    private fun request() = AuthenticatedCommentDeleteRequest(accountStableId = account, commentFullname = "t1_abc")
+    private fun request() = AuthenticatedCommentDeleteRequest(accountStableId = account, postId = "t3_p1", commentFullname = "t1_abc")
 
     private fun deleter(deleteAnswer: Pair<Int, String>, info: String) = ConfiguredRedditCommentDeleter(
         capability = SignedIn(session()),
-        callFactory = client { path -> if (path.endsWith("/api/del")) deleteAnswer else 200 to info },
+        callFactory = client { path -> if (path.endsWith("/api/del")) deleteAnswer else 200 to commentThreadAnswer(info) },
         endpoint = endpoint,
         userAgent = "subshell-test",
     )

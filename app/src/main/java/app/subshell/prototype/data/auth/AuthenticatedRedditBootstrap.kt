@@ -312,6 +312,7 @@ internal interface AuthenticatedRedditCommentLoader {
     // (media resolved), or null when it cannot be read.
     suspend fun readCommentBody(
         accountStableId: String,
+        postId: String,
         commentFullname: String,
     ): String? = null
 

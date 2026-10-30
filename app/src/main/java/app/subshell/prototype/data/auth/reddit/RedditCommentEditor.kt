@@ -1,6 +1,7 @@
 package app.subshell.prototype.data.auth.reddit
 
 import app.subshell.prototype.data.account.normalizeCommentEditFullname
+import app.subshell.prototype.data.auth.normalizeRedditPostFullname
 import app.subshell.prototype.data.auth.AuthCommentWriteTokenSource
 import app.subshell.prototype.data.auth.AuthSessionResult
 import app.subshell.prototype.data.auth.OAuthEndpointResult
@@ -33,6 +34,7 @@ import okhttp3.Call
 
 internal data class AuthenticatedCommentEditRequest(
     val accountStableId: String,
+    val postId: String,
     val commentFullname: String,
     val text: String,
 )
@@ -332,6 +334,7 @@ internal class ConfiguredRedditCommentEditor(
                 bearerTokenProvider = capability.bearerTokenProvider(session.tokens.accessToken),
                 clock = networkClock,
             ),
+            postId = normalized.postId,
         ))
     }
 
@@ -342,6 +345,7 @@ internal class ConfiguredRedditCommentEditor(
             accountStableId = request.accountStableId.trim().also { accountStableId ->
                 require(accountStableId.isNotEmpty()) { "Account stable ID cannot be blank" }
             },
+            postId = normalizeRedditPostFullname(request.postId),
             commentFullname = normalizeCommentEditFullname(request.commentFullname),
             text = normalizeRedditCommentEditText(request.text),
         )

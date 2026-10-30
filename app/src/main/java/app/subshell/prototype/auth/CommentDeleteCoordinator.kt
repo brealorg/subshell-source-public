@@ -51,7 +51,7 @@ internal class CommentDeleteCoordinator(
             val configuredDeleter = deleter ?: run { mutableUiState.value = failure(request, CommentDeleteFailureKind.CONFIGURATION); return }
             mutableUiState.value = state(CommentDeletePhase.SENDING, request)
             val result = try {
-                configuredDeleter.delete(AuthenticatedCommentDeleteRequest(request.accountStableId, request.commentFullname))
+                configuredDeleter.delete(AuthenticatedCommentDeleteRequest(request.accountStableId, request.postId, request.commentFullname))
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) {
                 AuthenticatedCommentDeleteResult.Failed(

@@ -43,7 +43,7 @@ import org.robolectric.annotation.Config
  * active and signed in, with its own token and only under the mysubreddits +
  * read grant. The moderator directory follows Reddit's cursor for at most ten
  * pages; the mod queue is one GET for one normalized community; an exact
- * target post is one api/info read; a bad community name or post id sends
+ * target post is one thread read; a bad community name or post id sends
  * nothing. Every request is a GET.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -219,15 +219,16 @@ class Step3ModerationLoaderTest {
     }
 
     @Test
-    fun anExactTargetPostIsOneInfoReadAndABadIdSendsNothing() = runBlocking {
+    fun anExactTargetPostIsOneThreadReadAndABadIdSendsNothing() = runBlocking {
         val loader = loader()
 
         loader.resolveTargetPost(accountB, "t3_ABC")
 
+        // ISSUE281_READS_AVOID_API_INFO_V1: the post comes from its thread.
         assertEquals(1, sent.size)
         assertEquals("GET", sent.single().method)
-        assertEquals("/api/info", sent.single().path)
-        assertEquals("t3_abc", sent.single().query["id"])
+        assertEquals("/comments/abc", sent.single().path)
+        assertEquals("1", sent.single().query["limit"])
 
         sent.clear()
         val refused = loader.resolveTargetPost(accountB, "../x")

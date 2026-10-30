@@ -81,7 +81,7 @@ internal class RedditPostManageNetworkDataSource(
         val canonicalFullname = normalizePostEditFullname(postFullname)
         val info = httpClient.getJson(
             redditPostManageInfoRequest(canonicalFullname),
-            RedditPostManageListing.serializer(),
+            redditThreadListing(RedditPostManageListing.serializer(), REDDIT_THREAD_POST_LISTING),
         )
         val infoSuccess = when (info) {
             is NetworkResult.Success -> info
@@ -188,14 +188,9 @@ internal class RedditPostManageNetworkDataSource(
     }
 }
 
+// ISSUE281_READS_AVOID_API_INFO_V1: the post comes from its thread.
 internal fun redditPostManageInfoRequest(postFullname: String): JsonGetRequest =
-    JsonGetRequest(
-        pathSegments = listOf("api", "info"),
-        queryParameters = listOf(
-            "id" to normalizePostEditFullname(postFullname),
-            "raw_json" to "1",
-        ),
-    )
+    redditPostReadRequest(normalizePostEditFullname(postFullname))
 
 internal fun redditPostManageFlairRequest(community: String): JsonGetRequest =
     JsonGetRequest(

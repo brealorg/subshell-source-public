@@ -98,24 +98,37 @@ internal class RedditIdentityNetworkDataSource(
         require(fallbackByName.isNotEmpty()) {
             "At least one valid community is required for batch identity loading"
         }
-        return httpClient.getJson(
-            request = JsonGetRequest(
-                pathSegments = listOf("api", "info"),
-                queryParameters = listOf(
-                    "sr_name" to fallbackByName.keys.joinToString(","),
-                    "raw_json" to "1",
-                ),
-            ),
-            deserializer = RedditCommunityInfoListingDto.serializer(),
-        ).map { listing ->
-            listing.data.children.mapNotNull { thing ->
-                val name = thing.data.displayName
-                    ?.normalizedRedditCommunityName()
-                    ?.lowercase()
-                    ?: return@mapNotNull null
-                val fallback = fallbackByName[name] ?: return@mapNotNull null
-                thing.data.toCommunity(fallback)
+        // ISSUE281_READS_AVOID_API_INFO_V1: Reddit answers /api/info?sr_name=
+        // with a 403 block page for this app, so each community is read from
+        // its own about page, a few per call. What arrived is kept; the rest
+        // is asked for the next time those communities show.
+        val resolved = mutableListOf<Community>()
+        var metadata: NetworkResponseMetadata? = null
+        var firstFailure: NetworkResult<List<Community>>? = null
+        var refusal: NetworkResult.HttpFailure? = null
+        for ((name, fallback) in fallbackByName.entries.take(MAX_COMMUNITY_ABOUT_READS)) {
+            when (val result = community(name, fallback)) {
+                is NetworkResult.Success -> {
+                    resolved += result.value
+                    metadata = result.metadata
+                }
+                // A banned, private or unknown community has no identity to show.
+                is NetworkResult.HttpFailure -> if (result.statusCode in setOf(403, 404)) {
+                    refusal = result
+                } else {
+                    firstFailure = firstFailure ?: result
+                }
+                is NetworkResult.TransportFailure -> {
+                    firstFailure = firstFailure ?: result
+                    break
+                }
+                is NetworkResult.ProtocolFailure -> firstFailure = firstFailure ?: result
             }
+        }
+        val answered = metadata
+        return when {
+            answered != null -> NetworkResult.Success(resolved.toList(), answered)
+            else -> firstFailure ?: requireNotNull(refusal)
         }
     }
 }
@@ -390,6 +403,8 @@ private fun accountAgeLabel(nowEpochSeconds: Long, createdEpochSeconds: Long): S
 
 private const val MAX_REDDIT_NAME_LENGTH = 100
 private const val MAX_BATCH_COMMUNITIES = 100
+// IdentityMetadataState asks in chunks of this size (COMMUNITY_IDENTITY_CHUNK).
+private const val MAX_COMMUNITY_ABOUT_READS = 8
 internal const val MAX_BATCH_ACCOUNT_IDS = 100
 private const val HTTP_NOT_FOUND = 404
 private const val HTTP_NO_CONTENT = 204

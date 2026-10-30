@@ -75,7 +75,7 @@ class Step3MediaCommentUnknownOutcomeTest {
             parentFullname: String,
             comment: Comment,
         ) = loaded(listOf(comment))
-        override suspend fun readCommentBody(accountStableId: String, commentFullname: String): String? = null
+        override suspend fun readCommentBody(accountStableId: String, postId: String, commentFullname: String): String? = null
     }
 
     private fun coordinator() = CommentWriteCoordinator(

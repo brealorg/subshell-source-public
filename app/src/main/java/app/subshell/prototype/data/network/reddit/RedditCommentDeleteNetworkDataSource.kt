@@ -73,6 +73,8 @@ internal sealed interface RedditCommentDeleteNetworkResult {
 
 internal class RedditCommentDeleteNetworkDataSource(
     private val httpClient: SubshellHttpClient,
+    // ISSUE281_READS_AVOID_API_INFO_V1: the comment is read back from this post's thread.
+    private val postId: String,
 ) {
     suspend fun delete(
         commentFullname: String,
@@ -156,8 +158,8 @@ internal class RedditCommentDeleteNetworkDataSource(
             if (delayMs > 0L) delay(delayMs)
             when (
                 val readback = httpClient.getJson(
-                    request = redditCommentDeleteInfoRequest(target),
-                    deserializer = RedditCommentListingDto.serializer(),
+                    request = redditCommentDeleteInfoRequest(postId, target),
+                    deserializer = redditCommentReadListing(),
                 )
             ) {
                 is NetworkResult.Success -> when (
@@ -199,8 +201,8 @@ internal class RedditCommentDeleteNetworkDataSource(
 
             when (
                 val readback = httpClient.getJson(
-                    request = redditCommentDeleteInfoRequest(target),
-                    deserializer = RedditCommentListingDto.serializer(),
+                    request = redditCommentDeleteInfoRequest(postId, target),
+                    deserializer = redditCommentReadListing(),
                 )
             ) {
                 is NetworkResult.Success -> {
@@ -277,15 +279,15 @@ internal fun redditCommentDeleteFormRequest(
     ),
 )
 
+// ISSUE281_READS_AVOID_API_INFO_V1: the comment comes from its post's thread.
 internal fun redditCommentDeleteInfoRequest(
+    postId: String,
     commentFullname: String,
-): JsonGetRequest = JsonGetRequest(
-    pathSegments = listOf("api", "info"),
-    queryParameters = listOf(
-        "raw_json" to "1",
-        "id" to normalizeCommentEditFullname(commentFullname),
-    ),
-)
+): JsonGetRequest = redditCommentReadRequest(postId, normalizeCommentEditFullname(commentFullname))
+
+/** The comment listing of a one-comment thread read, shaped as /api/info's was. */
+internal fun redditCommentReadListing() =
+    redditThreadListing(RedditCommentListingDto.serializer(), REDDIT_THREAD_COMMENT_LISTING)
 
 internal fun redditCommentDeleteReadbackState(
     listing: RedditCommentListingDto,

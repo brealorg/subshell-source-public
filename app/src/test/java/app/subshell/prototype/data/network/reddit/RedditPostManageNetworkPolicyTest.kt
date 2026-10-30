@@ -18,7 +18,7 @@ class RedditPostManageNetworkPolicyTest {
     @Test
     fun infoAndFlairRequestsUseCanonicalReadEndpoints() {
         assertEquals(
-            listOf("api", "info"),
+            listOf("comments", "abc123"),
             redditPostManageInfoRequest("abc123").pathSegments,
         )
         assertEquals(

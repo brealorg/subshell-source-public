@@ -1,7 +1,8 @@
 package app.subshell.prototype.data.network.reddit
 
 import app.subshell.prototype.model.redditReadableText
-import app.subshell.prototype.data.auth.normalizeRedditPostFullname
+import app.subshell.prototype.data.diagnostics.READ_EVENT_INBOX_TARGET_EMPTY
+import app.subshell.prototype.data.diagnostics.RedditReadDiagnostics
 import app.subshell.prototype.data.network.JsonGetRequest
 import app.subshell.prototype.data.network.NetworkPage
 import app.subshell.prototype.data.network.NetworkResult
@@ -227,9 +228,21 @@ internal class RedditInboxTargetNetworkDataSource(
 ) : RedditInboxTargetSource {
     override suspend fun post(postId: String): NetworkResult<Post?> = httpClient.getJson(
         request = redditInboxTargetJsonRequest(postId),
-        deserializer = RedditListingDto.serializer(),
+        deserializer = redditThreadListing(RedditListingDto.serializer(), REDDIT_THREAD_POST_LISTING),
     ).map { listing ->
-        listing.toNetworkPage(clock.epochSeconds()).items.firstOrNull()
+        listing.toNetworkPage(clock.epochSeconds()).items.firstOrNull().also { post ->
+            // ISSUE281_THREAD_READS_IN_THE_REPORT_V1: Reddit answered, but not
+            // with a post this app shows; how many things it sent, of what kind.
+            if (post == null) {
+                val children = listing.data.children
+                RedditReadDiagnostics.report(
+                    READ_EVENT_INBOX_TARGET_EMPTY,
+                    "children" to children.size,
+                    "posts" to children.count { child -> child.kind == "t3" },
+                    "untitled" to children.count { child -> child.kind == "t3" && child.data.title.isBlank() },
+                )
+            }
+        }
     }
 }
 
@@ -764,16 +777,8 @@ internal fun redditUnreadJsonRequest(limit: Int): JsonGetRequest {
     )
 }
 
-internal fun redditInboxTargetJsonRequest(postId: String): JsonGetRequest {
-    val fullname = normalizeRedditPostFullname(postId)
-    return JsonGetRequest(
-        pathSegments = listOf("api", "info"),
-        queryParameters = listOf(
-            "raw_json" to "1",
-            "id" to fullname,
-        ),
-    )
-}
+// ISSUE281_READS_AVOID_API_INFO_V1: the post comes from its thread.
+internal fun redditInboxTargetJsonRequest(postId: String): JsonGetRequest = redditPostReadRequest(postId)
 
 private fun String?.normalizedInboxBody(): String = orEmpty()
     .replace("\r\n", "\n")

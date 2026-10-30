@@ -3,6 +3,7 @@ package app.subshell.prototype.ui.screens
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -63,6 +64,52 @@ internal fun threadFindMatchIds(
     return matches
 }
 
+// ISSUE281_FIND_LOADS_THE_REST_OF_THE_THREAD_V1 (#281: a find in a big
+// thread found nothing; most comments were still behind unloaded replies):
+// while a find is open with a query, the thread's unloaded replies load one
+// node after another, in thread order, so the find covers them; the bar says
+// how much it has searched. It stops after THREAD_FIND_MAX_LOADS loads per
+// find, at a failed node (its row keeps Retry), and while Reddit's rate limit
+// is nearly used up.
+internal const val THREAD_FIND_MAX_LOADS = 40
+
+/** How much of a thread is loaded: real comments, and nodes still to load. */
+internal data class ThreadFindCoverage(val loadedComments: Int, val unloadedNodes: Int)
+
+internal fun threadFindCoverage(comments: List<Comment>): ThreadFindCoverage {
+    var loaded = 0
+    var unloaded = 0
+    fun visit(comment: Comment) {
+        if (comment.isMoreRepliesNode) unloaded += 1 else loaded += 1
+        comment.children.forEach(::visit)
+    }
+    comments.forEach(::visit)
+    return ThreadFindCoverage(loaded, unloaded)
+}
+
+/** The first unloaded node in thread order that has not failed. */
+internal fun threadFindNextMoreNode(comments: List<Comment>, blocked: Set<String>): Comment? {
+    fun visit(comment: Comment): Comment? {
+        if (comment.isMoreRepliesNode && comment.id !in blocked) return comment
+        return comment.children.firstNotNullOfOrNull(::visit)
+    }
+    return comments.firstNotNullOfOrNull(::visit)
+}
+
+/**
+ * Under the find field while part of the thread is not loaded; null once the
+ * whole thread is (Reddit's count includes removed comments, so it is only
+ * the upper end).
+ */
+internal fun threadFindCoverageLabel(loadedComments: Int, totalComments: Int, loading: Boolean): String {
+    val total = maxOf(totalComments, loadedComments)
+    return if (loading) {
+        "Loading the rest of the thread · searched $loadedComments of $total"
+    } else {
+        "Searched $loadedComments of $total comments"
+    }
+}
+
 /** The match to show after stepping from [current] (-1 = none yet), wrapping around. */
 internal fun threadFindStep(current: Int, size: Int, forward: Boolean): Int? = when {
     size <= 0 -> null
@@ -108,46 +155,58 @@ internal fun ThreadFindBar(
     modifier: Modifier = Modifier,
     // OCB-280: the keyboard's Search; by default the same as Next.
     onSearch: () -> Unit = onNext,
+    // ISSUE281_FIND_LOADS_THE_REST_OF_THE_THREAD_V1
+    coverageLabel: String? = null,
 ) {
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // M3225_ONE_SEARCH_FIELD_STYLE_V1
-        SubshellSearchField(
-            query = query,
-            onQueryChange = onQueryChange,
-            placeholder = THREAD_FIND_OPEN_LABEL,
-            modifier = Modifier.weight(1f),
-            // LOWUI7_LABELS_SAY_WHAT_A_CONTROL_DOES_V1 (OCB-279): named also once text is typed.
-            fieldModifier = Modifier
-                .focusRequester(focusRequester)
-                .semantics { contentDescription = THREAD_FIND_OPEN_LABEL },
-            onSearch = { onSearch() },
-        )
-        if (countLabel != null) {
-            Text(
-                text = countLabel,
-                modifier = Modifier
-                    .padding(horizontal = 6.dp)
-                    .semantics { contentDescription = countDescription ?: countLabel },
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // M3225_ONE_SEARCH_FIELD_STYLE_V1
+            SubshellSearchField(
+                query = query,
+                onQueryChange = onQueryChange,
+                placeholder = THREAD_FIND_OPEN_LABEL,
+                modifier = Modifier.weight(1f),
+                // LOWUI7_LABELS_SAY_WHAT_A_CONTROL_DOES_V1 (OCB-279): named also once text is typed.
+                fieldModifier = Modifier
+                    .focusRequester(focusRequester)
+                    .semantics { contentDescription = THREAD_FIND_OPEN_LABEL },
+                onSearch = { onSearch() },
             )
+            if (countLabel != null) {
+                Text(
+                    text = countLabel,
+                    modifier = Modifier
+                        .padding(horizontal = 6.dp)
+                        .semantics { contentDescription = countDescription ?: countLabel },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
+            IconButton(onClick = onPrevious) {
+                Icon(Symbols.KeyboardArrowUp, contentDescription = "Previous match")
+            }
+            IconButton(onClick = onNext) {
+                Icon(Symbols.KeyboardArrowDown, contentDescription = "Next match")
+            }
+            IconButton(onClick = onClose) {
+                Icon(Symbols.Close, contentDescription = "Close find")
+            }
         }
-        IconButton(onClick = onPrevious) {
-            Icon(Symbols.KeyboardArrowUp, contentDescription = "Previous match")
-        }
-        IconButton(onClick = onNext) {
-            Icon(Symbols.KeyboardArrowDown, contentDescription = "Next match")
-        }
-        IconButton(onClick = onClose) {
-            Icon(Symbols.Close, contentDescription = "Close find")
+        if (coverageLabel != null) {
+            Text(
+                text = coverageLabel,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

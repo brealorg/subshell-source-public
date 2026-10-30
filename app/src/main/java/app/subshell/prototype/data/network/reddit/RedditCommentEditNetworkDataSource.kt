@@ -81,12 +81,13 @@ internal sealed interface RedditCommentEditReadback {
 // not return exactly that comment.
 internal suspend fun readRedditCommentResolvedBody(
     httpClient: SubshellHttpClient,
+    postId: String,
     commentFullname: String,
 ): String? {
     val target = normalizeCommentEditFullname(commentFullname)
     val result = httpClient.getJson(
-        request = redditCommentDeleteInfoRequest(target),
-        deserializer = RedditCommentListingDto.serializer(),
+        request = redditCommentDeleteInfoRequest(postId, target),
+        deserializer = redditCommentReadListing(),
     )
     if (result !is NetworkResult.Success) return null
     return result.value.data.children
@@ -98,13 +99,15 @@ internal suspend fun readRedditCommentResolvedBody(
 
 internal class RedditCommentEditNetworkDataSource(
     private val httpClient: SubshellHttpClient,
+    // ISSUE281_READS_AVOID_API_INFO_V1: the comment is read back from this post's thread.
+    private val postId: String,
 ) {
     suspend fun readBack(commentFullname: String): RedditCommentEditReadback {
         val target = normalizeCommentEditFullname(commentFullname)
         return when (
             val result = httpClient.getJson(
-                request = redditCommentDeleteInfoRequest(target),
-                deserializer = RedditCommentListingDto.serializer(),
+                request = redditCommentDeleteInfoRequest(postId, target),
+                deserializer = redditCommentReadListing(),
             )
         ) {
             is NetworkResult.Success -> {
@@ -130,8 +133,8 @@ internal class RedditCommentEditNetworkDataSource(
     private suspend fun currentMediaMetadata(target: String): Map<String, RedditMediaMetadataDto>? =
         when (
             val result = httpClient.getJson(
-                request = redditCommentDeleteInfoRequest(target),
-                deserializer = RedditCommentListingDto.serializer(),
+                request = redditCommentDeleteInfoRequest(postId, target),
+                deserializer = redditCommentReadListing(),
             )
         ) {
             is NetworkResult.Success -> result.value.data.children

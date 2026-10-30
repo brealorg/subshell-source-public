@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.auth.reddit
 
+import app.subshell.prototype.data.network.reddit.postThreadAnswer
 import app.subshell.prototype.data.auth.AuthAccountIdentity
 import app.subshell.prototype.data.auth.AuthCommentWriteCapability
 import app.subshell.prototype.data.auth.AuthCommentWriteCapabilityResult
@@ -88,9 +89,9 @@ class H3PostDeleteOutcomeTest {
 
     private fun authoredBy(author: String) = Answer.Status(
         200,
-        """{"kind":"Listing","data":{"children":[{"kind":"t3","data":{"id":"abc","name":"t3_abc","author":"$author","title":"A post"}}]}}""",
+        """{"kind":"Listing","data":{"children":[{"kind":"t3","data":{"id":"abc","name":"t3_abc","author":"$author","title":"A post"}}]}}""".let(::postThreadAnswer),
     )
-    private val gone = Answer.Status(200, """{"kind":"Listing","data":{"children":[]}}""")
+    private val gone = Answer.Status(200, postThreadAnswer("""{"kind":"Listing","data":{"children":[]}}"""))
 
     private val request get() = AuthenticatedPostDeleteRequest(account, "t3_abc")
 
@@ -167,7 +168,7 @@ class H3PostDeleteOutcomeTest {
             callFactory = client,
             endpoint = NetworkEndpoint.https("https://oauth.reddit.test/"),
             userAgent = "subshell-test",
-        ).delete(AuthenticatedCommentDeleteRequest(account, "t1_abc"))
+        ).delete(AuthenticatedCommentDeleteRequest(account, "t3_p1", "t1_abc"))
 
         assertEquals(
             AuthenticatedCommentDeleteFailureKind.OUTCOME_NOT_CONFIRMED,

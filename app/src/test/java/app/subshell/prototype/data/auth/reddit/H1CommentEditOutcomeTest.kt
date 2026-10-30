@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.auth.reddit
 
+import app.subshell.prototype.data.network.reddit.commentThreadAnswer
 import app.subshell.prototype.data.auth.AuthAccountIdentity
 import app.subshell.prototype.data.auth.AuthCommentWriteCapability
 import app.subshell.prototype.data.auth.AuthCommentWriteCapabilityResult
@@ -82,10 +83,10 @@ class H1CommentEditOutcomeTest {
 
     private fun shows(body: String) = Answer.Status(
         200,
-        """{"kind":"Listing","data":{"children":[{"kind":"t1","data":{"id":"abc","name":"t1_abc","author":"test-user","body":${"\"" + body + "\""}}}]}}""",
+        """{"kind":"Listing","data":{"children":[{"kind":"t1","data":{"id":"abc","name":"t1_abc","author":"test-user","body":${"\"" + body + "\""}}}]}}""".let(::commentThreadAnswer),
     )
 
-    private val request get() = AuthenticatedCommentEditRequest(account, "t1_abc", "new text")
+    private val request get() = AuthenticatedCommentEditRequest(account, "t3_p1", "t1_abc", "new text")
 
     private fun kindOf(result: AuthenticatedCommentEditResult) =
         (result as AuthenticatedCommentEditResult.Failed).kind

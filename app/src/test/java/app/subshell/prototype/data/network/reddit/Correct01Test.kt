@@ -102,8 +102,9 @@ class Correct01Test {
     fun aBadOrRepeatedFlairTemplateDoesNotFailManagePost() = runBlocking {
         val client = client { path ->
             when {
-                path.endsWith("/api/info") ->
-                    """{"data":{"children":[{"data":{"name":"t3_abc","author":"me","subreddit":"kotlin"}}]}}"""
+                // ISSUE281_READS_AVOID_API_INFO_V1: the post comes from its thread.
+                path.endsWith("/comments/abc") ->
+                    postThreadAnswer("""{"data":{"children":[{"data":{"name":"t3_abc","author":"me","subreddit":"kotlin"}}]}}""")
                 else ->
                     """[{"id":"f1","text":"${"x".repeat(80)}"},{"id":"f2","text":"Ok"},{"id":"f2","text":"Ok again"}]"""
             }

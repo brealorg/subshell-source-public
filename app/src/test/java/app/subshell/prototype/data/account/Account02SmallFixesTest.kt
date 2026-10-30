@@ -52,7 +52,7 @@ class Account02SmallFixesTest {
             moderatorReportTargetOrNull("https://sh.reddit.com/r/x/comments/abc/"),
         )
         assertEquals(
-            ModeratorReportTarget("t1_def", "askreddit"),
+            ModeratorReportTarget("t1_def", "askreddit", postFullname = "t3_abc"),
             moderatorReportTargetOrNull("https://www.reddit.com/R/AskReddit/COMMENTS/ABC/title/DEF/", communityHint = "askreddit"),
         )
         assertEquals(ModeratorReportTarget("t3_xyz", null), moderatorReportTargetOrNull("https://redd.it/XYZ"))

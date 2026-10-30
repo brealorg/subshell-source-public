@@ -158,6 +158,11 @@ internal fun DiagnosticsScreen(
                             .oauthClientModeDiagnosticToken(),
                         redditRefusals = app.subshell.prototype.data.diagnostics
                             .RedditRefusalStore(appContext).read(),
+                        // ISSUE281_THREAD_READS_IN_THE_REPORT_V1
+                        redditReads = app.subshell.prototype.data.diagnostics
+                            .RedditReadEventStore(appContext).read(),
+                        rateLimit = app.subshell.prototype.data.diagnostics
+                            .RedditReadDiagnostics.rateLimitSnapshot(),
                     )
                     val staged = stageDiagnosticReport(appContext, reportText)
                     updated to staged
@@ -217,6 +222,7 @@ internal fun DiagnosticsScreen(
                                 crashStore.clear()
                                 app.subshell.prototype.data.diagnostics.InboxDiagnosticStatusStore(appContext).clear()
                                 app.subshell.prototype.data.diagnostics.RedditRefusalStore(appContext).clear()
+                                app.subshell.prototype.data.diagnostics.RedditReadEventStore(appContext).clear()
                                 store.snapshot()
                             }
                             showMessage("Diagnostic history cleared")

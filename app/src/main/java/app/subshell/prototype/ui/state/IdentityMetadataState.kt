@@ -191,19 +191,26 @@ internal class IdentityMetadataState(
         }
         if (pendingByKey.isEmpty()) return
         try {
-            val fallbacks = pendingByKey.values.map(::communityIdentityFor)
-            val result = withContext(Dispatchers.IO) {
-                identityRepository.refreshCommunityIdentities(
-                    fallbacks = fallbacks,
-                )
-            }
-            result.valueOrNull().orEmpty().forEach { community ->
-                val key = identityMetadataKey(community.name, prefix = "r/")
-                if (key.isNotEmpty()) {
-                    communityIdentityOverrides[key] = community
-                    communityIdentityCache[key] = community
-                    if (result is RepositoryResult.Content) loadedCommunityIdentities += key
+            // ISSUE281_EVERY_VISIBLE_COMMUNITY_GETS_ITS_IDENTITY_V1: each
+            // community is now its own about read and the source reads a few
+            // per call, so ask in chunks until every name was asked once;
+            // before, the names after the first chunk were never asked.
+            for (chunk in pendingByKey.values.chunked(COMMUNITY_IDENTITY_CHUNK)) {
+                val fallbacks = chunk.map(::communityIdentityFor)
+                val result = withContext(Dispatchers.IO) {
+                    identityRepository.refreshCommunityIdentities(
+                        fallbacks = fallbacks,
+                    )
                 }
+                result.valueOrNull().orEmpty().forEach { community ->
+                    val key = identityMetadataKey(community.name, prefix = "r/")
+                    if (key.isNotEmpty()) {
+                        communityIdentityOverrides[key] = community
+                        communityIdentityCache[key] = community
+                        if (result is RepositoryResult.Content) loadedCommunityIdentities += key
+                    }
+                }
+                if (result is RepositoryResult.Offline) break
             }
         } finally {
             loadingCommunityIdentities.removeAll(pendingByKey.keys)
@@ -317,6 +324,10 @@ internal class IdentityMetadataState(
 }
 
 internal const val MAX_AUTHOR_AVATARS = 2_000
+
+// The identity source reads at most this many communities per call
+// (RedditIdentityNetworkDataSource MAX_COMMUNITY_ABOUT_READS).
+internal const val COMMUNITY_IDENTITY_CHUNK = 8
 
 private fun identityMetadataKey(value: String, prefix: String): String {
     val normalized = value.trim().removePrefix(prefix)

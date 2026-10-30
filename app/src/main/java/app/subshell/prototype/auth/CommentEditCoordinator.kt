@@ -79,6 +79,7 @@ internal class CommentEditCoordinator(
                 configuredEditor.edit(
                     AuthenticatedCommentEditRequest(
                         accountStableId = request.accountStableId,
+                        postId = request.postId,
                         commentFullname = request.commentFullname,
                         text = request.text,
                     ),
@@ -122,6 +123,7 @@ internal class CommentEditCoordinator(
                 configuredEditor.verify(
                     AuthenticatedCommentEditRequest(
                         accountStableId = request.accountStableId,
+                        postId = request.postId,
                         commentFullname = request.commentFullname,
                         text = request.text,
                     ),

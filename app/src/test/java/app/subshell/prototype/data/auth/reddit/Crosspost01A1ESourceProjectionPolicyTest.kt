@@ -12,8 +12,9 @@ class Crosspost01A1ESourceProjectionPolicyTest {
     )
     @Test fun infoReadUsesExplicitCanonicalFullnameNotSourceUrlOrNestedParent() {
         val request = redditCrosspostSourceRequest(" t3_SOURCE123 ")
-        assertEquals(listOf("api", "info"), request.pathSegments)
-        assertEquals(listOf("id" to "t3_source123", "raw_json" to "1"), request.queryParameters)
+        // ISSUE281_READS_AVOID_API_INFO_V1: read from the post's thread.
+        assertEquals(listOf("comments", "source123"), request.pathSegments)
+        assertEquals(listOf("raw_json" to "1", "limit" to "1", "depth" to "1"), request.queryParameters)
         for (bad in listOf("source123", "t1_source123", "https://reddit.com/comments/source123")) {
             assertTrue(runCatching { redditCrosspostSourceRequest(bad) }.isFailure)
         }

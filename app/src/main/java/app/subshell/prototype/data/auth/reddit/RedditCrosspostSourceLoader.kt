@@ -9,6 +9,9 @@ import app.subshell.prototype.data.network.NetworkEndpoint
 import app.subshell.prototype.data.network.NetworkResult
 import app.subshell.prototype.data.network.SubshellHttpClient
 import app.subshell.prototype.data.network.SubshellNetworkJson
+import app.subshell.prototype.data.network.reddit.REDDIT_THREAD_POST_LISTING
+import app.subshell.prototype.data.network.reddit.redditPostReadRequest
+import app.subshell.prototype.data.network.reddit.redditThreadListing
 import app.subshell.prototype.ui.CrosspostSourceEvidence
 import app.subshell.prototype.ui.normalizeCrosspostComposerCommunity
 import kotlinx.serialization.SerialName
@@ -46,10 +49,9 @@ internal data class CrosspostSourceDataDto(
     @SerialName("removed_by_category") val removedByCategory: String? = null,
 )
 
-internal fun redditCrosspostSourceRequest(fullname: String): JsonGetRequest = JsonGetRequest(
-    pathSegments = listOf("api", "info"),
-    queryParameters = listOf("id" to normalizeCrosspostSourceFullname(fullname), "raw_json" to "1"),
-)
+// ISSUE281_READS_AVOID_API_INFO_V1: the source post comes from its thread.
+internal fun redditCrosspostSourceRequest(fullname: String): JsonGetRequest =
+    redditPostReadRequest(normalizeCrosspostSourceFullname(fullname))
 
 internal fun CrosspostSourceListingDto.toCrosspostSourceEvidence(fullname: String): CrosspostSourceEvidence? {
     val target = runCatching { normalizeCrosspostSourceFullname(fullname) }.getOrNull() ?: return null
@@ -94,7 +96,7 @@ internal class ConfiguredRedditCrosspostSourceLoader(
             callFactory = callFactory, endpoint = endpoint, json = json, userAgent = userAgent,
             bearerTokenProvider = accountCoordinator.sessionBoundBearerTokenProvider(session.tokens.accessToken),
         )
-        return when (val result = client.getJson(request, CrosspostSourceListingDto.serializer())) {
+        return when (val result = client.getJson(request, redditThreadListing(CrosspostSourceListingDto.serializer(), REDDIT_THREAD_POST_LISTING))) {
             is NetworkResult.Success -> result.value.toCrosspostSourceEvidence(fullname)
                 ?.let(CrosspostSourceLoadResult::Available) ?: CrosspostSourceLoadResult.Unavailable
             else -> CrosspostSourceLoadResult.Unavailable

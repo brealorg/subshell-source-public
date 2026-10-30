@@ -598,7 +598,7 @@ internal class CommentWriteCoordinator(
             delay(delayMs)
             if (!isActiveAuthenticatedAccount(request.accountStableId)) return
             val body = try {
-                loader.readCommentBody(request.accountStableId, comment.id)
+                loader.readCommentBody(request.accountStableId, request.postId, comment.id)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {

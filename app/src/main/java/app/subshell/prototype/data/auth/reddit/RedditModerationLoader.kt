@@ -192,6 +192,9 @@ internal class RedditModerationLoader(
         target: ModeratorReportTarget,
     ): AuthenticatedRedditReportTargetResult = withContext(ioDispatcher) {
         requestMutex.withLock {
+            // ISSUE281_READS_AVOID_API_INFO_V1: a bare comment id has no post
+            // to read it from.
+            if (target.postFullname == null) return@withLock AuthenticatedRedditReportTargetResult.NotFound
             val client = authenticatedClient(accountStableId)
                 ?: return@withLock AuthenticatedRedditReportTargetResult.Failed(
                     AuthenticatedRedditModerationFailureKind.SESSION,

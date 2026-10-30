@@ -2,9 +2,12 @@ package app.subshell.prototype.ui
 
 import android.app.Application
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -28,7 +31,10 @@ import app.subshell.prototype.harness.testVideoPlaybackCoordinator
 import app.subshell.prototype.media.VideoPlaybackCoordinator
 import app.subshell.prototype.ui.app.AccountConnectEntryPoints
 import app.subshell.prototype.ui.components.AccountSettingsRuntime
+import app.subshell.prototype.ui.screens.ACCOUNT_ROW_ARROW_TAG
+import app.subshell.prototype.ui.screens.ACCOUNT_ROW_CURRENT_TAG
 import app.subshell.prototype.ui.screens.SettingsDestination
+import app.subshell.prototype.ui.screens.accountRowTag
 import app.subshell.prototype.ui.screens.SettingsScreen
 import app.subshell.prototype.ui.theme.SubshellTheme
 import org.junit.Assert.assertEquals
@@ -48,6 +54,10 @@ import org.robolectric.annotation.Config
  * STEP3 (profile01a3): the Accounts list shows only Reddit accounts (no
  * local fixture account); tapping another account's row switches to it,
  * and a row that needs signing in again starts that sign-in.
+ *
+ * ISSUE280_ACCOUNT_ROWS_ARE_A_PICKER_V1: the rows carry no arrow (they lead
+ * nowhere); the current account has a check mark and no tap action; only a
+ * row that needs signing in again keeps the arrow.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36], qualifiers = "w411dp-h891dp")
@@ -224,5 +234,36 @@ class Step3AccountSettingsComposeTest {
         composeRule.onAllNodes(staleRow).onFirst().performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitForIdle()
         assertEquals(listOf("reset", "reconnect:${stale.stableId}"), events)
+    }
+
+    @Test
+    fun accountRowsPickAnAccountAndOnlyASignInAgainRowHasAnArrow() {
+        val stale = me.copy(
+            stableId = "reddit:stale",
+            username = "stale_user",
+            state = AccountSessionState.REAUTHENTICATION_REQUIRED,
+        )
+        val state = SubshellState(
+            initialAccountSessions = listOf(me, other, stale),
+            initialActiveAccountId = me.stableId,
+            initialInteractionSideConfigured = true,
+        )
+        showAccounts(state, logoutClears = false)
+
+        fun row(username: String) = composeRule.onNode(hasTestTag(accountRowTag(username)), useUnmergedTree = true)
+        fun count(matcher: androidx.compose.ui.test.SemanticsMatcher) =
+            composeRule.onAllNodes(matcher, useUnmergedTree = true).fetchSemanticsNodes().size
+
+        // One arrow, on the sign-in-again row; one check mark, on the current account.
+        assertEquals(1, count(hasTestTag(ACCOUNT_ROW_ARROW_TAG)))
+        assertEquals(1, count(hasTestTag(ACCOUNT_ROW_CURRENT_TAG)))
+        row("stale_user").assert(hasAnyDescendant(hasTestTag(ACCOUNT_ROW_ARROW_TAG)))
+        row("me_user").assert(hasAnyDescendant(hasTestTag(ACCOUNT_ROW_CURRENT_TAG)))
+        row("other_user").assert(hasAnyDescendant(hasTestTag(ACCOUNT_ROW_ARROW_TAG)).not())
+
+        // The current account has no tap action; the others do.
+        row("me_user").assert(hasClickAction().not())
+        row("other_user").assert(hasClickAction())
+        row("stale_user").assert(hasClickAction())
     }
 }

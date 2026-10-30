@@ -1,5 +1,7 @@
 package app.subshell.prototype.data.auth.reddit
 
+import app.subshell.prototype.data.network.reddit.commentThreadAnswer
+import app.subshell.prototype.data.network.reddit.postThreadAnswer
 import app.subshell.prototype.data.auth.AuthAccountIdentity
 import app.subshell.prototype.data.auth.AuthCommentWriteCapability
 import app.subshell.prototype.data.auth.AuthCommentWriteCapabilityResult
@@ -74,12 +76,12 @@ class EditReadback01EditedStampTest {
     private fun post(selftext: String, edited: String) = 200 to
         """{"kind":"Listing","data":{"children":[{"kind":"t3","data":{"id":"p1","name":"t3_p1","title":"t",
         "selftext":${JsonPrimitive(selftext)},"edited":$edited,
-        "media_metadata":{"giphy|abc|downsized":{"status":"invalid"}}}}]}}"""
+        "media_metadata":{"giphy|abc|downsized":{"status":"invalid"}}}}]}}""".let(::postThreadAnswer)
 
     private fun comment(body: String, edited: String) = 200 to
         """{"kind":"Listing","data":{"children":[{"kind":"t1","data":{"id":"c1","name":"t1_c1","author":"test-user",
         "body":${JsonPrimitive(body)},"edited":$edited,
-        "media_metadata":{"giphy|abc|downsized":{"status":"invalid"}}}}]}}"""
+        "media_metadata":{"giphy|abc|downsized":{"status":"invalid"}}}}]}}""".let(::commentThreadAnswer)
 
     private fun postEditor(editStatus: Int, infos: List<Pair<Int, String>>) = ConfiguredRedditPostEditor(
         capability = StampTestCapability(session),
@@ -160,7 +162,7 @@ class EditReadback01EditedStampTest {
     @Test
     fun aLostRichTextCommentEditThatReadsBackRewrittenButNewlyEditedIsSaved() = runBlocking {
         val result = commentEditor(502, listOf(comment("old", "false"), comment(rewritten, "1727500000.0")))
-            .edit(AuthenticatedCommentEditRequest(account, "t1_c1", sentMedia))
+            .edit(AuthenticatedCommentEditRequest(account, "t3_p1", "t1_c1", sentMedia))
 
         assertTrue(result.toString(), result is AuthenticatedCommentEditResult.Edited)
         assertEquals(1, editRequests.size)

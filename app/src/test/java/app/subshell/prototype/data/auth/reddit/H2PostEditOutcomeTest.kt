@@ -1,5 +1,6 @@
 package app.subshell.prototype.data.auth.reddit
 
+import app.subshell.prototype.data.network.reddit.postThreadAnswer
 import app.subshell.prototype.data.auth.AuthAccountIdentity
 import app.subshell.prototype.data.auth.AuthCommentWriteCapability
 import app.subshell.prototype.data.auth.AuthCommentWriteCapabilityResult
@@ -82,7 +83,7 @@ class H2PostEditOutcomeTest {
 
     private fun shows(body: String) = Answer.Status(
         200,
-        """{"kind":"Listing","data":{"children":[{"kind":"t3","data":{"id":"abc","name":"t3_abc","author":"test-user","title":"A post","selftext":${"\"" + body + "\""}}}]}}""",
+        """{"kind":"Listing","data":{"children":[{"kind":"t3","data":{"id":"abc","name":"t3_abc","author":"test-user","title":"A post","selftext":${"\"" + body + "\""}}}]}}""".let(::postThreadAnswer),
     )
 
     private val request get() = AuthenticatedPostEditRequest(account, "t3_abc", "new text")

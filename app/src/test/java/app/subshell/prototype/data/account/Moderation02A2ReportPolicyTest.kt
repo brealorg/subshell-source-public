@@ -11,7 +11,7 @@ class Moderation02A2ReportPolicyTest {
     }
     @Test fun permalinkKeepsExactCommentNotParentPost() {
         val target = moderatorReportTargetOrNull("https://www.reddit.com/r/norge/comments/abc/title/def/?context=3")
-        assertEquals(ModeratorReportTarget("t1_def", "norge"), target)
+        assertEquals(ModeratorReportTarget("t1_def", "norge", postFullname = "t3_abc"), target)
         assertEquals(ModeratorReportTarget("t3_abc", "norge"), moderatorReportTargetOrNull("/r/norge/comments/abc/title/"))
         assertEquals(ModeratorReportTarget("t3_abc"), moderatorReportTargetOrNull("https://redd.it/abc"))
     }

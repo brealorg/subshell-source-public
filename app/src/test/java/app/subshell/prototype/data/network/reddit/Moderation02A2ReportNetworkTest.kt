@@ -16,8 +16,9 @@ class Moderation02A2ReportNetworkTest {
         }
     }
     @Test fun targetLookupDoesNotDependOnModqueueMembership() {
-        assertEquals(listOf("api", "info"), redditModeratorReportTargetRequest(ModeratorReportTarget("t1_abc", "norge")).pathSegments)
-        assertEquals(listOf("id" to "t1_abc", "raw_json" to "1"), redditModeratorReportTargetRequest(ModeratorReportTarget("t1_abc")).queryParameters)
+        // ISSUE281_READS_AVOID_API_INFO_V1: read from the post's thread.
+        assertEquals(listOf("comments", "p1", "_", "abc"), redditModeratorReportTargetRequest(ModeratorReportTarget("t1_abc", "norge", "t3_p1"), "t3_p1").pathSegments)
+        assertEquals(listOf("comments", "abc"), redditModeratorReportTargetRequest(ModeratorReportTarget("t3_abc"), "t3_abc").pathSegments)
     }
     @Test fun actualJsonDtoPreservesReportsAndKnownIgnoredState() {
         val json = """{"data":{"children":[{"kind":"t1","data":{"name":"t1_abc","subreddit":"norge","body":"Reported comment","ignore_reports":true,"can_mod_post":true,"user_reports":[["Spam",3]],"mod_reports":[["Rule 1","mod_a"]]}}]}}"""

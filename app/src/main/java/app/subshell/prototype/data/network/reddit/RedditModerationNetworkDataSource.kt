@@ -48,11 +48,18 @@ internal class RedditModerationNetworkDataSource(
         ).map { listing -> listing.toModeratorQueuePage(communityName) }
 
     // MODERATION02A2_EXACT_REPORT_TARGET_READ_OUTSIDE_QUEUE_V1
-    suspend fun reportTarget(target: ModeratorReportTarget): NetworkResult<RedditModeratorQueueItem?> =
-        httpClient.getJson(
-            request = redditModeratorReportTargetRequest(target),
-            deserializer = RedditModerationListingDto.serializer(),
+    // ISSUE281_READS_AVOID_API_INFO_V1: read from the post's thread; the caller
+    // makes sure the target has its post.
+    suspend fun reportTarget(target: ModeratorReportTarget): NetworkResult<RedditModeratorQueueItem?> {
+        val post = requireNotNull(target.postFullname) { "A report target is read from its post" }
+        return httpClient.getJson(
+            request = redditModeratorReportTargetRequest(target, post),
+            deserializer = redditThreadListing(
+                RedditModerationListingDto.serializer(),
+                if (target.fullname.startsWith("t3_")) REDDIT_THREAD_POST_LISTING else REDDIT_THREAD_COMMENT_LISTING,
+            ),
         ).map { listing -> listing.toModeratorReportTarget(target) }
+    }
 }
 
 internal fun redditModeratedCommunitiesRequest(
@@ -277,11 +284,12 @@ private const val MAX_QUEUE_PERMALINK_CHARS = 2_000
 private const val MAX_QUEUE_REPORT_COUNT = 10_000
 
 
-internal fun redditModeratorReportTargetRequest(target: ModeratorReportTarget): JsonGetRequest =
-    JsonGetRequest(
-        pathSegments = listOf("api", "info"),
-        queryParameters = listOf("id" to target.fullname, "raw_json" to "1"),
-    )
+internal fun redditModeratorReportTargetRequest(target: ModeratorReportTarget, postFullname: String): JsonGetRequest =
+    if (target.fullname.startsWith("t3_")) {
+        redditPostReadRequest(postFullname)
+    } else {
+        redditCommentReadRequest(postFullname, target.fullname)
+    }
 
 internal fun RedditModerationListingDto.toModeratorReportTarget(
     target: ModeratorReportTarget,
