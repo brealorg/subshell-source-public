@@ -3074,6 +3074,10 @@ fun PostScreen(
                                 pendingHydrationCommit?.moreNodeId == row.comment.id,
                             failed = redditCommentsState.failedMoreNodeId == row.comment.id ||
                                 row.comment.id in failedMoreNodeIds,
+                            // BLOCKPAGE02_SMALLER_READ_SURFACES_NAME_THE_BLOCK_PAGE_V1: the
+                            // last failed node's details are the comment state's.
+                            failureDetails = redditCommentsState.failureDetails
+                                .takeIf { redditCommentsState.failedMoreNodeId == row.comment.id },
                             fullDiscussionReady = redditCommentsState.fullDiscussionLoaded,
                             fullDiscussionLoading = redditCommentsState.fullDiscussionLoading,
                             onRetry = { comment -> loadMore(comment, true) },
@@ -3984,6 +3988,7 @@ private fun MoreRepliesRow(
     comment: Comment,
     loading: Boolean,
     failed: Boolean,
+    failureDetails: app.subshell.prototype.data.error.FailureDetails?,
     fullDiscussionReady: Boolean,
     fullDiscussionLoading: Boolean,
     onRetry: (Comment) -> Unit,
@@ -4005,7 +4010,7 @@ private fun MoreRepliesRow(
         !fullDiscussionReady && fullDiscussionLoading -> "Loading full discussion…"
         !fullDiscussionReady -> "Full discussion unavailable"
         loading -> "Loading replies…"
-        failed -> "Couldn't load replies · Retry"
+        failed -> app.subshell.prototype.ui.error.redditMoreRepliesFailedLabel(failureDetails)
         else -> "Loading replies…"
     }
     Row(

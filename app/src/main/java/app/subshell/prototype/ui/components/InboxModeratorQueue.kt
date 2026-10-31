@@ -1,6 +1,6 @@
 package app.subshell.prototype.ui.components
 
-import app.subshell.prototype.ui.error.redditReadHttpReason
+import app.subshell.prototype.ui.error.redditModQueueFailureMessage
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -216,21 +216,10 @@ internal fun InboxModeratorQueueFailure(
     httpStatusCode: Int?,
     retryable: Boolean,
     onRetry: () -> Unit,
+    // BLOCKPAGE02_SMALLER_READ_SURFACES_NAME_THE_BLOCK_PAGE_V1
+    details: app.subshell.prototype.data.error.FailureDetails? = null,
 ) {
-    val message = when {
-        failureKind == RedditModerationUiFailureKind.HTTP && httpStatusCode == 403 ->
-            "Reddit denied this mod queue. Your moderator role may not include the Posts permission."
-        failureKind == RedditModerationUiFailureKind.SESSION ->
-            "The Reddit sign-in for this account needs attention."
-        // ISSUE208_SERVER_FAILURES_ARE_NOT_REJECTIONS_V1
-        failureKind == RedditModerationUiFailureKind.HTTP ->
-            redditReadHttpReason(httpStatusCode, "Reddit rejected the mod queue request.")
-        failureKind == RedditModerationUiFailureKind.TRANSPORT ->
-            "subshell couldn't reach Reddit for the mod queue."
-        failureKind == RedditModerationUiFailureKind.PROTOCOL ->
-            "Reddit returned a mod queue response that subshell couldn't read."
-        else -> "Moderator tools aren't configured for the active account."
-    }
+    val message = redditModQueueFailureMessage(failureKind, httpStatusCode, details)
     InboxModerationNotice(
         title = "Couldn't load mod queue",
         message = message,

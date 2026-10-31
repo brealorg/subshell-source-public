@@ -261,6 +261,18 @@ internal interface SubshellCacheDao {
     @Query("SELECT * FROM cached_queries WHERE query_key = :queryKey LIMIT 1")
     fun queryMetadata(queryKey: String): CachedQueryEntity?
 
+    // ISSUE267_WIDGETS_SHOW_WHAT_THE_APP_HAS_STORED_V1: the feed of one place
+    // (Home, a community) the reader refreshed last, whatever its sort.
+    @Query(
+        """
+        SELECT query_key FROM cached_queries
+        WHERE query_key LIKE :escapedPrefix || '%' ESCAPE '\'
+        ORDER BY last_successful_refresh_epoch_ms DESC
+        LIMIT 1
+        """,
+    )
+    fun newestQueryKeyWithPrefix(escapedPrefix: String): String?
+
     @Query(
         """
         SELECT cached_posts.* FROM cached_posts

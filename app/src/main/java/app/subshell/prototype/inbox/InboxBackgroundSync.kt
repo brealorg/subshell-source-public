@@ -519,6 +519,8 @@ internal class InboxBackgroundSyncWorker(
                 null -> Unit
             }
         }
+        // ISSUE267_INBOX_AND_POSTS_WIDGETS_V1: the stored Inbox may have changed.
+        app.subshell.prototype.widget.SubshellWidgets.refresh(applicationContext)
 
         // LOW_INBOX_WORKER_SKIPS_UNWANTED_MODMAIL_V1 (OCB-562): with Modmail
         // notifications off nothing is fetched.

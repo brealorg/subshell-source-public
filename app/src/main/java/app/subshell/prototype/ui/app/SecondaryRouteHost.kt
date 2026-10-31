@@ -108,6 +108,7 @@ internal fun SecondaryRouteHost(
                             onCancelConnectAccount = onCancelConnectAccount,
                             onResetConnectAccount = onResetConnectAccount,
                             onReconnectAccount = onReconnectAccount,
+                            checkRedditAccess = accountConnect.checkRedditAccess,
                             onLogoutActiveAccount = { onComplete ->
                                 onLogoutActiveAccount { cleared ->
                                     if (cleared) {

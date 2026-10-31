@@ -2,6 +2,7 @@ package app.subshell.prototype.data.auth.reddit
 
 import app.subshell.prototype.data.account.NsfwPreferencesResult
 import app.subshell.prototype.data.account.QuarantineOptInResult
+import app.subshell.prototype.data.account.RedditAccessCheckResult
 import app.subshell.prototype.data.account.RedditNsfwPreferencesReader
 import app.subshell.prototype.data.account.RedditQuarantineOptIn
 import app.subshell.prototype.data.network.SubshellHttpClient
@@ -11,6 +12,7 @@ import app.subshell.prototype.data.auth.OAuthProviderConfiguration
 import app.subshell.prototype.data.auth.StoredOAuthSession
 import app.subshell.prototype.data.auth.authenticatedAccountId
 import app.subshell.prototype.data.network.reddit.NsfwPreferencesNetwork
+import app.subshell.prototype.data.network.reddit.RedditAccessProbeNetworkDataSource
 import kotlin.coroutines.cancellation.CancellationException
 
 internal val NSFW_PREFERENCES_READ_SCOPES = setOf("identity")
@@ -33,6 +35,8 @@ internal class ConfiguredRedditCommunityAccessService(
     private val networkForSession: (StoredOAuthSession) -> NsfwPreferencesNetwork,
     // ISSUE211_QUARANTINE_OPT_IN_V1: a non-retrying client for the opt-in.
     private val writeClientForSession: ((StoredOAuthSession) -> SubshellHttpClient)? = null,
+    // REDDITCHECK01_CHECK_REDDIT_ACCESS_V1: a non-retrying client for the access check.
+    private val probeClientForSession: ((StoredOAuthSession) -> SubshellHttpClient)? = null,
 ) : app.subshell.prototype.data.account.RedditCommunityAccessService {
     private fun current(account: String, isCurrent: () -> Boolean): Boolean =
         account.isNotBlank() && activeAccountId() == account && isCurrent()
@@ -78,6 +82,18 @@ internal class ConfiguredRedditCommunityAccessService(
         } catch (_: Exception) {
             QuarantineOptInResult.OutcomeUnknown
         }
+    }
+
+    // REDDITCHECK01_CHECK_REDDIT_ACCESS_V1: the check reads with the active
+    // account's own session (identity is enough to be let in; a read the grant
+    // lacks a scope for shows as Reddit's 403), and stops when the account changes.
+    override suspend fun check(account: String, isCurrent: () -> Boolean): RedditAccessCheckResult {
+        val client = probeClientForSession ?: return RedditAccessCheckResult.NotChecked
+        val session = session(account, isCurrent) ?: return RedditAccessCheckResult.NotChecked
+        val probes = RedditAccessProbeNetworkDataSource(client(session))
+            .probe { current(account, isCurrent) }
+            ?: return RedditAccessCheckResult.NotChecked
+        return RedditAccessCheckResult.Checked(probes)
     }
 
     private suspend fun session(

@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">subshell</string>
+    <!-- ISSUE267_INBOX_AND_POSTS_WIDGETS_V1 -->
+    <string name="inbox_widget_description">Unread count and your newest Inbox messages</string>
+    <string name="posts_widget_description">Posts from Home or a community you pick</string>
 </resources>

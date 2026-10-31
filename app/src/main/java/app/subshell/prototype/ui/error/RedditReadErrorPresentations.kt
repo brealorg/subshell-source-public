@@ -6,6 +6,7 @@ import app.subshell.prototype.data.account.RedditCommunityDiscoveryUiFailureKind
 import app.subshell.prototype.data.account.RedditCommunityInfoUiFailureKind
 import app.subshell.prototype.data.account.RedditFeedUiFailureKind
 import app.subshell.prototype.data.account.RedditInboxUiFailureKind
+import app.subshell.prototype.data.account.RedditModerationUiFailureKind
 import app.subshell.prototype.data.account.RedditProfileCommentsUiFailureKind
 import app.subshell.prototype.data.account.RedditSubscriptionsUiFailureKind
 import app.subshell.prototype.data.error.FailureDetails
@@ -240,6 +241,9 @@ internal fun redditCommunityDiscoverySuggestionErrorPresentation(
             "Reddit returned community suggestions that subshell couldn't read."
         RedditCommunityDiscoveryUiFailureKind.STORAGE ->
             "subshell couldn't read the saved community suggestions."
+    }.let { text ->
+        // HOSTILEREDDIT01_EVERY_READ_ERROR_NAMES_THE_BLOCK_PAGE_V1: as readErrorPresentation.
+        if (details.isRedditBlockPage()) REDDIT_BLOCK_PAGE_MESSAGE else text
     }
     return ErrorPresentation(
         kind = if (showingFallbackResults) {
@@ -300,6 +304,9 @@ private fun readErrorPresentation(
     // ISSUE32_REDDIT_REFUSED_ACCESS_IS_ONE_NOTICE_V1: an empty screen says why.
     message = when {
         details.isClientAccessRefusal() -> REDDIT_READ_ACCESS_REFUSED_REASON
+        // REDDITBLOCK01_REDDITS_BLOCK_PAGE_IS_NAMED_V1
+        details.isRedditBlockPage() && showingCachedContent -> "$REDDIT_BLOCK_PAGE_MESSAGE $cachedMessage"
+        details.isRedditBlockPage() -> REDDIT_BLOCK_PAGE_MESSAGE
         showingCachedContent -> "$reason $cachedMessage"
         else -> reason
     },
@@ -345,3 +352,59 @@ internal fun redditCommunityInfoErrorPresentation(
     retryable = retryable,
     showingCachedContent = showingPartialContent,
 )
+
+// BLOCKPAGE02_SMALLER_READ_SURFACES_NAME_THE_BLOCK_PAGE_V1 (2026-10-31): the
+// reads with their own short texts (mod queue, mod log, Wiki, people search,
+// a replies row) say Reddit is blocking the request when it answered with its
+// block page, as the shared read errors do. The block page is a 403, so it is
+// checked before the mod queue's "your moderator role" reading of a 403.
+
+internal fun redditModQueueFailureMessage(
+    failureKind: RedditModerationUiFailureKind,
+    httpStatusCode: Int?,
+    details: FailureDetails?,
+): String = when {
+    details.isRedditBlockPage() -> REDDIT_BLOCK_PAGE_MESSAGE
+    failureKind == RedditModerationUiFailureKind.HTTP && httpStatusCode == 403 ->
+        "Reddit denied this mod queue. Your moderator role may not include the Posts permission."
+    failureKind == RedditModerationUiFailureKind.SESSION ->
+        "The Reddit sign-in for this account needs attention."
+    // ISSUE208_SERVER_FAILURES_ARE_NOT_REJECTIONS_V1
+    failureKind == RedditModerationUiFailureKind.HTTP ->
+        redditReadHttpReason(httpStatusCode, "Reddit rejected the mod queue request.")
+    failureKind == RedditModerationUiFailureKind.TRANSPORT ->
+        "subshell couldn't reach Reddit for the mod queue."
+    failureKind == RedditModerationUiFailureKind.PROTOCOL ->
+        "Reddit returned a mod queue response that subshell couldn't read."
+    else -> "Moderator tools aren't configured for the active account."
+}
+
+internal fun redditModQueueMoreFailedLabel(details: FailureDetails?): String =
+    if (details.isRedditBlockPage()) "Reddit is blocking the rest of the queue" else "Couldn't load more of the queue"
+
+/** [lead] says what was not loaded; the status follows, or the block page instead. */
+internal fun redditModeratorLogFailureMessage(
+    lead: String,
+    httpStatusCode: Int?,
+    details: FailureDetails?,
+): String = when {
+    details.isRedditBlockPage() -> REDDIT_BLOCK_PAGE_MESSAGE
+    httpStatusCode != null -> "$lead HTTP $httpStatusCode."
+    else -> lead
+}
+
+internal fun redditWikiHttpFailureMessage(httpStatusCode: Int?, details: FailureDetails?): String = when {
+    details.isRedditBlockPage() -> REDDIT_BLOCK_PAGE_MESSAGE
+    httpStatusCode != null -> "Reddit returned HTTP $httpStatusCode for this Wiki request."
+    else -> "Reddit rejected this Wiki request."
+}
+
+internal fun redditPeopleSearchFailureMessage(details: FailureDetails?): String =
+    if (details.isRedditBlockPage()) {
+        "$REDDIT_BLOCK_PAGE_MESSAGE Submit the search again to retry."
+    } else {
+        "Couldn't load Reddit people. Submit the search again to retry."
+    }
+
+internal fun redditMoreRepliesFailedLabel(details: FailureDetails?): String =
+    if (details.isRedditBlockPage()) "Reddit is blocking these replies · Retry" else "Couldn't load replies · Retry"

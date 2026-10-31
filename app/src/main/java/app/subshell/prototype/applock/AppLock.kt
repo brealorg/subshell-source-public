@@ -160,6 +160,10 @@ internal object AppLockSettingsStore {
         if (!hidBefore && normalized.hidesNotificationContent) {
             runCatching { InboxNotificationCenter.redactShownNotifications(context) }
         }
+        // ISSUE267_INBOX_AND_POSTS_WIDGETS_V1: the widgets hide or show their content with it.
+        if (hidBefore != normalized.hidesNotificationContent) {
+            app.subshell.prototype.widget.SubshellWidgets.requestRefresh(context)
+        }
     }
 }
 

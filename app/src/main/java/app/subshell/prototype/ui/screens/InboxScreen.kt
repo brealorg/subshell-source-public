@@ -992,7 +992,12 @@ fun InboxScreen(
                 selectedNextCursor != null &&
                 !selectedRefreshing &&
                 !selectedAppending &&
-                (selectedTab == InboxPrimaryTab.MOD || !liveAuthorizing),
+                (selectedTab == InboxPrimaryTab.MOD || !liveAuthorizing) &&
+                // INBOXUNREAD01_NOTHING_UNREAD_LOADS_NO_OLDER_PAGES_V1: with nothing
+                // unread the list's end stays in view, so every older page was
+                // read in turn (six on the owner's account, ~10 s of "Loading
+                // more…" under "You're all caught up"). Unread items are the newest.
+                !(selectedTab != InboxPrimaryTab.MOD && filter == InboxFilter.UNREAD && inboxItems.isEmpty()),
             loadNextToken = selectedNextCursor,
             onLoadNext = {
                 if (selectedTab == InboxPrimaryTab.MOD) {
@@ -1355,6 +1360,7 @@ fun InboxScreen(
                                     failureKind = failureKind,
                                     httpStatusCode =
                                         redditModerationState.queueFailureHttpStatusCode,
+                                    details = redditModerationState.queueFailureDetails,
                                     retryable =
                                         redditModerationState.queueFailureRetryable,
                                     onRetry = {

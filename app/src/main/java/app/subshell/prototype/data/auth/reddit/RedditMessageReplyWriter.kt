@@ -362,7 +362,7 @@ internal class RedditMessageReplyWriter(
             )
             MessageReplyMediaResolution.Ready(richtextJson)
         } finally {
-            staged.file.delete()
+            discardStagedMedia(staged.file)
         }
     }
 

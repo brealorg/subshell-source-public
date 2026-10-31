@@ -2,6 +2,21 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "versionCode": 254,
+      "versionName": "0.90-beta",
+      "date": "2026-10-31",
+      "headline": "Subshell 0.90: home-screen widgets, and plain answers when Reddit blocks",
+      "highlights": [
+        "Two home-screen widgets. Inbox shows how many items are unread and the newest ones. Posts shows Home or a community you've joined. Add them from your launcher's widget list.",
+        "When Reddit blocks a request from third-party apps, subshell now says so instead of showing a generic error. The mod queue no longer blames your moderator role for it.",
+        "Settings › Diagnostics › Check Reddit access shows which kinds of reads Reddit answers right now and adds the result to the diagnostic report.",
+        "Open prefilled GitHub issue copies the report so you can paste it.",
+        "Hide read posts is remembered for each account, and a greyed-out item says why. Reset read markers no longer looks like a refresh button.",
+        "A short list no longer hides the top bar and bottom navigation when you drag it, and an empty Unread inbox no longer keeps loading older pages."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v0.90-beta"
+    },
+    {
       "versionCode": 253,
       "versionName": "0.89-beta",
       "date": "2026-10-30",

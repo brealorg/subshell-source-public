@@ -434,6 +434,10 @@ fun rememberSubshellState(
                         ACCOUNT_ACTION_FIELD_FOLLOWED_USERS,
                         defaults.followedUsernames,
                     ),
+                    hideReadPosts = preferences.getBoolean(
+                        accountPostActionsPreferenceKey(username, ACCOUNT_ACTION_FIELD_HIDE_READ),
+                        defaults.hideReadPosts,
+                    ),
                 ),
                 username = username,
             )
@@ -470,6 +474,10 @@ fun rememberSubshellState(
                 putStringSet(
                     accountPostActionsPreferenceKey(username, ACCOUNT_ACTION_FIELD_FOLLOWED_USERS),
                     normalized.followedUsernames,
+                )
+                putBoolean(
+                    accountPostActionsPreferenceKey(username, ACCOUNT_ACTION_FIELD_HIDE_READ),
+                    normalized.hideReadPosts,
                 )
             }
         }

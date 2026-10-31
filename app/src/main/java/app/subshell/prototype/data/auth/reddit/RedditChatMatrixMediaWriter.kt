@@ -348,7 +348,7 @@ internal class RedditChatMatrixMediaWriter(
                     failed(MessageReplyFailureKind.API)
             }
         } finally {
-            staged.file.delete()
+            discardStagedMedia(staged.file)
         }
     }
 

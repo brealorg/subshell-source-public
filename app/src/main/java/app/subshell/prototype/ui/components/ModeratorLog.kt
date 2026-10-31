@@ -1,6 +1,7 @@
 package app.subshell.prototype.ui.components
 
 import app.subshell.prototype.ui.error.ReportFailureDiagnostic
+import app.subshell.prototype.ui.error.redditModeratorLogFailureMessage
 import androidx.compose.material3.IconButton
 
 
@@ -174,14 +175,12 @@ fun ModeratorLogDialog(
                         item("mod-log-failure") {
                             ModeratorLogNotice(
                                 title = "Mod log unavailable",
-                                message = buildString {
-                                    append("Reddit moderation history could not be loaded.")
-                                    state.failureHttpStatusCode?.let { code ->
-                                        append(" HTTP ")
-                                        append(code)
-                                        append('.')
-                                    }
-                                },
+                                // BLOCKPAGE02_SMALLER_READ_SURFACES_NAME_THE_BLOCK_PAGE_V1
+                                message = redditModeratorLogFailureMessage(
+                                    "Reddit moderation history could not be loaded.",
+                                    state.failureHttpStatusCode,
+                                    state.failureDetails,
+                                ),
                                 actionLabel = if (state.failureRetryable) "Retry" else null,
                                 onAction = onRefresh,
                             )
@@ -241,14 +240,11 @@ fun ModeratorLogDialog(
                             if (pageFailure && !state.loading) {
                                 ModeratorLogNotice(
                                     title = "Couldn't load more of the mod log",
-                                    message = buildString {
-                                        append("Reddit did not send the next page.")
-                                        state.failureHttpStatusCode?.let { code ->
-                                            append(" HTTP ")
-                                            append(code)
-                                            append('.')
-                                        }
-                                    },
+                                    message = redditModeratorLogFailureMessage(
+                                        "Reddit did not send the next page.",
+                                        state.failureHttpStatusCode,
+                                        state.failureDetails,
+                                    ),
                                     actionLabel = if (state.failureRetryable) "Retry" else null,
                                     onAction = onAppend,
                                 )

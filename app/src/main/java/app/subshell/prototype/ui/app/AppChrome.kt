@@ -22,6 +22,12 @@ import app.subshell.prototype.ui.screens.InboxContextualSelection
  * hides the chrome after 56 dp of downward scroll and shows it again after
  * 40 dp upward (or on an overscroll at the top).
  *
+ * ISSUE279_ONLY_A_LIST_THAT_MOVES_HIDES_THE_CHROME_V1 (#279): it counts what
+ * the list scrolled, not how far the finger moved. A list that fits the
+ * screen (three Inbox messages) hid both bars on an upward drag, and a drag
+ * down at its top is pull to refresh, so they never came back. The route
+ * top bars already leave such a list alone (rememberRouteTopBarScrollBehavior).
+ *
  * Moved out of SubshellApp verbatim.
  */
 @Composable
@@ -39,24 +45,22 @@ internal fun rememberChromeScrollConnection(
     val currentChromeShown by rememberUpdatedState(chromeShown)
     val chromeScrollConnection = remember(state, hideThresholdPx, showThresholdPx) {
         object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (!currentChromeShown) return Offset.Zero
-                state.onMainContentScroll(
-                    deltaPx = -available.y,
-                    atTop = false,
-                    hideThresholdPx = hideThresholdPx,
-                    showThresholdPx = showThresholdPx,
-                )
-                return Offset.Zero
-            }
-
             override fun onPostScroll(
                 consumed: Offset,
                 available: Offset,
                 source: NestedScrollSource,
             ): Offset {
                 if (!currentChromeShown) return Offset.Zero
-                if (available.y > 0f && consumed.y == 0f) state.showChrome()
+                if (available.y > 0f && consumed.y == 0f) {
+                    state.showChrome()
+                } else {
+                    state.onMainContentScroll(
+                        deltaPx = -consumed.y,
+                        atTop = false,
+                        hideThresholdPx = hideThresholdPx,
+                        showThresholdPx = showThresholdPx,
+                    )
+                }
                 return Offset.Zero
             }
         }

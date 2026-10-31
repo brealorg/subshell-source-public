@@ -320,7 +320,7 @@ internal class ConfiguredRedditCommentSubmitter(
                 )
             }
         } finally {
-            staged.file.delete()
+            discardStagedMedia(staged.file)
         }
     }
 

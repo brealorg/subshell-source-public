@@ -413,7 +413,7 @@ internal class RedditChatMatrixStartWriter(
                 failed("send", DirectChatStartFailureKind.OUTCOME_UNKNOWN)
         }
         } finally {
-            preparedMedia?.file?.delete()
+            discardStagedMedia(preparedMedia?.file)
         }
     }
 

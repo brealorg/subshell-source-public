@@ -193,6 +193,11 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
                 SystemClock.elapsedRealtime(),
                 changingConfigurations = isChangingConfigurations,
             )
+            // ISSUE267_INBOX_AND_POSTS_WIDGETS_V1: what the reader read, opened
+            // or switched to here shows on the widgets once they are back home.
+            if (!isChangingConfigurations) {
+                app.subshell.prototype.widget.SubshellWidgets.requestRefresh(applicationContext)
+            }
         }
     }
     // ISSUE248_JANK_SUMMARY_PER_FOREGROUND_SESSION_V1 (#248): JankStats counts
@@ -667,6 +672,7 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
                         accountSessionDirectory = authConnectViewModel.accountSessionDirectory,
                         redditUserAgent = authConnectViewModel.redditUserAgent,
                         readNsfwAccountPreferences = communitiesViewModel::readNsfwAccountPreferences,
+                        checkRedditAccess = communitiesViewModel::checkRedditAccess,
                         onLogoutActiveAccount = authConnectViewModel::logoutActiveAccount,
                         onReconnectAccount = ::launchReconnectAccount,
                         onlineVisibilityRuntime = app.subshell.prototype.ui.components.OnlineVisibilityRuntime(

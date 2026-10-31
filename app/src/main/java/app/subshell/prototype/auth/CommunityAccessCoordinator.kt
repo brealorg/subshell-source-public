@@ -2,6 +2,7 @@ package app.subshell.prototype.auth
 
 import app.subshell.prototype.data.account.NsfwPreferencesResult
 import app.subshell.prototype.data.account.QuarantineOptInResult
+import app.subshell.prototype.data.account.RedditAccessCheckResult
 import app.subshell.prototype.data.account.RedditCommunityAccessService
 import app.subshell.prototype.data.auth.AuthenticatedRedditCommunityDiscoveryLoader
 import app.subshell.prototype.data.auth.AuthenticatedRedditCommunityDiscoveryResult
@@ -35,6 +36,12 @@ internal class CommunityAccessCoordinator(
             "account-prefs account=${account.takeLast(6)} result=$result",
         )
         return result
+    }
+
+    // REDDITCHECK01_CHECK_REDDIT_ACCESS_V1: Diagnostics › Check Reddit access.
+    suspend fun checkRedditAccess(account: String): RedditAccessCheckResult {
+        val checker = accessService ?: return RedditAccessCheckResult.NotChecked
+        return checker.check(account) { activeAccountId() == account }
     }
 
     // ISSUE211_RANDOM_NSFW_COMMUNITY_V1: a random NSFW community for the

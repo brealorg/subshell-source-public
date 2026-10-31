@@ -447,21 +447,21 @@ internal class ConfiguredRedditTextPostSubmitter(
             ) {
                 is RedditMediaStageResult.Staged -> stagedItems += item to stage
                 RedditMediaStageResult.UnsupportedType -> {
-                    stagedItems.forEach { (_, staged) -> staged.file.delete() }
+                    discardStagedMedia(stagedItems.map { (_, staged) -> staged.file })
                     return mediaValidation(
                         "Gallery item ${index + 1} must be JPEG, PNG, WebP, or GIF",
                     )
                 }
                 RedditMediaStageResult.TooLarge -> {
-                    stagedItems.forEach { (_, staged) -> staged.file.delete() }
+                    discardStagedMedia(stagedItems.map { (_, staged) -> staged.file })
                     return mediaValidation("Gallery item ${index + 1} must be 20 MB or smaller")
                 }
                 RedditMediaStageResult.Empty -> {
-                    stagedItems.forEach { (_, staged) -> staged.file.delete() }
+                    discardStagedMedia(stagedItems.map { (_, staged) -> staged.file })
                     return mediaValidation("Gallery item ${index + 1} is empty. Choose another file")
                 }
                 RedditMediaStageResult.Unavailable -> {
-                    stagedItems.forEach { (_, staged) -> staged.file.delete() }
+                    discardStagedMedia(stagedItems.map { (_, staged) -> staged.file })
                     return mediaValidation(
                         "Gallery item ${index + 1} can no longer be read. Choose it again",
                     )
@@ -469,7 +469,7 @@ internal class ConfiguredRedditTextPostSubmitter(
             }
         }
         } catch (cancelled: CancellationException) {
-            stagedItems.forEach { (_, staged) -> staged.file.delete() }
+            discardStagedMedia(stagedItems.map { (_, staged) -> staged.file })
             throw cancelled
         }
         return try {
@@ -562,7 +562,7 @@ internal class ConfiguredRedditTextPostSubmitter(
                 else -> mapSubmitNetworkResult(request, result)
             }
         } finally {
-            stagedItems.forEach { (_, staged) -> staged.file.delete() }
+            discardStagedMedia(stagedItems.map { (_, staged) -> staged.file })
         }
     }
 
@@ -625,7 +625,7 @@ internal class ConfiguredRedditTextPostSubmitter(
                 RedditMediaStageResult.Empty,
                 RedditMediaStageResult.Unavailable,
                 -> {
-                    staged.file.delete()
+                    discardStagedMedia(staged.file)
                     return mediaValidation(
                         "Reddit needs a preview frame from this video. Choose another video",
                     )
@@ -859,8 +859,7 @@ internal class ConfiguredRedditTextPostSubmitter(
                 else -> mapSubmitNetworkResult(request, result)
             }
         } finally {
-            staged.file.delete()
-            poster?.file?.delete()
+            discardStagedMedia(staged.file, poster?.file)
         }
     }
 

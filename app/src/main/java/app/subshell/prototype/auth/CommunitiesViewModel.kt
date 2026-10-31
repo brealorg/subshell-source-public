@@ -64,6 +64,9 @@ internal class CommunitiesViewModel internal constructor(
     )
     suspend fun readNsfwAccountPreferences(account: String): app.subshell.prototype.data.account.NsfwPreferencesResult =
         communityAccessCoordinator.readNsfwAccountPreferences(account)
+    // REDDITCHECK01_CHECK_REDDIT_ACCESS_V1
+    suspend fun checkRedditAccess(account: String): app.subshell.prototype.data.account.RedditAccessCheckResult =
+        communityAccessCoordinator.checkRedditAccess(account)
     suspend fun randomNsfwCommunity(account: String): app.subshell.prototype.model.RandomNsfwCommunityPick =
         communityAccessCoordinator.randomNsfwCommunity(account).also { pick ->
             if (pick is app.subshell.prototype.model.RandomNsfwCommunityPick.NoneOffered) {

@@ -1,6 +1,7 @@
 package app.subshell.prototype.ui.components
 
-import app.subshell.prototype.ui.error.redditReadHttpReason
+import app.subshell.prototype.ui.error.redditModQueueFailureMessage
+import app.subshell.prototype.ui.error.redditModQueueMoreFailedLabel
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.semantics.Role
@@ -328,6 +329,7 @@ fun ModeratorToolsSheet(
                             failureKind = failureKind,
                             httpStatusCode = uiState.queueFailureHttpStatusCode,
                             retryable = uiState.queueFailureRetryable,
+                            details = uiState.queueFailureDetails,
                             onRetry = onRefresh,
                         )
                     }
@@ -496,7 +498,7 @@ fun ModeratorToolsSheet(
                         ) {
                             if (pageFailed && !uiState.queueLoading) {
                                 Text(
-                                    "Couldn't load more of the queue",
+                                    redditModQueueMoreFailedLabel(uiState.queueFailureDetails),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.error,
                                 )
@@ -616,22 +618,10 @@ private fun ModeratorQueueFailure(
     httpStatusCode: Int?,
     retryable: Boolean,
     onRetry: () -> Unit,
+    // BLOCKPAGE02_SMALLER_READ_SURFACES_NAME_THE_BLOCK_PAGE_V1
+    details: app.subshell.prototype.data.error.FailureDetails?,
 ) {
-    val message = when {
-        failureKind == RedditModerationUiFailureKind.HTTP && httpStatusCode == 403 ->
-            "Reddit denied this mod queue. Your moderator role may not include the Posts permission."
-        failureKind == RedditModerationUiFailureKind.SESSION ->
-            "The Reddit sign-in for this account needs attention."
-        // ISSUE208_SERVER_FAILURES_ARE_NOT_REJECTIONS_V1
-        failureKind == RedditModerationUiFailureKind.HTTP ->
-            redditReadHttpReason(httpStatusCode, "Reddit rejected the mod queue request.")
-        failureKind == RedditModerationUiFailureKind.TRANSPORT ->
-            "subshell couldn't reach Reddit for the mod queue."
-        failureKind == RedditModerationUiFailureKind.PROTOCOL ->
-            "Reddit returned a mod queue response that subshell couldn't read."
-        else ->
-            "Moderator tools aren't configured for the active account."
-    }
+    val message = redditModQueueFailureMessage(failureKind, httpStatusCode, details)
     // ISSUE222_ONE_INLINE_ERROR_NOTICE_V1
     InlineErrorNotice(
         message = message,

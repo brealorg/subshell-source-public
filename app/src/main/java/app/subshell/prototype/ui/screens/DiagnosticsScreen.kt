@@ -69,6 +69,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.subshell.prototype.auth.RedditCompatibilityConfigurationController
+import app.subshell.prototype.data.account.RedditAccessCheckResult
+import app.subshell.prototype.data.account.RedditAccessProbe
+import app.subshell.prototype.data.account.RedditAccessProbeOutcome
+import app.subshell.prototype.data.diagnostics.RedditAccessCheckRecord
+import app.subshell.prototype.data.diagnostics.RedditAccessCheckStore
+import app.subshell.prototype.data.error.REDDIT_BLOCK_PAGE_REASON
 import app.subshell.prototype.data.diagnostics.DiagnosticEvent
 import app.subshell.prototype.data.diagnostics.DiagnosticEventStore
 import app.subshell.prototype.data.diagnostics.DiagnosticEvents
@@ -76,6 +82,7 @@ import app.subshell.prototype.data.diagnostics.DiagnosticLevel
 import app.subshell.prototype.data.diagnostics.DiagnosticOperation
 import app.subshell.prototype.data.diagnostics.DiagnosticSnapshot
 import app.subshell.prototype.data.diagnostics.DiagnosticSubsystem
+import app.subshell.prototype.data.diagnostics.PrefilledDiagnosticIssueOutcome
 import app.subshell.prototype.data.diagnostics.StagedDiagnosticReport
 import app.subshell.prototype.data.diagnostics.SubshellDiagnosticSupport
 import app.subshell.prototype.data.diagnostics.CrashRecordStore
@@ -104,11 +111,14 @@ import app.subshell.prototype.ui.components.InlineProgressIndicator
 internal fun DiagnosticsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    // REDDITCHECK01_CHECK_REDDIT_ACCESS_V1: null (signed out, tests) hides Check Reddit access.
+    checkRedditAccess: (suspend () -> RedditAccessCheckResult)? = null,
 ) {
     val context = LocalContext.current
     val appContext = context.applicationContext
     val store = remember(appContext) { DiagnosticEventStore(appContext) }
     val crashStore = remember(appContext) { CrashRecordStore(appContext) }
+    val accessCheckStore = remember(appContext) { RedditAccessCheckStore(appContext) }
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val reportSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
@@ -124,6 +134,8 @@ internal fun DiagnosticsScreen(
     var overflowVisible by rememberSaveable { mutableStateOf(false) }
     var subsystemSheetVisible by rememberSaveable { mutableStateOf(false) }
     var privacyExpanded by rememberSaveable { mutableStateOf(false) }
+    var accessCheck by remember { mutableStateOf<RedditAccessCheckRecord?>(null) }
+    var accessCheckBusy by remember { mutableStateOf(false) }
 
     fun showMessage(message: String) {
         coroutineScope.launch {
@@ -163,6 +175,8 @@ internal fun DiagnosticsScreen(
                             .RedditReadEventStore(appContext).read(),
                         rateLimit = app.subshell.prototype.data.diagnostics
                             .RedditReadDiagnostics.rateLimitSnapshot(),
+                        // REDDITCHECK01_CHECK_REDDIT_ACCESS_V1
+                        redditAccessCheck = accessCheckStore.read(),
                     )
                     val staged = stageDiagnosticReport(appContext, reportText)
                     updated to staged
@@ -187,6 +201,30 @@ internal fun DiagnosticsScreen(
         }
     }
 
+    // REDDITCHECK01_CHECK_REDDIT_ACCESS_V1: one read of each kind, then the
+    // answers are kept for the report and shown under the button.
+    fun runRedditAccessCheck(check: suspend () -> RedditAccessCheckResult) {
+        accessCheckBusy = true
+        coroutineScope.launch {
+            val result = try {
+                check()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                RedditAccessCheckResult.NotChecked
+            } finally {
+                accessCheckBusy = false
+            }
+            if (result is RedditAccessCheckResult.Checked) {
+                val now = System.currentTimeMillis()
+                withContext(Dispatchers.IO) { accessCheckStore.write(result.probes, now) }
+                accessCheck = RedditAccessCheckRecord(now, result.probes)
+            } else {
+                showMessage("Couldn't check. Sign in to Reddit, then try again")
+            }
+        }
+    }
+
     // LOWUI8_DIAGNOSTICS_OPENED_ONCE_PER_VISIT_V1 (OCB-213): a recreation
     // composes the screen again; the visit is recorded once and later
     // compositions only read the events.
@@ -200,6 +238,7 @@ internal fun DiagnosticsScreen(
             }
         }
         openedRecorded = true
+        accessCheck = withContext(Dispatchers.IO) { accessCheckStore.read() }
     }
 
     if (clearConfirmationVisible) {
@@ -223,8 +262,10 @@ internal fun DiagnosticsScreen(
                                 app.subshell.prototype.data.diagnostics.InboxDiagnosticStatusStore(appContext).clear()
                                 app.subshell.prototype.data.diagnostics.RedditRefusalStore(appContext).clear()
                                 app.subshell.prototype.data.diagnostics.RedditReadEventStore(appContext).clear()
+                                accessCheckStore.clear()
                                 store.snapshot()
                             }
+                            accessCheck = null
                             showMessage("Diagnostic history cleared")
                         }
                     },
@@ -294,16 +335,20 @@ internal fun DiagnosticsScreen(
                 onClose = { stagedReport = null },
                 onGitHubIssue = supportConfiguration.githubRepository?.let { repository ->
                     {
-                        val opened = openPrefilledDiagnosticGitHubIssue(
+                        val outcome = openPrefilledDiagnosticGitHubIssue(
                             context = context,
                             repository = repository,
                             environment = environment,
+                            report = report,
                         )
                         showMessage(
-                            if (opened) {
-                                "GitHub issue opened in your browser"
-                            } else {
-                                "No browser is available to open the GitHub issue"
+                            when (outcome) {
+                                PrefilledDiagnosticIssueOutcome.OPENED_REPORT_COPIED ->
+                                    "Report copied. Paste it into Diagnostic report on GitHub"
+                                PrefilledDiagnosticIssueOutcome.OPENED_REPORT_NOT_COPIED ->
+                                    "GitHub issue opened. Copy the report here to add it"
+                                PrefilledDiagnosticIssueOutcome.NOT_OPENED ->
+                                    "No browser is available to open the GitHub issue"
                             },
                         )
                     }
@@ -474,6 +519,17 @@ internal fun DiagnosticsScreen(
                                 Text("Report a problem")
                             }
                         }
+                    }
+                }
+
+                checkRedditAccess?.let { check ->
+                    item("diagnostics-reddit-access") {
+                        RedditAccessCheckCard(
+                            record = accessCheck,
+                            busy = accessCheckBusy,
+                            onCheck = { runRedditAccessCheck(check) },
+                            modifier = Modifier.padding(bottom = 12.dp),
+                        )
                     }
                 }
 
@@ -706,6 +762,116 @@ private fun DiagnosticMetric(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+// REDDITCHECK01_CHECK_REDDIT_ACCESS_V1
+@Composable
+private fun RedditAccessCheckCard(
+    record: RedditAccessCheckRecord?,
+    busy: Boolean,
+    onCheck: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = "Reddit access",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = "Asks Reddit once for each kind of thing subshell reads, with your account, " +
+                    "and shows which ones Reddit answers. Nothing on Reddit changes. " +
+                    "The result goes into the diagnostic report.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            record?.let { checked ->
+                val asked = checked.probes.filter { it.outcome != RedditAccessProbeOutcome.SKIPPED }
+                val working = asked.count { it.outcome == RedditAccessProbeOutcome.ANSWERED }
+                Text(
+                    text = "Checked ${diagnosticEventTime(checked.checkedAtEpochMs)}: $working of ${asked.size} work",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                checked.probes.forEach { probe ->
+                    val failed = probe.outcome != RedditAccessProbeOutcome.ANSWERED &&
+                        probe.outcome != RedditAccessProbeOutcome.SKIPPED
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            text = redditAccessEndpointLabel(probe.endpoint),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = redditAccessProbeStatus(probe),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (failed) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                }
+            }
+            TextButton(
+                onClick = onCheck,
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (busy) {
+                    InlineProgressIndicator()
+                    Spacer(Modifier.width(8.dp))
+                    Text("Checking Reddit access…")
+                } else {
+                    Text(if (record == null) "Check Reddit access" else "Check again")
+                }
+            }
+        }
+    }
+}
+
+internal fun redditAccessEndpointLabel(endpoint: String): String = when (endpoint) {
+    "me" -> "Your account"
+    "prefs" -> "Account preferences"
+    "subscriptions" -> "Joined communities"
+    "best" -> "Home feed"
+    "popular" -> "Popular"
+    "community_about" -> "Community page"
+    "thread" -> "Post with comments"
+    "api_info" -> "Post lookup"
+    "by_id" -> "Post by ID"
+    "morechildren" -> "More replies"
+    "duplicates" -> "Other discussions"
+    "user_about" -> "Your profile"
+    "user_comments" -> "Your comments"
+    "inbox" -> "Inbox"
+    "search_posts" -> "Search posts"
+    "search_communities" -> "Search communities"
+    "multis" -> "Custom feeds"
+    else -> endpoint
+}
+
+internal fun redditAccessProbeStatus(probe: RedditAccessProbe): String = when (probe.outcome) {
+    RedditAccessProbeOutcome.ANSWERED -> "Works"
+    RedditAccessProbeOutcome.SKIPPED -> "Not checked"
+    RedditAccessProbeOutcome.PROTOCOL_FAILURE -> "Unreadable answer"
+    RedditAccessProbeOutcome.TRANSPORT_FAILURE -> "No connection"
+    RedditAccessProbeOutcome.HTTP_FAILURE -> when {
+        probe.detail == REDDIT_BLOCK_PAGE_REASON -> "Blocked by Reddit (${probe.statusCode})"
+        probe.statusCode == 429 -> "Too many requests (429)"
+        else -> "Refused (${probe.statusCode})"
     }
 }
 

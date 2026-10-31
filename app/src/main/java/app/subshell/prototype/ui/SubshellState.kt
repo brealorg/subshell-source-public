@@ -541,6 +541,7 @@ internal const val ACCOUNT_ACTION_FIELD_READ = "read"
 internal const val ACCOUNT_ACTION_FIELD_VOTES = "votes"
 internal const val ACCOUNT_ACTION_FIELD_POLL_VOTES = "poll_votes"
 internal const val ACCOUNT_ACTION_FIELD_FOLLOWED_USERS = "followed_users"
+internal const val ACCOUNT_ACTION_FIELD_HIDE_READ = "hide_read"
 
 data class AccountPostActions(
     val savedPostIds: Set<String> = emptySet(),
@@ -549,6 +550,9 @@ data class AccountPostActions(
     val votes: Map<String, Int> = emptyMap(),
     val pollVotes: Map<String, String> = emptyMap(),
     val followedUsernames: Set<String> = emptySet(),
+    // ISSUE283_HIDE_READ_POSTS_IS_REMEMBERED_V1 (#283): a reader turned it on
+    // and found it off again after the next start.
+    val hideReadPosts: Boolean = false,
 )
 
 internal fun accountPostActionsPreferenceKey(username: String, field: String): String =
@@ -632,6 +636,7 @@ internal fun normalizeAccountPostActions(
         votes = normalizedVotes,
         pollVotes = normalizedPollVotes,
         followedUsernames = normalizedFollowedUsernames,
+        hideReadPosts = actions.hideReadPosts,
     )
 }
 
@@ -1947,7 +1952,7 @@ class SubshellState(
         }
         readPostIds.clear()
         readPostIds.addAll(normalized.readPostIds)
-        hideReadPosts = false
+        hideReadPosts = normalized.hideReadPosts
         votes.clear()
         votes.putAll(normalized.votes)
         pollVotes.clear()
@@ -1964,6 +1969,7 @@ class SubshellState(
             votes = votes.toMap(),
             pollVotes = pollVotes.toMap(),
             followedUsernames = followedUsernames.toSet(),
+            hideReadPosts = hideReadPosts,
         ),
         username = activeAccountUsername,
     )
@@ -4514,7 +4520,9 @@ class SubshellState(
     }
 
     fun updateHideReadPosts(enabled: Boolean) {
+        if (hideReadPosts == enabled) return
         hideReadPosts = enabled
+        persistActiveAccountPostActions()
     }
 
     fun resetReadPostHistory() {

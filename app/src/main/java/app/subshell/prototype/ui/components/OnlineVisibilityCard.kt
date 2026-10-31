@@ -52,7 +52,8 @@ data class AccountSettingsRuntime(
     val onReconnectAccount: (String) -> Unit = {},
     val onLogoutActiveAccount: ((Boolean) -> Unit) -> Unit = { onComplete ->
         onComplete(false)
-    },
+    },    // REDDITCHECK01_CHECK_REDDIT_ACCESS_V1
+    val checkRedditAccess: (suspend (String) -> app.subshell.prototype.data.account.RedditAccessCheckResult)? = null,
 )
 
 @Composable

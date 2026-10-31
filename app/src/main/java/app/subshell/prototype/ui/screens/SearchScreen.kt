@@ -2204,7 +2204,8 @@ private fun LivePeopleSearchStatus(
         query.trim().length > REDDIT_PEOPLE_SEARCH_MAX_QUERY_LENGTH ->
             "People search takes up to $REDDIT_PEOPLE_SEARCH_MAX_QUERY_LENGTH characters. Shorten the search."
         state.loading -> "Searching Reddit people for “$query”…"
-        state.failureKind != null -> "Couldn't load Reddit people. Submit the search again to retry."
+        // BLOCKPAGE02_SMALLER_READ_SURFACES_NAME_THE_BLOCK_PAGE_V1
+        state.failureKind != null -> app.subshell.prototype.ui.error.redditPeopleSearchFailureMessage(state.failureDetails)
         state.loaded -> "No people found for “$query”."
         else -> "Searching Reddit people for “$query”…"
     }

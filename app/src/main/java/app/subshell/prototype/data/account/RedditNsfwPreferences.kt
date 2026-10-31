@@ -50,5 +50,11 @@ internal fun interface RedditQuarantineOptIn {
     suspend fun optIn(account: String, communityName: String, isCurrent: () -> Boolean): QuarantineOptInResult
 }
 
-/** ISSUE211: the account's NSFW preference and the quarantine opt-in, with one session rule. */
-internal interface RedditCommunityAccessService : RedditNsfwPreferencesReader, RedditQuarantineOptIn
+/**
+ * ISSUE211: the account's NSFW preference and the quarantine opt-in, with one session rule.
+ * REDDITCHECK01: the access check shares that rule.
+ */
+internal interface RedditCommunityAccessService : RedditNsfwPreferencesReader, RedditQuarantineOptIn, RedditAccessChecker {
+    override suspend fun check(account: String, isCurrent: () -> Boolean): RedditAccessCheckResult =
+        RedditAccessCheckResult.NotChecked
+}

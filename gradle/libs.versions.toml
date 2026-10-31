@@ -18,6 +18,8 @@ junit4 = "4.13.2"
 androidxTestExtJunit = "1.3.0"
 browser = "1.10.0"
 workManager = "2.12.0"
+# #267 (owner, 2026-10-31): Google's widget toolkit for the Inbox and Posts widgets.
+glance = "1.2.0"
 room = "2.8.5"
 ksp = "2.3.12"
 okhttp = "5.5.0"
@@ -64,6 +66,8 @@ junit4 = { module = "junit:junit", version.ref = "junit4" }
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestExtJunit" }
 androidx-browser = { module = "androidx.browser:browser", version.ref = "browser" }
 androidx-work-runtime = { module = "androidx.work:work-runtime", version.ref = "workManager" }
+androidx-glance-appwidget = { module = "androidx.glance:glance-appwidget", version.ref = "glance" }
+androidx-glance-appwidget-testing = { module = "androidx.glance:glance-appwidget-testing", version.ref = "glance" }
 androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
 leakcanary-android = { module = "com.squareup.leakcanary:leakcanary-android", version.ref = "leakcanary" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }

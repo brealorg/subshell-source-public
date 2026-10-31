@@ -101,6 +101,8 @@ internal fun buildDiagnosticReport(
     // ISSUE281: null leaves the [reddit_reads] section out (older callers).
     redditReads: List<RedditReadEvent>? = null,
     rateLimit: RedditRateLimitSnapshot? = null,
+    // REDDITCHECK01: null (never checked) leaves the [reddit_access_check] section out.
+    redditAccessCheck: RedditAccessCheckRecord? = null,
 ): String = buildString {
     appendLine("subshell diagnostic report")
     appendLine("schema=DIAG01A1_V1")
@@ -139,6 +141,7 @@ internal fun buildDiagnosticReport(
     appendNotificationDiagnostics(notifications, inboxStatus)
     appendRedditRefusals(oauthClientMode, redditRefusals)
     appendRedditReads(redditReads, rateLimit)
+    appendRedditAccessCheck(redditAccessCheck)
     appendLine()
     appendLine("[crashes]")
     crashes.forEach { crash ->
@@ -293,23 +296,18 @@ internal fun buildPrefilledDiagnosticGitHubIssueUrl(
         "/${repository.owner}/${repository.name}/issues/new",
         null,
     ).toASCIIString()
-    val additionalContext = buildString {
-        append(
-            "A sanitized diagnostic report was generated in subshell. " +
-                "Attach the .txt report if it is needed for triage.",
-        )
-        appendLine()
-        appendLine()
-        append(
-            "Screen: ${environment.screenWidthDp} × ${environment.screenHeightDp} dp " +
-                "(smallest ${environment.smallestScreenWidthDp} dp)",
-        )
-    }
+    val additionalContext =
+        "Screen: ${environment.screenWidthDp} × ${environment.screenHeightDp} dp " +
+            "(smallest ${environment.smallestScreenWidthDp} dp)"
     val fields = listOf(
         "template" to GITHUB_BUG_REPORT_TEMPLATE,
         "version" to "${environment.appVersionName} (${environment.appVersionCode})",
         "android" to "Android ${environment.androidRelease} (API ${environment.androidApi})",
         "device" to "${environment.deviceManufacturer} ${environment.deviceModel}".trim(),
+        // DIAGISSUE01_THE_REPORT_GOES_WITH_THE_ISSUE_V1: the report itself stays
+        // out of the link (browser history, GitHub's link length); the button
+        // copies it, and the form's empty Diagnostic report field asks for it,
+        // so a long-press Paste puts in the report alone.
         "additional" to additionalContext,
     )
     return issueEndpoint + "?" + fields.joinToString("&") { (key, value) ->
@@ -317,16 +315,44 @@ internal fun buildPrefilledDiagnosticGitHubIssueUrl(
     }
 }
 
+internal enum class PrefilledDiagnosticIssueOutcome {
+    /** The form opened and the report is on the clipboard, ready to paste. */
+    OPENED_REPORT_COPIED,
+
+    /** The form opened, but the clipboard refused the report. */
+    OPENED_REPORT_NOT_COPIED,
+
+    NOT_OPENED,
+}
+
+/**
+ * DIAGISSUE01_THE_REPORT_GOES_WITH_THE_ISSUE_V1: copies [report] first, so the
+ * reader can paste it into the form's Diagnostic report field without coming
+ * back to the app, then opens the prefilled bug form.
+ */
 internal fun openPrefilledDiagnosticGitHubIssue(
     context: Context,
     repository: DiagnosticGitHubRepository,
     environment: DiagnosticReportEnvironment,
-): Boolean {
+    report: StagedDiagnosticReport,
+): PrefilledDiagnosticIssueOutcome {
+    val copied = copyDiagnosticReport(context, report)
     val url = buildPrefilledDiagnosticGitHubIssueUrl(repository, environment)
-    return runCatching {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    // The GitHub app takes github.com links and drops the prefilled fields
+    // (it shows its own template list), so the default browser is named, as
+    // for polls and Reddit's preference page.
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        .addCategory(Intent.CATEGORY_BROWSABLE)
+        .apply { defaultBrowserPackage(context)?.let(::setPackage) }
+    val opened = runCatching {
+        context.startActivity(intent)
         true
     }.getOrDefault(false)
+    return when {
+        !opened -> PrefilledDiagnosticIssueOutcome.NOT_OPENED
+        copied -> PrefilledDiagnosticIssueOutcome.OPENED_REPORT_COPIED
+        else -> PrefilledDiagnosticIssueOutcome.OPENED_REPORT_NOT_COPIED
+    }
 }
 
 private fun diagnosticReportUri(
@@ -342,6 +368,16 @@ private fun diagnosticReportUri(
         )
     }.getOrNull()
 }
+
+private fun defaultBrowserPackage(context: Context): String? =
+    context.packageManager
+        .resolveActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse("https://example.com")).addCategory(Intent.CATEGORY_BROWSABLE),
+            android.content.pm.PackageManager.MATCH_DEFAULT_ONLY,
+        )
+        ?.activityInfo
+        ?.packageName
+        ?.takeUnless { packageName -> packageName == "android" }
 
 private fun urlEncode(value: String): String =
     URLEncoder.encode(value, Charsets.UTF_8.name()).replace("+", "%20")

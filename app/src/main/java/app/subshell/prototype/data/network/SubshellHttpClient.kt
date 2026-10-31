@@ -4,6 +4,7 @@ import app.subshell.prototype.data.diagnostics.REDDIT_REFUSAL_API
 import app.subshell.prototype.data.diagnostics.RedditReadDiagnostics
 import app.subshell.prototype.data.diagnostics.RedditRefusals
 import app.subshell.prototype.data.diagnostics.isRedditApiRefusalStatus
+import app.subshell.prototype.data.error.REDDIT_BLOCK_PAGE_REASON
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.nio.charset.StandardCharsets
@@ -443,8 +444,16 @@ class SubshellHttpClient(
     // read, and anything not a short JSON reason is ignored.
     private fun Response.forbiddenReasonOrNull(): String? = runCatching {
         val text = peekBody(FORBIDDEN_REASON_PEEK_BYTES).string()
-        forbiddenReasonFromBody(text)
+        forbiddenReasonFromBody(text) ?: redditBlockPageReasonOrNull()
     }.getOrNull()
+
+    // REDDITBLOCK01_REDDITS_BLOCK_PAGE_IS_NAMED_V1: the block page is ~190 KB of
+    // HTML with its one sentence near the end (no title), so a 403 HTML answer is
+    // read up to BLOCK_PAGE_PEEK_BYTES.
+    private fun Response.redditBlockPageReasonOrNull(): String? {
+        if (code != 403 || body.contentType()?.subtype != "html") return null
+        return redditBlockPageReason(peekBody(BLOCK_PAGE_PEEK_BYTES).string())
+    }
 
     // ISSUE32_REDDIT_REFUSALS_IN_THE_REPORT_V1 (#32): a refusal's status and
     // Reddit's reason token go to the diagnostic report; nothing else of the
@@ -534,6 +543,7 @@ class SubshellHttpClient(
     companion object {
         const val DEFAULT_MAX_JSON_BODY_BYTES = 2L * 1024L * 1024L
         internal const val FORBIDDEN_REASON_PEEK_BYTES = 4L * 1024L
+        internal const val BLOCK_PAGE_PEEK_BYTES = 512L * 1024L
         const val MAX_ALLOWED_JSON_BODY_BYTES = 16L * 1024L * 1024L
         // NET04_FORM_BODY_FITS_ALLOWED_TEXT_V1 (#144): form encoding turns a CJK
         // character into 9 bytes, so 128 KiB stopped a 15 000-character Japanese
@@ -632,3 +642,12 @@ private fun kotlinx.serialization.json.JsonElement.reasonTokenOrNull(): String? 
     val reason = primitive.content.trim().lowercase()
     return reason.takeIf { it.isNotEmpty() && it.length <= 32 && it.all { c -> c.isLetterOrDigit() || c == '_' } }
 }
+
+/**
+ * REDDITBLOCK01_REDDITS_BLOCK_PAGE_IS_NAMED_V1: since 2026-10-30 Reddit answers some
+ * API calls from third-party apps (/api/info, /api/morechildren, …) with a 403 HTML
+ * page "You've been blocked by network security" instead of JSON. It gets its own
+ * reason token, so the report and the error text can tell it from an ordinary 403.
+ */
+internal fun redditBlockPageReason(text: String): String? =
+    REDDIT_BLOCK_PAGE_REASON.takeIf { text.contains("blocked by network security", ignoreCase = true) }

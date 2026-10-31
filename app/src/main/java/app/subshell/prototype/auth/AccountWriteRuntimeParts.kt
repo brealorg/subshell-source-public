@@ -227,6 +227,16 @@ internal fun accountWriteRuntimeParts(
                     maxJsonBodyBytes = 64L * 1024L,
                 )
             },
+            // REDDITCHECK01_CHECK_REDDIT_ACCESS_V1: no retries, so each answer is Reddit's first.
+            probeClientForSession = { session ->
+                app.subshell.prototype.data.network.SubshellHttpClient(
+                    callFactory = SubshellNetworkTransport.nonRetryingWriteCallFactory,
+                    endpoint = NetworkEndpoint.https(RedditOAuth.apiEndpoint),
+                    json = SubshellNetworkJson.providerJson,
+                    userAgent = selected.userAgent,
+                    bearerTokenProvider = coordinator.sessionBoundBearerTokenProvider(session.tokens.accessToken),
+                )
+            },
         ),
         redditUserFlairManager =
             composerFlairSelection?.let { flairSelection ->

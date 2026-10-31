@@ -79,6 +79,9 @@ data class FailureDetails(
 
 internal fun isHttpStatusCodeInRange(code: Int): Boolean = code in 100..599
 
+/** REDDITBLOCK01_REDDITS_BLOCK_PAGE_IS_NAMED_V1: the provider code of Reddit's 403 block page. */
+internal const val REDDIT_BLOCK_PAGE_REASON = "network_security_block"
+
 fun NetworkResult<*>.failureDetailsOrNull(): FailureDetails? = when (this) {
     is NetworkResult.Success -> null
     is NetworkResult.HttpFailure -> FailureDetails(

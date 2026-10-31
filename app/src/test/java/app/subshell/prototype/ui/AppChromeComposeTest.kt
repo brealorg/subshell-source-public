@@ -44,14 +44,14 @@ class AppChromeComposeTest {
         val state = SubshellState()
         val connection = scrollConnection(state)
 
-        connection.onPreScroll(Offset(0f, -100f), NestedScrollSource.UserInput)
+        connection.onPostScroll(Offset(0f, -100f), Offset.Zero, NestedScrollSource.UserInput)
         assertTrue(state.chromeVisible)
-        connection.onPreScroll(Offset(0f, -20f), NestedScrollSource.UserInput)
+        connection.onPostScroll(Offset(0f, -20f), Offset.Zero, NestedScrollSource.UserInput)
         assertFalse(state.chromeVisible)
 
-        connection.onPreScroll(Offset(0f, 70f), NestedScrollSource.UserInput)
+        connection.onPostScroll(Offset(0f, 70f), Offset.Zero, NestedScrollSource.UserInput)
         assertFalse(state.chromeVisible)
-        connection.onPreScroll(Offset(0f, 20f), NestedScrollSource.UserInput)
+        connection.onPostScroll(Offset(0f, 20f), Offset.Zero, NestedScrollSource.UserInput)
         assertTrue(state.chromeVisible)
     }
 
@@ -115,7 +115,7 @@ class AppChromeComposeTest {
         val shown = mutableStateOf(false)
         val connection = scrollConnection(state, shown)
 
-        connection.onPreScroll(Offset(0f, -500f), NestedScrollSource.UserInput)
+        connection.onPostScroll(Offset(0f, -500f), Offset.Zero, NestedScrollSource.UserInput)
         assertTrue("an open modmail thread does not hide the bars", state.chromeVisible)
 
         state.onMainContentScroll(deltaPx = 500f, atTop = false, hideThresholdPx = 1f, showThresholdPx = 1f)

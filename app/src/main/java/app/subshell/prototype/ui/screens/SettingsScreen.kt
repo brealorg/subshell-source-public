@@ -475,6 +475,10 @@ fun SettingsScreen(
     if (destination == SettingsDestination.DIAGNOSTICS) {
         DiagnosticsScreen(
             onBack = returnToSettings,
+            // REDDITCHECK01_CHECK_REDDIT_ACCESS_V1: the account active when the check starts.
+            checkRedditAccess = accountSettingsRuntime.checkRedditAccess?.let { check ->
+                suspend { check(state.activeAccountId) }
+            },
             modifier = pageModifier,
         )
         return

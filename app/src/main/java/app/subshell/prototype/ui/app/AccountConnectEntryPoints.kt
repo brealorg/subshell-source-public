@@ -26,4 +26,6 @@ data class AccountConnectEntryPoints(
     val onResetConnectAccount: () -> Unit = {},
     // ISSUE211_ACCOUNT_NSFW_PREFERENCE_V1: the active account's own over_18.
     val readNsfwAccountPreferences: (suspend (String) -> app.subshell.prototype.data.account.NsfwPreferencesResult)? = null,
+    // REDDITCHECK01_CHECK_REDDIT_ACCESS_V1: Diagnostics › Check Reddit access for an account.
+    val checkRedditAccess: (suspend (String) -> app.subshell.prototype.data.account.RedditAccessCheckResult)? = null,
 )

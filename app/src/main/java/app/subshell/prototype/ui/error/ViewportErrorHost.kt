@@ -166,6 +166,13 @@ internal fun ViewportErrorHostState.presentNotice(
 internal fun FailureDetails?.isClientAccessRefusal(): Boolean =
     this?.providerCode?.value == app.subshell.prototype.data.account.CLIENT_ACCESS_REFUSED_PROVIDER_CODE
 
+// REDDITBLOCK01_REDDITS_BLOCK_PAGE_IS_NAMED_V1
+internal fun FailureDetails?.isRedditBlockPage(): Boolean =
+    this?.providerCode?.value == app.subshell.prototype.data.error.REDDIT_BLOCK_PAGE_REASON
+
+internal const val REDDIT_BLOCK_PAGE_MESSAGE =
+    "Reddit is blocking this request from third-party apps right now."
+
 internal val LocalViewportErrorHostState =
     staticCompositionLocalOf<ViewportErrorHostState?> { null }
 

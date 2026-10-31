@@ -1067,6 +1067,7 @@ dependencies {
     // ISSUE247_LAYOUT_FOLLOWS_WINDOW_SIZE_CLASSES_V1: currentWindowAdaptiveInfo().
     implementation(libs.androidx.compose.material3.adaptive)
     implementation(libs.androidx.work.runtime)
+    implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.browser)
     implementation(libs.okhttp)
@@ -1080,6 +1081,7 @@ dependencies {
     // JVM harness for composables and ViewModels (HARNESS01): Robolectric renders
     // Compose on the JVM; coroutines-test supplies Dispatchers.setMain.
     testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.glance.appwidget.testing)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

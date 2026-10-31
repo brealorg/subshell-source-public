@@ -748,7 +748,17 @@ fun MainScreenHeader(
                         HorizontalDivider()
                         DropdownMenuItem(
                             text = {
-                                Text(if (hideReadPosts) "Show read posts" else "Hide read posts")
+                                // ISSUE283_HIDE_READ_POSTS_SAYS_WHY_IT_IS_OFF_V1 (#283): a reader
+                                // saw it greyed out with nothing saying why.
+                                Column {
+                                    Text(if (hideReadPosts) "Show read posts" else "Hide read posts")
+                                    if (!hasReadPosts) {
+                                        Text(
+                                            "Posts you open count as read",
+                                            style = MaterialTheme.typography.bodySmall,
+                                        )
+                                    }
+                                }
                             },
                             trailingIcon = if (hideReadPosts) {
                                 { Icon(Symbols.Check, contentDescription = null) }
@@ -761,11 +771,11 @@ fun MainScreenHeader(
                                 sortExpanded = false
                             },
                         )
+                        // ISSUE283_RESET_READ_MARKERS_HAS_NO_REFRESH_ICON_V1 (#283): with the
+                        // refresh icon a reader took it for "Refresh feed"; it only forgets
+                        // which posts were opened, so it has no icon, like the items above.
                         DropdownMenuItem(
                             text = { Text("Reset read markers") },
-                            leadingIcon = {
-                                Icon(Symbols.Refresh, contentDescription = null)
-                            },
                             enabled = hasReadPosts,
                             onClick = {
                                 onResetReadPosts()

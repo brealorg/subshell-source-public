@@ -148,6 +148,40 @@
         <receiver
             android:name=".inbox.InboxReplyReceiver"
             android:exported="false" />
+        <!-- ISSUE267_INBOX_AND_POSTS_WIDGETS_V1: the launcher binds the widgets. -->
+        <receiver
+            android:name=".widget.InboxWidgetReceiver"
+            android:exported="true"
+            android:label="Inbox">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/inbox_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.PostsWidgetReceiver"
+            android:exported="true"
+            android:label="Posts">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/posts_widget_info" />
+        </receiver>
+        <!-- ISSUE267_POSTS_WIDGET_PICKS_ITS_PLACE_V1: started by the launcher;
+             acts only on this app's own Posts widgets. -->
+        <activity
+            android:name=".widget.PostsWidgetConfigureActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:taskAffinity="">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
         <!-- UPDATE01A1A_PACKAGE_REPLACED_INSTALL_MARKER_V1 -->
         <receiver
             android:name=".update.UpdatePackageReplacedReceiver"

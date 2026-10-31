@@ -9,6 +9,7 @@ import java.io.IOException
 import java.util.UUID
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.ensureActive
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.withContext
@@ -28,6 +29,20 @@ internal sealed interface RedditMediaStageResult {
     data object Empty : RedditMediaStageResult
     data object Unavailable : RedditMediaStageResult
 }
+
+/**
+ * STRICTMODE01_STAGED_MEDIA_IS_DELETED_OFF_THE_MAIN_THREAD_V1: a submit's
+ * staged copies are deleted on the IO dispatcher, also when the submit was
+ * cancelled (StrictMode caught File.delete on the main thread in the comment
+ * submitter's finally).
+ */
+internal suspend fun discardStagedMedia(files: Iterable<java.io.File?>) {
+    withContext(NonCancellable + Dispatchers.IO) {
+        files.forEach { file -> file?.delete() }
+    }
+}
+
+internal suspend fun discardStagedMedia(vararg files: java.io.File?) = discardStagedMedia(files.asIterable())
 
 internal fun interface RedditMediaUploadSource {
     suspend fun stage(uri: String, declaredMimeType: String): RedditMediaStageResult

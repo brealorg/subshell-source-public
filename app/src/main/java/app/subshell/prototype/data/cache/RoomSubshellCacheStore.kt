@@ -226,6 +226,21 @@ internal class RoomSubshellCacheStore(
         )
     }
 
+    /**
+     * ISSUE267_WIDGETS_SHOW_WHAT_THE_APP_HAS_STORED_V1: the stored feed whose
+     * query key starts with [prefix] and was refreshed last, or null.
+     */
+    fun newestPostFeedSnapshot(prefix: String): CachedPostFeedSnapshot? = databaseCall {
+        database.runInTransaction<CachedPostFeedSnapshot?> {
+            val escaped = prefix
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            dao.newestQueryKeyWithPrefix(escaped)
+                ?.let { key -> readPostFeedSnapshotLocked(RepositoryQueryKey(key)) }
+        }
+    }
+
     fun copyPostFeedIfAbsent(
         sourceQueryKey: RepositoryQueryKey,
         destinationQueryKey: RepositoryQueryKey,

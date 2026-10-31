@@ -107,6 +107,7 @@ internal fun LazyListScope.communityWikiItems(
             CommunityWikiFailure(
                 kind = failure,
                 httpStatusCode = state.failureHttpStatusCode,
+                details = state.failureDetails,
                 retryable = state.failureRetryable,
                 onRetry = if (state.failureRetryable) {
                     {
@@ -393,6 +394,8 @@ private fun CommunityWikiLoading(label: String) {
 private fun CommunityWikiFailure(
     kind: RedditCommunityWikiUiFailureKind,
     httpStatusCode: Int?,
+    // BLOCKPAGE02_SMALLER_READ_SURFACES_NAME_THE_BLOCK_PAGE_V1
+    details: app.subshell.prototype.data.error.FailureDetails?,
     retryable: Boolean,
     onRetry: (() -> Unit)?,
 ) {
@@ -415,11 +418,7 @@ private fun CommunityWikiFailure(
         }
         RedditCommunityWikiUiFailureKind.HTTP -> {
             title = "Couldn't load Wiki"
-            message = httpStatusCode
-                ?.let { status ->
-                    "Reddit returned HTTP $status for this Wiki request."
-                }
-                ?: "Reddit rejected this Wiki request."
+            message = app.subshell.prototype.ui.error.redditWikiHttpFailureMessage(httpStatusCode, details)
         }
         RedditCommunityWikiUiFailureKind.TRANSPORT -> {
             title = "Couldn't reach Reddit"

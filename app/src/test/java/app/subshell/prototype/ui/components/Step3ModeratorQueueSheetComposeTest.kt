@@ -84,6 +84,7 @@ class Step3ModeratorQueueSheetComposeTest {
         loading: Boolean = false,
         failure: RedditModerationUiFailureKind? = null,
         httpStatusCode: Int? = null,
+        details: app.subshell.prototype.data.error.FailureDetails? = null,
     ) = RedditModerationUiState(
         accountStableId = account,
         queueCommunityName = "subshell",
@@ -93,6 +94,7 @@ class Step3ModeratorQueueSheetComposeTest {
         queueNextCursor = nextCursor,
         queueFailureKind = failure,
         queueFailureHttpStatusCode = httpStatusCode,
+        queueFailureDetails = details,
     )
 
     private fun show(
@@ -221,6 +223,30 @@ class Step3ModeratorQueueSheetComposeTest {
             count("Reddit denied this moderation action. Your moderator role may not include the required Posts permission."),
         )
         assertEquals(1, count("Reddit denied this mod queue. Your moderator role may not include the Posts permission."))
+    }
+
+    // BLOCKPAGE02_SMALLER_READ_SURFACES_NAME_THE_BLOCK_PAGE_V1: Reddit's block
+    // page is a 403 too, and is not the moderator role.
+    @Test
+    fun aQueueRedditBlocksSaysSoInsteadOfBlamingTheModeratorRole() {
+        show(
+            uiState = {
+                queue(
+                    failure = RedditModerationUiFailureKind.HTTP,
+                    httpStatusCode = 403,
+                    details = app.subshell.prototype.data.error.FailureDetails(
+                        httpStatusCode = 403,
+                        retryable = false,
+                        providerCode = app.subshell.prototype.data.error.SafeFailureText.fromUntrusted(
+                            app.subshell.prototype.data.error.REDDIT_BLOCK_PAGE_REASON,
+                        ),
+                    ),
+                )
+            },
+        )
+
+        assertEquals(1, count("Reddit is blocking this request from third-party apps right now."))
+        assertEquals(0, countContaining("moderator role"))
     }
 
     @Test
