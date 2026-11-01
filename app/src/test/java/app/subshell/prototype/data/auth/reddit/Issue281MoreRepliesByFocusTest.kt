@@ -111,18 +111,23 @@ class Issue281MoreRepliesByFocusTest {
 
     @Before
     fun reset() {
-        moreChildrenRefused = false
+        moreChildrenRefusedFor.clear()
     }
 
     @After
     fun close() {
-        moreChildrenRefused = false
+        moreChildrenRefusedFor.clear()
         cache.close()
     }
+
+    /** ISSUE35: a 403 that is not Reddit's block page (a private thread, say). */
+    private var plainForbidden = false
 
     // A focused thread (comment=<id>, context=0) starts at depth 0 with the
     // focused comment; "gone" is a child Reddit no longer has.
     private fun answer(path: String, comment: String?): Triple<Int, String, String> = when {
+        path.endsWith("/api/morechildren") && plainForbidden ->
+            Triple(403, "application/json", "{\"reason\":\"private\"}")
         path.endsWith("/api/morechildren") ->
             Triple(403, "text/html", "<body class=theme-beta>You've been blocked by network security.</body>")
         path.endsWith("/comments/abc") && comment != null && comment != "gone" -> Triple(
@@ -175,6 +180,66 @@ class Issue281MoreRepliesByFocusTest {
         val top = (next as AuthenticatedRedditCommentResult.Loaded).comments.single()
         assertEquals(listOf("t1_mid", "t1_s1"), top.children.map(Comment::id))
         assertEquals(1, top.children.last().depth)
+    }
+
+    // ISSUE35_FOCUSED_REPLIES_SKIP_WHAT_IS_LOADED_V1: a more node also lists
+    // descendants of its children; one already in the thread is not read
+    // again or added a second time.
+    @Test
+    fun aChildAlreadyInTheThreadIsNotReadAgain() = runBlocking {
+        val withLoaded = listOf(
+            thread.single().copy(
+                children = listOf(
+                    thread.single().children.first().copy(
+                        children = listOf(
+                            Comment(
+                                id = "t1_r1", author = "bob", age = "1h", body = "reply r1", score = 1,
+                                depth = 2, accent = 0L, parentId = "t1_mid",
+                            ),
+                            more("more:t1_mid:r2", "t1_mid", 2, listOf("r1", "r2")),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val result = loader().loadMoreFromSnapshot(
+            accountStableId = accountId,
+            postId = "abc",
+            sort = RedditCommentSort.BEST,
+            moreNodeId = "more:t1_mid:r2",
+            currentComments = withLoaded,
+        )
+
+        val mid = (result as AuthenticatedRedditCommentResult.Loaded).comments.single().children.first()
+        assertEquals(listOf("t1_r1", "t1_r2"), mid.children.map(Comment::id))
+        assertEquals(listOf("/api/morechildren", "/comments/abc?comment=r2"), requests)
+    }
+
+    // ISSUE35_MORECHILDREN_REFUSAL_IS_PER_ACCOUNT_AND_CLIENT_V1: only the block
+    // page is remembered; another 403 reads this load by focus and asks
+    // morechildren again the next time.
+    @Test
+    fun aPlain403IsNotRememberedAsTheBlock() = runBlocking {
+        plainForbidden = true
+        val loader = loader()
+        val first = loader.loadMoreFromSnapshot(
+            accountStableId = accountId,
+            postId = "abc",
+            sort = RedditCommentSort.BEST,
+            moreNodeId = "more:t1_top:s1",
+            currentComments = thread,
+        )
+        assertTrue("$first", first is AuthenticatedRedditCommentResult.Loaded)
+        assertTrue(moreChildrenRefusedFor.isEmpty())
+        requests.clear()
+        loader.loadMoreFromSnapshot(
+            accountStableId = accountId,
+            postId = "abc",
+            sort = RedditCommentSort.BEST,
+            moreNodeId = "more:t1_mid:r1",
+            currentComments = (first as AuthenticatedRedditCommentResult.Loaded).comments,
+        )
+        assertEquals("/api/morechildren", requests.first())
     }
 
     private suspend fun loader(): RedditCommentLoader {

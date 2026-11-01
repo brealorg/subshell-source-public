@@ -8,7 +8,6 @@ import app.subshell.prototype.data.account.AccountSessionState
 import app.subshell.prototype.data.account.AccountSessionSummary
 import app.subshell.prototype.model.Community
 import app.subshell.prototype.model.UserFixture
-import app.subshell.prototype.ui.state.COMMUNITY_IDENTITY_CHUNK
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -20,8 +19,8 @@ import org.junit.Test
  * few kept their letter (r/norge, third on Home after a cold start).
  */
 class Issue281CommunityIdentityChunksTest {
-    /** Answers like the about-based source: at most [perCall] per call. */
-    private class AboutPages(private val perCall: Int) : IdentityMetadataRepository {
+    /** Answers like the about-based source: every name it is given. */
+    private class AboutPages : IdentityMetadataRepository {
         val asked = mutableListOf<List<String>>()
 
         override fun cachedCommunityIdentity(name: String): Community? = null
@@ -31,7 +30,7 @@ class Issue281CommunityIdentityChunksTest {
 
         override suspend fun refreshCommunityIdentities(fallbacks: List<Community>): RepositoryResult<List<Community>> {
             asked += fallbacks.map(Community::name)
-            return RepositoryResult.Content(fallbacks.take(perCall).map { it.withIcon() })
+            return RepositoryResult.Content(fallbacks.map { it.withIcon() })
         }
 
         override fun cachedUserIdentity(username: String): UserFixture? = null
@@ -44,7 +43,7 @@ class Issue281CommunityIdentityChunksTest {
 
     @Test
     fun everyVisibleCommunityIsAskedForAndGetsItsIcon() = runBlocking {
-        val repository = AboutPages(perCall = COMMUNITY_IDENTITY_CHUNK)
+        val repository = AboutPages()
         val account = AccountSessionSummary(
             stableId = "reddit:me",
             username = "me",
@@ -62,12 +61,14 @@ class Issue281CommunityIdentityChunksTest {
 
         state.ensureCommunityIdentities(names)
 
-        assertEquals(listOf(8, 8, 4), repository.asked.map(List<String>::size))
+        // ISSUE34_EVERY_COMMUNITY_IS_ASKED_ONCE_V1: one call for all of them;
+        // the source reads each (it used to read 8 per call and drop the rest).
+        assertEquals(listOf(20), repository.asked.map(List<String>::size))
         names.forEach { name ->
             assertEquals(name, "https://styles.redditmedia.com/$name.png", state.communityIdentityFor(name).iconImageUri)
         }
         // Loaded once: showing them again asks nothing.
         state.ensureCommunityIdentities(names)
-        assertEquals(3, repository.asked.size)
+        assertEquals(1, repository.asked.size)
     }
 }

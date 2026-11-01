@@ -13,6 +13,8 @@
     </queries>
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- ISSUE286_UPDATE_INSTALLS_THROUGH_ANDROIDS_INSTALLER_V1: Update installs the release's own APK. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- LOWUI_LEGACY_DOWNLOADS_ASK_FOR_STORAGE_V1 (OCB-084): public Downloads before Android 10. -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
@@ -191,6 +193,10 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+        <!-- ISSUE286_UPDATE_INSTALLS_THROUGH_ANDROIDS_INSTALLER_V1: Android's installer answers here. -->
+        <receiver
+            android:name=".update.UpdateInstallResultReceiver"
+            android:exported="false" />
 
     </application>
 

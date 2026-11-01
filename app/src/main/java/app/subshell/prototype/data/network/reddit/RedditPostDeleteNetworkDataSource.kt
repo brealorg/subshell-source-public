@@ -61,12 +61,11 @@ internal class RedditPostDeleteNetworkDataSource(
                     else -> RedditPostDeleteReadback.Present
                 }
             }
-            // A thread Reddit no longer knows is gone, as an empty /api/info answer was.
-            is NetworkResult.HttpFailure -> if (result.statusCode == 404) {
-                RedditPostDeleteReadback.Deleted(result.metadata)
-            } else {
-                RedditPostDeleteReadback.Unreadable
-            }
+            // ISSUE36_A_404_THREAD_IS_NOT_PROOF_OF_DELETION_V1 (#36): this read
+            // runs when a delete's outcome is unknown; a 404 thread can also be
+            // a banned community or a routing error, so it is not taken as
+            // Deleted (only Reddit's own deleted post or an empty listing is).
+            is NetworkResult.HttpFailure -> RedditPostDeleteReadback.Unreadable
             else -> RedditPostDeleteReadback.Unreadable
         }
     }

@@ -26,6 +26,9 @@ import app.subshell.prototype.data.error.FailureDetails
 import app.subshell.prototype.data.error.LocalFailureKind
 import app.subshell.prototype.data.error.failureDetailsOrNull
 import app.subshell.prototype.data.network.NetworkEndpoint
+import app.subshell.prototype.data.error.REDDIT_BLOCK_PAGE_REASON
+import app.subshell.prototype.data.network.NetworkRateLimit
+import app.subshell.prototype.data.network.NetworkResponseMetadata
 import app.subshell.prototype.data.network.NetworkResult
 import app.subshell.prototype.data.network.SubshellHttpClient
 import app.subshell.prototype.data.network.SubshellNetworkJson
@@ -637,19 +640,37 @@ internal class RedditCommentLoader(
                 )
             }
             val dataSource = RedditCommentNetworkDataSource(httpClient)
-            // ISSUE281_MORE_REPLIES_WITHOUT_MORECHILDREN_V1 (#281): once Reddit
+            // ISSUE281_MORE_REPLIES_WITHOUT_MORECHILDREN_V1 (#281): when Reddit
             // refuses morechildren with a 403, the replies load through threads
-            // focused on each child, a few at a time, for the rest of the process.
-            suspend fun byFocus(): Pair<NetworkResult<RedditMoreChildrenPage>, Int> {
-                val focusedIds = childIds.take(MORE_REPLIES_BY_FOCUS_BATCH_SIZE)
+            // focused on each child, a few at a time.
+            // ISSUE35_FOCUSED_REPLIES_SKIP_WHAT_IS_LOADED_V1 (#35): a more node
+            // also lists descendants of its children; one already in the
+            // thread (it came with an earlier child's subtree) is skipped,
+            // not read again and added a second time. The leading ids walked
+            // past count as requested, so the node drops them.
+            val loadedIds = mutableSetOf<String>().also { ids -> mergeBaseComments.forEach { it.collectCommentIds(ids) } }
+            suspend fun byFocus(): Pair<NetworkResult<RedditMoreChildrenPage>?, Int> {
+                val focusedIds = mutableListOf<String>()
+                var walked = 0
+                for (childId in childIds) {
+                    if (focusedIds.size == MORE_REPLIES_BY_FOCUS_BATCH_SIZE) break
+                    walked += 1
+                    if ("t1_" + childId.trim().removePrefix("t1_") !in loadedIds) focusedIds += childId
+                }
+                if (focusedIds.isEmpty()) return null to walked
                 return dataSource.moreChildrenByFocus(
                     postId = postId,
                     childIds = focusedIds,
                     sort = sort,
                     childDepth = moreNode.depth,
-                ) to focusedIds.size
+                ) to walked
             }
-            val (result, requestedChildCount) = if (moreChildrenRefused) {
+            // ISSUE35_MORECHILDREN_REFUSAL_IS_PER_ACCOUNT_AND_CLIENT_V1 (#35):
+            // only Reddit's block page is remembered, and only for this account
+            // and Client ID; another 403 (a private or quarantined thread)
+            // reads this load by focus and asks morechildren again next time.
+            val refusalKey = "$accountStableId|${configuration.clientIdFingerprint}"
+            val (focusedOrNull, requestedChildCount) = if (refusalKey in moreChildrenRefusedFor) {
                 byFocus()
             } else {
                 val direct = dataSource.moreChildren(
@@ -658,13 +679,23 @@ internal class RedditCommentLoader(
                     sort = sort,
                 )
                 if (direct is NetworkResult.HttpFailure && direct.statusCode == 403) {
-                    moreChildrenRefused = true
+                    if (direct.providerReason == REDDIT_BLOCK_PAGE_REASON) moreChildrenRefusedFor += refusalKey
                     moreProtocolDebugLog(postId, moreNodeId, "morechildren_403 reading by focus")
                     byFocus()
                 } else {
                     direct to childIds.size
                 }
             }
+            // Every id walked past was already in the thread: the node is done.
+            val result = focusedOrNull ?: NetworkResult.Success(
+                RedditMoreChildrenPage(comments = emptyList()),
+                NetworkResponseMetadata(
+                    statusCode = 200,
+                    receivedAtEpochMs = System.currentTimeMillis(),
+                    rateLimit = NetworkRateLimit(remaining = null, used = null, resetAfterMs = null),
+                    retryAfterMs = null,
+                ),
+            )
             when (result) {
                 is NetworkResult.Success -> try {
                     val merged = mergeMoreChildrenPage(
@@ -1107,6 +1138,13 @@ private class MoreRepliesFailureReport {
 // ISSUE281_MORE_REPLIES_WITHOUT_MORECHILDREN_V1: each child is one request.
 internal const val MORE_REPLIES_BY_FOCUS_BATCH_SIZE = 5
 
-/** Reddit refused /api/morechildren in this process (#281); process-wide, not persisted. */
-@Volatile
-internal var moreChildrenRefused: Boolean = false
+/**
+ * Account|Client ID pairs Reddit answered /api/morechildren with its block page
+ * in this process (#281, #35); not persisted.
+ */
+internal val moreChildrenRefusedFor: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
+private fun Comment.collectCommentIds(into: MutableSet<String>) {
+    into += id
+    children.forEach { it.collectCommentIds(into) }
+}

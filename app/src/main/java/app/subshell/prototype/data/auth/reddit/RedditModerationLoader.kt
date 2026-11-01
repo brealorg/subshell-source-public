@@ -2,6 +2,7 @@ package app.subshell.prototype.data.auth.reddit
 
 import app.subshell.prototype.data.account.AccountSessionSource
 import app.subshell.prototype.data.account.ModeratorReportTarget
+import app.subshell.prototype.data.account.RedditModeratorQueueItem
 import app.subshell.prototype.data.auth.AuthenticatedRedditReportTargetResult
 import app.subshell.prototype.data.auth.AuthAccountSessionCoordinator
 import app.subshell.prototype.data.auth.AuthSessionResult
@@ -199,23 +200,7 @@ internal class RedditModerationLoader(
                 ?: return@withLock AuthenticatedRedditReportTargetResult.Failed(
                     AuthenticatedRedditModerationFailureKind.SESSION,
                 )
-            when (val result = RedditModerationNetworkDataSource(client).reportTarget(target)) {
-                is NetworkResult.Success -> result.value?.let {
-                    AuthenticatedRedditReportTargetResult.Loaded(it)
-                } ?: AuthenticatedRedditReportTargetResult.NotFound
-                // DIAG05_PLAIN_NOTICES_ARE_RECORDED_V1
-                is NetworkResult.HttpFailure -> AuthenticatedRedditReportTargetResult.Failed(
-                    AuthenticatedRedditModerationFailureKind.HTTP, result.statusCode, result.failureDetailsOrNull(),
-                )
-                is NetworkResult.TransportFailure -> AuthenticatedRedditReportTargetResult.Failed(
-                    AuthenticatedRedditModerationFailureKind.TRANSPORT,
-                    details = result.failureDetailsOrNull(),
-                )
-                is NetworkResult.ProtocolFailure -> AuthenticatedRedditReportTargetResult.Failed(
-                    AuthenticatedRedditModerationFailureKind.PROTOCOL,
-                    details = result.failureDetailsOrNull(),
-                )
-            }
+            reportTargetResultOf(RedditModerationNetworkDataSource(client).reportTarget(target))
         }
     }
 
@@ -284,4 +269,31 @@ internal class RedditModerationLoader(
         const val MAX_MODERATOR_DIRECTORY_PAGES = 10
         val POST_ID_REGEX = Regex("[a-z0-9]+")
     }
+}
+
+internal fun reportTargetResultOf(
+    result: NetworkResult<RedditModeratorQueueItem?>,
+): AuthenticatedRedditReportTargetResult = when (result) {
+    is NetworkResult.Success -> result.value?.let {
+        AuthenticatedRedditReportTargetResult.Loaded(it)
+    } ?: AuthenticatedRedditReportTargetResult.NotFound
+    // ISSUE36_A_404_THREAD_IS_NOT_PROOF_OF_DELETION_V1: the target is
+    // read from its thread (#281); a thread Reddit does not know is
+    // "not found", as an empty /api/info answer was.
+    is NetworkResult.HttpFailure -> if (result.statusCode == 404) {
+        AuthenticatedRedditReportTargetResult.NotFound
+    } else {
+        // DIAG05_PLAIN_NOTICES_ARE_RECORDED_V1
+        AuthenticatedRedditReportTargetResult.Failed(
+            AuthenticatedRedditModerationFailureKind.HTTP, result.statusCode, result.failureDetailsOrNull(),
+        )
+    }
+    is NetworkResult.TransportFailure -> AuthenticatedRedditReportTargetResult.Failed(
+        AuthenticatedRedditModerationFailureKind.TRANSPORT,
+        details = result.failureDetailsOrNull(),
+    )
+    is NetworkResult.ProtocolFailure -> AuthenticatedRedditReportTargetResult.Failed(
+        AuthenticatedRedditModerationFailureKind.PROTOCOL,
+        details = result.failureDetailsOrNull(),
+    )
 }

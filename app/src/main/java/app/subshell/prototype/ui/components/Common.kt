@@ -1088,6 +1088,16 @@ fun PostCard(
     val context = LocalContext.current
     val notices = LocalViewportErrorHostState.current
     var overflowExpanded by remember(post.id) { mutableStateOf(false) }
+    // ISSUE284_POST_TEXT_COLLAPSES_LIKE_A_COMMENT_V1 (#284, owner: optional,
+    // off by default): on the post screen a tap on the title hides the post's
+    // text, as a tap collapses a comment. The community and author above it
+    // already open their pages, so the title is the target. Not remembered:
+    // the text shows again when the post is opened again.
+    val postTextCollapsible = inPostDetail &&
+        bodyMaxLines == Int.MAX_VALUE &&
+        state.collapsiblePostText &&
+        post.body.isNotBlank()
+    var postTextCollapsed by remember(post.id) { mutableStateOf(false) }
     var reportDialogVisible by remember(post.id) { mutableStateOf(false) }
     var muteSheetVisible by remember(post.id) { mutableStateOf(false) }
     // ISSUE34_USER_TAGS_V1
@@ -1519,9 +1529,32 @@ fun PostCard(
                 Text(
                     text = post.title,
                     style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(top = 8.dp, bottom = if (post.body.isNotBlank()) 5.dp else 2.dp),
+                    modifier = Modifier
+                        .padding(top = 8.dp, bottom = if (post.body.isNotBlank()) 5.dp else 2.dp)
+                        .then(
+                            if (postTextCollapsible) {
+                                Modifier.clickable(
+                                    onClickLabel = if (postTextCollapsed) "Show post text" else "Hide post text",
+                                    role = Role.Button,
+                                ) { postTextCollapsed = !postTextCollapsed }
+                            } else {
+                                Modifier
+                            },
+                        ),
                 )
-                if (post.body.isNotBlank() && bodyMaxLines == Int.MAX_VALUE) {
+                if (postTextCollapsible && postTextCollapsed) {
+                    Text(
+                        text = "Text hidden",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .clip(MaterialTheme.shapes.small)
+                            .clickable(onClickLabel = "Show post text", role = Role.Button) {
+                                postTextCollapsed = false
+                            }
+                            .padding(vertical = 4.dp),
+                    )
+                } else if (post.body.isNotBlank() && bodyMaxLines == Int.MAX_VALUE) {
                     // ISSUE8_INLINE_REDDIT_MEDIA_V1: the open post shows a self
                     // post's inline images and Giphy like a comment's.
                     CommentContent(

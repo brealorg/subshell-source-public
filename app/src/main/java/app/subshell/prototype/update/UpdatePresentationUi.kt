@@ -547,7 +547,7 @@ internal fun UpdateChangelogReleaseItem(
 }
 
 /** Opens the release page in a browser; false when nothing could open it. */
-private fun openUpdateRelease(
+internal fun openUpdateRelease(
     context: Context,
     url: String,
 ): Boolean =

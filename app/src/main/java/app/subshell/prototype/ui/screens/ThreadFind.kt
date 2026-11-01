@@ -73,6 +73,12 @@ internal fun threadFindMatchIds(
 // is nearly used up.
 internal const val THREAD_FIND_MAX_LOADS = 40
 
+// ISSUE37_FIND_RESUMES_AND_RETRIES_V1: how often a find paused by a low rate
+// limit looks again, and how long it waits before asking again for a node
+// whose load the screen refused.
+internal const val THREAD_FIND_RATE_LIMIT_POLL_MS = 10_000L
+internal const val THREAD_FIND_REFUSED_LOAD_RETRY_MS = 2_000L
+
 /** How much of a thread is loaded: real comments, and nodes still to load. */
 internal data class ThreadFindCoverage(val loadedComments: Int, val unloadedNodes: Int)
 

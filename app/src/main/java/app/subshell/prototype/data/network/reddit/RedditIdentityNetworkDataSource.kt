@@ -6,6 +6,11 @@ import app.subshell.prototype.data.network.SubshellHttpClient
 import app.subshell.prototype.data.network.map
 import app.subshell.prototype.model.Community
 import app.subshell.prototype.model.UserFixture
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.util.Locale
 import app.subshell.prototype.data.network.NetworkRateLimit
 import app.subshell.prototype.data.network.NetworkResponseMetadata
@@ -93,42 +98,50 @@ internal class RedditIdentityNetworkDataSource(
                     ?.let { name -> name to fallback }
             }
             .distinctBy { (name, _) -> name }
-            .take(MAX_BATCH_COMMUNITIES)
             .toMap(linkedMapOf<String, Community>())
         require(fallbackByName.isNotEmpty()) {
             "At least one valid community is required for batch identity loading"
         }
         // ISSUE281_READS_AVOID_API_INFO_V1: Reddit answers /api/info?sr_name=
         // with a 403 block page for this app, so each community is read from
-        // its own about page, a few per call. What arrived is kept; the rest
-        // is asked for the next time those communities show.
+        // its own about page.
+        // ISSUE34_EVERY_COMMUNITY_IS_ASKED_ONCE_V1 (#34): every name is read,
+        // COMMUNITY_ABOUT_PARALLEL_READS at a time (before: 8 per call, one
+        // after another, the rest dropped). A banned, private or unknown
+        // community (403/404) comes back as its fallback, so it counts as
+        // asked and is not read again on every page. A transport failure
+        // anywhere is Offline: the caller stops instead of asking on.
+        val gate = Semaphore(COMMUNITY_ABOUT_PARALLEL_READS)
+        val reads = coroutineScope {
+            fallbackByName.values.map { fallback ->
+                async { gate.withPermit { fallback to community(fallback.name, fallback) } }
+            }.awaitAll()
+        }
+        reads.firstNotNullOfOrNull { (_, result) -> result as? NetworkResult.TransportFailure }
+            ?.let { offline -> return offline }
         val resolved = mutableListOf<Community>()
         var metadata: NetworkResponseMetadata? = null
         var firstFailure: NetworkResult<List<Community>>? = null
-        var refusal: NetworkResult.HttpFailure? = null
-        for ((name, fallback) in fallbackByName.entries.take(MAX_COMMUNITY_ABOUT_READS)) {
-            when (val result = community(name, fallback)) {
+        reads.forEach { (fallback, result) ->
+            when (result) {
                 is NetworkResult.Success -> {
                     resolved += result.value
-                    metadata = result.metadata
+                    metadata = metadata ?: result.metadata
                 }
-                // A banned, private or unknown community has no identity to show.
-                is NetworkResult.HttpFailure -> if (result.statusCode in setOf(403, 404)) {
-                    refusal = result
+                is NetworkResult.HttpFailure -> if (result.statusCode == 403 || result.statusCode == 404) {
+                    resolved += fallback
+                    metadata = metadata ?: result.metadata
                 } else {
                     firstFailure = firstFailure ?: result
                 }
-                is NetworkResult.TransportFailure -> {
-                    firstFailure = firstFailure ?: result
-                    break
-                }
+                is NetworkResult.TransportFailure -> Unit
                 is NetworkResult.ProtocolFailure -> firstFailure = firstFailure ?: result
             }
         }
         val answered = metadata
         return when {
             answered != null -> NetworkResult.Success(resolved.toList(), answered)
-            else -> firstFailure ?: requireNotNull(refusal)
+            else -> requireNotNull(firstFailure)
         }
     }
 }
@@ -402,9 +415,7 @@ private fun accountAgeLabel(nowEpochSeconds: Long, createdEpochSeconds: Long): S
 }
 
 private const val MAX_REDDIT_NAME_LENGTH = 100
-private const val MAX_BATCH_COMMUNITIES = 100
-// IdentityMetadataState asks in chunks of this size (COMMUNITY_IDENTITY_CHUNK).
-private const val MAX_COMMUNITY_ABOUT_READS = 8
+private const val COMMUNITY_ABOUT_PARALLEL_READS = 4
 internal const val MAX_BATCH_ACCOUNT_IDS = 100
 private const val HTTP_NOT_FOUND = 404
 private const val HTTP_NO_CONTENT = 204

@@ -88,6 +88,10 @@ import app.subshell.prototype.media.VideoMediaDataSource
 import app.subshell.prototype.ui.error.ErrorPresentationKind
 import app.subshell.prototype.ui.error.ErrorPresentation
 import app.subshell.prototype.ui.error.LocalViewportErrorHostState
+import app.subshell.prototype.export.RedditDataExportScheduler
+import app.subshell.prototype.export.RedditDataExportStatus
+import app.subshell.prototype.export.exportSavedText
+import app.subshell.prototype.ui.noticeInfo
 import app.subshell.prototype.media.VideoMediaCacheLimitStore
 import app.subshell.prototype.media.VideoMediaCacheLimit
 import app.subshell.prototype.data.account.RedditFavoriteSyncSettingStore
@@ -484,6 +488,14 @@ fun SettingsScreen(
         return
     }
 
+    if (destination == SettingsDestination.UPDATES) {
+        app.subshell.prototype.update.UpdatesScreen(
+            onBack = returnToSettings,
+            modifier = pageModifier,
+        )
+        return
+    }
+
     if (destination == SettingsDestination.ABOUT) {
         HelpScreen(
             onBack = returnToSettings,
@@ -500,6 +512,11 @@ fun SettingsScreen(
     val readingStatsStore = app.subshell.prototype.data.reading.ReadingStats.store(LocalContext.current)
     val readingStatsEnabled by readingStatsStore.enabled.collectAsStateWithLifecycle()
     LaunchedEffect(readingStatsStore) { readingStatsStore.onDisk { load() } }
+    // REDDITEXPORT01_EXPORT_YOUR_REDDIT_DATA_V1
+    val exportContext = LocalContext.current
+    val redditDataExportStatus by remember(exportContext, state.activeAccountId) {
+        RedditDataExportScheduler.status(exportContext, state.activeAccountId)
+    }.collectAsStateWithLifecycle(initialValue = null)
     // LOWUX3_SETTINGS_SEARCH_SKIPS_ROWS_THE_STATE_HIDES_V1 (OCB-267/278): rows the
     // state hides right now are not search hits.
     val searchHiddenKeys = buildSet {
@@ -509,6 +526,7 @@ fun SettingsScreen(
             add("app-lock-notifications")
         }
         if (activeProductAccount == null) add("online-visibility")
+        if (activeProductAccount == null || !state.activeAccountIsAuthenticated) add("export-reddit-data")
         if (legacyDownloadStatus?.hasDownloads != true && downloadOperationMessage == null) add("download-storage")
     }
     val searchResult = remember(query, searchHiddenKeys) { settingsSearchResult(query, searchHiddenKeys) }
@@ -1424,6 +1442,23 @@ fun SettingsScreen(
                             },
                         )
                     }
+                }
+                if (
+                    searchResult.isItemVisible("export-reddit-data") &&
+                    activeProductAccount != null &&
+                    state.activeAccountIsAuthenticated
+                ) {
+                    item("export-reddit-data") {
+                        RedditDataExportRow(
+                            status = redditDataExportStatus,
+                            onExport = {
+                                RedditDataExportScheduler.enqueue(exportContext, activeProductAccount.stableId)
+                                settingsNoticeHost.noticeInfo(REDDIT_EXPORT_NOTICE_TITLE, REDDIT_EXPORT_NOTICE_MESSAGE)
+                            },
+                        )
+                    }
+                }
+                if (searchResult.isItemVisible("accounts")) {
                     if (activeProductAccount != null) {
                         item("account-logout") {
                             DestructiveNavigationRow(
@@ -2779,6 +2814,16 @@ fun SettingsScreen(
                         )
                     }
                 }
+                // ISSUE284_POST_TEXT_COLLAPSES_LIKE_A_COMMENT_V1: off by default.
+                if (searchResult.isItemVisible("collapsible-post-text")) item("collapsible-post-text") {
+                    ToggleRow(
+                        icon = Symbols.TouchApp,
+                        title = "Collapse post text",
+                        description = "Tap a post's title to hide its text, like a comment",
+                        checked = state.collapsiblePostText,
+                        onCheckedChange = state::updateCollapsiblePostText,
+                    )
+                }
                 if (
                     destination == SettingsDestination.COMMENTS &&
                     query.isBlank() &&
@@ -2991,6 +3036,19 @@ fun SettingsScreen(
                 )
             ) {
                 item("about-title") { SettingsSection(settingsSectionTitle(destination, "About")) }
+                if (searchResult.isItemVisible("updates")) item("updates") {
+                    NavigationRow(
+                        icon = Symbols.Download,
+                        title = "Updates",
+                        description = SettingsDestination.UPDATES.description,
+                        onClick = {
+                            openSettingsDestination(
+                                target = SettingsDestination.UPDATES,
+                                returnTo = SettingsDestination.ROOT,
+                            )
+                        },
+                    )
+                }
                 if (searchResult.isItemVisible("about")) item("about") {
                     NavigationRow(
                         icon = Symbols.Info,
@@ -3019,6 +3077,7 @@ private fun settingsDestinationIcon(destination: SettingsDestination): ImageVect
         SettingsDestination.COMMENTS -> Symbols.Forum
         SettingsDestination.BACKUP -> Symbols.Backup
         SettingsDestination.ADVANCED -> Symbols.Tune
+        SettingsDestination.UPDATES -> Symbols.Download
         SettingsDestination.ABOUT -> Symbols.Info
         else -> Symbols.Tune
     }
@@ -3318,6 +3377,34 @@ private fun DestructiveNavigationRow(
         onClick = onClick,
         icon = icon,
         destructive = true,
+    )
+}
+
+// REDDITEXPORT01_EXPORT_YOUR_REDDIT_DATA_V1: what is exported, then how the
+// newest export of this account went; a tap while one runs does nothing.
+// REDDITEXPORT01_EXPORT_YOUR_REDDIT_DATA_V1: the tray shows it whole, without More.
+internal const val REDDIT_EXPORT_NOTICE_TITLE = "Exporting your Reddit data"
+internal const val REDDIT_EXPORT_NOTICE_MESSAGE =
+    "Takes a minute or two. The ZIP goes to Downloads and holds your private messages."
+
+@Composable
+internal fun RedditDataExportRow(
+    status: RedditDataExportStatus?,
+    onExport: () -> Unit,
+) {
+    NavigationRow(
+        icon = Symbols.Download,
+        title = "Export your Reddit data",
+        description = when (status) {
+            null -> "Saved, votes, your posts and comments, communities and messages, as a ZIP in Downloads"
+            RedditDataExportStatus.Waiting -> "Waiting for a connection…"
+            is RedditDataExportStatus.Running -> "Exporting… ${status.done} of ${status.total} lists"
+            is RedditDataExportStatus.Saved -> exportSavedText(status.location, status.items, status.incompleteLists)
+            is RedditDataExportStatus.Failed -> status.message
+        },
+        onClick = {
+            if (status != RedditDataExportStatus.Waiting && status !is RedditDataExportStatus.Running) onExport()
+        },
     )
 }
 

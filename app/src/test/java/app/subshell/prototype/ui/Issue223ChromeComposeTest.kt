@@ -224,6 +224,8 @@ class Issue223ChromeComposeTest {
                     .flatMap { line -> literal.findAll(line).map { it.value } }
                     .filter { text -> Regex("""\bSubshell\b""").containsMatchIn(text) }
                     .filterNot { text -> "session directory must expose" in text }
+                    // ISSUE286: the release tooling's APK asset name on GitHub, never shown.
+                    .filterNot { text -> "/Subshell-\${release.versionName}.apk" in text }
                     .map { text -> "${file.name}: $text" }
             }
             .toList()

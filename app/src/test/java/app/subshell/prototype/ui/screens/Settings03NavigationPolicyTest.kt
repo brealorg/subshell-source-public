@@ -7,7 +7,8 @@ import org.junit.Test
 
 class Settings03NavigationPolicyTest {
     @Test
-    fun rootHasNineTaskBasedDestinationsInProductOrder() {
+    // ISSUE286_SETTINGS_UPDATES_V1: Updates joined the nine, before Help & about.
+    fun rootHasTenTaskBasedDestinationsInProductOrder() {
         assertEquals(
             listOf(
                 SettingsDestination.ACCOUNTS,
@@ -18,6 +19,7 @@ class Settings03NavigationPolicyTest {
                 SettingsDestination.COMMENTS,
                 SettingsDestination.BACKUP,
                 SettingsDestination.ADVANCED,
+                SettingsDestination.UPDATES,
                 SettingsDestination.ABOUT,
             ),
             settingsRootDestinations,

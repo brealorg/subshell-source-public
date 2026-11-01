@@ -49,6 +49,11 @@ internal enum class SettingsDestination(
         description = "Developer tools and diagnostics",
         legacySections = setOf("Diagnostics", "Prototype states"),
     ),
+    // ISSUE286_SETTINGS_UPDATES_V1
+    UPDATES(
+        title = "Updates",
+        description = "Your version, the latest one and updating",
+    ),
     ABOUT(
         title = "Help & about",
         description = "Version, help and application information",
@@ -90,6 +95,7 @@ internal val settingsRootDestinations: List<SettingsDestination> = listOf(
     SettingsDestination.COMMENTS,
     SettingsDestination.BACKUP,
     SettingsDestination.ADVANCED,
+    SettingsDestination.UPDATES,
     SettingsDestination.ABOUT,
 )
 
@@ -144,6 +150,7 @@ internal fun settingsDestinationBackTarget(
     SettingsDestination.SENSITIVE_MEDIA_LAB,
     SettingsDestination.DIAGNOSTICS,
     SettingsDestination.BACKUP,
+    SettingsDestination.UPDATES,
     SettingsDestination.ABOUT -> returnDestination
     else -> SettingsDestination.ROOT
 }

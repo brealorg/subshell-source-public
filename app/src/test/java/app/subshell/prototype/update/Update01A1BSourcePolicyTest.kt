@@ -143,7 +143,7 @@ class Update01A1BSourcePolicyTest {
     }
 
     @Test
-    fun bundledChangelogIsOfflineAndNoSelfInstallerOrPlayCoreExists() {
+    fun bundledChangelogIsOfflineAndNoPlayCoreExists() {
         val ui = source(
             "app/src/main/java/app/subshell/prototype/update/UpdatePresentationUi.kt",
         )
@@ -156,7 +156,8 @@ class Update01A1BSourcePolicyTest {
         assertTrue(changelog.contains("context.applicationContext"))
         assertTrue(changelog.contains("assets"))
         assertFalse(ui.contains("HttpURLConnection"))
-        assertFalse(manifest.contains("REQUEST_INSTALL_PACKAGES"))
+        // ISSUE286: the app may install its own release APK (Issue286UpdateApkDownloadTest), never via Play Core.
+        assertFalse(manifest.contains("com.google.android.play"))
         assertFalse(gradle.contains("app-update"))
     }
 

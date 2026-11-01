@@ -672,6 +672,10 @@ fun rememberSubshellState(
                 SubshellSettings.NOTIFY_NEW_COMMENTS,
                 DefaultSubshellSettings.notifyNewComments,
             ),
+            initialCollapsiblePostText = preferences.getBoolean(
+                SubshellSettings.COLLAPSIBLE_POST_TEXT,
+                DefaultSubshellSettings.collapsiblePostText,
+            ),
             initialContentFilters = ContentFilters.fromStorageMap(
                 ContentFilterType.entries.flatMap { type ->
                     // CONTENTFILTER03_COMMUNITY_SCOPED_FILTERS_V1

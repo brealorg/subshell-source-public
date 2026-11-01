@@ -13,6 +13,9 @@ import app.subshell.prototype.data.auth.StoredOAuthSession
 import app.subshell.prototype.data.auth.authenticatedAccountId
 import app.subshell.prototype.data.network.reddit.NsfwPreferencesNetwork
 import app.subshell.prototype.data.network.reddit.RedditAccessProbeNetworkDataSource
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
 
 internal val NSFW_PREFERENCES_READ_SCOPES = setOf("identity")
@@ -37,45 +40,52 @@ internal class ConfiguredRedditCommunityAccessService(
     private val writeClientForSession: ((StoredOAuthSession) -> SubshellHttpClient)? = null,
     // REDDITCHECK01_CHECK_REDDIT_ACCESS_V1: a non-retrying client for the access check.
     private val probeClientForSession: ((StoredOAuthSession) -> SubshellHttpClient)? = null,
+    // STRICTMODE03_NSFW_PREFERENCE_READS_OFF_THE_MAIN_THREAD_V1: the session
+    // lookup decrypts the stored sign-in from disk, and the tray notice asks
+    // from the main thread, so every entry point runs on this dispatcher.
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : app.subshell.prototype.data.account.RedditCommunityAccessService {
     private fun current(account: String, isCurrent: () -> Boolean): Boolean =
         account.isNotBlank() && activeAccountId() == account && isCurrent()
 
-    override suspend fun read(account: String, isCurrent: () -> Boolean): NsfwPreferencesResult = try {
-        val session = session(account, isCurrent)
-        if (session == null || !current(account, isCurrent)) {
-            // ISSUE211_ACCOUNT_PREFERENCE_FAILURE_IS_NAMED_V1 (debug only).
-            app.subshell.prototype.auth.authDebugLog(
-                "subshell-nsfw",
-                "account-prefs no-session current=${current(account, isCurrent)} " +
-                    "grants=${storedSessionGrants(account, NSFW_PREFERENCES_READ_SCOPES)}",
-            )
-            NsfwPreferencesResult.Failed
-        } else {
-            val result = networkForSession(session).read()
-            if (current(account, isCurrent)) result else NsfwPreferencesResult.Failed
+    override suspend fun read(account: String, isCurrent: () -> Boolean): NsfwPreferencesResult =
+        withContext(ioDispatcher) {
+            try {
+                val session = session(account, isCurrent)
+                if (session == null || !current(account, isCurrent)) {
+                    // ISSUE211_ACCOUNT_PREFERENCE_FAILURE_IS_NAMED_V1 (debug only).
+                    app.subshell.prototype.auth.authDebugLog(
+                        "subshell-nsfw",
+                        "account-prefs no-session current=${current(account, isCurrent)} " +
+                            "grants=${storedSessionGrants(account, NSFW_PREFERENCES_READ_SCOPES)}",
+                    )
+                    NsfwPreferencesResult.Failed
+                } else {
+                    val result = networkForSession(session).read()
+                    if (current(account, isCurrent)) result else NsfwPreferencesResult.Failed
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                app.subshell.prototype.auth.authDebugLog("subshell-nsfw", "account-prefs threw ${failure.javaClass.simpleName}")
+                NsfwPreferencesResult.Failed
+            }
         }
-    } catch (cancelled: CancellationException) {
-        throw cancelled
-    } catch (failure: Exception) {
-        app.subshell.prototype.auth.authDebugLog("subshell-nsfw", "account-prefs threw ${failure.javaClass.simpleName}")
-        NsfwPreferencesResult.Failed
-    }
 
     override suspend fun optIn(
         account: String,
         communityName: String,
         isCurrent: () -> Boolean,
-    ): QuarantineOptInResult {
-        val client = writeClientForSession ?: return QuarantineOptInResult.Refused(null)
-        if (!current(account, isCurrent)) return QuarantineOptInResult.Refused(null)
+    ): QuarantineOptInResult = withContext(ioDispatcher) optIn@{
+        val client = writeClientForSession ?: return@optIn QuarantineOptInResult.Refused(null)
+        if (!current(account, isCurrent)) return@optIn QuarantineOptInResult.Refused(null)
         if (!storedSessionGrants(account, QUARANTINE_OPT_IN_SCOPES)) {
-            return QuarantineOptInResult.MissingPermission
+            return@optIn QuarantineOptInResult.MissingPermission
         }
         val session = session(account, isCurrent, QUARANTINE_OPT_IN_SCOPES)
-            ?: return QuarantineOptInResult.Refused(null)
-        if (!current(account, isCurrent)) return QuarantineOptInResult.Refused(null)
-        return try {
+            ?: return@optIn QuarantineOptInResult.Refused(null)
+        if (!current(account, isCurrent)) return@optIn QuarantineOptInResult.Refused(null)
+        try {
             client(session).sendQuarantineOptIn(communityName)
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -87,14 +97,15 @@ internal class ConfiguredRedditCommunityAccessService(
     // REDDITCHECK01_CHECK_REDDIT_ACCESS_V1: the check reads with the active
     // account's own session (identity is enough to be let in; a read the grant
     // lacks a scope for shows as Reddit's 403), and stops when the account changes.
-    override suspend fun check(account: String, isCurrent: () -> Boolean): RedditAccessCheckResult {
-        val client = probeClientForSession ?: return RedditAccessCheckResult.NotChecked
-        val session = session(account, isCurrent) ?: return RedditAccessCheckResult.NotChecked
-        val probes = RedditAccessProbeNetworkDataSource(client(session))
-            .probe { current(account, isCurrent) }
-            ?: return RedditAccessCheckResult.NotChecked
-        return RedditAccessCheckResult.Checked(probes)
-    }
+    override suspend fun check(account: String, isCurrent: () -> Boolean): RedditAccessCheckResult =
+        withContext(ioDispatcher) check@{
+            val client = probeClientForSession ?: return@check RedditAccessCheckResult.NotChecked
+            val session = session(account, isCurrent) ?: return@check RedditAccessCheckResult.NotChecked
+            val probes = RedditAccessProbeNetworkDataSource(client(session))
+                .probe { current(account, isCurrent) }
+                ?: return@check RedditAccessCheckResult.NotChecked
+            RedditAccessCheckResult.Checked(probes)
+        }
 
     private suspend fun session(
         account: String,

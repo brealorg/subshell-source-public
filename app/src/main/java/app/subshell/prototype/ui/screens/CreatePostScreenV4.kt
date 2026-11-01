@@ -648,7 +648,11 @@ fun CreatePostScreen(
         }
     }
     LaunchedEffect(authenticated, state.activeAccountId, communities.map { it.name }) {
-        if (authenticated) state.ensureCommunityIdentities(communities.map { it.name })
+        // ISSUE34_EVERY_COMMUNITY_IS_ASKED_ONCE_V1: joined communities carry
+        // their icon from the subscription list; only the rest are asked.
+        if (authenticated) {
+            state.ensureCommunityIdentities(communities.filter { it.iconImageUri == null }.map { it.name })
+        }
     }
     LaunchedEffect(
         pendingPreflightRequestKey,

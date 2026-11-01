@@ -58,12 +58,19 @@ pass TERMINAL_IS_ISOLATED
     fail POLLS_HAVE_NO_WRITE_TRANSPORT
 pass POLLS_HAVE_NO_WRITE_TRANSPORT
 
-# From update01a1a: updates are offered through the site; the app never
-# installs packages itself or uses Play Core in-app updates.
-! rg -q 'REQUEST_INSTALL_PACKAGES|AppUpdateManager|com\.google\.android\.play.*app.?update' \
+# From update01a1a, revised by #286 (owner 2026-11-01, "Yes, change the
+# rule"): never Play Core in-app updates. The app installs only the release's
+# own APK from GitHub, kept only when its SHA-256 is the manifest's, and only
+# through Android's installer in update/UpdateInstall.kt.
+! rg -q 'AppUpdateManager|com\.google\.android\.play.*app.?update' \
     "$ROOT/app/src/main" "$ROOT/app/build.gradle.kts" ||
-    fail UPDATES_HAVE_NO_SELF_INSTALLER
-pass UPDATES_HAVE_NO_SELF_INSTALLER
+    fail UPDATES_HAVE_NO_PLAY_CORE_INSTALLER
+pass UPDATES_HAVE_NO_PLAY_CORE_INSTALLER
+grep -Fq 'releases/download/v${release.versionName}/Subshell-${release.versionName}.apk' "$M/update/UpdateApkDownload.kt" &&
+grep -Fq 'return if (sha == release.apkSha256) {' "$M/update/UpdateApkDownload.kt" &&
+[ "$(rg -l 'PackageInstaller' "$ROOT/app/src/main/java")" = "$M/update/UpdateInstall.kt" ] ||
+    fail UPDATE_INSTALLS_ONLY_THE_CHECKED_RELEASE_APK
+pass UPDATE_INSTALLS_ONLY_THE_CHECKED_RELEASE_APK
 
 # From next01a5: a Subscriptions row opens through the route-aware selection,
 # never the old direct open that grows the back stack.

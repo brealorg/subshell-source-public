@@ -783,6 +783,7 @@ class SubshellState(
     initialSensitiveMediaPreviewMode: SensitiveMediaPreviewMode = SensitiveMediaPreviewMode.BLUR_AND_PRELOAD,
     initialShowNsfwMedia: Boolean = false,
     initialNotifyNewComments: Boolean = false,
+    initialCollapsiblePostText: Boolean = false,
     initialContentFilters: ContentFilters = ContentFilters(),
     initialCommunitySortPreferences: Map<String, CommunitySort> = emptyMap(),
     initialListingTimePeriod: RedditListingTimePeriod = RedditListingTimePeriod.ALL,
@@ -1246,6 +1247,8 @@ class SubshellState(
     var showNsfwMedia by mutableStateOf(initialShowNsfwMedia)
         private set
     var notifyNewComments by mutableStateOf(initialNotifyNewComments)
+        private set
+    var collapsiblePostText by mutableStateOf(initialCollapsiblePostText)
         private set
     var contentFilters by mutableStateOf(initialContentFilters)
         private set
@@ -5828,6 +5831,13 @@ class SubshellState(
         persistPreference(SubshellSettings.NOTIFY_NEW_COMMENTS, enabled.toString())
     }
 
+    // ISSUE284_POST_TEXT_COLLAPSES_LIKE_A_COMMENT_V1
+    fun updateCollapsiblePostText(enabled: Boolean) {
+        if (collapsiblePostText == enabled) return
+        collapsiblePostText = enabled
+        persistPreference(SubshellSettings.COLLAPSIBLE_POST_TEXT, enabled.toString())
+    }
+
     /** True when a post's NSFW media needs no tap: "Show NSFW media" is on and it is no spoiler. */
     fun nsfwMediaShownUncovered(post: Post): Boolean =
         nsfwMediaShownUncovered(post, showNsfwMedia)
@@ -6154,6 +6164,7 @@ class SubshellState(
         sensitiveMediaPreviewMode = sensitiveMediaPreviewMode,
         showNsfwMedia = showNsfwMedia,
         notifyNewComments = notifyNewComments,
+        collapsiblePostText = collapsiblePostText,
         contentFilters = contentFilters,
         communitySortPreferences = communitySortPreferences,
         listingTimePeriod = listingTimePeriod,
@@ -6243,6 +6254,7 @@ class SubshellState(
         sensitiveMediaPreviewMode = settings.sensitiveMediaPreviewMode
         showNsfwMedia = settings.showNsfwMedia
         notifyNewComments = settings.notifyNewComments
+        collapsiblePostText = settings.collapsiblePostText
         revealedMediaIds.clear()
         revealedNsfwMediaIds.clear()
         activeAnimatedMediaId = null

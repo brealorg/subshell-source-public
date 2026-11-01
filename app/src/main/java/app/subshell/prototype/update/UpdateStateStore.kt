@@ -81,6 +81,28 @@ internal class UpdateStateStore(
         preferences.edit { putLong(KEY_LAST_CHECK_EPOCH_MILLIS, nowEpochMillis) }
     }
 
+    /** ISSUE286_SETTINGS_UPDATES_V1: when the manifest was last read, 0 if never. */
+    fun lastCheckEpochMillis(): Long =
+        preferences.getLong(KEY_LAST_CHECK_EPOCH_MILLIS, 0L)
+
+    /** ISSUE286_UPDATE_NOTICE_COMES_BACK_AFTER_A_DAY_V1: the newest version whose notice was closed. */
+    fun updateNoticeDismissedVersionCode(): Int =
+        preferences.getInt(KEY_UPDATE_NOTICE_DISMISSED_VERSION_CODE, 0)
+
+    fun updateNoticeDismissedAtEpochMillis(): Long =
+        preferences.getLong(KEY_UPDATE_NOTICE_DISMISSED_AT_EPOCH_MILLIS, 0L)
+
+    fun dismissUpdateNotice(
+        versionCode: Int,
+        nowEpochMillis: Long = System.currentTimeMillis(),
+    ) {
+        if (versionCode <= 0) return
+        preferences.edit {
+            putInt(KEY_UPDATE_NOTICE_DISMISSED_VERSION_CODE, versionCode)
+            putLong(KEY_UPDATE_NOTICE_DISMISSED_AT_EPOCH_MILLIS, nowEpochMillis)
+        }
+    }
+
     fun lastPresentedUpdateVersionCode(): Int =
         preferences.getInt(KEY_LAST_PRESENTED_UPDATE_VERSION_CODE, 0)
 
@@ -214,5 +236,9 @@ internal class UpdateStateStore(
             "update08.notification_permission_asked"
         private const val KEY_LAST_UPDATE_PRESENTED_AT_EPOCH_MILLIS =
             "update09.last_update_presented_at_epoch_ms"
+        private const val KEY_UPDATE_NOTICE_DISMISSED_VERSION_CODE =
+            "issue286.update_notice_dismissed_version_code"
+        private const val KEY_UPDATE_NOTICE_DISMISSED_AT_EPOCH_MILLIS =
+            "issue286.update_notice_dismissed_at_epoch_ms"
     }
 }

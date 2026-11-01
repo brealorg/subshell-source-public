@@ -2547,13 +2547,29 @@ fun PostScreen(
         null
     }
     val threadFindLoadBusy = redditCommentsState.loadingMoreNodeId != null || pendingHydrationCommit != null
+    // ISSUE37_FIND_RESUMES_AND_RETRIES_V1 (#37): the rate limit is a plain
+    // value Compose does not observe, so a find paused by it waits here and
+    // goes on when Reddit's window resets (before: it stopped for good); a
+    // load the screen refused changes neither key, so it is tried again after
+    // a pause (before: the bar said "Loading the rest" for good).
+    var threadFindRateLimited by remember(post.id, state.postVisitId, sort.name) { mutableStateOf(false) }
     LaunchedEffect(threadFindNextNode?.id, threadFindLoadBusy) {
         val node = threadFindNextNode ?: return@LaunchedEffect
-        if (threadFindLoadBusy || RedditReadDiagnostics.rateLimitIsLow()) return@LaunchedEffect
-        threadFindLoads += 1
-        loadMore(node, false)
+        if (threadFindLoadBusy) return@LaunchedEffect
+        while (true) {
+            while (RedditReadDiagnostics.rateLimitIsLow()) {
+                threadFindRateLimited = true
+                delay(THREAD_FIND_RATE_LIMIT_POLL_MS)
+            }
+            threadFindRateLimited = false
+            threadFindLoads += 1
+            loadMore(node, false)
+            // A started load changes threadFindLoadBusy and ends this effect.
+            delay(THREAD_FIND_REFUSED_LOAD_RETRY_MS)
+            if (threadFindLoads >= THREAD_FIND_MAX_LOADS) return@LaunchedEffect
+        }
     }
-    val threadFindStillLoading = threadFindNextNode != null && (threadFindLoadBusy || !RedditReadDiagnostics.rateLimitIsLow())
+    val threadFindStillLoading = threadFindNextNode != null && (threadFindLoadBusy || !threadFindRateLimited)
     // ISSUE281_THREAD_READS_IN_THE_REPORT_V1: how much a find searched, once
     // its loading stops (counts only, never the query).
     val threadFindMatchesCurrent = threadFindMatchesQuery == threadFindAppliedQuery &&

@@ -2132,9 +2132,11 @@ internal fun CustomFeedsContent(
 
     LaunchedEffect(editorVisible, accountStableId, communities) {
         if (editorVisible && authenticated) {
-            communities.map { community -> community.name }.chunked(100).forEach { names ->
-                state.ensureCommunityIdentities(names)
-            }
+            // ISSUE34_EVERY_COMMUNITY_IS_ASKED_ONCE_V1: joined communities carry
+            // their icon from the subscription list; only the rest are asked.
+            state.ensureCommunityIdentities(
+                communities.filter { community -> community.iconImageUri == null }.map { community -> community.name },
+            )
         }
     }
 

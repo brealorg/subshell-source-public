@@ -166,6 +166,7 @@ import app.subshell.prototype.data.account.UserFlairMutationRequest
 import app.subshell.prototype.data.account.UserFlairUiState
 import app.subshell.prototype.ui.app.SettingsReviewNudge
 import app.subshell.prototype.ui.app.CrashReportPrompt
+import app.subshell.prototype.ui.app.UpdateAvailableNotice
 
 
 
@@ -695,6 +696,15 @@ fun SubshellApp(
             noticeHost = viewportErrorHostState,
             onOpenDiagnostics = {
                 requestedSettingsDestinationName = SettingsDestination.DIAGNOSTICS.name
+                state.openSecondary(SecondaryDestination.SETTINGS)
+            },
+        )
+        // ISSUE286_UPDATE_NOTICE_COMES_BACK_AFTER_A_DAY_V1
+        UpdateAvailableNotice(
+            enabled = !state.commentActionOnboardingVisible,
+            noticeHost = viewportErrorHostState,
+            onOpenUpdates = {
+                requestedSettingsDestinationName = SettingsDestination.UPDATES.name
                 state.openSecondary(SecondaryDestination.SETTINGS)
             },
         )

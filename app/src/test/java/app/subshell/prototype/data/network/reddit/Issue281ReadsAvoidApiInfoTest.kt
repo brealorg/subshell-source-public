@@ -29,7 +29,7 @@ import org.junit.Test
  * unknown. A post or comment is read from its thread instead.
  */
 class Issue281ReadsAvoidApiInfoTest {
-    private val paths = mutableListOf<String>()
+    private val paths = java.util.Collections.synchronizedList(mutableListOf<String>())
 
     /** Reddit as measured on 2026-10-30: /api/info blocked, threads answered. */
     private fun reddit(thread: (String) -> Pair<Int, String>) = SubshellHttpClient(
@@ -95,7 +95,7 @@ class Issue281ReadsAvoidApiInfoTest {
     }
 
     @Test
-    fun aPostIsReadBackFromItsThreadAndAThreadRedditNoLongerKnowsIsGone() = runBlocking {
+    fun aPostIsReadBackFromItsThreadAndA404ThreadIsNotProofOfDeletion() = runBlocking {
         val shown = RedditPostDeleteNetworkDataSource(
             reddit { path -> if (path == "/comments/p1") 200 to postThreadAnswer(post) else 404 to "{}" },
         ).readBack("t3_p1")
@@ -103,7 +103,9 @@ class Issue281ReadsAvoidApiInfoTest {
 
         val gone = RedditPostDeleteNetworkDataSource(reddit { 404 to """{"message":"Not Found","error":404}""" })
             .readBack("t3_p1")
-        assertTrue("$gone", gone is RedditPostDeleteReadback.Deleted)
+        // ISSUE36_A_404_THREAD_IS_NOT_PROOF_OF_DELETION_V1: a 404 can also be a
+        // banned community or a routing error; the outcome stays unknown.
+        assertEquals(RedditPostDeleteReadback.Unreadable, gone)
 
         val edited = RedditPostEditNetworkDataSource(
             reddit { path -> if (path == "/comments/p1") 200 to postThreadAnswer(post) else 404 to "{}" },
@@ -142,7 +144,7 @@ class Issue281ReadsAvoidApiInfoTest {
     }
 
     @Test
-    fun communityIconsComeFromEachAboutPageAndAGoneCommunityIsLeftOut() = runBlocking {
+    fun communityIconsComeFromEachAboutPageAndAGoneCommunityKeepsItsLetter() = runBlocking {
         val client = reddit { path ->
             when (path) {
                 "/r/subshell/about" -> 200 to """{"kind":"t5","data":{"display_name":"subshell",
@@ -155,7 +157,11 @@ class Issue281ReadsAvoidApiInfoTest {
         val result = RedditIdentityNetworkDataSource(client).communities(listOf(community("subshell"), community("gone")))
 
         val communities = (result as NetworkResult.Success).value
-        assertEquals(listOf("subshell"), communities.map(Community::name))
-        assertEquals(listOf("/r/subshell/about", "/r/gone/about"), paths)
+        // ISSUE34_EVERY_COMMUNITY_IS_ASKED_ONCE_V1: a gone community comes back
+        // as it was asked (no icon), so the caller counts it as asked.
+        assertEquals(listOf("gone", "subshell"), communities.map(Community::name).sorted())
+        assertEquals(null, communities.first { it.name == "gone" }.iconImageUri)
+        assertEquals("https://styles.redditmedia.com/icon.png", communities.first { it.name == "subshell" }.iconImageUri)
+        assertEquals(setOf("/r/subshell/about", "/r/gone/about"), paths.toSet())
     }
 }

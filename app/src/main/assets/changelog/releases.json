@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "versionCode": 255,
+      "versionName": "0.91-beta",
+      "date": "2026-11-01",
+      "headline": "Subshell 0.91: export your Reddit data, and update from inside the app",
+      "highlights": [
+        "Settings › Updates shows your version and the newest one and checks on request. From the next release on, Update downloads it, checks it and hands it to Android to install.",
+        "When a new version is out, a notice says so. Close it and it stays away for a day.",
+        "Settings › Accounts › Export your Reddit data saves your saved posts, votes, posts, comments, communities and messages as a ZIP in Downloads.",
+        "Optional: tap a post's title to hide its text, like a comment. Turn it on in Settings › Comments & notifications.",
+        "More replies, community icons and find in thread work more reliably in big threads and ask Reddit less often."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v0.91-beta"
+    },
+    {
       "versionCode": 254,
       "versionName": "0.90-beta",
       "date": "2026-10-31",

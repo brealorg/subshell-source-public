@@ -25,6 +25,8 @@ internal data class SettingsSearchResult(
 
 internal val settingsSearchEntries: List<SettingsSearchEntry> = listOf(
     setting("accounts", "Accounts", "Reddit accounts current account switch add connect sign in log out manage"),
+    // REDDITEXPORT01_EXPORT_YOUR_REDDIT_DATA_V1
+    setting("export-reddit-data", "Accounts", "export your Reddit data download zip csv json saved history posts comments messages subscriptions takeout"),
     setting("online-visibility", "Account privacy", "online status visibility show presence Reddit account privacy"),
 
     // ISSUE234_FEED_POST_LAYOUTS_V1: the Thumbnail row shows only with List, so its words lead here.
@@ -120,6 +122,8 @@ internal val settingsSearchEntries: List<SettingsSearchEntry> = listOf(
     setting("comment-actions", "Comments", "comment actions placement follow balanced left right interaction side"),
     setting("comment-time-format", "Comments", "comment time relative local timestamp 24-hour 12-hour am pm"),
     setting("comment-collapse-mode", "Comments", "collapse comments tap header comment hide replies thread fold"),
+    // ISSUE284_POST_TEXT_COLLAPSES_LIKE_A_COMMENT_V1
+    setting("collapsible-post-text", "Comments", "collapse post text self text body title hide fold long"),
 
     setting("notifications", "Notifications", "inbox notifications background activity messages Reddit 15 minute"),
     setting("notification-types", "Notifications", "notification types categories replies mentions private messages Reddit notices Modmail"),
@@ -143,6 +147,8 @@ internal val settingsSearchEntries: List<SettingsSearchEntry> = listOf(
             "private notes tags keep newest retention before restore safety snapshots",
     ),
 
+    // ISSUE286_SETTINGS_UPDATES_V1
+    setting("updates", "About", "updates update version latest check now install download apk new release beta"),
     setting(
         "about",
         "About",

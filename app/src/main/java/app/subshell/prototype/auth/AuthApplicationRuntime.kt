@@ -210,6 +210,8 @@ internal data class AuthApplicationRuntime(
     val redditAccountHistoryCommentLoader: AuthenticatedRedditAccountHistoryCommentLoader? = null,
     val redditAccountHistoryUpdater: AuthenticatedRedditAccountHistoryUpdater? = null,
     val redditSavedHistoryLoader: AuthenticatedRedditSavedHistoryLoader? = null,
+    // REDDITEXPORT01_EXPORT_YOUR_REDDIT_DATA_V1
+    val redditDataExportReader: app.subshell.prototype.data.auth.reddit.RedditDataExportReader? = null,
     val messageReplyWriter: AuthenticatedRedditMessageReplyWriter? = null,
     val directChatLiveReader: AuthenticatedRedditDirectChatLiveReader? = null,
     // SUBSHELL_MESSAGES02D2B_OUTBOUND_TYPING_RUNTIME_V1
@@ -1213,6 +1215,21 @@ internal object AuthApplicationRuntimeFactory {
             } else {
                 null
             }
+        val dataExportReader =
+            if (
+                profileHistorySelection != null &&
+                profileHistorySelection.configuration.clientMode ==
+                    configuration.clientMode
+            ) {
+                app.subshell.prototype.data.auth.reddit.RedditDataExportReader(
+                    callFactory = callFactory,
+                    endpoint = NetworkEndpoint.https(RedditOAuth.apiEndpoint),
+                    userAgent = profileHistorySelection.userAgent,
+                    capability = requireNotNull(profileHistoryCapability),
+                )
+            } else {
+                null
+            }
 
         val directChat = directChatRuntimeParts(
             appContext = appContext,
@@ -1402,6 +1419,7 @@ internal object AuthApplicationRuntimeFactory {
             redditProfileCommentsLoader = profileCommentsLoader,
             redditAccountHistoryCommentLoader = profileCommentsLoader,
             redditAccountHistoryUpdater = accountHistoryUpdater,
+            redditDataExportReader = dataExportReader,
             redditSavedHistoryLoader = readLoaders.redditSavedHistoryLoader,
             redditCommentLoader = readLoaders.redditCommentLoader,
             redditSubscriptionsLoader = readLoaders.redditSubscriptionsLoader,

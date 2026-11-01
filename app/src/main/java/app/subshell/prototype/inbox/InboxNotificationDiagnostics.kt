@@ -15,6 +15,7 @@ import androidx.work.WorkManager
 import app.subshell.prototype.communityposts.COMMUNITY_COMMENTS_NOTIFICATION_CHANNEL_ID
 import app.subshell.prototype.communityposts.COMMUNITY_POSTS_NOTIFICATION_CHANNEL_ID
 import app.subshell.prototype.data.diagnostics.NotificationDiagnostics
+import app.subshell.prototype.export.REDDIT_EXPORT_CHANNEL_ID
 import app.subshell.prototype.offline.OFFLINE_SAVE_CHANNEL_ID
 import app.subshell.prototype.update.UpdateNotificationCenter
 import java.util.Locale
@@ -85,6 +86,7 @@ private val DIAGNOSED_CHANNEL_IDS = listOf(
     COMMUNITY_COMMENTS_NOTIFICATION_CHANNEL_ID,
     UpdateNotificationCenter.CHANNEL_ID,
     OFFLINE_SAVE_CHANNEL_ID,
+    REDDIT_EXPORT_CHANNEL_ID,
 )
 
 private fun notificationChannelImportance(context: Context): Map<String, String> {

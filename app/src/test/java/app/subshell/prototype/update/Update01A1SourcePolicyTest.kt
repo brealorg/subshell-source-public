@@ -9,12 +9,18 @@ class Update01A1SourcePolicyTest {
     private val root = File(requireNotNull(System.getProperty("user.dir"))).parentFile
 
     @Test
-    fun manifestOwnsPackageReplacedReceiverWithoutInstallerPermission() {
+    fun manifestOwnsPackageReplacedReceiverAndOnlyItsOwnInstallerAnswer() {
         val manifest = source("app/src/main/AndroidManifest.xml")
         assertTrue(manifest.contains("UpdatePackageReplacedReceiver"))
         assertTrue(manifest.contains("android.intent.action.MY_PACKAGE_REPLACED"))
         assertTrue(manifest.contains("android:exported=\"false\""))
-        assertFalse(manifest.contains("REQUEST_INSTALL_PACKAGES"))
+        // ISSUE286: the install permission comes with a receiver no other app can call.
+        assertTrue(manifest.contains("REQUEST_INSTALL_PACKAGES"))
+        assertTrue(
+            manifest.contains(
+                "android:name=\".update.UpdateInstallResultReceiver\"\n            android:exported=\"false\"",
+            ),
+        )
     }
 
     @Test
@@ -44,7 +50,7 @@ class Update01A1SourcePolicyTest {
     }
 
     @Test
-    fun playCoreAndSelfInstallerRemainOutOfScope() {
+    fun playCoreRemainsOutOfScope() {
         val updateDirectory = File(
             root,
             "app/src/main/java/app/subshell/prototype/update",
@@ -54,7 +60,6 @@ class Update01A1SourcePolicyTest {
         val gradle = source("app/build.gradle.kts")
 
         assertFalse(updateDirectory.contains("AppUpdateManager"))
-        assertFalse(updateDirectory.contains("REQUEST_INSTALL_PACKAGES"))
         assertFalse(gradle.contains("app-update"))
     }
 

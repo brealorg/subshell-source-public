@@ -162,6 +162,9 @@ data class SubshellSettings(
     // ISSUE239_NEW_COMMENTS_IN_A_WATCHED_COMMUNITY_V1 (owner 2026-10-29): off by
     // default; watched communities also notify about new comments.
     val notifyNewComments: Boolean = false,
+    // ISSUE284_POST_TEXT_COLLAPSES_LIKE_A_COMMENT_V1 (owner, #284): off by
+    // default; on the post screen a tap on the title hides the post's text.
+    val collapsiblePostText: Boolean = false,
     val contentFilters: ContentFilters = ContentFilters(),
     val communitySortPreferences: Map<String, CommunitySort> = emptyMap(),
     val listingTimePeriod: RedditListingTimePeriod = RedditListingTimePeriod.ALL,
@@ -252,6 +255,7 @@ data class SubshellSettings(
         SENSITIVE_MEDIA_PREVIEW_MODE to sensitiveMediaPreviewMode.name,
         SHOW_NSFW_MEDIA to showNsfwMedia.toString(),
         NOTIFY_NEW_COMMENTS to notifyNewComments.toString(),
+        COLLAPSIBLE_POST_TEXT to collapsiblePostText.toString(),
         COMMUNITY_SORT_PREFERENCES to encodeCommunitySortPreferences(communitySortPreferences),
         LISTING_TIME_PERIOD to listingTimePeriod.name,
         DRAWER_COMMUNITIES_MODE to drawerCommunitiesMode.name,
@@ -335,6 +339,7 @@ data class SubshellSettings(
         const val SENSITIVE_MEDIA_PREVIEW_MODE = "sensitive_media_preview_mode"
         const val SHOW_NSFW_MEDIA = "show_nsfw_media"
         const val NOTIFY_NEW_COMMENTS = "notify_new_comments"
+        const val COLLAPSIBLE_POST_TEXT = "collapsible_post_text"
         const val COMMENT_VISIT_HISTORY = "comment_visit_history"
         const val COMMUNITY_SORT_PREFERENCES = "community_sort_preferences"
         const val LISTING_TIME_PERIOD = "listing_time_period"
@@ -435,6 +440,7 @@ data class SubshellSettings(
             SENSITIVE_MEDIA_PREVIEW_MODE,
             SHOW_NSFW_MEDIA,
             NOTIFY_NEW_COMMENTS,
+            COLLAPSIBLE_POST_TEXT,
             COMMUNITY_SORT_PREFERENCES,
             LISTING_TIME_PERIOD,
             DRAWER_COMMUNITIES_MODE,
@@ -642,6 +648,7 @@ data class SubshellSettings(
                 ),
                 showNsfwMedia = booleanValue(SHOW_NSFW_MEDIA, compatibleValues),
                 notifyNewComments = booleanValue(NOTIFY_NEW_COMMENTS, compatibleValues),
+                collapsiblePostText = booleanValue(COLLAPSIBLE_POST_TEXT, compatibleValues),
                 contentFilters = ContentFilters.fromStorageMap(compatibleValues),
                 communitySortPreferences = decodeCommunitySortPreferences(
                     compatibleValues.getValue(COMMUNITY_SORT_PREFERENCES),
