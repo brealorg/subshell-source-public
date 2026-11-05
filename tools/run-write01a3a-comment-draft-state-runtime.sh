@@ -8,7 +8,7 @@ TEST_PACKAGE='io.github.brealorg.subshell.debug.dev2.test'
 APP_APK="$ROOT/app/build/outputs/apk/debug/app-debug.apk"
 TEST_APK="$ROOT/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
 RUNNER="$TEST_PACKAGE/androidx.test.runner.AndroidJUnitRunner"
-TEST_CLASS='app.subshell.prototype.ui.Write01a3aCommentDraftStateInstrumentedTest'
+TEST_CLASS='io.github.brealorg.subshell.ui.Write01a3aCommentDraftStateInstrumentedTest'
 LOG_TAG='subshell-write01a3a'
 
 fail() { printf 'FAIL=%s\n' "$1" >&2; exit 1; }

@@ -257,7 +257,7 @@ def public_record_text(
         "",
         f"public_repository={repo}",
         f"public_release_target_commit={public_target}",
-        "public_release_prerelease=YES",
+        "public_release_prerelease=NO",
         f"public_release_url=https://github.com/{repo}/releases/tag/{tag}",
         "",
         "release_gate=PASS",
@@ -336,8 +336,11 @@ def verify_release_payload(
         fail("REMOTE_TAG_MISMATCH")
     if target != public_target:
         fail("REMOTE_PUBLIC_TARGET_MISMATCH")
-    if prerelease is not True:
-        fail("REMOTE_RELEASE_NOT_PRERELEASE")
+    # RELEASE48_RELEASES_ARE_NOT_PRERELEASES_V1 (#48): a published version is a
+    # full GitHub release marked Latest, so /releases/latest and tools that skip
+    # pre-releases (Obtainium's default) find it; "-beta" in a name is just a name.
+    if prerelease is not False:
+        fail("REMOTE_RELEASE_IS_PRERELEASE")
     if draft is not False:
         fail("REMOTE_RELEASE_IS_DRAFT")
     if name != title:
@@ -441,7 +444,7 @@ def release_create(
         title,
         "--notes-file",
         str(notes_file),
-        "--prerelease",
+        "--latest",
     ]
     run(argv)
 

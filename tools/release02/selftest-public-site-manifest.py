@@ -114,7 +114,7 @@ assert '"channel": "beta"' in text
 payload = {
     "tag_name": "v0.80.0-beta.1",
     "target_commitish": "3" * 40,
-    "prerelease": True,
+    "prerelease": False,
     "draft": False,
     "published_at": "2026-10-01T12:00:00Z",
     "html_url": release["releaseUrl"],
@@ -175,6 +175,18 @@ expect_error(
         "0.80.0-beta.1",
     ),
     "CURRENT_VERSION_ALREADY_PRESENT",
+)
+
+# RELEASE48_RELEASES_ARE_NOT_PRERELEASES_V1
+prerelease_payload = dict(payload)
+prerelease_payload["prerelease"] = True
+expect_error(
+    lambda: module.verify_remote_release(
+        prerelease_payload,
+        state=state,
+        repo="brealorg/subshell",
+    ),
+    "REMOTE_RELEASE_IS_PRERELEASE",
 )
 
 bad_payload = dict(payload)

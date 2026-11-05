@@ -6,7 +6,7 @@ SERIAL="${DATA01_ADB_SERIAL:-19021FDF600GBN}"
 APP_APK="$ROOT/app/build/outputs/apk/debug/app-debug.apk"
 TEST_APK="$ROOT/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
 RUNNER='io.github.brealorg.subshell.debug.test/androidx.test.runner.AndroidJUnitRunner'
-TEST_CLASS='app.subshell.prototype.data.DataRepositoryInstrumentedTest'
+TEST_CLASS='io.github.brealorg.subshell.data.DataRepositoryInstrumentedTest'
 LOG_TAG='subshell-data01'
 
 fail() {

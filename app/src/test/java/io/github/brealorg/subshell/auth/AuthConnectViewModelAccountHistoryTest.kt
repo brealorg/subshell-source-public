@@ -1,0 +1,67 @@
+package io.github.brealorg.subshell.auth
+
+import android.app.Application
+import android.os.Looper
+import androidx.test.core.app.ApplicationProvider
+import io.github.brealorg.subshell.data.RedditAccountHistoryKind
+import io.github.brealorg.subshell.data.RepositoryLoadOperation
+import io.github.brealorg.subshell.data.auth.AuthenticatedRedditAccountHistoryUpdateResult
+import io.github.brealorg.subshell.data.auth.AuthenticatedRedditAccountHistoryUpdater
+import io.github.brealorg.subshell.data.auth.AuthenticatedRedditSavedHistoryLoader
+import io.github.brealorg.subshell.data.auth.AuthenticatedRedditSavedHistoryResult
+import org.junit.Assert.assertEquals
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.Config
+
+/**
+ * STEP3 (profile01a6, savedcomments01a2): the ViewModel hands a profile's
+ * post history to the runtime's account-history updater and its Saved list
+ * to the runtime's saved-history loader.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [36])
+class AuthConnectViewModelAccountHistoryTest {
+    @Test
+    fun postHistoryAndSavedReachTheRuntimesReaders() {
+        val history = mutableListOf<String>()
+        val saved = mutableListOf<String>()
+        val updater = AuthenticatedRedditAccountHistoryUpdater { account, username, kind, operation ->
+            history += "$account:$username:$kind:$operation"
+            AuthenticatedRedditAccountHistoryUpdateResult.AuthorizationRequired
+        }
+        val loader = object : AuthenticatedRedditSavedHistoryLoader {
+            override suspend fun cached(accountStableId: String, username: String) =
+                AuthenticatedRedditSavedHistoryResult.NotCached
+
+            override suspend fun synchronize(accountStableId: String, username: String): AuthenticatedRedditSavedHistoryResult {
+                saved += "$accountStableId:$username"
+                return AuthenticatedRedditSavedHistoryResult.AuthorizationRequired
+            }
+
+            override suspend fun append(accountStableId: String, username: String, after: String) =
+                AuthenticatedRedditSavedHistoryResult.AuthorizationRequired
+        }
+        val viewModel = AuthConnectViewModel(
+            ApplicationProvider.getApplicationContext<Application>(),
+            unavailableAuthApplicationRuntime().copy(
+                redditAccountHistoryUpdater = updater,
+                redditSavedHistoryLoader = loader,
+            ),
+        )
+
+        viewModel.reading().refreshRedditAccountHistory("reddit:test", "alice", RedditAccountHistoryKind.UPVOTED)
+        idle()
+        viewModel.reading().refreshRedditSavedHistory("reddit:test", "alice")
+        idle()
+
+        assertEquals(listOf("reddit:test:alice:UPVOTED:${RepositoryLoadOperation.REFRESH}"), history)
+        assertEquals(listOf("reddit:test:alice"), saved)
+        assertEquals(RedditAccountHistoryKind.UPVOTED, viewModel.reading().redditAccountHistoryUiState.value.kind)
+        assertEquals("alice", viewModel.reading().redditSavedHistoryUiState.value.username)
+    }
+
+    private fun idle() = shadowOf(Looper.getMainLooper()).idle()
+}

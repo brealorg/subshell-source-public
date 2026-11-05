@@ -34,7 +34,7 @@ PROFILE=app/src/main/baseline-prof.txt
 
 ADB=(adb -s "$SERIAL")
 TARGET="io.github.brealorg.subshell.debug.$LANE"
-GENERATOR=app.subshell.prototype.benchmark
+GENERATOR=io.github.brealorg.subshell.benchmark
 DEVICE_FILE="/sdcard/Android/media/$GENERATOR/BaselineProfileGenerator_coldStart-startup-prof.txt"
 
 [[ "$("${ADB[@]}" get-state 2>/dev/null || true)" == device ]] || stop DEVICE_NOT_ATTACHED
@@ -60,7 +60,7 @@ restore_lane() {
 }
 
 "${ADB[@]}" shell am instrument -w \
-    -e class app.subshell.prototype.benchmark.BaselineProfileGenerator \
+    -e class io.github.brealorg.subshell.benchmark.BaselineProfileGenerator \
     -e androidx.benchmark.suppressErrors EMULATOR \
     -e targetPackage "$TARGET" \
     "$GENERATOR/androidx.test.runner.AndroidJUnitRunner" >"$TMP/instrument.log" 2>&1 || true

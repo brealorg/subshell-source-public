@@ -188,7 +188,7 @@ private val AUTH05C_DEBUG_APPLICATION_ID =
     AUTH05C_FINAL_APPLICATION_ID + AUTH05C_DEBUG_APPLICATION_ID_SUFFIX
 private val AUTH05C_TEST_APPLICATION_ID =
     AUTH05C_DEBUG_APPLICATION_ID + ".test"
-private val AUTH05C_COMPONENT_NAMESPACE = "app.subshell.prototype"
+private val AUTH05C_COMPONENT_NAMESPACE = "io.github.brealorg.subshell"
 
 // Optional parallel debug installations. Canonical debug remains the default.
 private val subshellDebugSlots = setOf("dev1", "dev2")
@@ -399,12 +399,10 @@ private fun auth05IdentityFailure(message: String): Nothing =
     throw GradleException("AUTH05 production identity rejected: $message")
 
 private fun isReservedAuth05ApplicationId(applicationId: String): Boolean =
-    applicationId == "app.subshell.prototype" ||
-        applicationId.startsWith("android.") ||
+    applicationId.startsWith("android.") ||
         applicationId.startsWith("com.example.") ||
         applicationId.startsWith("org.example.") ||
         applicationId.startsWith("net.example.") ||
-        applicationId.endsWith(".prototype") ||
         applicationId.endsWith(".debug") ||
         applicationId.endsWith(".dev") ||
         applicationId.endsWith(".test") ||
@@ -1298,11 +1296,6 @@ val verifyAuth05ProductionIdentityPolicy =
                 signingCertSha256 = fixtureFingerprint,
             )
             expectRejected(
-                label = "CURRENT_PROTOTYPE_IDENTITY",
-                applicationId = "app.subshell.prototype",
-                signingCertSha256 = fixtureFingerprint,
-            )
-            expectRejected(
                 label = "EXAMPLE_PREFIX",
                 applicationId = "org.example.subshell",
                 signingCertSha256 = fixtureFingerprint,
@@ -1357,13 +1350,14 @@ val verifyAuth05cApplicationIdPolicy =
             check(AUTH05C_FINAL_APPLICATION_ID == "io.github.brealorg.subshell")
             check(AUTH05C_DEBUG_APPLICATION_ID == "io.github.brealorg.subshell.debug")
             check(AUTH05C_TEST_APPLICATION_ID == "io.github.brealorg.subshell.debug.test")
-            check(AUTH05C_COMPONENT_NAMESPACE == "app.subshell.prototype")
-            check(AUTH05C_FINAL_APPLICATION_ID != AUTH05C_COMPONENT_NAMESPACE)
+            check(AUTH05C_COMPONENT_NAMESPACE == "io.github.brealorg.subshell")
+            // #42: the Kotlin namespace now is the application id (the deferred migration is done).
+            check(AUTH05C_FINAL_APPLICATION_ID == AUTH05C_COMPONENT_NAMESPACE)
             check(auth05ApplicationIdMigrationApplied)
             println("PASS=AUTH05C_FINAL_APPLICATION_ID_SELECTED")
             println("PASS=AUTH05C_DEBUG_APPLICATION_ID_SUFFIXED")
             println("PASS=AUTH05C_TEST_APPLICATION_ID_LOCKED")
-            println("PASS=AUTH05C_KOTLIN_NAMESPACE_DEFERRED")
+            println("PASS=AUTH05C_KOTLIN_NAMESPACE_IS_THE_APPLICATION_ID")
             println("PASS=AUTH05C_RELEASE_SIGNING_CONFIGURED_BY_AUTH05D2")
             println("RESULT=SUBSHELL_AUTH05C_APPLICATION_ID_POLICY_PASS")
         }

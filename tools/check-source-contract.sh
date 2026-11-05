@@ -3,6 +3,7 @@
 set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+. "$ROOT/tools/lib/source-paths.sh"
 # VIDEO00 (#227): the video player moved verbatim from MediaComponents.kt into
 # VideoPlayer.kt, VideoPlaybackPanels.kt and FullscreenVideoGestures.kt; media pins
 # read the four files together, so negative pins cover all four.
@@ -177,130 +178,130 @@ require_file() {
 }
 
 for FILE in \
-    app/src/main/java/app/subshell/prototype/MainActivity.kt \
-    app/src/main/java/app/subshell/prototype/media/VideoPlaybackViewModel.kt \
-    app/src/main/java/app/subshell/prototype/media/VideoMediaCache.kt \
-    app/src/main/java/app/subshell/prototype/media/VideoNetworkPolicy.kt \
-    app/src/main/java/app/subshell/prototype/media/RemoteImageLoader.kt \
-    app/src/main/java/app/subshell/prototype/media/VideoTrackDiagnostics.kt \
-    app/src/main/java/app/subshell/prototype/media/VideoTrackSelection.kt \
-    app/src/main/java/app/subshell/prototype/model/Models.kt \
-    app/src/main/java/app/subshell/prototype/data/SampleData.kt \
-    app/src/main/java/app/subshell/prototype/data/SubshellRepository.kt \
-    app/src/main/java/app/subshell/prototype/data/RepositoryPaging.kt \
-    app/src/main/java/app/subshell/prototype/data/FakeSubshellRepository.kt \
-    app/src/main/java/app/subshell/prototype/data/LocalMutationReplay.kt \
-    app/src/main/java/app/subshell/prototype/data/error/FailureDetails.kt \
-    app/src/main/java/app/subshell/prototype/data/error/FailureDetailItems.kt \
-    app/src/main/java/app/subshell/prototype/data/error/RedditWriteFailureDetails.kt \
-    app/src/main/java/app/subshell/prototype/backup/BackupFailures.kt \
-    app/src/main/java/app/subshell/prototype/data/network/NetworkModels.kt \
-    app/src/main/java/app/subshell/prototype/data/network/NetworkEndpoint.kt \
-    app/src/main/java/app/subshell/prototype/data/network/SubshellHttpClient.kt \
-    app/src/main/java/app/subshell/prototype/data/network/reddit/RedditCommentDtos.kt \
-    app/src/main/java/app/subshell/prototype/data/network/reddit/RedditCommentNetworkDataSource.kt \
-    app/src/main/java/app/subshell/prototype/data/network/reddit/RedditCommentSubmitDtos.kt \
-    app/src/main/java/app/subshell/prototype/data/network/reddit/RedditCommentSubmitNetworkDataSource.kt \
-    app/src/main/java/app/subshell/prototype/data/network/reddit/RedditMediaUploadNetworkDataSource.kt \
-    app/src/main/java/app/subshell/prototype/data/network/reddit/RedditListingDtos.kt \
-    app/src/main/java/app/subshell/prototype/data/network/reddit/RedditListingNetworkDataSource.kt \
-    app/src/main/java/app/subshell/prototype/data/network/reddit/RedditSubscriptionNetworkDataSource.kt \
-    app/src/main/java/app/subshell/prototype/data/network/reddit/RedditCommunityDiscoveryNetworkDataSource.kt \
-    app/src/main/java/app/subshell/prototype/data/network/reddit/RedditPeopleSearchNetworkDataSource.kt \
-    app/src/main/java/app/subshell/prototype/data/network/reddit/RedditPostFeedNetworkSource.kt \
-    app/src/main/java/app/subshell/prototype/data/network/reddit/RedditPostVoteNetworkDataSource.kt \
-    app/src/main/java/app/subshell/prototype/data/network/reddit/RedditPostSaveNetworkDataSource.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/AuthModels.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/AuthFailureDetails.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/AuthStorage.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/OAuthConfiguration.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/OAuthHttpClient.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/OAuthSessionManager.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/reddit/RedditOAuth.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/reddit/RedditCommentSubmitter.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/reddit/RedditPostVoter.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/reddit/RedditPostSaver.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/reddit/RedditMediaUploadSource.kt \
-    app/src/main/java/app/subshell/prototype/data/account/AccountSessionDirectory.kt \
-    app/src/main/java/app/subshell/prototype/data/account/ConnectAccountFlow.kt \
-    app/src/main/java/app/subshell/prototype/data/account/CommentWriteFlow.kt \
-    app/src/main/java/app/subshell/prototype/data/account/PostVoteFlow.kt \
-    app/src/main/java/app/subshell/prototype/data/account/PostSaveFlow.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/AuthConnectFlowController.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/OAuthIdentityClient.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/AuthAccountSessionCoordinator.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/AuthCommentWriteCapability.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/AuthenticatedRedditBootstrap.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/AuthenticatedRedditSubscriptions.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/AuthenticatedRedditCommunityDiscovery.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/reddit/RedditAccountIdentityClient.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/reddit/RedditCommentLoader.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/reddit/RedditSubscriptionsLoader.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/reddit/RedditCommunityDiscoveryLoader.kt \
-    app/src/main/java/app/subshell/prototype/data/auth/reddit/RedditBootstrapper.kt \
-    app/src/main/java/app/subshell/prototype/auth/AuthBrowserLauncher.kt \
-    app/src/main/java/app/subshell/prototype/auth/RedReaderCompatibilityLoginActivity.kt \
-    app/src/main/java/app/subshell/prototype/auth/AuthCallbackActivity.kt \
-    app/src/main/java/app/subshell/prototype/auth/AuthApplicationRuntime.kt \
-    app/src/main/java/app/subshell/prototype/auth/RedditCompatibilityConfigurationController.kt \
-    app/src/main/java/app/subshell/prototype/auth/AuthConnectViewModel.kt \
-    app/src/main/java/app/subshell/prototype/auth/CommentWriteCoordinator.kt \
-    app/src/main/java/app/subshell/prototype/auth/PostVoteCoordinator.kt \
-    app/src/main/java/app/subshell/prototype/auth/PostSaveCoordinator.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/MainActivity.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/media/VideoPlaybackViewModel.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/media/VideoMediaCache.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/media/VideoNetworkPolicy.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/media/RemoteImageLoader.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/media/VideoTrackDiagnostics.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/media/VideoTrackSelection.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/model/Models.kt \
+    app/src/debug/java/${SUBSHELL_PKG_DIR}/data/SampleData.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/SubshellRepository.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/RepositoryPaging.kt \
+    app/src/debug/java/${SUBSHELL_PKG_DIR}/data/FakeSubshellRepository.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/LocalMutationReplay.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/error/FailureDetails.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/error/FailureDetailItems.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/error/RedditWriteFailureDetails.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/backup/BackupFailures.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/network/NetworkModels.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/network/NetworkEndpoint.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/network/SubshellHttpClient.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/network/reddit/RedditCommentDtos.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/network/reddit/RedditCommentNetworkDataSource.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/network/reddit/RedditCommentSubmitDtos.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/network/reddit/RedditCommentSubmitNetworkDataSource.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/network/reddit/RedditMediaUploadNetworkDataSource.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/network/reddit/RedditListingDtos.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/network/reddit/RedditListingNetworkDataSource.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/network/reddit/RedditSubscriptionNetworkDataSource.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/network/reddit/RedditCommunityDiscoveryNetworkDataSource.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/network/reddit/RedditPeopleSearchNetworkDataSource.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/network/reddit/RedditPostFeedNetworkSource.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/network/reddit/RedditPostVoteNetworkDataSource.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/network/reddit/RedditPostSaveNetworkDataSource.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/AuthModels.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/AuthFailureDetails.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/AuthStorage.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/OAuthConfiguration.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/OAuthHttpClient.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/OAuthSessionManager.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/reddit/RedditOAuth.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/reddit/RedditCommentSubmitter.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/reddit/RedditPostVoter.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/reddit/RedditPostSaver.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/reddit/RedditMediaUploadSource.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/account/AccountSessionDirectory.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/account/ConnectAccountFlow.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/account/CommentWriteFlow.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/account/PostVoteFlow.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/account/PostSaveFlow.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/AuthConnectFlowController.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/OAuthIdentityClient.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/AuthAccountSessionCoordinator.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/AuthCommentWriteCapability.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/AuthenticatedRedditBootstrap.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/AuthenticatedRedditSubscriptions.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/AuthenticatedRedditCommunityDiscovery.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/reddit/RedditAccountIdentityClient.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/reddit/RedditCommentLoader.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/reddit/RedditSubscriptionsLoader.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/reddit/RedditCommunityDiscoveryLoader.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/reddit/RedditBootstrapper.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/auth/AuthBrowserLauncher.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/auth/RedReaderCompatibilityLoginActivity.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/auth/AuthCallbackActivity.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/auth/AuthApplicationRuntime.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/auth/RedditCompatibilityConfigurationController.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/auth/AuthConnectViewModel.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/auth/CommentWriteCoordinator.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/auth/PostVoteCoordinator.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/auth/PostSaveCoordinator.kt \
     app/src/main/AndroidManifest.xml \
     app/src/release/AndroidManifest.xml \
-    app/src/main/java/app/subshell/prototype/data/sync/PostFeedSync.kt \
-    app/src/main/java/app/subshell/prototype/data/PersistentSubshellRepository.kt \
-    app/src/main/java/app/subshell/prototype/data/cache/SubshellCacheCodec.kt \
-    app/src/main/java/app/subshell/prototype/data/cache/SubshellCacheDatabase.kt \
-    app/src/main/java/app/subshell/prototype/data/cache/RoomSubshellCacheStore.kt \
-    app/src/main/java/app/subshell/prototype/ui/SubshellApp.kt \
-    app/src/main/java/app/subshell/prototype/ui/DrawerDynamicGroups.kt \
-    app/src/main/java/app/subshell/prototype/ui/SubshellState.kt \
-    app/src/main/java/app/subshell/prototype/ui/SearchFoundation.kt \
-    app/src/main/java/app/subshell/prototype/ui/FeedPostRoute.kt \
-    app/src/main/java/app/subshell/prototype/ui/RedditTarget.kt \
-    app/src/main/java/app/subshell/prototype/ui/RedditLinkHandling.kt \
-    app/src/main/java/app/subshell/prototype/ui/SubshellRouteStack.kt \
-    app/src/main/java/app/subshell/prototype/ui/FeedScrollAnchor.kt \
-    app/src/main/java/app/subshell/prototype/ui/FeedPaging.kt \
-    app/src/main/java/app/subshell/prototype/ui/SubshellProcessState.kt \
-    app/src/main/java/app/subshell/prototype/ui/SubshellSettings.kt \
-    app/src/main/java/app/subshell/prototype/ui/PostSystemActions.kt \
-    app/src/main/java/app/subshell/prototype/ui/MediaPostActions.kt \
-    app/src/main/java/app/subshell/prototype/ui/VideoDownloadUi.kt \
-    app/src/main/java/app/subshell/prototype/ui/CodeFont.kt \
-    app/src/main/java/app/subshell/prototype/ui/PostComposer.kt \
-    app/src/main/java/app/subshell/prototype/ui/CommentComposerState.kt \
-    app/src/main/java/app/subshell/prototype/ui/theme/Theme.kt \
-    app/src/main/java/app/subshell/prototype/ui/CommunityPostSorting.kt \
-    app/src/main/java/app/subshell/prototype/backup/SettingsBackup.kt \
-    app/src/main/java/app/subshell/prototype/backup/SettingsBackupStore.kt \
-    app/src/main/java/app/subshell/prototype/backup/SettingsBackupVault.kt \
-    app/src/main/java/app/subshell/prototype/backup/SettingsBackupRepository.kt \
-    app/src/main/java/app/subshell/prototype/ui/error/ErrorPresentation.kt \
-    app/src/main/java/app/subshell/prototype/ui/error/RedditReadErrorPresentations.kt \
-    app/src/main/java/app/subshell/prototype/ui/error/MediaErrorPresentations.kt \
-    app/src/main/java/app/subshell/prototype/ui/error/BackupErrorPresentations.kt \
-    app/src/main/java/app/subshell/prototype/ui/error/RedditWriteErrorPresentations.kt \
-    app/src/main/java/app/subshell/prototype/ui/error/ViewportErrorHost.kt \
-    app/src/main/java/app/subshell/prototype/ui/components/Common.kt \
-    app/src/main/java/app/subshell/prototype/ui/components/ErrorNotice.kt \
-    app/src/main/java/app/subshell/prototype/ui/components/ViewportErrorTray.kt \
-    app/src/main/java/app/subshell/prototype/ui/components/PagingComponents.kt \
-    app/src/main/java/app/subshell/prototype/ui/components/MediaComponents.kt \
-    app/src/main/java/app/subshell/prototype/ui/components/MarkdownText.kt \
-    app/src/main/java/app/subshell/prototype/ui/screens/CreatePostScreen.kt \
-    app/src/main/java/app/subshell/prototype/ui/screens/PostFlairPickerSheet.kt \
-    app/src/main/java/app/subshell/prototype/ui/screens/CommentComposerScreen.kt \
-    app/src/main/java/app/subshell/prototype/ui/screens/HomeScreen.kt \
-    app/src/main/java/app/subshell/prototype/ui/screens/SearchScreen.kt \
-    app/src/main/java/app/subshell/prototype/ui/screens/MediaViewerScreen.kt \
-    app/src/main/java/app/subshell/prototype/ui/screens/PostScreen.kt \
-    app/src/main/java/app/subshell/prototype/ui/screens/CommunityScreen.kt \
-    app/src/main/java/app/subshell/prototype/ui/screens/SettingsScreen.kt \
-    app/src/main/java/app/subshell/prototype/ui/screens/BackupRestoreScreen.kt \
-    app/src/main/java/app/subshell/prototype/ui/screens/BackupFolderOnboarding.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/sync/PostFeedSync.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/PersistentSubshellRepository.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/cache/SubshellCacheCodec.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/cache/SubshellCacheDatabase.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/data/cache/RoomSubshellCacheStore.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/SubshellApp.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/DrawerDynamicGroups.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/SubshellState.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/SearchFoundation.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/FeedPostRoute.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/RedditTarget.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/RedditLinkHandling.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/SubshellRouteStack.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/FeedScrollAnchor.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/FeedPaging.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/SubshellProcessState.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/SubshellSettings.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/PostSystemActions.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/MediaPostActions.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/VideoDownloadUi.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/CodeFont.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/PostComposer.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/CommentComposerState.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/theme/Theme.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/CommunityPostSorting.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/backup/SettingsBackup.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/backup/SettingsBackupStore.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/backup/SettingsBackupVault.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/backup/SettingsBackupRepository.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/error/ErrorPresentation.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/error/RedditReadErrorPresentations.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/error/MediaErrorPresentations.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/error/BackupErrorPresentations.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/error/RedditWriteErrorPresentations.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/error/ViewportErrorHost.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/components/Common.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/components/ErrorNotice.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/components/ViewportErrorTray.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/components/PagingComponents.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/components/MediaComponents.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/components/MarkdownText.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/screens/CreatePostScreen.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/screens/PostFlairPickerSheet.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/screens/CommentComposerScreen.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/screens/HomeScreen.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/screens/SearchScreen.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/screens/MediaViewerScreen.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/screens/PostScreen.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/screens/CommunityScreen.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/screens/SettingsScreen.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/screens/BackupRestoreScreen.kt \
+    app/src/main/java/${SUBSHELL_PKG_DIR}/ui/screens/BackupFolderOnboarding.kt \
     app/src/main/res/drawable/ic_subshell_in_app.xml \
     app/src/main/res/drawable/ic_subshell_foreground.xml \
     app/src/main/res/drawable/ic_subshell_monochrome.xml \
@@ -316,64 +317,64 @@ for FILE in \
     third_party/fonts/JETBRAINS_MONO_OFL.txt \
     third_party/fonts/IOSEVKA_OFL.txt \
     third_party/fonts/RECURSIVE_OFL.txt \
-    app/src/test/java/app/subshell/prototype/SampleDataContractTest.kt \
-    app/src/test/java/app/subshell/prototype/data/FakeSubshellRepositoryContractTest.kt \
-    app/src/test/java/app/subshell/prototype/data/RepositoryPagingPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/data/LocalMutationReplayPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/data/error/Error01a1ErrorPresentationPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/data/error/Error01a2CoreRedditReadErrorPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/data/error/Error01a3MediaBackupErrorPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/data/error/Error01a4RedditWriteErrorPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/data/error/Error01a5FinalErrorAuditPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/data/auth/reddit/Vote01PostVotePolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/data/auth/reddit/HomeAction01PostActionsPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/screens/MediaViewerGesturePolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/error/Error01a22ViewportErrorHostPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/data/network/NetworkPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/data/network/reddit/RedditCommunityDiscoveryNetworkDataSourceTest.kt \
-    app/src/test/java/app/subshell/prototype/data/network/reddit/RedditPeopleSearchNetworkDataSourceTest.kt \
-    app/src/test/java/app/subshell/prototype/data/network/reddit/RedditCommentSubmitPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/data/account/CommentWriteFlowPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/data/auth/AuthPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/AccountSessionIntegrationPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/ActiveAccountSelectionPersistencePolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/Auth03ConnectAccountPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/data/auth/Auth06bRedReaderCompatibilityPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/data/auth/Auth06cLiveReadOnlyPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/data/auth/reddit/RedditCommunityDiscoveryLoaderTest.kt \
-    app/src/test/java/app/subshell/prototype/data/auth/reddit/RedditPeopleSearchLoaderTest.kt \
-    app/src/test/java/app/subshell/prototype/data/auth/reddit/RedditComposerPolicyLoaderTest.kt \
-    app/src/test/java/app/subshell/prototype/data/auth/reddit/RedditMediaUploadSourcePolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/data/network/reddit/RedditMediaUploadNetworkPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/data/sync/PostFeedSyncPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/data/cache/SubshellCacheCodecPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/SettingsBackupContractTest.kt \
-    app/src/test/java/app/subshell/prototype/PostComposerContractTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/CommentComposerStatePolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/NavigationLifecycleStateTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/FeedPostRoutePolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/RedditTargetResolverTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/RedditLinkHandlingPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/Search01FoundationPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/Search01StateIntegrationPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/Search01BWorkspacePolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/Search01CFederatedProvidersPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/Search01C2LivePeoplePolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/SubshellRouteStackPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/FeedScrollAnchorPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/SubshellProcessStatePolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/DrawerDynamicGroupsPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/SubsExploreShortcutPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/CommunityFavoritesPersistenceTest.kt \
-    app/src/test/java/app/subshell/prototype/media/VideoPlaybackOwnershipPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/media/VideoMediaCachePolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/media/VideoNetworkPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/media/VideoTrackDiagnosticsTest.kt \
-    app/src/test/java/app/subshell/prototype/media/VideoTrackSelectionTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/SampleDataContractTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/FakeSubshellRepositoryContractTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/RepositoryPagingPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/LocalMutationReplayPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/error/Error01a1ErrorPresentationPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/error/Error01a2CoreRedditReadErrorPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/error/Error01a3MediaBackupErrorPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/error/Error01a4RedditWriteErrorPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/error/Error01a5FinalErrorAuditPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/auth/reddit/Vote01PostVotePolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/auth/reddit/HomeAction01PostActionsPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/screens/MediaViewerGesturePolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/error/Error01a22ViewportErrorHostPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/network/NetworkPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/network/reddit/RedditCommunityDiscoveryNetworkDataSourceTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/network/reddit/RedditPeopleSearchNetworkDataSourceTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/network/reddit/RedditCommentSubmitPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/account/CommentWriteFlowPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/auth/AuthPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/AccountSessionIntegrationPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/ActiveAccountSelectionPersistencePolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/Auth03ConnectAccountPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/auth/Auth06bRedReaderCompatibilityPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/auth/Auth06cLiveReadOnlyPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/auth/reddit/RedditCommunityDiscoveryLoaderTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/auth/reddit/RedditPeopleSearchLoaderTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/auth/reddit/RedditComposerPolicyLoaderTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/auth/reddit/RedditMediaUploadSourcePolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/network/reddit/RedditMediaUploadNetworkPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/sync/PostFeedSyncPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/data/cache/SubshellCacheCodecPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/SettingsBackupContractTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/PostComposerContractTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/CommentComposerStatePolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/NavigationLifecycleStateTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/FeedPostRoutePolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/RedditTargetResolverTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/RedditLinkHandlingPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/Search01FoundationPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/Search01StateIntegrationPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/Search01BWorkspacePolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/Search01CFederatedProvidersPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/Search01C2LivePeoplePolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/SubshellRouteStackPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/FeedScrollAnchorPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/SubshellProcessStatePolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/DrawerDynamicGroupsPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/SubsExploreShortcutPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/CommunityFavoritesPersistenceTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/media/VideoPlaybackOwnershipPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/media/VideoMediaCachePolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/media/VideoNetworkPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/media/VideoTrackDiagnosticsTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/media/VideoTrackSelectionTest.kt \
     app/src/debug/assets/media03/subtitles/video-lab-a-en.vtt \
     app/src/debug/assets/media03/subtitles/video-lab-a-nb.vtt \
-    app/src/test/java/app/subshell/prototype/ui/screens/Subs04cCommunityNavigationDiscoveryPolicyTest.kt \
-    app/src/test/java/app/subshell/prototype/ui/screens/Subs04c2CommunitiesTerminologyDrawerIaPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/screens/Subs04cCommunityNavigationDiscoveryPolicyTest.kt \
+    app/src/test/java/${SUBSHELL_PKG_DIR}/ui/screens/Subs04c2CommunitiesTerminologyDrawerIaPolicyTest.kt \
     tools/check-auth04-contract.sh \
     tools/verify-auth04-app-link-manifest.py \
     tools/generate-auth04-assetlinks.py \
@@ -400,22 +401,22 @@ done
 # video download system are retired (owner-approved); Settings can only delete
 # what an older build downloaded. The dead predecessor branches went with
 # step 3 (2026-10-14).
-if [[ ! -f "$ROOT/app/src/main/java/app/subshell/prototype/ui/screens/LibraryScreen.kt" ]] &&
-   rg -Fq 'LOWUI4_LIBRARY_RETIRED_V1' "$ROOT/app/src/main/java/app/subshell/prototype/ui/SubshellState.kt" &&
+if [[ ! -f "$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/ui/screens/LibraryScreen.kt" ]] &&
+   rg -Fq 'LOWUI4_LIBRARY_RETIRED_V1' "$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/ui/SubshellState.kt" &&
    ! rg -q 'SecondaryDestination\.LIBRARY|fun LibraryScreen\(' "$ROOT/app/src/main/java"; then
     pass LIBRARY_STAYS_RETIRED
 else
     fail LIBRARY_STAYS_RETIRED
 fi
 
-if [[ ! -f "$ROOT/app/src/main/java/app/subshell/prototype/media/VideoDownloadStore.kt" &&
-      ! -f "$ROOT/app/src/main/java/app/subshell/prototype/media/VideoDownloadQueue.kt" ]] &&
+if [[ ! -f "$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/media/VideoDownloadStore.kt" &&
+      ! -f "$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/media/VideoDownloadQueue.kt" ]] &&
    ! rg -q 'VideoDownloadWorker|VideoDownloadStore|resolvePlaybackSource' "$ROOT/app/src/main/java" &&
-   rg -Fq 'LOWUI4C_LEGACY_DOWNLOADS_CAN_ONLY_BE_DELETED_V1' "$ROOT/app/src/main/java/app/subshell/prototype/media/LegacyVideoDownloads.kt" &&
-   rg -Fq 'fun deleteAll(): LegacyVideoDownloadDeleteResult' "$ROOT/app/src/main/java/app/subshell/prototype/media/LegacyVideoDownloads.kt" &&
-   rg -Fq 'LOWUI4C_VIDEO_STREAMS_ONLY_V1' "$ROOT/app/src/main/java/app/subshell/prototype/media/VideoPlayback.kt" &&
-   rg -Fq 'title = { Text("Delete all downloaded videos?") }' "$ROOT/app/src/main/java/app/subshell/prototype/ui/screens/SettingsScreen.kt" &&
-   rg -Fq 'oldDownloadsAreCountedAndDeleted' "$ROOT/app/src/test/java/app/subshell/prototype/media/LowUi4cLegacyVideoDownloadsTest.kt"; then
+   rg -Fq 'LOWUI4C_LEGACY_DOWNLOADS_CAN_ONLY_BE_DELETED_V1' "$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/media/LegacyVideoDownloads.kt" &&
+   rg -Fq 'fun deleteAll(): LegacyVideoDownloadDeleteResult' "$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/media/LegacyVideoDownloads.kt" &&
+   rg -Fq 'LOWUI4C_VIDEO_STREAMS_ONLY_V1' "$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/media/VideoPlayback.kt" &&
+   rg -Fq 'title = { Text("Delete all downloaded videos?") }' "$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/ui/screens/SettingsScreen.kt" &&
+   rg -Fq 'oldDownloadsAreCountedAndDeleted' "$ROOT/app/src/test/java/${SUBSHELL_PKG_DIR}/media/LowUi4cLegacyVideoDownloadsTest.kt"; then
     pass MEDIA05_DOWNLOAD_SYSTEM_RETIRED_LEGACY_DELETE_KEPT
 else
     fail MEDIA05_DOWNLOAD_SYSTEM_RETIRED_LEGACY_DELETE_KEPT
@@ -442,17 +443,17 @@ for DESTINATION in HOME SUBS INBOX YOU; do
     fi
 done
 
-DATA="$ROOT/app/src/main/java/app/subshell/prototype/data/SampleData.kt"
-MODELS="$ROOT/app/src/main/java/app/subshell/prototype/model/Models.kt"
-SETTINGS="$ROOT/app/src/main/java/app/subshell/prototype/ui/screens/SettingsScreen.kt"
-BACKUP_SCREEN="$ROOT/app/src/main/java/app/subshell/prototype/ui/screens/BackupRestoreScreen.kt"
-BACKUP_STORE="$ROOT/app/src/main/java/app/subshell/prototype/backup/SettingsBackupStore.kt"
-BACKUP_MODEL="$ROOT/app/src/main/java/app/subshell/prototype/backup/SettingsBackup.kt"
-BACKUP_REPOSITORY="$ROOT/app/src/main/java/app/subshell/prototype/backup/SettingsBackupRepository.kt"
-BACKUP_VAULT="$ROOT/app/src/main/java/app/subshell/prototype/backup/SettingsBackupVault.kt"
-BACKUP_ONBOARDING="$ROOT/app/src/main/java/app/subshell/prototype/ui/screens/BackupFolderOnboarding.kt"
-SETTINGS_MODEL="$ROOT/app/src/main/java/app/subshell/prototype/ui/SubshellSettings.kt"
-HOME_SCREEN_FILE="$ROOT/app/src/main/java/app/subshell/prototype/ui/screens/HomeScreen.kt"
+DATA="$ROOT/app/src/debug/java/${SUBSHELL_PKG_DIR}/data/SampleData.kt"
+MODELS="$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/model/Models.kt"
+SETTINGS="$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/ui/screens/SettingsScreen.kt"
+BACKUP_SCREEN="$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/ui/screens/BackupRestoreScreen.kt"
+BACKUP_STORE="$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/backup/SettingsBackupStore.kt"
+BACKUP_MODEL="$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/backup/SettingsBackup.kt"
+BACKUP_REPOSITORY="$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/backup/SettingsBackupRepository.kt"
+BACKUP_VAULT="$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/backup/SettingsBackupVault.kt"
+BACKUP_ONBOARDING="$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/ui/screens/BackupFolderOnboarding.kt"
+SETTINGS_MODEL="$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/ui/SubshellSettings.kt"
+HOME_SCREEN_FILE="$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/ui/screens/HomeScreen.kt"
 
 # ISSUE270: the screen's actions are "Back up now" and "Restore from file"
 # (were "Save current setup" and "Import backup file").
@@ -504,14 +505,14 @@ fi
 
 # DATA01: the ui never reads the sample fixtures; posts and people come from
 # the repository through SubshellState.
-if ! rg -n --glob '*.kt' 'SampleData' "$ROOT/app/src/main/java/app/subshell/prototype/ui" >/tmp/subshell-data01-ui-sampledata.txt; then
+if ! rg -n --glob '*.kt' 'SampleData' "$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/ui" >/tmp/subshell-data01-ui-sampledata.txt; then
     pass DATA01_UI_DIRECT_SAMPLEDATA_ACCESS_RETIRED
 else
     fail DATA01_UI_DIRECT_SAMPLEDATA_ACCESS_RETIRED
     sed -n '1,40p' /tmp/subshell-data01-ui-sampledata.txt 2>/dev/null || true
 fi
 
-QUALITY01E_COMMON="$ROOT/app/src/main/java/app/subshell/prototype/ui/components/Common.kt"
+QUALITY01E_COMMON="$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/ui/components/Common.kt"
 
 quality01e_post_action_modifier_line="$(
     awk '
@@ -551,9 +552,9 @@ quality01e_post_action_next_line="$(
     sed 's/^[[:space:]]*//'
 )"
 
-DATA03_DATABASE="$ROOT/app/src/main/java/app/subshell/prototype/data/cache/SubshellCacheDatabase.kt"
-DATA03_RUNTIME_TEST="$ROOT/app/src/androidTest/java/app/subshell/prototype/data/cache/PersistentCacheInstrumentedTest.kt"
-DATA03_MIGRATION_TEST="$ROOT/app/src/androidTest/java/app/subshell/prototype/data/cache/SubshellCacheMigrationInstrumentedTest.kt"
+DATA03_DATABASE="$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/data/cache/SubshellCacheDatabase.kt"
+DATA03_RUNTIME_TEST="$ROOT/app/src/androidTest/java/${SUBSHELL_PKG_DIR}/data/cache/PersistentCacheInstrumentedTest.kt"
+DATA03_MIGRATION_TEST="$ROOT/app/src/androidTest/java/${SUBSHELL_PKG_DIR}/data/cache/SubshellCacheMigrationInstrumentedTest.kt"
 DATA03_MANIFEST="$ROOT/app/src/main/AndroidManifest.xml"
 
 # CACHEDOWN1 (owner 2026-10-07): a newer build never drops the cache on an
@@ -578,9 +579,9 @@ data03_on_upgrade_database_parameter="$(
 )"
 
 # The cache is schema 6 and every step from 1 is registered (no unit test runs
-# 1 -> 5; ProtoClean01LegacyFixtureMigrationTest runs 5 -> 6).
+# 1 -> 5; Issue42OldCacheIsRebuiltTest opens a schema-5 cache and migrates 5 -> 6).
 if rg -Fq 'version = 6' "$DATA03_DATABASE" &&
-   rg -U -q '\.addMigrations\(\s*Migration1To2,\s*Migration2To3,\s*Migration3To4,\s*Migration4To5,\s*ProtoClean01Migration5To6,\s*\)' "$DATA03_DATABASE"; then
+   rg -U -q '\.addMigrations\(\s*Migration1To2,\s*Migration2To3,\s*Migration3To4,\s*Migration4To5,\s*Migration5To6,\s*\)' "$DATA03_DATABASE"; then
     pass CACHE_MIGRATIONS_STAY_REGISTERED
 else
     fail CACHE_MIGRATIONS_STAY_REGISTERED
@@ -620,7 +621,7 @@ fi
 # NET01/NET02/DATA03 (step 3 slim): the ui tree never reaches the network,
 # sync or database layers or their serialization directly.
 if ! rg -n --glob '*.kt' 'okhttp3|kotlinx\.serialization|data\.network|data\.sync|RoomDatabase|SubshellCacheDao|CachedPostEntity|RoomSubshellCacheStore' \
-       "$ROOT/app/src/main/java/app/subshell/prototype/ui" >/tmp/subshell-ui-data-layer-imports.txt; then
+       "$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/ui" >/tmp/subshell-ui-data-layer-imports.txt; then
     pass UI_HAS_NO_DATA_LAYER_IMPORTS
 else
     fail UI_HAS_NO_DATA_LAYER_IMPORTS
@@ -630,8 +631,8 @@ fi
 # AUTH01-06 (step 3 slim): the ui and the cache never see tokens, sessions,
 # authorization codes, client configuration or the production identity.
 if ! rg -n --glob '*.kt' 'data\.auth|StoredOAuthSession|OAuthTokenSet|accessToken|refreshToken|authorizationCode|StoredOAuthClientSelection|EncryptedAuthSessionStore|AUTH04_REDDIT_CLIENT_ID|AUTH04_REDDIT_REDIRECT_URI|sha256_cert_fingerprints|Auth05ProductionIdentity|SUBSHELL_FINAL_APPLICATION_ID|SUBSHELL_FINAL_SIGNING_CERT_SHA256' \
-       "$ROOT/app/src/main/java/app/subshell/prototype/ui" \
-       "$ROOT/app/src/main/java/app/subshell/prototype/data/cache" >/tmp/subshell-ui-cache-auth.txt; then
+       "$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/ui" \
+       "$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/data/cache" >/tmp/subshell-ui-cache-auth.txt; then
     pass UI_AND_CACHE_NEVER_SEE_AUTH
 else
     fail UI_AND_CACHE_NEVER_SEE_AUTH
@@ -640,7 +641,7 @@ fi
 
 # WRITE01 (step 3 slim): the ui never reaches a write transport or a token.
 if ! rg -n 'AuthenticatedCommentSubmit|RedditCommentSubmit|postFormJson|api.*comment|AuthenticatedTextPostSubmit|RedditTextPostSubmit|api.*submit|NetworkBearerTokenProvider' \
-       "$ROOT/app/src/main/java/app/subshell/prototype/ui" >/tmp/subshell-ui-write-transport.txt; then
+       "$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/ui" >/tmp/subshell-ui-write-transport.txt; then
     pass UI_HAS_NO_WRITE_TRANSPORT
 else
     fail UI_HAS_NO_WRITE_TRANSPORT
@@ -649,7 +650,7 @@ fi
 
 # WRITE01A2/B1: the comment and text-post writers send only; the loader
 # merges an accepted write into Room (CommentWriteFlowPolicyTest).
-WRITE_SOURCES="$ROOT/app/src/main/java/app/subshell/prototype/data"
+WRITE_SOURCES="$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/data"
 if ! rg -n 'cacheComments|withTransaction|insert.*comment|upsert.*comment' \
        "$WRITE_SOURCES/network/reddit/RedditCommentSubmitNetworkDataSource.kt" \
        "$WRITE_SOURCES/auth/reddit/RedditCommentSubmitter.kt" &&
@@ -666,9 +667,9 @@ fi
 # flow stays free of auth and network.
 if ! rg -n 'postForm|postJson|api.*comment' "$WRITE_SOURCES/auth/AuthCommentWriteCapability.kt" &&
    ! rg -n 'AuthenticatedCommentSubmit|commentSubmitter|beginAuthorization|ensureAuthorized' \
-       "$ROOT/app/src/main/java/app/subshell/prototype/ui/CommentComposerState.kt" \
-       "$ROOT/app/src/main/java/app/subshell/prototype/ui/SubshellState.kt" \
-       "$ROOT/app/src/main/java/app/subshell/prototype/ui/SubshellProcessState.kt" &&
+       "$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/ui/CommentComposerState.kt" \
+       "$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/ui/SubshellState.kt" \
+       "$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/ui/SubshellProcessState.kt" &&
    ! rg -n 'data\.auth|data\.network' "$WRITE_SOURCES/account/CommentWriteFlow.kt"; then
     pass COMMENT_WRITE_LAYERS_STAY_SEPARATE
 else
@@ -691,12 +692,12 @@ AUTH06B_UI_EVIDENCE="$(mktemp "${TMPDIR:-/tmp}/subshell-auth06b-ui.XXXXXX")"
 rm -f "$AUTH06B_UI_EVIDENCE"
 
 if rg -Fq 'SUBS01B8A_DISABLE_COMPOSE_CONTENT_CAPTURE_V1' \
-      "$ROOT/app/src/main/java/app/subshell/prototype/MainActivity.kt" &&
+      "$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/MainActivity.kt" &&
    rg -Fq '@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)' \
-      "$ROOT/app/src/main/java/app/subshell/prototype/MainActivity.kt" &&
+      "$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/MainActivity.kt" &&
    rg -Fq 'androidx.compose.ui.contentcapture.ContentCaptureManager.isEnabled = false' \
-      "$ROOT/app/src/main/java/app/subshell/prototype/MainActivity.kt" &&
-   python3 - "$ROOT/app/src/main/java/app/subshell/prototype/MainActivity.kt" <<'PY_SUBS01B8A'
+      "$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/MainActivity.kt" &&
+   python3 - "$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}/MainActivity.kt" <<'PY_SUBS01B8A'
 from pathlib import Path
 import sys
 

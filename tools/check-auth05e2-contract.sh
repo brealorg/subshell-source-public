@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+. "$ROOT/tools/lib/source-paths.sh"
 cd "$ROOT"
 
 fail() { printf 'FAIL=%s\n' "$1"; exit 1; }
@@ -11,7 +12,7 @@ APP_BUILD='app/build.gradle.kts'
 MAIN_MANIFEST='app/src/main/AndroidManifest.xml'
 DEBUG_MANIFEST='app/src/debug/AndroidManifest.xml'
 RELEASE_MANIFEST='app/src/release/AndroidManifest.xml'
-CALLBACK='app/src/main/java/app/subshell/prototype/auth/AuthCallbackActivity.kt'
+CALLBACK="app/src/main/java/${SUBSHELL_PKG_DIR}/auth/AuthCallbackActivity.kt"
 DOC='docs/auth/subshell-auth05e2-production-app-link-contract-v1.md'
 VERIFIER='tools/verify-auth05e2-production-app-link.py'
 RUNTIME='tools/run-auth05e2-production-app-link-runtime.sh'
@@ -58,10 +59,10 @@ for token in \
 done
 pass AUTH05E2_EXACT_PUBLISHED_CALLBACK_CONFIGURATION_LOCK
 
-if rg -Fq 'android:name="app.subshell.prototype.auth.AuthProductionCallback"' "$RELEASE_MANIFEST" &&
+if rg -Fq 'android:name="io.github.brealorg.subshell.auth.AuthProductionCallback"' "$RELEASE_MANIFEST" &&
    rg -Fq 'android:enabled="true"' "$RELEASE_MANIFEST" &&
    rg -Fq 'android:exported="true"' "$RELEASE_MANIFEST" &&
-   rg -Fq 'android:targetActivity="app.subshell.prototype.auth.AuthCallbackActivity"' "$RELEASE_MANIFEST" &&
+   rg -Fq 'android:targetActivity="io.github.brealorg.subshell.auth.AuthCallbackActivity"' "$RELEASE_MANIFEST" &&
    rg -Fq 'tools:node="replace"' "$RELEASE_MANIFEST" &&
    rg -Fq 'android:autoVerify="true"' "$RELEASE_MANIFEST" &&
    rg -Fq 'android:scheme="https"' "$RELEASE_MANIFEST" &&
@@ -90,7 +91,7 @@ if rg -Fq 'android:exported="false"' "$MAIN_MANIFEST" &&
    rg -Fq 'android:noHistory="true"' "$MAIN_MANIFEST" &&
    rg -Fq 'OAuthCallbackProcessor' "$CALLBACK" &&
    rg -Fq 'AuthCallbackFailureKind.NO_PENDING_AUTHORIZATION' \
-      app/src/main/java/app/subshell/prototype/data/auth/OAuthSessionManager.kt; then
+      app/src/main/java/${SUBSHELL_PKG_DIR}/data/auth/OAuthSessionManager.kt; then
   pass AUTH05E2_DEDICATED_NON_EXPORTED_LOCAL_CALLBACK_PROCESSING
 else
   fail AUTH05E2_DEDICATED_NON_EXPORTED_LOCAL_CALLBACK_PROCESSING
@@ -211,7 +212,7 @@ fi
 # AUTH06B successor binding: the v59 compatibility mode adds a separate custom
 # scheme route while preserving the exact release-only HTTPS App Link alias.
 if rg -Fq 'SUBSHELL_AUTH06B_REDREADER_COMPATIBILITY_V1' "$APP_BUILD" &&
-   rg -Fq 'android:name="app.subshell.prototype.auth.AuthProductionCallback"' "$RELEASE_MANIFEST" &&
+   rg -Fq 'android:name="io.github.brealorg.subshell.auth.AuthProductionCallback"' "$RELEASE_MANIFEST" &&
    rg -Fq 'android:host="brealorg.github.io"' "$RELEASE_MANIFEST" &&
    rg -Fq 'android:path="/oauth/callback"' "$RELEASE_MANIFEST" &&
    ! rg -Fq 'redreader' "$RELEASE_MANIFEST"; then

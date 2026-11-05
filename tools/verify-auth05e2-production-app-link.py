@@ -12,7 +12,7 @@ from typing import NoReturn
 
 ANDROID = "{http://schemas.android.com/apk/res/android}"
 EXPECTED_APPLICATION_ID = "io.github.brealorg.subshell"
-EXPECTED_COMPONENT_NAMESPACE = "app.subshell.prototype"
+EXPECTED_COMPONENT_NAMESPACE = "io.github.brealorg.subshell"
 EXPECTED_ALIAS = EXPECTED_COMPONENT_NAMESPACE + ".auth.AuthProductionCallback"
 EXPECTED_CALLBACK_ACTIVITY = EXPECTED_COMPONENT_NAMESPACE + ".auth.AuthCallbackActivity"
 EXPECTED_HOST = "brealorg.github.io"

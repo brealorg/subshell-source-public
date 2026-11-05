@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 SERIAL="${ADB_SERIAL:-19021FDF600GBN}"
 PACKAGE="io.github.brealorg.subshell.debug.dev1"
-ACTIVITY="app.subshell.prototype.MainActivity"
+ACTIVITY="io.github.brealorg.subshell.MainActivity"
 POST="t3_1upifrl"
 CHILD="t1_ow1j26z"
 PARENT="t1_ow1iwm8"

@@ -1,0 +1,42 @@
+{
+  "id": "beta22",
+  "release": {
+    "versionCode": 256,
+    "versionName": "0.92-beta",
+    "date": "2026-11-05",
+    "headline": "Subshell 0.92: thread colours, sorted search and feeds that keep your place",
+    "highlights": [
+      "This update signs you out once: sign in and set up your Client ID or RedReader again, then add your widgets and pinned shortcuts back.",
+      "Settings › Comments › Thread colours: branch lines by depth or in one colour, each top-level comment in its own card. Off by default, works with Guide lines.",
+      "Sort search results and the posts on a profile, with a time range for Top.",
+      "Optional: Settings › Feeds & content › Resume where you left off opens Home and communities at your place after the app has been closed.",
+      "Find in thread has an OP chip that steps through the post author's comments.",
+      "Search no longer asks Google Trends: the empty search page shows only your history and Reddit's suggestions.",
+      "Fixed: video sound going on after Back from search or a profile, the keyboard coming back in search, links to a comment not landing on it.",
+      "Help & about now has the licence, the source code, every library's licence and what Reddit's January 2027 API change means."
+    ],
+    "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v0.92-beta"
+  },
+  "below": [
+    {
+      "versionCode": 255,
+      "versionName": "0.91-beta",
+      "date": "2026-11-01"
+    },
+    {
+      "versionCode": 254,
+      "versionName": "0.90-beta",
+      "date": "2026-10-31"
+    },
+    {
+      "versionCode": 253,
+      "versionName": "0.89-beta",
+      "date": "2026-10-30"
+    },
+    {
+      "versionCode": 252,
+      "versionName": "0.88-beta",
+      "date": "2026-10-30"
+    }
+  ]
+}

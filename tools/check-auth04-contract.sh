@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+. "$ROOT/tools/lib/source-paths.sh"
 cd "$ROOT"
 
 fail() { printf 'FAIL=%s\n' "$1"; exit 1; }
@@ -11,12 +12,12 @@ APP_BUILD='app/build.gradle.kts'
 MANIFEST='app/src/main/AndroidManifest.xml'
 DEBUG_MANIFEST='app/src/debug/AndroidManifest.xml'
 RELEASE_MANIFEST='app/src/release/AndroidManifest.xml'
-APP_RUNTIME='app/src/main/java/app/subshell/prototype/auth/AuthApplicationRuntime.kt'
-CALLBACK='app/src/main/java/app/subshell/prototype/auth/AuthCallbackActivity.kt'
-BROWSER='app/src/main/java/app/subshell/prototype/auth/AuthBrowserLauncher.kt'
-BACKUP='app/src/main/java/app/subshell/prototype/backup/SettingsBackup.kt'
-PROCESS_STATE='app/src/main/java/app/subshell/prototype/ui/SubshellProcessState.kt'
-ROOM='app/src/main/java/app/subshell/prototype/data/cache/SubshellCacheDatabase.kt'
+APP_RUNTIME="app/src/main/java/${SUBSHELL_PKG_DIR}/auth/AuthApplicationRuntime.kt"
+CALLBACK="app/src/main/java/${SUBSHELL_PKG_DIR}/auth/AuthCallbackActivity.kt"
+BROWSER="app/src/main/java/${SUBSHELL_PKG_DIR}/auth/AuthBrowserLauncher.kt"
+BACKUP="app/src/main/java/${SUBSHELL_PKG_DIR}/backup/SettingsBackup.kt"
+PROCESS_STATE="app/src/main/java/${SUBSHELL_PKG_DIR}/ui/SubshellProcessState.kt"
+ROOM="app/src/main/java/${SUBSHELL_PKG_DIR}/data/cache/SubshellCacheDatabase.kt"
 DOC='docs/auth/subshell-auth04-production-oauth-config-contract-v1.md'
 MANIFEST_VERIFY='tools/verify-auth04-app-link-manifest.py'
 ASSETLINKS='tools/generate-auth04-assetlinks.py'
@@ -115,9 +116,9 @@ else
   fail AUTH04_SHARED_POLICY_MATRIX
 fi
 
-if rg -Fq 'android:name="app.subshell.prototype.auth.AuthProductionCallback"' "$MANIFEST" &&
+if rg -Fq 'android:name="io.github.brealorg.subshell.auth.AuthProductionCallback"' "$MANIFEST" &&
    rg -Fq 'android:enabled="${auth04ProductionCallbackEnabled}"' "$MANIFEST" &&
-   rg -Fq 'android:targetActivity="app.subshell.prototype.auth.AuthCallbackActivity"' "$MANIFEST" &&
+   rg -Fq 'android:targetActivity="io.github.brealorg.subshell.auth.AuthCallbackActivity"' "$MANIFEST" &&
    rg -Fq 'android:autoVerify="true"' "$MANIFEST" &&
    rg -Fq 'android:scheme="https"' "$MANIFEST" &&
    rg -Fq 'android:host="${auth04ProductionCallbackHost}"' "$MANIFEST" &&
@@ -140,7 +141,7 @@ else
   fail AUTH04_DEBUG_CALLBACK_REMAINS_TEST_ONLY
 fi
 
-if rg -Fq 'android:name="app.subshell.prototype.auth.AuthProductionCallback"' "$RELEASE_MANIFEST" &&
+if rg -Fq 'android:name="io.github.brealorg.subshell.auth.AuthProductionCallback"' "$RELEASE_MANIFEST" &&
    rg -Fq 'android:enabled="true"' "$RELEASE_MANIFEST" &&
    rg -Fq 'android:autoVerify="true"' "$RELEASE_MANIFEST" &&
    rg -Fq 'android:host="brealorg.github.io"' "$RELEASE_MANIFEST" &&
@@ -159,8 +160,8 @@ if rg -Fq 'BuildConfig.AUTH04_REDDIT_OAUTH_CONFIGURED' "app/src/main/java" &&
    rg -Fq 'AuthTabIntent.Builder()' "$BROWSER" &&
    rg -Fq 'class AuthCallbackActivity' "$CALLBACK" &&
    ! rg -n 'BuildConfig\.AUTH04_REDDIT|AUTH04_REDDIT_CLIENT_ID|AUTH04_REDDIT_REDIRECT_URI' \
-      app/src/main/java/app/subshell/prototype/ui \
-      app/src/main/java/app/subshell/prototype/data/cache \
+      app/src/main/java/${SUBSHELL_PKG_DIR}/ui \
+      app/src/main/java/${SUBSHELL_PKG_DIR}/data/cache \
       >"$UI_ROOM_CONFIG_EVIDENCE"; then
   pass AUTH04_RUNTIME_CONFIGURATION_AND_UI_ROOM_ISOLATION
 else

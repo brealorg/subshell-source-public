@@ -19,12 +19,11 @@ POLL_LOG="${OUTPUT}/release-foreground-poll.log"
 FINAL_APPLICATION_ID='io.github.brealorg.subshell'
 DEBUG_APPLICATION_ID='io.github.brealorg.subshell.debug'
 TEST_APPLICATION_ID='io.github.brealorg.subshell.debug.test'
-COMPONENT_NAMESPACE='app.subshell.prototype'
-MAIN_ACTIVITY='app.subshell.prototype.MainActivity'
+COMPONENT_NAMESPACE='io.github.brealorg.subshell'
+MAIN_ACTIVITY='io.github.brealorg.subshell.MainActivity'
 KEY_ALIAS='subshell-app-signing'
 EXPECTED_RELEASE_CERT_SHA256='52:E9:62:E7:41:2E:25:DA:80:1E:0A:39:06:E0:BF:B4:39:90:0A:1A:A1:5B:A9:F9:3C:95:B4:99:55:BA:F5:84'
 EXPECTED_KEYSTORE_SHA256='7702295c7184a73cb1baba354becaabcdc186cce76de19a470c41bd66afeb2a7'
-RETIRED_PROTOTYPE_APPLICATION_ID='app.subshell.prototype'
 
 RELEASE_APK="${ROOT}/app/build/outputs/apk/release/app-release.apk"
 DEBUG_APK="${ROOT}/app/build/outputs/apk/debug/app-debug.apk"
@@ -287,11 +286,8 @@ printf 'AUTH05C_REGRESSION=PASS\n'
 
 printf '\n===== 9/10 RELEASE PACKAGE INSTALL COEXISTENCE AND LAUNCH =====\n'
 DEBUG_PRESENT_BEFORE='NO'
-PROTOTYPE_PRESENT_BEFORE='NO'
 package_present "$DEBUG_APPLICATION_ID" && DEBUG_PRESENT_BEFORE='YES'
-package_present "$RETIRED_PROTOTYPE_APPLICATION_ID" && PROTOTYPE_PRESENT_BEFORE='YES'
 printf 'DEBUG_PACKAGE_PRESENT_BEFORE=%s\n' "$DEBUG_PRESENT_BEFORE"
-printf 'RETIRED_PROTOTYPE_PACKAGE_PRESENT_BEFORE=%s\n' "$PROTOTYPE_PRESENT_BEFORE"
 
 adb -s "$SERIAL" install -r "$RELEASE_APK" >/dev/null
 package_present "$FINAL_APPLICATION_ID" || fail RELEASE_PACKAGE_NOT_INSTALLED
@@ -305,13 +301,6 @@ if [[ "$DEBUG_PRESENT_BEFORE" == 'YES' ]]; then
     fail RELEASE_AND_DEBUG_UID_NOT_ISOLATED
   printf 'DEBUG_PACKAGE_UID=%s\n' "$DEBUG_UID"
   printf 'RELEASE_DEBUG_UID_ISOLATION=PASS\n'
-fi
-if [[ "$PROTOTYPE_PRESENT_BEFORE" == 'YES' ]]; then
-  PROTOTYPE_UID="$(package_uid "$RETIRED_PROTOTYPE_APPLICATION_ID")"
-  [[ -n "$PROTOTYPE_UID" && "$PROTOTYPE_UID" != "$RELEASE_UID" ]] ||
-    fail RELEASE_AND_PROTOTYPE_UID_NOT_ISOLATED
-  printf 'RETIRED_PROTOTYPE_PACKAGE_UID=%s\n' "$PROTOTYPE_UID"
-  printf 'RELEASE_PROTOTYPE_UID_ISOLATION=PASS\n'
 fi
 
 adb -s "$SERIAL" shell am force-stop "$FINAL_APPLICATION_ID"
@@ -335,7 +324,6 @@ RELEASE_PID="$(adb -s "$SERIAL" shell pidof "$FINAL_APPLICATION_ID" | tr -d '\r'
 printf 'RELEASE_PID=%s\n' "$RELEASE_PID"
 printf 'RELEASE_MAIN_ACTIVITY_FOREGROUND=PASS\n'
 printf 'DEBUG_PACKAGE_UNINSTALLED=NO\n'
-printf 'RETIRED_PROTOTYPE_PACKAGE_UNINSTALLED=NO\n'
 
 printf '\n===== 10/10 FINAL AUTH05D2 RESULT =====\n'
 sha256sum \

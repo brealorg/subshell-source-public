@@ -14,11 +14,10 @@ AUTH04_MANIFEST_VERIFIER="${ROOT}/tools/verify-auth04-app-link-manifest.py"
 FINAL_APPLICATION_ID='io.github.brealorg.subshell'
 DEBUG_APPLICATION_ID='io.github.brealorg.subshell.debug'
 TEST_APPLICATION_ID='io.github.brealorg.subshell.debug.test'
-RETIRED_PROTOTYPE_APPLICATION_ID='app.subshell.prototype'
-COMPONENT_NAMESPACE='app.subshell.prototype'
-MAIN_ACTIVITY='app.subshell.prototype.MainActivity'
-CALLBACK_ALIAS='app.subshell.prototype.auth.AuthProductionCallback'
-CALLBACK_ACTIVITY='app.subshell.prototype.auth.AuthCallbackActivity'
+COMPONENT_NAMESPACE='io.github.brealorg.subshell'
+MAIN_ACTIVITY='io.github.brealorg.subshell.MainActivity'
+CALLBACK_ALIAS='io.github.brealorg.subshell.auth.AuthProductionCallback'
+CALLBACK_ACTIVITY='io.github.brealorg.subshell.auth.AuthCallbackActivity'
 
 SITE_ORIGIN='https://brealorg.github.io'
 ASSETLINKS_URL='https://brealorg.github.io/.well-known/assetlinks.json'
@@ -473,11 +472,8 @@ CURRENT_STAGE='9_RELEASE_INSTALL_AND_PACKAGE_UID_ISOLATION'
 printf '\n===== 9/13 RELEASE INSTALL AND PACKAGE UID ISOLATION =====\n'
 
 DEBUG_PRESENT_BEFORE='NO'
-PROTOTYPE_PRESENT_BEFORE='NO'
 package_present "$DEBUG_APPLICATION_ID" && DEBUG_PRESENT_BEFORE='YES'
-package_present "$RETIRED_PROTOTYPE_APPLICATION_ID" && PROTOTYPE_PRESENT_BEFORE='YES'
 printf 'DEBUG_PACKAGE_PRESENT_BEFORE=%s\n' "$DEBUG_PRESENT_BEFORE"
-printf 'RETIRED_PROTOTYPE_PACKAGE_PRESENT_BEFORE=%s\n' "$PROTOTYPE_PRESENT_BEFORE"
 
 adb -s "$SERIAL" install -r "$RELEASE_APK" >/dev/null
 package_present "$FINAL_APPLICATION_ID" ||
@@ -495,13 +491,6 @@ if [[ "$DEBUG_PRESENT_BEFORE" == 'YES' ]]; then
   printf 'RELEASE_DEBUG_UID_ISOLATION=PASS\n'
 fi
 
-if [[ "$PROTOTYPE_PRESENT_BEFORE" == 'YES' ]]; then
-  PROTOTYPE_UID="$(package_uid "$RETIRED_PROTOTYPE_APPLICATION_ID")"
-  [[ -n "$PROTOTYPE_UID" && "$PROTOTYPE_UID" != "$RELEASE_UID" ]] ||
-    fail RELEASE_AND_PROTOTYPE_UID_NOT_ISOLATED
-  printf 'RETIRED_PROTOTYPE_PACKAGE_UID=%s\n' "$PROTOTYPE_UID"
-  printf 'RELEASE_PROTOTYPE_UID_ISOLATION=PASS\n'
-fi
 
 printf 'RELEASE_INSTALL_AND_PACKAGE_UID_ISOLATION=PASS\n'
 
@@ -760,7 +749,6 @@ printf 'REMOTE_WRITES=NONE\n'
 printf 'GITHUB_MUTATIONS=NONE\n'
 printf 'DEVICE_NETWORK_MUTATIONS=ANDROID_DOMAIN_VERIFICATION_FETCH_ONLY\n'
 printf 'DEBUG_PACKAGE_UNINSTALLED=NO\n'
-printf 'RETIRED_PROTOTYPE_PACKAGE_UNINSTALLED=NO\n'
 printf 'OUTPUT=%s\n' "$OUTPUT"
 printf 'RELEASE_APK=%s\n' "$RELEASE_APK"
 printf 'RELEASE_APK_SHA256=%s\n' "$RELEASE_APK_SHA256"

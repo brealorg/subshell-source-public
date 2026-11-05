@@ -8,9 +8,9 @@ TEST_PACKAGE='io.github.brealorg.subshell.debug.test'
 APP_APK="$ROOT/app/build/outputs/apk/debug/app-debug.apk"
 TEST_APK="$ROOT/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
 RUNNER="$TEST_PACKAGE/androidx.test.runner.AndroidJUnitRunner"
-TEST_CLASS='app.subshell.prototype.data.auth.Auth06bRedReaderCompatibilityInstrumentedTest'
+TEST_CLASS='io.github.brealorg.subshell.data.auth.Auth06bRedReaderCompatibilityInstrumentedTest'
 CALLBACK_URI='redreader://rr_oauth_redir'
-CALLBACK_ALIAS='app.subshell.prototype.auth.AuthRedReaderCompatibilityCallback'
+CALLBACK_ALIAS='io.github.brealorg.subshell.auth.AuthRedReaderCompatibilityCallback'
 LOG_TAG='subshell-auth06b'
 
 fail() { printf 'FAIL=%s\n' "$1" >&2; exit 1; }

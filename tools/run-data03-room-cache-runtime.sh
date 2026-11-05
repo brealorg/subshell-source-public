@@ -6,8 +6,8 @@ SERIAL="${DATA03_ADB_SERIAL:-19021FDF600GBN}"
 APP_APK="$ROOT/app/build/outputs/apk/debug/app-debug.apk"
 TEST_APK="$ROOT/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
 RUNNER='io.github.brealorg.subshell.debug.test/androidx.test.runner.AndroidJUnitRunner'
-CACHE_TEST='app.subshell.prototype.data.cache.PersistentCacheInstrumentedTest'
-MIGRATION_TEST='app.subshell.prototype.data.cache.SubshellCacheMigrationInstrumentedTest'
+CACHE_TEST='io.github.brealorg.subshell.data.cache.PersistentCacheInstrumentedTest'
+MIGRATION_TEST='io.github.brealorg.subshell.data.cache.SubshellCacheMigrationInstrumentedTest'
 LOG_TAG='subshell-data03'
 
 fail() {

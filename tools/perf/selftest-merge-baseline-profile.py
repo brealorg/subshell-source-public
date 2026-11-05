@@ -13,23 +13,23 @@ TOOL = Path(__file__).resolve().parent / "merge-baseline-profile.py"
 
 CURRENT = """\
 Landroidx/core/Old;
-HSPLapp/subshell/prototype/Kept;->run()V
-HSPLapp/subshell/prototype/Removed;->run()V
-HSPLapp/subshell/prototype/MainActivity$$ExternalSynthetic1;->run()V
-Lapp/subshell/prototype/R$drawable;
+HSPLio/github/brealorg/subshell/Kept;->run()V
+HSPLio/github/brealorg/subshell/Removed;->run()V
+HSPLio/github/brealorg/subshell/MainActivity$$ExternalSynthetic1;->run()V
+Lio/github/brealorg/subshell/R$drawable;
 """
 
 RECORDED = """\
-HSPLapp/subshell/prototype/MainActivity$$ExternalSynthetic7;->run()V
-HSPLapp/subshell/prototype/New;->run()V
-HSPLapp/subshell/prototype/Kept;->run()V
+HSPLio/github/brealorg/subshell/MainActivity$$ExternalSynthetic7;->run()V
+HSPLio/github/brealorg/subshell/New;->run()V
+HSPLio/github/brealorg/subshell/Kept;->run()V
 """
 
 
 def run(tmp: Path, recorded: str) -> tuple[int, str, list[str]]:
     classes = tmp / "classes"
     for name in ("Kept", "New"):
-        path = classes / "app/subshell/prototype" / (name + ".class")
+        path = classes / "io/github/brealorg/subshell" / (name + ".class")
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"")
     (tmp / "current.txt").write_text(CURRENT)
@@ -53,11 +53,11 @@ def main() -> int:
         code, stdout, merged = run(tmp, RECORDED)
         assert code == 0, stdout
         assert merged == [
-            "HSPLapp/subshell/prototype/MainActivity$$ExternalSynthetic7;->run()V",
-            "HSPLapp/subshell/prototype/New;->run()V",
-            "HSPLapp/subshell/prototype/Kept;->run()V",
+            "HSPLio/github/brealorg/subshell/MainActivity$$ExternalSynthetic7;->run()V",
+            "HSPLio/github/brealorg/subshell/New;->run()V",
+            "HSPLio/github/brealorg/subshell/Kept;->run()V",
             "Landroidx/core/Old;",
-            "Lapp/subshell/prototype/R$drawable;",
+            "Lio/github/brealorg/subshell/R$drawable;",
         ], merged
         assert "DROPPED_CLASSES=1" in stdout, stdout
 

@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKAGE='io.github.brealorg.subshell.debug'
 TEST_PACKAGE='io.github.brealorg.subshell.debug.test'
 RUNNER='androidx.test.runner.AndroidJUnitRunner'
-TEST_CLASS='app.subshell.prototype.media.VideoNetworkMonitorInstrumentedTest'
+TEST_CLASS='io.github.brealorg.subshell.media.VideoNetworkMonitorInstrumentedTest'
 LOG_TAG='subshell-network'
 
 fail() {

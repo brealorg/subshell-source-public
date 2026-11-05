@@ -1,0 +1,136 @@
+package io.github.brealorg.subshell.data.auth.reddit
+
+import io.github.brealorg.subshell.data.RepositoryPageRequest
+import io.github.brealorg.subshell.data.account.AccountSessionSource
+import io.github.brealorg.subshell.data.auth.AuthAccountSessionCoordinator
+import io.github.brealorg.subshell.data.auth.AuthSessionResult
+import io.github.brealorg.subshell.data.auth.AuthenticatedRedditCommunityPinnedPostsLoader
+import io.github.brealorg.subshell.data.auth.COMMUNITY_PINNED_POSTS_PAGE_LIMIT
+import io.github.brealorg.subshell.data.auth.OAuthClientMode
+import io.github.brealorg.subshell.data.auth.OAuthProviderConfiguration
+import io.github.brealorg.subshell.data.network.NetworkEndpoint
+import io.github.brealorg.subshell.data.network.NetworkResult
+import io.github.brealorg.subshell.data.network.SubshellHttpClient
+import io.github.brealorg.subshell.data.network.SubshellNetworkJson
+import io.github.brealorg.subshell.data.network.reddit.RedditListingNetworkDataSource
+import io.github.brealorg.subshell.data.network.reddit.RedditListingSort
+import io.github.brealorg.subshell.model.Post
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.Call
+
+// ISSUE230_PINNED_POSTS_FIRST_V1: the first Hot page of a community, read with
+// the active account's own token, keeps only the pinned posts in Reddit's
+// order. Read only, never cached.
+internal class RedditCommunityPinnedPostsLoader(
+    private val callFactory: Call.Factory,
+    private val endpoint: NetworkEndpoint,
+    private val userAgent: String,
+    private val configuration: OAuthProviderConfiguration,
+    private val accountCoordinator: AuthAccountSessionCoordinator,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+) : AuthenticatedRedditCommunityPinnedPostsLoader {
+    override suspend fun load(accountStableId: String, communityName: String): List<Post>? =
+        readCommunityListingWithAccount(
+            callFactory = callFactory,
+            endpoint = endpoint,
+            userAgent = userAgent,
+            configuration = configuration,
+            accountCoordinator = accountCoordinator,
+            ioDispatcher = ioDispatcher,
+            accountStableId = accountStableId,
+            communityName = communityName,
+            sort = RedditListingSort.HOT,
+            limit = COMMUNITY_PINNED_POSTS_PAGE_LIMIT,
+        )?.filter { it.pinned }
+}
+
+/**
+ * One page of a community's listing read with [accountStableId]'s own token,
+ * only while it is the active signed-in account of the compatibility client
+ * with the core read scopes. Read only, never cached; null when the account,
+ * token or read does not allow it. Shared by ISSUE230 (pinned posts) and
+ * ISSUE239 (new posts in a watched community).
+ */
+internal suspend fun readCommunityListingWithAccount(
+    callFactory: Call.Factory,
+    endpoint: NetworkEndpoint,
+    userAgent: String,
+    configuration: OAuthProviderConfiguration,
+    accountCoordinator: AuthAccountSessionCoordinator,
+    ioDispatcher: CoroutineDispatcher,
+    accountStableId: String,
+    communityName: String,
+    sort: RedditListingSort,
+    limit: Int,
+): List<Post>? =
+    withContext(ioDispatcher) {
+        val client = activeAccountRedditClient(
+            callFactory = callFactory,
+            endpoint = endpoint,
+            userAgent = userAgent,
+            configuration = configuration,
+            accountCoordinator = accountCoordinator,
+            accountStableId = accountStableId,
+        ) ?: return@withContext null
+        when (
+            val result = RedditListingNetworkDataSource(client).posts(
+                community = communityName,
+                sort = sort,
+                request = RepositoryPageRequest(limit = limit),
+            )
+        ) {
+            is NetworkResult.Success -> result.value.items
+            else -> null
+        }
+    }
+
+/**
+ * A Reddit client with [accountStableId]'s own token, or null unless that
+ * account is the active, authenticated one with the read scopes of this
+ * configuration. Call it on the IO dispatcher.
+ */
+internal suspend fun activeAccountRedditClient(
+    callFactory: Call.Factory,
+    endpoint: NetworkEndpoint,
+    userAgent: String,
+    configuration: OAuthProviderConfiguration,
+    accountCoordinator: AuthAccountSessionCoordinator,
+    accountStableId: String,
+): SubshellHttpClient? {
+    if (
+        configuration.clientMode != OAuthClientMode.REDREADER_COMPATIBILITY ||
+        configuration.scopes != RedditOAuth.coreReadScopes
+    ) {
+        return null
+    }
+    val directory = accountCoordinator.snapshot()
+    val active = directory.accounts.firstOrNull { it.stableId == directory.activeAccountId }
+    if (
+        active == null ||
+        active.source != AccountSessionSource.AUTHENTICATED ||
+        active.stableId != accountStableId
+    ) {
+        return null
+    }
+    val session = (
+        accountCoordinator.ensureConfiguredAccessTokenForAccount(accountStableId)
+            as? AuthSessionResult.Authenticated
+        )?.session ?: return null
+    if (
+        session.clientMode != configuration.clientMode ||
+        session.clientIdFingerprint != configuration.clientIdFingerprint ||
+        !session.tokens.grants(RedditOAuth.coreReadScopes)
+    ) {
+        return null
+    }
+    return SubshellHttpClient(
+        callFactory = callFactory,
+        endpoint = endpoint,
+        json = SubshellNetworkJson.providerJson,
+        userAgent = userAgent,
+        bearerTokenProvider =
+            accountCoordinator.sessionBoundBearerTokenProvider(session.tokens.accessToken),
+    )
+}

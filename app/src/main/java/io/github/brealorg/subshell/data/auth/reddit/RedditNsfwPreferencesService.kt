@@ -1,0 +1,129 @@
+package io.github.brealorg.subshell.data.auth.reddit
+
+import io.github.brealorg.subshell.data.account.NsfwPreferencesResult
+import io.github.brealorg.subshell.data.account.QuarantineOptInResult
+import io.github.brealorg.subshell.data.account.RedditAccessCheckResult
+import io.github.brealorg.subshell.data.account.RedditNsfwPreferencesReader
+import io.github.brealorg.subshell.data.account.RedditQuarantineOptIn
+import io.github.brealorg.subshell.data.network.SubshellHttpClient
+import io.github.brealorg.subshell.data.network.reddit.sendQuarantineOptIn
+import io.github.brealorg.subshell.data.auth.AuthSessionResult
+import io.github.brealorg.subshell.data.auth.OAuthProviderConfiguration
+import io.github.brealorg.subshell.data.auth.StoredOAuthSession
+import io.github.brealorg.subshell.data.auth.authenticatedAccountId
+import io.github.brealorg.subshell.data.network.reddit.NsfwPreferencesNetwork
+import io.github.brealorg.subshell.data.network.reddit.RedditAccessProbeNetworkDataSource
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.cancellation.CancellationException
+
+internal val NSFW_PREFERENCES_READ_SCOPES = setOf("identity")
+
+// ISSUE211_QUARANTINE_OPT_IN_NEEDS_SUBSCRIBE_V1: POST api/quarantine_optin is
+// @require_oauth2_scope("subscribe") in Reddit's source.
+internal val QUARANTINE_OPT_IN_SCOPES = setOf("identity", "subscribe")
+
+/**
+ * ISSUE211_ACCOUNT_NSFW_PREFERENCE_V1 (#211): reads the active account's
+ * over_18 preference with its own session (the identity scope every account
+ * has), the way ConfiguredRedditOnlineVisibilityService reads show_presence.
+ * Any session problem or account change is Failed: the notice says nothing.
+ */
+internal class ConfiguredRedditCommunityAccessService(
+    private val configuration: OAuthProviderConfiguration,
+    private val activeAccountId: () -> String?,
+    private val ensureSession: suspend (String, Set<String>) -> AuthSessionResult,
+    private val storedSessionGrants: (String, Set<String>) -> Boolean = { _, _ -> true },
+    private val networkForSession: (StoredOAuthSession) -> NsfwPreferencesNetwork,
+    // ISSUE211_QUARANTINE_OPT_IN_V1: a non-retrying client for the opt-in.
+    private val writeClientForSession: ((StoredOAuthSession) -> SubshellHttpClient)? = null,
+    // REDDITCHECK01_CHECK_REDDIT_ACCESS_V1: a non-retrying client for the access check.
+    private val probeClientForSession: ((StoredOAuthSession) -> SubshellHttpClient)? = null,
+    // STRICTMODE03_NSFW_PREFERENCE_READS_OFF_THE_MAIN_THREAD_V1: the session
+    // lookup decrypts the stored sign-in from disk, and the tray notice asks
+    // from the main thread, so every entry point runs on this dispatcher.
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+) : io.github.brealorg.subshell.data.account.RedditCommunityAccessService {
+    private fun current(account: String, isCurrent: () -> Boolean): Boolean =
+        account.isNotBlank() && activeAccountId() == account && isCurrent()
+
+    override suspend fun read(account: String, isCurrent: () -> Boolean): NsfwPreferencesResult =
+        withContext(ioDispatcher) {
+            try {
+                val session = session(account, isCurrent)
+                if (session == null || !current(account, isCurrent)) {
+                    // ISSUE211_ACCOUNT_PREFERENCE_FAILURE_IS_NAMED_V1 (debug only).
+                    io.github.brealorg.subshell.auth.authDebugLog(
+                        "subshell-nsfw",
+                        "account-prefs no-session current=${current(account, isCurrent)} " +
+                            "grants=${storedSessionGrants(account, NSFW_PREFERENCES_READ_SCOPES)}",
+                    )
+                    NsfwPreferencesResult.Failed
+                } else {
+                    val result = networkForSession(session).read()
+                    if (current(account, isCurrent)) result else NsfwPreferencesResult.Failed
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                io.github.brealorg.subshell.auth.authDebugLog("subshell-nsfw", "account-prefs threw ${failure.javaClass.simpleName}")
+                NsfwPreferencesResult.Failed
+            }
+        }
+
+    override suspend fun optIn(
+        account: String,
+        communityName: String,
+        isCurrent: () -> Boolean,
+    ): QuarantineOptInResult = withContext(ioDispatcher) optIn@{
+        val client = writeClientForSession ?: return@optIn QuarantineOptInResult.Refused(null)
+        if (!current(account, isCurrent)) return@optIn QuarantineOptInResult.Refused(null)
+        if (!storedSessionGrants(account, QUARANTINE_OPT_IN_SCOPES)) {
+            return@optIn QuarantineOptInResult.MissingPermission
+        }
+        val session = session(account, isCurrent, QUARANTINE_OPT_IN_SCOPES)
+            ?: return@optIn QuarantineOptInResult.Refused(null)
+        if (!current(account, isCurrent)) return@optIn QuarantineOptInResult.Refused(null)
+        try {
+            client(session).sendQuarantineOptIn(communityName)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            QuarantineOptInResult.OutcomeUnknown
+        }
+    }
+
+    // REDDITCHECK01_CHECK_REDDIT_ACCESS_V1: the check reads with the active
+    // account's own session (identity is enough to be let in; a read the grant
+    // lacks a scope for shows as Reddit's 403), and stops when the account changes.
+    override suspend fun check(account: String, isCurrent: () -> Boolean): RedditAccessCheckResult =
+        withContext(ioDispatcher) check@{
+            val client = probeClientForSession ?: return@check RedditAccessCheckResult.NotChecked
+            val session = session(account, isCurrent) ?: return@check RedditAccessCheckResult.NotChecked
+            val probes = RedditAccessProbeNetworkDataSource(client(session))
+                .probe { current(account, isCurrent) }
+                ?: return@check RedditAccessCheckResult.NotChecked
+            RedditAccessCheckResult.Checked(probes)
+        }
+
+    private suspend fun session(
+        account: String,
+        isCurrent: () -> Boolean,
+        scopes: Set<String> = NSFW_PREFERENCES_READ_SCOPES,
+    ): StoredOAuthSession? {
+        if (!current(account, isCurrent)) return null
+        if (!storedSessionGrants(account, scopes)) return null
+        val result = ensureSession(account, scopes)
+        if (!current(account, isCurrent)) return null
+        val session = (result as? AuthSessionResult.Authenticated)?.session ?: return null
+        val identity = session.identity ?: return null
+        return session.takeIf {
+            it.provider == configuration.provider &&
+                it.clientMode == configuration.clientMode &&
+                it.clientIdFingerprint == configuration.clientIdFingerprint &&
+                it.tokens.grants(scopes) &&
+                authenticatedAccountId(it.provider, it.clientMode, identity.providerAccountId) == account
+        }
+    }
+}

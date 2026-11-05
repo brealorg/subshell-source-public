@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+. "$ROOT/tools/lib/source-paths.sh"
 cd "$ROOT"
 
 fail() { printf 'FAIL=%s\n' "$1"; exit 1; }
@@ -10,7 +11,7 @@ pass() { printf 'PASS=%s\n' "$1"; }
 APP_BUILD='app/build.gradle.kts'
 MAIN_MANIFEST='app/src/main/AndroidManifest.xml'
 DEBUG_MANIFEST='app/src/debug/AndroidManifest.xml'
-AUTH_RUNTIME='app/src/main/java/app/subshell/prototype/auth/AuthApplicationRuntime.kt'
+AUTH_RUNTIME="app/src/main/java/${SUBSHELL_PKG_DIR}/auth/AuthApplicationRuntime.kt"
 DOC='docs/auth/subshell-auth05c-application-id-migration-contract-v1.md'
 RUNTIME='tools/run-auth05c-application-id-runtime.sh'
 VERIFIER='tools/verify-auth05c-application-id.py'
@@ -20,7 +21,6 @@ AUTH05_RUNTIME='tools/run-auth05-production-identity-runtime.sh'
 
 AUTH05C_TMP="$(mktemp -d "${TMPDIR:-/tmp}/subshell-auth05c-contract.XXXXXX")"
 trap 'rm -rf "$AUTH05C_TMP"' EXIT
-LEGACY_RUNTIME_EVIDENCE="${AUTH05C_TMP}/legacy-runtime.txt"
 SECRET_EVIDENCE="${AUTH05C_TMP}/secret-source.txt"
 
 for file in \
@@ -54,25 +54,25 @@ else
   fail AUTH05C_PRODUCTION_DEBUG_AND_TEST_APPLICATION_IDS
 fi
 
-if rg -Fq 'AUTH05C_COMPONENT_NAMESPACE = "app.subshell.prototype"' "$APP_BUILD" &&
+if rg -Fq 'AUTH05C_COMPONENT_NAMESPACE = "io.github.brealorg.subshell"' "$APP_BUILD" &&
    rg -Fq 'namespace = AUTH05C_COMPONENT_NAMESPACE' "$APP_BUILD" &&
-   test -d app/src/main/java/app/subshell/prototype &&
-   test -d app/src/androidTest/java/app/subshell/prototype; then
+   test -d app/src/main/java/${SUBSHELL_PKG_DIR} &&
+   test -d app/src/androidTest/java/${SUBSHELL_PKG_DIR}; then
   pass AUTH05C_NAMESPACE_MIGRATION_DEFERRED
 else
   fail AUTH05C_NAMESPACE_MIGRATION_DEFERRED
 fi
 
 for token in \
-  'android:name="app.subshell.prototype.MainActivity"' \
-  'android:name="app.subshell.prototype.auth.AuthCallbackActivity"' \
-  'android:name="app.subshell.prototype.auth.AuthProductionCallback"' \
-  'android:targetActivity="app.subshell.prototype.auth.AuthCallbackActivity"'; do
+  'android:name="io.github.brealorg.subshell.MainActivity"' \
+  'android:name="io.github.brealorg.subshell.auth.AuthCallbackActivity"' \
+  'android:name="io.github.brealorg.subshell.auth.AuthProductionCallback"' \
+  'android:targetActivity="io.github.brealorg.subshell.auth.AuthCallbackActivity"'; do
   rg -Fq "$token" "$MAIN_MANIFEST" ||
     fail "AUTH05C_MAIN_MANIFEST_TOKEN_MISSING_${token//[^A-Za-z0-9]/_}"
 done
 rg -Fq \
-  'android:name="app.subshell.prototype.auth.AuthCallbackActivity"' \
+  'android:name="io.github.brealorg.subshell.auth.AuthCallbackActivity"' \
   "$DEBUG_MANIFEST" ||
   fail AUTH05C_DEBUG_CALLBACK_COMPONENT_NOT_FULLY_QUALIFIED
 pass AUTH05C_EXPLICIT_COMPONENT_NAMESPACE
@@ -81,11 +81,11 @@ if rg -Fq \
      '"android:${BuildConfig.APPLICATION_ID}:${BuildConfig.VERSION_NAME} (subshell)"' \
      "app/src/main/java" &&
    rg -Fq 'BuildConfig.APPLICATION_ID' \
-     app/src/androidTest/java/app/subshell/prototype/data/network/Net01HttpBoundaryInstrumentedTest.kt &&
+     app/src/androidTest/java/${SUBSHELL_PKG_DIR}/data/network/Net01HttpBoundaryInstrumentedTest.kt &&
    rg -Fq 'BuildConfig.APPLICATION_ID' \
-     app/src/androidTest/java/app/subshell/prototype/data/sync/Net02PostFeedSyncInstrumentedTest.kt &&
+     app/src/androidTest/java/${SUBSHELL_PKG_DIR}/data/sync/Net02PostFeedSyncInstrumentedTest.kt &&
    ! rg -Fq \
-     '"android:app.subshell.prototype:${BuildConfig.VERSION_NAME} (subshell)"' \
+     '"android:io.github.brealorg.subshell:${BuildConfig.VERSION_NAME} (subshell)"' \
      "$AUTH_RUNTIME"; then
   pass AUTH05C_RUNTIME_USER_AGENT_USES_APPLICATION_ID
 else
@@ -93,7 +93,7 @@ else
 fi
 
 if rg -Fq "EXPECTED_DEBUG_APPLICATION_ID='io.github.brealorg.subshell.debug'" "$AUTH04_RUNTIME" &&
-   rg -Fq "EXPECTED_COMPONENT_NAMESPACE='app.subshell.prototype'" "$AUTH04_RUNTIME" &&
+   rg -Fq "EXPECTED_COMPONENT_NAMESPACE='io.github.brealorg.subshell'" "$AUTH04_RUNTIME" &&
    rg -Fq -- '--expected-component-namespace "$EXPECTED_COMPONENT_NAMESPACE"' "$AUTH04_RUNTIME" &&
    rg -Fq 'parser.add_argument("--expected-component-namespace", required=True)' "$AUTH04_VERIFIER" &&
    rg -Fq 'AUTH04_COMPONENT_NAMESPACE=' "$AUTH04_VERIFIER"; then
@@ -104,7 +104,7 @@ fi
 
 if rg -Fq 'subshell.auth05c.application_id_migration.v1' "$VERIFIER" &&
    rg -Fq '"application_id_applied": True' "$VERIFIER" &&
-   rg -Fq '"namespace_migration_deferred": True' "$VERIFIER" &&
+   rg -Fq '"namespace_migration_deferred": False' "$VERIFIER" &&
    rg -Fq '"release_signing_configured_at_auth05c": False' "$VERIFIER" &&
    rg -Fq '"release_signing_configured_by_auth05d2": True' "$VERIFIER" &&
    rg -Fq 'RESULT=SUBSHELL_AUTH05C_MIGRATION_ARTIFACT_GENERATED' "$VERIFIER" &&
@@ -126,19 +126,9 @@ else
   fail AUTH05C_HOST_SIDE_APK_TEST_AND_COMPONENT_RUNTIME
 fi
 
-if ! rg -n \
-    'app\.subshell\.prototype\.test/androidx\.test\.runner\.AndroidJUnitRunner|PACKAGE='\''app\.subshell\.prototype'\''|TEST_PACKAGE='\''app\.subshell\.prototype\.test'\''|am force-stop app\.subshell\.prototype(?:[[:space:]]|$)|run-as app\.subshell\.prototype(?:[[:space:]]|$)|--expected-package app\.subshell\.prototype' \
-    tools/run-*.sh >"$LEGACY_RUNTIME_EVIDENCE"; then
-  pass AUTH05C_LEGACY_OPERATIONAL_PACKAGE_TARGETS_RETIRED
-else
-  fail AUTH05C_LEGACY_OPERATIONAL_PACKAGE_TARGETS_RETIRED
-  sed -n '1,60p' "$LEGACY_RUNTIME_EVIDENCE" || true
-fi
-
 if rg -Fq 'AUTH05D1 subsequently creates the owner-managed app-signing identity' \
      docs/auth/subshell-auth05b-production-identity-boundary-contract-v1.md &&
    rg -Fq 'io.github.brealorg.subshell.debug.test' "$DOC" &&
-   rg -Fq 'The previous `app.subshell.prototype` installation is not removed or modified' "$DOC" &&
    rg -Fq 'No automatic migration' "$DOC" &&
    rg -Fq 'AUTH05D2' "$DOC" &&
    rg -Fq 'SUBSHELL_RELEASE_STORE_PASSWORD_FILE' "$APP_BUILD" &&

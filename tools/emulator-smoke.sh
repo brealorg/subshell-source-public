@@ -50,7 +50,7 @@ AAPT2="$(ls "$SDK"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1)"
 [[ -x "$EMULATOR" && -x "$AAPT2" ]] || { echo "STOP=SDK_TOOLS_MISSING" >&2; exit 2; }
 PACKAGE="$("$AAPT2" dump packagename "$APK" 2>/dev/null)"
 [[ -n "$PACKAGE" ]] || { echo "STOP=APK_PACKAGE_UNREADABLE" >&2; exit 2; }
-ACTIVITY="$PACKAGE/app.subshell.prototype.MainActivity"
+ACTIVITY="$PACKAGE/io.github.brealorg.subshell.MainActivity"
 
 FAILED=0
 PORT=5580

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+. "$ROOT/tools/lib/source-paths.sh"
 cd "$ROOT"
 
 fail() { printf 'FAIL=%s\n' "$1"; exit 1; }
@@ -11,9 +12,9 @@ APP_BUILD='app/build.gradle.kts'
 DOC='docs/auth/subshell-auth05b-production-identity-boundary-contract-v1.md'
 VALIDATOR='tools/validate-auth05-production-identity.py'
 RUNTIME='tools/run-auth05-production-identity-runtime.sh'
-BACKUP='app/src/main/java/app/subshell/prototype/backup/SettingsBackup.kt'
-PROCESS_STATE='app/src/main/java/app/subshell/prototype/ui/SubshellProcessState.kt'
-ROOM='app/src/main/java/app/subshell/prototype/data/cache/SubshellCacheDatabase.kt'
+BACKUP="app/src/main/java/${SUBSHELL_PKG_DIR}/backup/SettingsBackup.kt"
+PROCESS_STATE="app/src/main/java/${SUBSHELL_PKG_DIR}/ui/SubshellProcessState.kt"
+ROOM="app/src/main/java/${SUBSHELL_PKG_DIR}/data/cache/SubshellCacheDatabase.kt"
 
 AUTH05_CONTRACT_TMP="$(
   mktemp -d "${TMPDIR:-/tmp}/subshell-auth05-contract.XXXXXX"
@@ -56,10 +57,8 @@ fi
 for token in \
   'segments.size < 3' \
   '[a-z][a-z0-9_]{0,62}' \
-  'applicationId == "app.subshell.prototype"' \
   'applicationId.startsWith("android.")' \
   'applicationId.startsWith("com.example.")' \
-  'applicationId.endsWith(".prototype")' \
   'applicationId.endsWith(".debug")' \
   'applicationId.endsWith(".dev")' \
   '(?:[0-9A-F]{2}:){31}[0-9A-F]{2}' \
@@ -73,7 +72,6 @@ if rg -Fq 'verifyAuth05ProductionIdentityPolicy' "$APP_BUILD" &&
    rg -Fq 'PASS=AUTH05_UNCONFIGURED_IDENTITY_NOT_APPLIED' "$APP_BUILD" &&
    rg -Fq 'PASS=AUTH05_STRUCTURALLY_VALID_IDENTITY' "$APP_BUILD" &&
    rg -Fq 'PARTIAL_APPLICATION_ID_ONLY' "$APP_BUILD" &&
-   rg -Fq 'CURRENT_PROTOTYPE_IDENTITY' "$APP_BUILD" &&
    rg -Fq 'FINGERPRINT_LOWERCASE' "$APP_BUILD" &&
    rg -Fq 'FINGERPRINT_NO_COLONS' "$APP_BUILD" &&
    rg -Fq 'PASS=AUTH05_APPLICATION_ID_MIGRATION_APPLIED' "$APP_BUILD" &&
@@ -110,7 +108,6 @@ fi
 if rg -Fq 'CURRENT_DEBUG_APPLICATION_ID' "$RUNTIME" &&
    rg -Fq 'SUBSHELL_AUTH05D2_FINAL_RELEASE_CERT_RUNTIME_MIGRATION_V1' "$RUNTIME" &&
    rg -Fq "FINAL_RELEASE_SIGNING_CERT_SHA256='52:E9:62:E7:41:2E:25:DA:80:1E:0A:39:06:E0:BF:B4:39:90:0A:1A:A1:5B:A9:F9:3C:95:B4:99:55:BA:F5:84'" "$RUNTIME" &&
-   rg -Fq 'RETIRED_PROTOTYPE_APPLICATION_ID' "$RUNTIME" &&
    rg -Fq 'CURRENT_DEBUG_SIGNING_CERTIFICATE' "$RUNTIME" &&
    rg -Fq 'AUTH05_FIXTURE_APPLICATION_ID_APPLIED=NO' "$RUNTIME" &&
    rg -Fq 'AUTH05_FIXTURE_SIGNING_CONFIGURATION_APPLIED=NO' "$RUNTIME" &&

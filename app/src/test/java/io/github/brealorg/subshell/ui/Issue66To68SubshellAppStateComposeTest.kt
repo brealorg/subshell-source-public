@@ -1,0 +1,164 @@
+package io.github.brealorg.subshell.ui
+
+import android.app.Application
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.junit4.StateRestorationTester
+import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.test.core.app.ApplicationProvider
+import io.github.brealorg.subshell.data.account.AccountSessionSource
+import io.github.brealorg.subshell.data.account.AccountSessionState
+import io.github.brealorg.subshell.data.account.AccountSessionSummary
+import io.github.brealorg.subshell.data.account.CustomFeedSummary
+import io.github.brealorg.subshell.data.account.CustomFeedsUiState
+import io.github.brealorg.subshell.data.account.RedditSubscriptionsUiState
+import io.github.brealorg.subshell.harness.RetryOnRobolectricRendererFlake
+import io.github.brealorg.subshell.harness.ensureWorkManagerInitialized
+import io.github.brealorg.subshell.harness.testVideoPlaybackCoordinator
+import io.github.brealorg.subshell.media.VideoPlaybackCoordinator
+import io.github.brealorg.subshell.share.ShareIntoSubshellLaunch
+import io.github.brealorg.subshell.ui.app.CustomFeedsEntryPoints
+import io.github.brealorg.subshell.ui.app.FeedEntryPoints
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.RuleChain
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+/**
+ * ISSUE66_LANDING_IS_NOT_RE_ARMED_BY_RECREATION_V1,
+ * ISSUE67_STATE_SURVIVES_THE_FULL_SCREEN_ROUTES_V1,
+ * ISSUE68_LAUNCHES_ARE_HANDLED_UNDER_THE_COMPOSER_V1.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [36], qualifiers = "w411dp-h891dp")
+class Issue66To68SubshellAppStateComposeTest {
+    private val composeRule = createComposeRule()
+
+    @get:Rule
+    val rules: RuleChain = RuleChain.outerRule(RetryOnRobolectricRendererFlake()).around(composeRule)
+
+    private val context = ApplicationProvider.getApplicationContext<Application>()
+    private val account = AccountSessionSummary(
+        stableId = "reddit:test",
+        username = "connected-user",
+        source = AccountSessionSource.AUTHENTICATED,
+        state = AccountSessionState.CONNECTED,
+        providerLabel = "Reddit",
+    )
+    private val feed = CustomFeedSummary(
+        path = "/user/connected-user/m/tech",
+        displayName = "Tech",
+        description = "",
+        visibility = "private",
+        subredditNames = listOf("android", "kotlin"),
+    )
+
+    private fun signedIn() = SubshellState(
+        initialAccountSessions = listOf(account),
+        initialActiveAccountId = account.stableId,
+        initialInteractionSideConfigured = true,
+    )
+
+    private fun count(text: String): Int = composeRule.onAllNodesWithText(text).fetchSemanticsNodes().size
+
+    @Test
+    fun theCustomFeedIsStillOpenAfterTheComposerClosed() {
+        ensureWorkManagerInitialized(context)
+        val state = signedIn()
+        composeRule.setContent {
+            SubshellApp(
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
+                state = state,
+                customFeeds = CustomFeedsEntryPoints(
+                    customFeedsState = CustomFeedsUiState(accountStableId = account.stableId, feeds = listOf(feed)),
+                ),
+            )
+        }
+        composeRule.waitForIdle()
+        state.requestDrawer()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Custom feeds · 1").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Tech").performClick()
+        composeRule.waitForIdle()
+        assertEquals(1, count("Feed: Tech"))
+
+        composeRule.runOnIdle { state.openPostComposer() }
+        composeRule.waitForIdle()
+        composeRule.runOnIdle { state.closePostComposer() }
+        composeRule.waitForIdle()
+
+        assertEquals(1, count("Feed: Tech"))
+    }
+
+    @Test
+    fun aShareWhileTheComposerIsOpenIsTakenAtOnce() {
+        ensureWorkManagerInitialized(context)
+        val state = signedIn()
+        var launch by mutableStateOf<ShareIntoSubshellLaunch?>(null)
+        var consumed = 0
+        composeRule.setContent {
+            SubshellApp(
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
+                state = state,
+                shareIntoSubshellLaunch = launch,
+                onShareIntoSubshellConsumed = {
+                    consumed += 1
+                    launch = null
+                },
+            )
+        }
+        composeRule.waitForIdle()
+        composeRule.runOnIdle { state.openPostComposer() }
+        composeRule.waitForIdle()
+        assertTrue(state.currentNavigationRoute is SubshellRoute.PostComposer)
+
+        composeRule.runOnIdle { launch = ShareIntoSubshellLaunch(requestId = 68L, content = null) }
+        composeRule.waitForIdle()
+
+        assertEquals(1, consumed)
+    }
+
+    @Test
+    fun recreationKeepsTheRestoredFeedSourceAndSort() {
+        ensureWorkManagerInitialized(context)
+        val state = signedIn()
+        val restoration = StateRestorationTester(composeRule)
+        restoration.setContent {
+            SubshellApp(
+                videoPlaybackCoordinator = testVideoPlaybackCoordinator(context),
+                state = state,
+                redditFeed = FeedEntryPoints(
+                    redditSubscriptionsState = RedditSubscriptionsUiState(
+                        accountStableId = account.stableId,
+                        communities = listOf(state.communityIdentityFor("android")),
+                        loaded = true,
+                    ),
+                ),
+            )
+        }
+        composeRule.waitForIdle()
+        // The landing after sign-in ran once.
+        assertEquals(FeedSource.HOME, state.feedSource)
+
+        composeRule.runOnIdle {
+            state.selectFeedSource(FeedSource.POPULAR)
+            state.updateFeedSort(FeedSort.TOP)
+        }
+        composeRule.waitForIdle()
+
+        restoration.emulateSavedInstanceStateRestore()
+        composeRule.waitForIdle()
+
+        assertEquals(FeedSource.POPULAR, state.feedSource)
+        assertEquals(FeedSort.TOP, state.feedSort)
+    }
+}

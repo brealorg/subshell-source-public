@@ -77,7 +77,7 @@ expected = {
 payload_exact = {
     "tag_name": "v0.80.0-beta.1",
     "target_commitish": "3" * 40,
-    "prerelease": True,
+    "prerelease": False,
     "draft": False,
     "name": "Subshell 0.80.0-beta.1",
     "assets": [
@@ -159,6 +159,21 @@ expect_error(
         allow_missing_assets=False,
     ),
     "REMOTE_ASSET_DIGEST_MISMATCH",
+)
+
+# RELEASE48_RELEASES_ARE_NOT_PRERELEASES_V1: a pre-release is not a published version.
+payload_prerelease = dict(payload_exact)
+payload_prerelease["prerelease"] = True
+expect_error(
+    lambda: module.verify_release_payload(
+        payload_prerelease,
+        tag="v0.80.0-beta.1",
+        title="Subshell 0.80.0-beta.1",
+        public_target="3" * 40,
+        expected_assets=expected,
+        allow_missing_assets=False,
+    ),
+    "REMOTE_RELEASE_IS_PRERELEASE",
 )
 
 proof = dict(record)

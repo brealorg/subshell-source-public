@@ -8,7 +8,7 @@ TEST_PACKAGE='io.github.brealorg.subshell.debug.dev1.test'
 APP_APK="$ROOT/app/build/outputs/apk/debug/app-debug.apk"
 TEST_APK="$ROOT/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
 EXPECTED_RUNNER="$TEST_PACKAGE/androidx.test.runner.AndroidJUnitRunner"
-TEST_CLASS='app.subshell.prototype.data.auth.Auth06cLiveReadOnlyProofInstrumentedTest'
+TEST_CLASS='io.github.brealorg.subshell.data.auth.Auth06cLiveReadOnlyProofInstrumentedTest'
 TEST_METHOD='inspectPersistedLiveReadOnlyProofWithoutNetwork'
 LOG_TAG='subshell-auth06c-live'
 

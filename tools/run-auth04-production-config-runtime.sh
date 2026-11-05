@@ -14,7 +14,7 @@ ASSETLINKS="${OUTPUT}/.well-known/assetlinks.json"
 MANIFEST_VERIFIER="${ROOT}/tools/verify-auth04-app-link-manifest.py"
 ASSETLINKS_TOOL="${ROOT}/tools/generate-auth04-assetlinks.py"
 EXPECTED_DEBUG_APPLICATION_ID='io.github.brealorg.subshell.debug'
-EXPECTED_COMPONENT_NAMESPACE='app.subshell.prototype'
+EXPECTED_COMPONENT_NAMESPACE='io.github.brealorg.subshell'
 
 mkdir -p "$OUTPUT"
 

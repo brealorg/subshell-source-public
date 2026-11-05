@@ -31,13 +31,12 @@ def validate_application_id(value: str) -> str:
     ):
         raise IdentityError("APPLICATION_ID_NOT_CANONICAL")
     if (
-        value == "app.subshell.prototype"
-        or value.startswith("android.")
+        value.startswith("android.")
         or value.startswith("com.example.")
         or value.startswith("org.example.")
         or value.startswith("net.example.")
         or value.endswith(
-            (".prototype", ".debug", ".dev", ".test", ".example", ".invalid")
+            (".debug", ".dev", ".test", ".example", ".invalid")
         )
     ):
         raise IdentityError("APPLICATION_ID_RESERVED_OR_DEVELOPMENT")

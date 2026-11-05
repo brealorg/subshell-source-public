@@ -10,7 +10,7 @@ EXPECTED_VERSION_CODE='95'
 APP_APK="$ROOT/app/build/outputs/apk/debug/app-debug.apk"
 TEST_APK="$ROOT/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
 RUNNER="$TEST_PACKAGE/androidx.test.runner.AndroidJUnitRunner"
-TEST_CLASS='app.subshell.prototype.auth.Write01b2TextPostComposerInstrumentedTest'
+TEST_CLASS='io.github.brealorg.subshell.auth.Write01b2TextPostComposerInstrumentedTest'
 LOG_TAG='subshell-write01b2'
 TEST_PACKAGE_INSTALLED=0
 

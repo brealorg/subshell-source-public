@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- ISSUE267_INBOX_AND_POSTS_WIDGETS_V1, ISSUE267_POSTS_WIDGET_PICKS_ITS_PLACE_V1 -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:configure="app.subshell.prototype.widget.PostsWidgetConfigureActivity"
+    android:configure="io.github.brealorg.subshell.widget.PostsWidgetConfigureActivity"
     android:description="@string/posts_widget_description"
     android:initialLayout="@layout/glance_default_loading_layout"
     android:minWidth="250dp"

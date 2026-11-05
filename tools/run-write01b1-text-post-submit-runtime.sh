@@ -10,7 +10,7 @@ EXPECTED_VERSION_CODE='91'
 APP_APK="$ROOT/app/build/outputs/apk/debug/app-debug.apk"
 TEST_APK="$ROOT/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
 RUNNER="$TEST_PACKAGE/androidx.test.runner.AndroidJUnitRunner"
-TEST_CLASS='app.subshell.prototype.data.auth.reddit.Write01b1TextPostSubmitTransportInstrumentedTest'
+TEST_CLASS='io.github.brealorg.subshell.data.auth.reddit.Write01b1TextPostSubmitTransportInstrumentedTest'
 LOG_TAG='subshell-write01b1'
 TEST_PACKAGE_INSTALLED=0
 

@@ -409,7 +409,7 @@ build_lane() {
     repo="$(require_active_lane "$lane")"
     package="$(lane_package "$lane")"
     apk="$repo/$APK_REL"
-    component="$package/app.subshell.prototype.MainActivity"
+    component="$package/io.github.brealorg.subshell.MainActivity"
 
     (
         cd "$repo"

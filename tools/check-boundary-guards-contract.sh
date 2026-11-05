@@ -8,7 +8,8 @@ set -o pipefail
 # came from. Add a guard here only when it is a real boundary, not wording.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-M="$ROOT/app/src/main/java/app/subshell/prototype"
+. "$ROOT/tools/lib/source-paths.sh"
+M="$ROOT/app/src/main/java/${SUBSHELL_PKG_DIR}"
 
 fail() { echo "FAIL=$1"; echo 'RESULT=SUBSHELL_BOUNDARY_GUARDS_CONTRACT_FAIL'; exit 1; }
 pass() { echo "PASS=$1"; }
@@ -613,6 +614,15 @@ grep -Fq 'remember(context) { createPersistentSubshellRepository(context) }' "$M
     fail SUBSHELL_STATE_IS_BUILT_ONLY_BY_ITS_FACTORY
 pass SUBSHELL_STATE_IS_BUILT_ONLY_BY_ITS_FACTORY
 
+# ISSUE40_SAMPLE_DATA_IS_A_DEBUG_FIXTURE_V1: the sample posts and the fake repository are
+# debug-only; main reaches the fake repository by name through FixtureRepository.kt only.
+[[ ! -e "$M/data/SampleData.kt" && ! -e "$M/data/FakeSubshellRepository.kt" ]] &&
+[[ -f "$ROOT/app/src/debug/java/${SUBSHELL_PKG_DIR}/data/SampleData.kt" ]] &&
+[[ -f "$ROOT/app/src/debug/java/${SUBSHELL_PKG_DIR}/data/FakeSubshellRepository.kt" ]] &&
+! rg -q --glob '*.kt' --glob '!FixtureRepository.kt' '(^|[^[:alnum:]_])(SampleData\.|FakeSubshellRepository\()' "$M" ||
+    fail SAMPLE_DATA_IS_DEBUG_ONLY
+pass SAMPLE_DATA_IS_DEBUG_ONLY
+
 # From auth07a: Add account and reconnect ask the browser for a fresh
 # sign-in window (the RedReader window clears Reddit's cookies, the Auth Tab
 # is ephemeral; Step3FreshSignInWindowTest). MainActivity passes the flag
@@ -626,7 +636,7 @@ pass ACTIVITY_ASKS_FOR_A_FRESH_SIGN_IN_WINDOW
 
 # From followpost01a1b: the activity hands following a post (send, retry,
 # authorization) to the app.
-grep -Fq 'app.subshell.prototype.ui.LocalPostFollowRuntime provides' "$M/MainActivity.kt" &&
+grep -Fq 'io.github.brealorg.subshell.ui.LocalPostFollowRuntime provides' "$M/MainActivity.kt" &&
 grep -Fq 'onSetFollowed = readingViewModel::followPost,' "$M/MainActivity.kt" &&
 grep -Fq 'onRetry = readingViewModel::retryPostFollow,' "$M/MainActivity.kt" &&
 grep -Fq 'onAuthorize = ::launchPostFollowAuthorization,' "$M/MainActivity.kt" ||
@@ -672,7 +682,7 @@ pass POST_FOLLOWER_HAS_NO_RETRY_LOOP
 # exports the activity for its test scheme, so a unit test cannot see this).
 test -f "$ROOT/app/src/release/AndroidManifest.xml" &&
 ! grep -qi 'redreader' "$ROOT/app/src/release/AndroidManifest.xml" &&
-rg -U -q 'android:name="app\.subshell\.prototype\.auth\.AuthCallbackActivity"[^>]*android:exported="false"' \
+rg -U -q 'android:name="io\.github\.brealorg\.subshell\.auth\.AuthCallbackActivity"[^>]*android:exported="false"' \
     "$ROOT/app/src/main/AndroidManifest.xml" ||
     fail RELEASE_MANIFEST_HAS_ONLY_THE_PRODUCTION_CALLBACK
 pass RELEASE_MANIFEST_HAS_ONLY_THE_PRODUCTION_CALLBACK
@@ -793,7 +803,7 @@ pass CLIENT_ID_IS_NEVER_LOGGED
 # From auth07c2: the onboarding screen reaches the Client ID only through
 # RedditCompatibilityConfigurationController; it never touches auth storage,
 # tokens or the OAuth identity itself.
-! rg -q 'app\.subshell\.prototype\.data\.auth|OAuthTokenSet|accessToken|refreshToken|RedditOAuth\.|EncryptedAuthSessionStore' \
+! rg -q 'io\.github\.brealorg\.subshell\.data\.auth|OAuthTokenSet|accessToken|refreshToken|RedditOAuth\.|EncryptedAuthSessionStore' \
     "$M/ui/screens/RedditOnboardingScreen.kt" ||
     fail ONBOARDING_HAS_NO_AUTH_STORAGE_OR_TOKENS
 pass ONBOARDING_HAS_NO_AUTH_STORAGE_OR_TOKENS

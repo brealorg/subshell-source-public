@@ -397,8 +397,9 @@ def verify_remote_release(
         fail("REMOTE_RELEASE_TAG_MISMATCH")
     if payload.get("target_commitish") != state["PUBLIC_TARGET_COMMIT"]:
         fail("REMOTE_RELEASE_TARGET_MISMATCH")
-    if payload.get("prerelease") is not True:
-        fail("REMOTE_RELEASE_NOT_PRERELEASE")
+    # RELEASE48_RELEASES_ARE_NOT_PRERELEASES_V1 (#48)
+    if payload.get("prerelease") is not False:
+        fail("REMOTE_RELEASE_IS_PRERELEASE")
     if payload.get("draft") is not False:
         fail("REMOTE_RELEASE_IS_DRAFT")
 

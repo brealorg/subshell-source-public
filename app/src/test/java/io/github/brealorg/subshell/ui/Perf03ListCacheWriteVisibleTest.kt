@@ -1,0 +1,87 @@
+package io.github.brealorg.subshell.ui
+
+import android.app.Application
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
+import io.github.brealorg.subshell.data.PersistentSubshellRepository
+import io.github.brealorg.subshell.data.cache.MutableCacheClock
+import io.github.brealorg.subshell.data.cache.RoomSubshellCacheStore
+import io.github.brealorg.subshell.data.cache.SubshellCacheDatabase
+import io.github.brealorg.subshell.data.createFixtureFreeLocalSubshellRepository
+import io.github.brealorg.subshell.model.Community
+import io.github.brealorg.subshell.model.UserFixture
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+/**
+ * PERF03 (#69), device find: in production the community and user lists are
+ * only what the Room cache holds, and identity lookups write it without a
+ * repository revision. A list kept per revision hid those writes ("My
+ * communities" stayed empty). LISTSSOT01 (#244): the state follows the store
+ * (as RuntimeStateBridge runs it), so such a write is listed without waiting
+ * for another read.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [36])
+class Perf03ListCacheWriteVisibleTest {
+    private val application = ApplicationProvider.getApplicationContext<Application>()
+    private val database = Room.inMemoryDatabaseBuilder(application, SubshellCacheDatabase::class.java)
+        .allowMainThreadQueries()
+        .build()
+    private val repository = PersistentSubshellRepository(
+        delegate = createFixtureFreeLocalSubshellRepository(),
+        cacheStore = RoomSubshellCacheStore(database, clock = MutableCacheClock(1_000L)),
+    )
+
+    @After
+    fun close() {
+        repository.close()
+    }
+
+    private fun following(block: suspend (SubshellState) -> Unit) = runBlocking {
+        val state = SubshellState(repository = repository)
+        val job = launch(start = CoroutineStart.UNDISPATCHED) { state.followListStore() }
+        try {
+            block(state)
+        } finally {
+            job.cancel()
+        }
+    }
+
+    private suspend fun eventually(check: () -> Boolean) {
+        withTimeout(5_000) {
+            while (!check()) delay(10)
+        }
+    }
+
+    @Test
+    fun aCommunityIdentityWrittenAfterTheFirstReadIsListed() = following { state ->
+        assertEquals(emptyList<Community>(), state.communities)
+
+        repository.cacheCommunityIdentity(
+            Community(id = "t5_abc", name = "kotlin", description = "", members = "1", accent = 0L),
+        )
+
+        eventually { state.communities.map { it.name } == listOf("kotlin") }
+    }
+
+    @Test
+    fun aUserIdentityWrittenAfterTheFirstReadIsListed() = following { state ->
+        val before = state.users.size
+
+        repository.cacheUserIdentity(sampleUser())
+
+        eventually { state.users.size == before + 1 }
+    }
+
+    private fun sampleUser(): UserFixture = UserFixture(username = "someone", description = "", karma = "1")
+}

@@ -2,6 +2,12 @@
 
 ## Status
 
+**Superseded in part (2026-11-03, NOGOOGLETRENDS01, owner):** the Google Trends
+part is removed. Search no longer asks Google for anything, the `Trending now`
+section is gone, and the stored trend cache (`search_discovery.google_trends.v1`)
+is deleted at start. The rest of this contract stands; the trend items below
+describe what was removed.
+
 SEARCH02A1.2 v9 finalizes the search-intent-only zero-query surface and retires the
 now-dead Search-owned Reddit Popular data path.
 

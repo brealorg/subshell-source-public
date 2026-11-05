@@ -53,7 +53,7 @@ The app's onboarding explains how to get one, and so does the
 
 | Path | What it is |
 |---|---|
-| `app/src/main` | The app. Kotlin namespace `app.subshell.prototype` (historical name). |
+| `app/src/main` | The app. Kotlin namespace `io.github.brealorg.subshell`, the same as the application id. |
 | `app/src/test` | Unit, Robolectric and Compose tests — the main safety net. |
 | `app/src/androidTest` | Instrumented tests for a device or emulator. |
 | `benchmark/` | Feed scrolling benchmarks (Macrobenchmark). |

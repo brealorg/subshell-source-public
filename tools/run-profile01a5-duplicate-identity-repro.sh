@@ -3,7 +3,7 @@ set -u
 
 SERIAL="${ADB_SERIAL:-19021FDF600GBN}"
 PACKAGE="io.github.brealorg.subshell.debug.dev1"
-ACTIVITY="app.subshell.prototype.MainActivity"
+ACTIVITY="io.github.brealorg.subshell.MainActivity"
 POST="t3_1vmwvx7"
 TARGET="t1_p3j1gm4"
 USERNAME="brealorg"

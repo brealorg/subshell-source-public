@@ -58,10 +58,11 @@ def validated_values(
         raise MigrationError("DEBUG_APPLICATION_ID_RELATION_MISMATCH")
     if test_application_id != debug_application_id + ".test":
         raise MigrationError("TEST_APPLICATION_ID_RELATION_MISMATCH")
-    if component_namespace != "app.subshell.prototype":
+    if component_namespace != "io.github.brealorg.subshell":
         raise MigrationError("COMPONENT_NAMESPACE_MISMATCH")
-    if component_namespace == application_id:
-        raise MigrationError("NAMESPACE_MIGRATION_WAS_NOT_DEFERRED")
+    # #42: the Kotlin namespace migration was done; the namespace is the application id.
+    if component_namespace != application_id:
+        raise MigrationError("NAMESPACE_MIGRATION_WAS_NOT_APPLIED")
 
     return (
         application_id,
@@ -83,7 +84,7 @@ def payload(
         "component_namespace": component_namespace,
         "debug_application_id": debug_application_id,
         "debug_suffix_applied": True,
-        "namespace_migration_deferred": True,
+        "namespace_migration_deferred": False,
         "oauth_client_id_included": False,
         "production_app_link_deployed": False,
         "published": False,

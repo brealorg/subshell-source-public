@@ -40,11 +40,11 @@ import sys
 
 MAIN_ROOT = 'app/src/main/java'
 DEFAULT_TARGETS = [
-    'app/src/main/java/app/subshell/prototype/ui/SubshellApp.kt',
-    'app/src/main/java/app/subshell/prototype/ui/SubshellState.kt',
-    'app/src/main/java/app/subshell/prototype/auth/AuthConnectViewModel.kt',
-    'app/src/main/java/app/subshell/prototype/auth/AuthApplicationRuntime.kt',
-    'app/src/main/java/app/subshell/prototype/MainActivity.kt',
+    'app/src/main/java/io/github/brealorg/subshell/ui/SubshellApp.kt',
+    'app/src/main/java/io/github/brealorg/subshell/ui/SubshellState.kt',
+    'app/src/main/java/io/github/brealorg/subshell/auth/AuthConnectViewModel.kt',
+    'app/src/main/java/io/github/brealorg/subshell/auth/AuthApplicationRuntime.kt',
+    'app/src/main/java/io/github/brealorg/subshell/MainActivity.kt',
 ]
 LOWSPEC_FILES = 10
 LOWSPEC_LEN = 12

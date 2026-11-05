@@ -9,10 +9,10 @@
           remains fail-closed for debug and manifest-fixture validation.
         -->
         <activity-alias
-            android:name="app.subshell.prototype.auth.AuthProductionCallback"
+            android:name="io.github.brealorg.subshell.auth.AuthProductionCallback"
             android:enabled="true"
             android:exported="true"
-            android:targetActivity="app.subshell.prototype.auth.AuthCallbackActivity"
+            android:targetActivity="io.github.brealorg.subshell.auth.AuthCallbackActivity"
             tools:node="replace">
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />

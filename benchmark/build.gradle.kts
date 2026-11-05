@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "app.subshell.prototype.benchmark"
+    namespace = "io.github.brealorg.subshell.benchmark"
     compileSdk = 37
 
     defaultConfig {

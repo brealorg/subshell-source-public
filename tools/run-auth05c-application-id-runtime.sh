@@ -12,10 +12,10 @@ VERIFIER="${ROOT}/tools/verify-auth05c-application-id.py"
 FINAL_APPLICATION_ID='io.github.brealorg.subshell'
 DEBUG_APPLICATION_ID='io.github.brealorg.subshell.debug'
 TEST_APPLICATION_ID='io.github.brealorg.subshell.debug.test'
-COMPONENT_NAMESPACE='app.subshell.prototype'
-MAIN_ACTIVITY='app.subshell.prototype.MainActivity'
-CALLBACK_ACTIVITY='app.subshell.prototype.auth.AuthCallbackActivity'
-CALLBACK_ALIAS='app.subshell.prototype.auth.AuthProductionCallback'
+COMPONENT_NAMESPACE='io.github.brealorg.subshell'
+MAIN_ACTIVITY='io.github.brealorg.subshell.MainActivity'
+CALLBACK_ACTIVITY='io.github.brealorg.subshell.auth.AuthCallbackActivity'
+CALLBACK_ALIAS='io.github.brealorg.subshell.auth.AuthProductionCallback'
 FINAL_RELEASE_SIGNING_CERT_SHA256='52:E9:62:E7:41:2E:25:DA:80:1E:0A:39:06:E0:BF:B4:39:90:0A:1A:A1:5B:A9:F9:3C:95:B4:99:55:BA:F5:84'
 
 mkdir -p "$OUTPUT"
@@ -135,7 +135,7 @@ grep -Fq \
   app/src/debug/AndroidManifest.xml ||
   fail DEBUG_CALLBACK_COMPONENT_MISMATCH
 printf 'PASS=AUTH05C_COMPONENT_NAMESPACE_EXPLICIT\n'
-printf 'PASS=AUTH05C_KOTLIN_NAMESPACE_UNCHANGED\n'
+printf 'PASS=AUTH05C_KOTLIN_NAMESPACE_IS_THE_APPLICATION_ID\n'
 
 printf '\n===== AUTH05C DEBUG SIGNING ISOLATION =====\n'
 APP_RAW_CERT="$($APKSIGNER verify --print-certs "$APP_APK" 2>/dev/null |
@@ -181,7 +181,7 @@ printf '\n===== AUTH05C RESULT =====\n'
 printf 'AUTH05C_FINAL_APPLICATION_ID_APPLIED=PASS\n'
 printf 'AUTH05C_DEBUG_SUFFIX_APPLIED=PASS\n'
 printf 'AUTH05C_TEST_APPLICATION_ID_LOCKED=PASS\n'
-printf 'AUTH05C_COMPONENT_NAMESPACE_DEFERRED=PASS\n'
+printf 'AUTH05C_COMPONENT_NAMESPACE_APPLIED=PASS\n'
 printf 'AUTH05C_RELEASE_SIGNING_MIGRATION=APPLIED_BY_AUTH05D2\n'
 printf 'FINAL_APPLICATION_ID=%s\n' "$FINAL_APPLICATION_ID"
 printf 'DEBUG_APPLICATION_ID=%s\n' "$DEBUG_APPLICATION_ID"

@@ -16,7 +16,7 @@ fail() {
 
 CHANGELOG='app/src/main/assets/changelog/releases.json'
 MANIFEST='tools/contract02/manifests/beta14.tsv'
-MODEL='app/src/main/java/app/subshell/prototype/update/UpdateModels.kt'
+MODEL='app/src/main/java/io/github/brealorg/subshell/update/UpdateModels.kt'
 SUITE='tools/check-beta14-nonnative-suite-contract.sh'
 SOURCES='app/src/main/java'
 
@@ -205,9 +205,9 @@ if [[ "$FAIL" -eq 0 ]]; then
 fi
 
 if grep -Fq 'fun topReleaseSurvivesUpdateManifestNormalizationUnchanged' \
-    app/src/test/java/app/subshell/prototype/update/BundledChangelogPromotionPolicyTest.kt &&
+    app/src/test/java/io/github/brealorg/subshell/update/BundledChangelogPromotionPolicyTest.kt &&
    grep -Fq 'fun topReleaseReadsTheSameForAnOlderClient' \
-    app/src/test/java/app/subshell/prototype/update/BundledChangelogPromotionPolicyTest.kt
+    app/src/test/java/io/github/brealorg/subshell/update/BundledChangelogPromotionPolicyTest.kt
 then
     pass BETA14_CHANGELOG_PROMOTION_POLICY_TESTS_PRESENT
 else

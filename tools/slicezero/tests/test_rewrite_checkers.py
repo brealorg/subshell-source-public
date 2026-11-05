@@ -13,8 +13,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 import rewrite_checkers as R  # noqa: E402
 
-HUB = 'app/src/main/java/app/subshell/prototype/ui/SubshellApp.kt'
-OTHER = 'app/src/main/java/app/subshell/prototype/ui/Other.kt'
+HUB = 'app/src/main/java/io/github/brealorg/subshell/ui/SubshellApp.kt'
+OTHER = 'app/src/main/java/io/github/brealorg/subshell/ui/Other.kt'
 
 
 class Repo:
@@ -27,7 +27,7 @@ class Repo:
         self.write(HUB, 'fun inHub() {}\nval shared = 1\n')
         self.write(OTHER, 'fun elsewhere() {}\nval shared = 1\n')
         for i in range(12):
-            self.write(f'app/src/main/java/app/subshell/prototype/x/F{i}.kt', 'val everywhere = 1\n')
+            self.write(f'app/src/main/java/io/github/brealorg/subshell/x/F{i}.kt', 'val everywhere = 1\n')
 
     def write(self, rel, text):
         p = os.path.join(self.root, rel)
@@ -58,7 +58,7 @@ class ShapeTests(unittest.TestCase):
         self.repo.checker('check-a.sh', '''\
             #!/usr/bin/env bash
             ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-            APP="$ROOT/app/src/main/java/app/subshell/prototype/ui/SubshellApp.kt"
+            APP="$ROOT/app/src/main/java/io/github/brealorg/subshell/ui/SubshellApp.kt"
             rg -Fq 'fun inHub() {}' "$APP" || fail A_HUB
             ''')
         rows = self.repo.analyse('check-a.sh')
@@ -71,7 +71,7 @@ class ShapeTests(unittest.TestCase):
     def test_relative_convention_and_grep_gets_recursive_flags(self):
         self.repo.checker('check-b.sh', '''\
             cd "$ROOT"
-            APP='app/src/main/java/app/subshell/prototype/ui/SubshellApp.kt'
+            APP='app/src/main/java/io/github/brealorg/subshell/ui/SubshellApp.kt'
             if grep -Fq 'fun inHub() {}' "$APP"; then
                 pass B_HUB
             else
@@ -85,14 +85,14 @@ class ShapeTests(unittest.TestCase):
 
     def test_literal_path_target(self):
         self.repo.checker('check-c.sh', '''\
-            grep -Fq 'fun inHub() {}' app/src/main/java/app/subshell/prototype/ui/SubshellApp.kt || fail C
+            grep -Fq 'fun inHub() {}' app/src/main/java/io/github/brealorg/subshell/ui/SubshellApp.kt || fail C
             ''')
         rows = self.repo.analyse('check-c.sh')
         self.assertEqual(rows[1]['new'], '''grep -rFq --include='*.kt' 'fun inHub() {}' app/src/main/java || fail C''')
 
     def test_multi_line_shape_changes_only_the_target_line(self):
         self.repo.checker('check-d.sh', '''\
-            APP="$ROOT/app/src/main/java/app/subshell/prototype/ui/SubshellApp.kt"
+            APP="$ROOT/app/src/main/java/io/github/brealorg/subshell/ui/SubshellApp.kt"
             if rg -Fq \\
                  'fun inHub() {}' \\
                  "$APP" &&
@@ -215,16 +215,16 @@ class ExclusionTests(unittest.TestCase):
 
     def test_rebound_variable_is_ambiguous(self):
         self.repo.checker('check-f.sh', textwrap.dedent('''\
-            APP="$ROOT/app/src/main/java/app/subshell/prototype/ui/SubshellApp.kt"
+            APP="$ROOT/app/src/main/java/io/github/brealorg/subshell/ui/SubshellApp.kt"
             rg -Fq 'fun inHub() {}' "$APP" || fail F
-            APP="$ROOT/app/src/main/java/app/subshell/prototype/ui/SubshellState.kt"
+            APP="$ROOT/app/src/main/java/io/github/brealorg/subshell/ui/SubshellState.kt"
             '''))
         r = self.repo.analyse('check-f.sh')
         self.assertEqual(r[2]['decision'], 'skip:ambiguous-binding')
 
     def test_non_hub_file_is_not_touched(self):
         self.repo.checker('check-g.sh', textwrap.dedent('''\
-            OTHER="$ROOT/app/src/main/java/app/subshell/prototype/ui/Other.kt"
+            OTHER="$ROOT/app/src/main/java/io/github/brealorg/subshell/ui/Other.kt"
             rg -Fq 'fun elsewhere() {}' "$OTHER" || fail G
             '''))
         self.assertEqual(self.repo.analyse('check-g.sh'), {})
@@ -256,11 +256,11 @@ class QuoteTests(unittest.TestCase):
     def test_exact_and_escaped_quotes_are_found_but_independent_assertions_are_not(self):
         repo = Repo()
         a = repo.checker('check-a.sh', '''\
-            APP="$ROOT/app/src/main/java/app/subshell/prototype/ui/SubshellApp.kt"
+            APP="$ROOT/app/src/main/java/io/github/brealorg/subshell/ui/SubshellApp.kt"
             rg -Fq 'fun inHub() {}' "$APP" || fail A
             ''')
         b = repo.checker('check-b.sh', '''\
-            APP="$ROOT/app/src/main/java/app/subshell/prototype/ui/SubshellApp.kt"
+            APP="$ROOT/app/src/main/java/io/github/brealorg/subshell/ui/SubshellApp.kt"
             rg -Fq 'fun inHub() {}' "$APP" || fail B
             grep -Fq "rg -Fq 'fun inHub() {}' \\"\\$APP\\"" "$ROOT/tools/check-a.sh" || fail B_QUOTE
             python3 - <<'EOF'
@@ -290,7 +290,7 @@ class ApplyTests(unittest.TestCase):
     def test_dry_run_changes_nothing_and_apply_is_idempotent(self):
         repo = Repo()
         body = '''\
-            APP="$ROOT/app/src/main/java/app/subshell/prototype/ui/SubshellApp.kt"
+            APP="$ROOT/app/src/main/java/io/github/brealorg/subshell/ui/SubshellApp.kt"
             rg -Fq 'fun inHub() {}' "$APP" || fail A
             ! rg -Fq 'fun inHub() {}' "$APP" || fail A_NEG
             rg -Fq \\
@@ -318,7 +318,7 @@ class ApplyTests(unittest.TestCase):
         repo.checker('check-a.sh', '''\
             #!/usr/bin/env bash
             ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-            APP="$ROOT/app/src/main/java/app/subshell/prototype/ui/SubshellApp.kt"
+            APP="$ROOT/app/src/main/java/io/github/brealorg/subshell/ui/SubshellApp.kt"
             fail() { echo "FAIL=$1"; exit 1; }
             rg -Fq 'fun inHub() {}' "$APP" || fail RG
             grep -Fq 'fun inHub() {}' "$APP" || fail GREP
@@ -344,7 +344,7 @@ class ApplyTests(unittest.TestCase):
     def test_apply_refuses_when_file_changed_since_analysis(self):
         repo = Repo()
         repo.checker('check-a.sh', '''\
-            APP="$ROOT/app/src/main/java/app/subshell/prototype/ui/SubshellApp.kt"
+            APP="$ROOT/app/src/main/java/io/github/brealorg/subshell/ui/SubshellApp.kt"
             rg -Fq 'fun inHub() {}' "$APP" || fail A
             ''')
         tree = R.MainTree(repo.root)
@@ -360,7 +360,7 @@ class GateFileTests(unittest.TestCase):
         repo = Repo()
         for n in ('check-in.sh', 'check-out.sh'):
             repo.checker(n, '''\
-                APP="$ROOT/app/src/main/java/app/subshell/prototype/ui/SubshellApp.kt"
+                APP="$ROOT/app/src/main/java/io/github/brealorg/subshell/ui/SubshellApp.kt"
                 rg -Fq 'fun inHub() {}' "$APP" || fail A
                 ''')
         gate = repo.write('gate.txt', 'check-in.sh\n')

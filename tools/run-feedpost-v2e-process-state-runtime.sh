@@ -6,7 +6,7 @@ SERIAL="${FEEDPOST_V2E_ADB_SERIAL:-19021FDF600GBN}"
 APP_APK="$ROOT/app/build/outputs/apk/debug/app-debug.apk"
 TEST_APK="$ROOT/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
 RUNNER='io.github.brealorg.subshell.debug.test/androidx.test.runner.AndroidJUnitRunner'
-TEST_CLASS='app.subshell.prototype.ui.SubshellProcessStateInstrumentedTest'
+TEST_CLASS='io.github.brealorg.subshell.ui.SubshellProcessStateInstrumentedTest'
 LOG_TAG='subshell-feedpost-v2e'
 
 fail() {

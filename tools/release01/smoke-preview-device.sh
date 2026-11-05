@@ -4,7 +4,7 @@ set -euo pipefail
 # SUBSHELL_RELEASETOOL01B_EXACT_PREVIEW_DEVICE_SMOKE_V1
 
 RECORD_VERIFIER='tools/release01/verify-release-record.py'
-MAIN_ACTIVITY='app.subshell.prototype.MainActivity'
+MAIN_ACTIVITY='io.github.brealorg.subshell.MainActivity'
 
 usage() {
     cat <<'USAGE'

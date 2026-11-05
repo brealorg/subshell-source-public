@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
 
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
@@ -21,6 +22,7 @@
         android:maxSdkVersion="28" />
 
     <application
+        android:name="io.github.brealorg.subshell.SubshellApplication"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -32,15 +34,27 @@
         android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true"
         android:theme="@style/Theme.Subshell">
+        <!-- ISSUE55_WORK_FROM_BEFORE_THE_RENAME_RUNS_V1: WorkManager starts on demand from
+             SubshellApplication (its worker factory), not from androidx.startup. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
         <!-- SECAUDIT08_CALLBACK_OPENS_SUBSHELLS_OWN_TASK_V1 -->
         <activity
-            android:name="app.subshell.prototype.auth.AuthCallbackActivity"
+            android:name="io.github.brealorg.subshell.auth.AuthCallbackActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:noHistory="true"
             android:taskAffinity="" />
         <activity
-            android:name="app.subshell.prototype.auth.RedReaderCompatibilityLoginActivity"
+            android:name="io.github.brealorg.subshell.auth.RedReaderCompatibilityLoginActivity"
             android:excludeFromRecents="true"
             android:exported="false" />
         <!--
@@ -50,10 +64,10 @@
           or web link deliver one is gone.
         -->
         <activity-alias
-            android:name="app.subshell.prototype.auth.AuthProductionCallback"
+            android:name="io.github.brealorg.subshell.auth.AuthProductionCallback"
             android:enabled="${auth04ProductionCallbackEnabled}"
             android:exported="true"
-            android:targetActivity="app.subshell.prototype.auth.AuthCallbackActivity">
+            android:targetActivity="io.github.brealorg.subshell.auth.AuthCallbackActivity">
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
 
@@ -76,7 +90,7 @@
                 android:resource="@xml/subshell_file_paths" />
         </provider>
         <activity
-            android:name="app.subshell.prototype.MainActivity"
+            android:name="io.github.brealorg.subshell.MainActivity"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
             android:supportsPictureInPicture="true"
             android:exported="true"
@@ -91,7 +105,7 @@
              shares from other apps land here and are forwarded to MainActivity in
              Subshell's own task, so no second MainActivity starts in the caller's task. -->
         <activity
-            android:name="app.subshell.prototype.ExternalLaunchActivity"
+            android:name="io.github.brealorg.subshell.ExternalLaunchActivity"
             android:excludeFromRecents="true"
             android:exported="true"
             android:noHistory="true"
@@ -125,10 +139,10 @@
         </activity>
         <!-- ISSUE33_SHARE_INTO_SUBSHELL_V1: off by default; Settings enables it. -->
         <activity-alias
-            android:name="app.subshell.prototype.ShareIntoSubshell"
+            android:name="io.github.brealorg.subshell.ShareIntoSubshell"
             android:enabled="false"
             android:exported="true"
-            android:targetActivity="app.subshell.prototype.ExternalLaunchActivity">
+            android:targetActivity="io.github.brealorg.subshell.ExternalLaunchActivity">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -145,6 +159,15 @@
                 <data android:mimeType="image/*" />
             </intent-filter>
         </activity-alias>
+        <!-- ISSUE52_SHARE_INTO_SUBSHELL_SURVIVES_THE_RENAME_V1: 0.91's name for the alias
+             above. Never shown (disabled, no intent filters); it is here only so Android keeps
+             its on/off state through the update, which AfterTheRename carries over. Remove it
+             once no install from before the rename is left to update. -->
+        <activity-alias
+            android:name="app.subshell.prototype.ShareIntoSubshell"
+            android:enabled="false"
+            android:exported="false"
+            android:targetActivity="io.github.brealorg.subshell.ExternalLaunchActivity" />
         <!-- ISSUE253_DIRECT_REPLY_FROM_THE_NOTIFICATION_V1: only Subshell's own
              notification Reply action reaches it. -->
         <receiver

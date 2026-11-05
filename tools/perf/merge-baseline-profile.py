@@ -21,7 +21,7 @@ from pathlib import Path
 import re
 import sys
 
-APP_PREFIX = "app/subshell/prototype/"
+APP_PREFIX = "io/github/brealorg/subshell/"
 RULE = re.compile(r"^[HSP]*L([^;]+);")
 
 

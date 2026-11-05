@@ -35,7 +35,7 @@ OUT=""
 AVD="subshell-api36"
 SETTLE_SECONDS=90
 PORT=5590
-TEST_CLASS="app.subshell.prototype.ui.Issue246AccessibilityChecksInstrumentedTest"
+TEST_CLASS="io.github.brealorg.subshell.ui.Issue246AccessibilityChecksInstrumentedTest"
 usage() { echo "STOP=USAGE: $0 --source DIR --commit SHA --out DIR [--avd NAME] [--settle SECONDS]" >&2; exit 2; }
 while [[ $# -gt 0 ]]; do
     case "$1" in

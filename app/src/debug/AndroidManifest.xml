@@ -10,7 +10,7 @@
         android:usesCleartextTraffic="false"
         tools:replace="android:icon,android:label,android:networkSecurityConfig,android:roundIcon">
         <activity
-            android:name="app.subshell.prototype.auth.AuthCallbackActivity"
+            android:name="io.github.brealorg.subshell.auth.AuthCallbackActivity"
             android:exported="true"
             tools:replace="android:exported">
             <intent-filter>

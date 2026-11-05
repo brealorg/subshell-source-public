@@ -7,7 +7,7 @@
         errorLine1="    val fullScreen = LocalConfiguration.current.screenWidthDp &lt; FullScreenDialogMaxWidthDp"
         errorLine2="                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/components/AdaptiveFullScreenDialog.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/components/AdaptiveFullScreenDialog.kt"
             line="56"
             column="22"/>
     </issue>
@@ -18,7 +18,7 @@
         errorLine1="                                LocalConfiguration.current.screenWidthDp,"
         errorLine2="                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/SubshellApp.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/SubshellApp.kt"
             line="719"
             column="33"/>
     </issue>
@@ -29,7 +29,7 @@
         errorLine1="            useExpandedMainLayoutForWidthDp(configuration.screenWidthDp)"
         errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/SubshellApp.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/SubshellApp.kt"
             line="759"
             column="45"/>
     </issue>
@@ -40,7 +40,7 @@
         errorLine1="            useNavigationRailForWidthDp(configuration.screenWidthDp) &amp;&amp;"
         errorLine2="                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/SubshellApp.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/SubshellApp.kt"
             line="777"
             column="41"/>
     </issue>
@@ -51,7 +51,7 @@
         errorLine1="                val maxDimension = localMediaMaxDimension(context.resources.displayMetrics)"
         errorLine2="                                                          ~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/components/MediaComponents.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/components/MediaComponents.kt"
             line="824"
             column="59"/>
     </issue>
@@ -62,7 +62,7 @@
         errorLine1="                        frame?.let { BitmapDrawable(context.resources, it) }"
         errorLine2="                                                    ~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/components/MediaComponents.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/components/MediaComponents.kt"
             line="839"
             column="53"/>
     </issue>
@@ -73,7 +73,7 @@
         errorLine1="                    }?.let { bitmap -> BitmapDrawable(context.resources, bitmap) }"
         errorLine2="                                                      ~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/components/MediaComponents.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/components/MediaComponents.kt"
             line="860"
             column="55"/>
     </issue>
@@ -84,7 +84,7 @@
         errorLine1="    modifier: Modifier = Modifier,"
         errorLine2="    ~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/components/AuthorFlairBadge.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/components/AuthorFlairBadge.kt"
             line="226"
             column="5"/>
     </issue>
@@ -95,7 +95,7 @@
         errorLine1="    modifier: Modifier = Modifier,"
         errorLine2="    ~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/screens/CommentEditScreen.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/screens/CommentEditScreen.kt"
             line="79"
             column="5"/>
     </issue>
@@ -106,7 +106,7 @@
         errorLine1="    modifier: Modifier = Modifier,"
         errorLine2="    ~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/components/Common.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/components/Common.kt"
             line="1041"
             column="5"/>
     </issue>
@@ -117,7 +117,7 @@
         errorLine1="    modifier: Modifier = Modifier,"
         errorLine2="    ~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/screens/CommunityScreen.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/screens/CommunityScreen.kt"
             line="211"
             column="5"/>
     </issue>
@@ -128,7 +128,7 @@
         errorLine1="    modifier: Modifier = Modifier,"
         errorLine2="    ~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/components/CompactReplyComposer.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/components/CompactReplyComposer.kt"
             line="58"
             column="5"/>
     </issue>
@@ -139,7 +139,7 @@
         errorLine1="    modifier: Modifier = Modifier,"
         errorLine2="    ~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/components/InboxModmail.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/components/InboxModmail.kt"
             line="979"
             column="5"/>
     </issue>
@@ -150,7 +150,7 @@
         errorLine1="    modifier: Modifier = Modifier,"
         errorLine2="    ~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/screens/PostEditScreen.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/screens/PostEditScreen.kt"
             line="80"
             column="5"/>
     </issue>
@@ -161,7 +161,7 @@
         errorLine1="    modifier: Modifier = Modifier,"
         errorLine2="    ~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/screens/PostScreen.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/screens/PostScreen.kt"
             line="377"
             column="5"/>
     </issue>
@@ -172,7 +172,7 @@
         errorLine1="    modifier: Modifier = Modifier,"
         errorLine2="    ~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/components/RedditComposer.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/components/RedditComposer.kt"
             line="142"
             column="5"/>
     </issue>
@@ -183,7 +183,7 @@
         errorLine1="    modifier: Modifier = Modifier,"
         errorLine2="    ~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/screens/RedditOnboardingScreen.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/screens/RedditOnboardingScreen.kt"
             line="134"
             column="5"/>
     </issue>
@@ -194,7 +194,7 @@
         errorLine1="    modifier: Modifier = Modifier,"
         errorLine2="    ~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/screens/SearchScreen.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/screens/SearchScreen.kt"
             line="189"
             column="5"/>
     </issue>
@@ -205,7 +205,7 @@
         errorLine1="    modifier: Modifier = Modifier,"
         errorLine2="    ~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/screens/Settings03AppearancePreview.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/screens/Settings03AppearancePreview.kt"
             line="60"
             column="5"/>
     </issue>
@@ -216,7 +216,7 @@
         errorLine1="    fieldModifier: Modifier,"
         errorLine2="    ~~~~~~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/components/SubshellSearchField.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/components/SubshellSearchField.kt"
             line="93"
             column="5"/>
     </issue>
@@ -227,7 +227,7 @@
         errorLine1="    var pullDistancePx by remember { mutableStateOf(0f) }"
         errorLine2="                                     ~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/components/Common.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/components/Common.kt"
             line="246"
             column="38"/>
     </issue>
@@ -238,7 +238,7 @@
         errorLine1="        mutableStateOf(if (state.effectiveFavoriteCommunityNames.isNotEmpty()) 0 else 1)"
         errorLine2="        ~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/screens/CommunitiesScreen.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/screens/CommunitiesScreen.kt"
             line="272"
             column="9"/>
     </issue>
@@ -249,7 +249,7 @@
         errorLine1="        mutableStateOf(liveState.createCompletionRevision)"
         errorLine2="        ~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/screens/CommunitiesScreen.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/screens/CommunitiesScreen.kt"
             line="2079"
             column="9"/>
     </issue>
@@ -260,7 +260,7 @@
         errorLine1="        mutableStateOf(liveState.manageCompletionRevision)"
         errorLine2="        ~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/screens/CommunitiesScreen.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/screens/CommunitiesScreen.kt"
             line="2082"
             column="9"/>
     </issue>
@@ -271,7 +271,7 @@
         errorLine1="    var refreshGeneration by remember(accountStableId, feed.path) { mutableStateOf(0) }"
         errorLine2="                                                                    ~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/screens/CommunitiesScreen.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/screens/CommunitiesScreen.kt"
             line="2808"
             column="69"/>
     </issue>
@@ -282,7 +282,7 @@
         errorLine1="        mutableStateOf(COMMUNITY_ABOUT_TAB)"
         errorLine2="        ~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/components/CommunityAboutSheet.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/components/CommunityAboutSheet.kt"
             line="98"
             column="9"/>
     </issue>
@@ -293,7 +293,7 @@
         errorLine1="        mutableStateOf(redditCommentsState.contentRevision)"
         errorLine2="        ~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/screens/PostScreen.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/screens/PostScreen.kt"
             line="629"
             column="9"/>
     </issue>
@@ -304,7 +304,7 @@
         errorLine1="        remember { mutableStateOf(0) }"
         errorLine2="                   ~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/app/subshell/prototype/ui/screens/RedditOnboardingScreen.kt"
+            file="src/main/java/io/github/brealorg/subshell/ui/screens/RedditOnboardingScreen.kt"
             line="166"
             column="20"/>
     </issue>

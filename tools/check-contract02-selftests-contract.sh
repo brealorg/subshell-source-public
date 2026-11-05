@@ -44,4 +44,11 @@ PYTHONDONTWRITEBYTECODE=1 python3 tools/perf/selftest-merge-baseline-profile.py 
     fail ISSUE259_BASELINE_PROFILE_MERGE_SELFTEST
 echo 'PASS=ISSUE259_BASELINE_PROFILE_MERGE_SELFTEST'
 
+# RELEASE48_ONE_RELEASE_SCOPE_CHECKER_V1 (#48, owner-approved): the shared
+# release-scope contract passes for 0.91 as published and fails for a changed
+# highlight, a wrong release below it and a wrong manifest.
+bash tools/release-scope/selftest.sh >/dev/null ||
+    fail RELEASE48_RELEASE_SCOPE_SELFTEST
+echo 'PASS=RELEASE48_RELEASE_SCOPE_SELFTEST'
+
 echo 'RESULT=SUBSHELL_CONTRACT02_SELFTESTS_CONTRACT_PASS'
