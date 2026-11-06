@@ -10,7 +10,8 @@
 # app: a signed-out app records only the onboarding), runs
 # BaselineProfileGenerator, merges the recording into the current profile
 # (tools/perf/merge-baseline-profile.py), removes the generator app and puts the
-# normal lane build back. The profile change is left for the caller to commit.
+# normal lane build back (built directly, so an idle lane works too; a failed
+# restore ends the run with STOP=LANE_BUILD_NOT_RESTORED). The profile change is left for the caller to commit.
 # Gradle and the phone are shared: announce "taking" to the other lane first.
 set -euo pipefail
 
@@ -53,10 +54,21 @@ grep -q 'isKeyguardShowing=true' <<<"$WINDOW" && stop PHONE_LOCKED_UNLOCK_IT
 
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/subshell-baseline-profile.XXXXXX")"
 trap 'rm -rf -- "$TMP"' EXIT
+# ISSUE63_THE_LANE_BUILD_IS_RESTORED_WITHOUT_THE_LANE_STATE_V1: the normal lane
+# build is built and installed directly, so it also works when the lane is IDLE
+# (the recording may run from another worktree over this lane's signed-in app).
+# A restore that did not happen is a failure, never a recorded profile.
 restore_lane() {
     "${ADB[@]}" uninstall "$GENERATOR" >/dev/null 2>&1 || true
-    SUBSHELL_ADB_SERIAL="$SERIAL" ./tools/subshell "$LANE" >"$TMP/lane.log" 2>&1 &&
-        echo 'LANE_BUILD_RESTORED=YES' || echo 'LANE_BUILD_RESTORED=NO'
+    if ./gradlew --offline --no-daemon --no-configuration-cache -q \
+            :app:assembleDebug "-Psubshell.debugSlot=$LANE" >"$TMP/lane.log" 2>&1 &&
+        "${ADB[@]}" install -r -d app/build/outputs/apk/debug/app-debug.apk >>"$TMP/lane.log" 2>&1; then
+        echo 'LANE_BUILD_RESTORED=YES'
+    else
+        tail -5 "$TMP/lane.log"
+        echo 'LANE_BUILD_RESTORED=NO'
+        return 1
+    fi
 }
 
 "${ADB[@]}" shell am instrument -w \
@@ -66,18 +78,18 @@ restore_lane() {
     "$GENERATOR/androidx.test.runner.AndroidJUnitRunner" >"$TMP/instrument.log" 2>&1 || true
 if ! grep -q '^OK (1 test)' "$TMP/instrument.log"; then
     tail -20 "$TMP/instrument.log"
-    restore_lane
+    restore_lane || true
     stop GENERATOR_FAILED
 fi
-"${ADB[@]}" pull "$DEVICE_FILE" "$TMP/recorded.txt" >/dev/null || { restore_lane; stop RECORDING_NOT_PULLED; }
+"${ADB[@]}" pull "$DEVICE_FILE" "$TMP/recorded.txt" >/dev/null || { restore_lane || true; stop RECORDING_NOT_PULLED; }
 
 python3 -I tools/perf/merge-baseline-profile.py \
     --current "$PROFILE" --recorded "$TMP/recorded.txt" \
     --classes app/build/intermediates/built_in_kotlinc/benchmark/compileBenchmarkKotlin/classes \
     --classes app/build/intermediates/javac/benchmark/compileBenchmarkJavaWithJavac/classes \
-    --output "$TMP/merged.txt" || { restore_lane; stop MERGE_FAILED; }
+    --output "$TMP/merged.txt" || { restore_lane || true; stop MERGE_FAILED; }
 command cp -f "$TMP/merged.txt" "$PROFILE"
 
-restore_lane
+restore_lane || { echo "RECORDED_FROM=$(git rev-parse --short HEAD) (profile written, lane build not restored)"; stop LANE_BUILD_NOT_RESTORED; }
 echo "RECORDED_FROM=$(git rev-parse --short HEAD)"
 echo 'RESULT=ISSUE259_BASELINE_PROFILE_RECORDED'

@@ -1,0 +1,36 @@
+{
+  "id": "rc1",
+  "release": {
+    "versionCode": 257,
+    "versionName": "1.0.0-rc",
+    "date": "2026-11-06",
+    "headline": "Subshell 1.0 release candidate: the same app as 0.92, out for a last check of updating from inside the app",
+    "highlights": [
+      "This is the release candidate for 1.0. The app is the same as 0.92; it is out so updating from inside the app can be checked once more before 1.0.",
+      "If Update or What's new does not work for you, tell us on r/subshell or GitHub."
+    ],
+    "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v1.0.0-rc"
+  },
+  "below": [
+    {
+      "versionCode": 256,
+      "versionName": "0.92-beta",
+      "date": "2026-11-05"
+    },
+    {
+      "versionCode": 255,
+      "versionName": "0.91-beta",
+      "date": "2026-11-01"
+    },
+    {
+      "versionCode": 254,
+      "versionName": "0.90-beta",
+      "date": "2026-10-31"
+    },
+    {
+      "versionCode": 253,
+      "versionName": "0.89-beta",
+      "date": "2026-10-30"
+    }
+  ]
+}

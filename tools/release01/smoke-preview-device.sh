@@ -241,7 +241,10 @@ for attempt in $(seq 1 12); do
         adb -s "$SERIAL" shell dumpsys activity activities 2>/dev/null |
             grep -m1 'topResumedActivity=' || true
     )"
-    if grep -Fq "$APPLICATION_ID/$MAIN_ACTIVITY" <<<"$TOP"; then
+    # RELEASE92_FOREGROUND_CHECK_READS_THE_SHORT_NAME_V1: since #42 the activity
+    # lies in the application id's own package, so Android prints it short.
+    if grep -Fq "$APPLICATION_ID/$MAIN_ACTIVITY" <<<"$TOP" ||
+        grep -Fq "$APPLICATION_ID/.MainActivity" <<<"$TOP"; then
         FOREGROUND=YES
         echo "FOREGROUND_MATCH_ATTEMPT=$attempt"
         break

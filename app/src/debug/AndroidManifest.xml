@@ -25,5 +25,9 @@
                     android:scheme="subshell-auth-test" />
             </intent-filter>
         </activity>
+        <provider
+            android:name="io.github.brealorg.subshell.debuglog.LaneLogProvider"
+            android:authorities="${applicationId}.lane-log"
+            android:exported="false" />
     </application>
 </manifest>
