@@ -70,7 +70,7 @@ class Update08NotificationOptInTest {
         var tapped = 0
         composeRule.setContent {
             SubshellTheme {
-                UpdateAvailableDialog(release, onDismiss = {}, onViewRelease = {}, onNotifyNextTime = { tapped++ })
+                UpdateAvailableDialog(release, onDismiss = {}, onViewRelease = {}, onUpdate = {}, onNotifyNextTime = { tapped++ })
             }
         }
         composeRule.onNodeWithText(notify).performScrollTo().performClick()
@@ -113,7 +113,7 @@ class Update08NotificationOptInTest {
     private fun showHost() {
         UpdateStateStore(composeRule.activity).saveAvailableRelease(release)
         composeRule.setContent {
-            SubshellTheme { UpdatePresentationHost(automaticPresentationEnabled = true) }
+            SubshellTheme { UpdatePresentationHost(automaticPresentationEnabled = true, onOpenUpdates = {}) }
         }
         composeRule.waitForIdle()
     }

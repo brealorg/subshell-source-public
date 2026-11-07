@@ -67,6 +67,24 @@ internal fun updateInstallPermissionIntent(context: Context): Intent =
         Uri.parse("package:${context.packageName}"),
     )
 
+/**
+ * ISSUE291_UPDATE_DIALOG_UPDATES_IN_THE_APP_V1: "Update" in the update dialog
+ * asks the Updates page to start the update as it opens, through the same
+ * path as its own Update button (permission question included).
+ */
+internal object UpdateStartRequest {
+    private var versionCode: Int = 0
+
+    @Synchronized
+    fun request(versionCode: Int) {
+        this.versionCode = versionCode
+    }
+
+    /** The requested version once; 0 when nothing is waiting. */
+    @Synchronized
+    fun take(): Int = versionCode.also { versionCode = 0 }
+}
+
 internal object UpdateInstallCoordinator {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutableState = MutableStateFlow<UpdateInstallState>(UpdateInstallState.Idle)

@@ -144,6 +144,10 @@ internal fun AppSheetsHost(
             // UPDATE01A1B_MAIN_PRESENTATION_HOST_V1
             UpdatePresentationHost(
                 automaticPresentationEnabled = updatePresentationHomeReady,
+                onOpenUpdates = {
+                    requestedSettingsDestinationName = SettingsDestination.UPDATES.name
+                    state.openSecondary(SecondaryDestination.SETTINGS)
+                },
             )
         }
     }

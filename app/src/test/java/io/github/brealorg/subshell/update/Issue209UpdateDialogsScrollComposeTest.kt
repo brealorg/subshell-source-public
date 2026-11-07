@@ -39,7 +39,7 @@ class Issue209UpdateDialogsScrollComposeTest {
             highlights = highlights,
         )
         composeRule.setContent {
-            SubshellTheme { UpdateAvailableDialog(release, onDismiss = {}, onViewRelease = {}) }
+            SubshellTheme { UpdateAvailableDialog(release, onDismiss = {}, onViewRelease = {}, onUpdate = {}) }
         }
 
         composeRule.onNodeWithText(updateApkHashLine(release)).performScrollTo().assertIsDisplayed()

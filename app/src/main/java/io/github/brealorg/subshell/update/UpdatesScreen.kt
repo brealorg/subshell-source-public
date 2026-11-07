@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -92,6 +93,16 @@ internal fun UpdatesScreen(
             UpdateInstallCoordinator.start(appContext, release)
         } else {
             permissionNeededFor = release
+        }
+    }
+
+    // ISSUE291: Update in the update dialog starts the update as this page opens.
+    LaunchedEffect(Unit) {
+        val requested = UpdateStartRequest.take()
+        if (requested > 0) {
+            store.availableRelease(BuildConfig.VERSION_CODE)
+                ?.takeIf { it.versionCode == requested }
+                ?.let(::startUpdate)
         }
     }
 

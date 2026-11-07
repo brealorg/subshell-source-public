@@ -144,7 +144,7 @@ class Update09KnownBadVersionAdvisoryTest {
     fun theDialogPutsTheProblemFirst() {
         composeRule.setContent {
             SubshellTheme {
-                UpdateAvailableDialog(release, onDismiss = {}, onViewRelease = {}, advisory = release.advisoryFor(245))
+                UpdateAvailableDialog(release, onDismiss = {}, onViewRelease = {}, onUpdate = {}, advisory = release.advisoryFor(245))
             }
         }
         composeRule.onNodeWithText("Known problem in your version").assertIsDisplayed()
@@ -164,7 +164,7 @@ class Update09KnownBadVersionAdvisoryTest {
         val now = System.currentTimeMillis()
         store.markUpdatePresented(installed + 1, nowEpochMillis = now - UPDATE09_ADVISORY_REPEAT_INTERVAL_MILLIS - 60_000L)
 
-        composeRule.setContent { SubshellTheme { UpdatePresentationHost(automaticPresentationEnabled = true) } }
+        composeRule.setContent { SubshellTheme { UpdatePresentationHost(automaticPresentationEnabled = true, onOpenUpdates = {}) } }
         composeRule.onNodeWithText("Known problem in your version").assertIsDisplayed()
         composeRule.onNodeWithText("0.81 can lose a draft.").assertIsDisplayed()
     }
@@ -178,7 +178,7 @@ class Update09KnownBadVersionAdvisoryTest {
         )
         store.markUpdatePresented(installed + 1, nowEpochMillis = System.currentTimeMillis() - 60_000L)
 
-        composeRule.setContent { SubshellTheme { UpdatePresentationHost(automaticPresentationEnabled = true) } }
+        composeRule.setContent { SubshellTheme { UpdatePresentationHost(automaticPresentationEnabled = true, onOpenUpdates = {}) } }
         composeRule.waitForIdle()
         assertTrue(
             composeRule.onAllNodes(androidx.compose.ui.test.hasText("Known problem in your version"))
@@ -189,7 +189,7 @@ class Update09KnownBadVersionAdvisoryTest {
     @Test
     fun withoutAnAdvisoryTheDialogIsUnchanged() {
         composeRule.setContent {
-            SubshellTheme { UpdateAvailableDialog(release, onDismiss = {}, onViewRelease = {}) }
+            SubshellTheme { UpdateAvailableDialog(release, onDismiss = {}, onViewRelease = {}, onUpdate = {}) }
         }
         composeRule.onNodeWithText("subshell update available").assertIsDisplayed()
         composeRule.onNodeWithText("0.82-beta").assertIsDisplayed()

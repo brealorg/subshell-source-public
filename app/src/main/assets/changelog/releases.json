@@ -2,6 +2,17 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "versionCode": 258,
+      "versionName": "1.0.0-rc.2",
+      "date": "2026-11-07",
+      "headline": "Subshell 1.0 release candidate 2: the Update button in the update dialog now updates the app",
+      "highlights": [
+        "The \"subshell update available\" dialog now has an Update button that downloads and installs the update inside the app. Before, it only led to the GitHub page.",
+        "Everything else is the same as 1.0 release candidate 1 and 0.92. If Update or What's new does not work for you, tell us on r/subshell or GitHub."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v1.0.0-rc.2"
+    },
+    {
       "versionCode": 257,
       "versionName": "1.0.0-rc",
       "date": "2026-11-06",

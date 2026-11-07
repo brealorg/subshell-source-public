@@ -62,6 +62,7 @@ import io.github.brealorg.subshell.ui.symbols.Symbols
 @Composable
 internal fun UpdatePresentationHost(
     automaticPresentationEnabled: Boolean,
+    onOpenUpdates: () -> Unit,
 ) {
     val appContext = LocalContext.current.applicationContext
     // LOW_MAIN_UPDATE_LINKS_ARE_TRIPS_SUBSHELL_STARTS_V1 (OCB-391): opened
@@ -166,6 +167,16 @@ internal fun UpdatePresentationHost(
             release = explicit.release,
             advisory = explicit.release.advisoryFor(BuildConfig.VERSION_CODE),
             onNotifyNextTime = notifyNextTime,
+            onUpdate = {
+                store.markUpdatePresented(explicit.release.versionCode)
+                autoAvailableRelease =
+                    autoAvailableRelease?.takeUnless { cached ->
+                        cached.versionCode == explicit.release.versionCode
+                    }
+                UpdatePresentationCoordinator.clear(explicit)
+                UpdateStartRequest.request(explicit.release.versionCode)
+                onOpenUpdates()
+            },
             onDismiss = {
                 store.markUpdatePresented(explicit.release.versionCode)
                 autoAvailableRelease =
@@ -245,6 +256,12 @@ internal fun UpdatePresentationHost(
             release = release,
             advisory = release.advisoryFor(BuildConfig.VERSION_CODE),
             onNotifyNextTime = notifyNextTime,
+            onUpdate = {
+                store.markUpdatePresented(release.versionCode)
+                autoAvailableRelease = null
+                UpdateStartRequest.request(release.versionCode)
+                onOpenUpdates()
+            },
             onDismiss = {
                 store.markUpdatePresented(release.versionCode)
                 autoAvailableRelease = null
@@ -321,6 +338,7 @@ internal fun UpdateAvailableDialog(
     release: UpdateManifestRelease,
     onDismiss: () -> Unit,
     onViewRelease: () -> Unit,
+    onUpdate: () -> Unit,
     onNotifyNextTime: (() -> Unit)? = null,
     advisory: UpdateAdvisory? = null,
 ) {
@@ -381,11 +399,17 @@ internal fun UpdateAvailableDialog(
                         Text("Notify me next time")
                     }
                 }
+                TextButton(onClick = onViewRelease) {
+                    Text("View release")
+                }
             }
         },
+        // ISSUE291_UPDATE_DIALOG_UPDATES_IN_THE_APP_V1: the main button leads
+        // to Settings > Updates (download, SHA-256 check, install); the
+        // GitHub page is the second choice.
         confirmButton = {
-            TextButton(onClick = onViewRelease) {
-                Text("View release")
+            TextButton(onClick = onUpdate) {
+                Text("Update")
             }
         },
         dismissButton = {
