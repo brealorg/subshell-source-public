@@ -85,6 +85,17 @@ internal fun rememberRandomNsfwCommunityAction(
                             failureDetails = null,
                             onRetry = null,
                         )
+                        RandomNsfwCommunityPick.NoneInShownLanguages -> noticeHost.present(
+                            scopeKey = RANDOM_NSFW_COMMUNITY_SCOPE,
+                            presentation = ErrorPresentation(
+                                kind = ErrorPresentationKind.DEGRADED,
+                                title = "No NSFW community in your languages",
+                                message = "Every NSFW community Reddit offered is in a language left out in " +
+                                    "Settings › Navigation & gestures › Languages.",
+                            ),
+                            failureDetails = null,
+                            onRetry = null,
+                        )
                         RandomNsfwCommunityPick.Failed -> noticeHost.present(
                             scopeKey = RANDOM_NSFW_COMMUNITY_SCOPE,
                             presentation = ErrorPresentation(

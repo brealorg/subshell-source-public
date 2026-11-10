@@ -43,22 +43,29 @@ class Issue54ModeratorToolsCommunityCaseComposeTest {
         var moderated: RedditModeratorActionRequest? = null
         composeRule.setContent {
             SubshellTheme {
-                ModeratorToolsSheet(
-                    communityLabel = "r/AskReddit",
-                    communityName = "AskReddit",
+                // ISSUE295_QUEUE_USES_THE_SHEET_V1: Approve writes through the
+                // Moderate sheet's entry points, which ask with the canonical name.
+                ModeratorQuickActionsHarness(
                     accountStableId = "reddit:mod",
-                    uiState = RedditModerationUiState(
-                        accountStableId = "reddit:mod",
-                        queueCommunityName = "askreddit",
-                        queueItems = listOf(item),
-                        queueLoaded = true,
-                    ),
-                    onDismiss = {},
-                    onRefresh = {},
-                    onAppend = {},
+                    actionState = io.github.brealorg.subshell.data.account.RedditModeratorActionUiState(),
                     onModerate = { request -> moderated = request },
-                    savedResponses = SavedResponseActions(emptyList(), onSave = { _, _ -> null }, onDelete = {}),
-                )
+                    notices = null,
+                ) {
+                    ModeratorToolsSheet(
+                        communityLabel = "r/AskReddit",
+                        communityName = "AskReddit",
+                        accountStableId = "reddit:mod",
+                        uiState = RedditModerationUiState(
+                            accountStableId = "reddit:mod",
+                            queueCommunityName = "askreddit",
+                            queueItems = listOf(item),
+                            queueLoaded = true,
+                        ),
+                        onDismiss = {},
+                        onRefresh = {},
+                        onAppend = {},
+                    )
+                }
             }
         }
         composeRule.waitForIdle()

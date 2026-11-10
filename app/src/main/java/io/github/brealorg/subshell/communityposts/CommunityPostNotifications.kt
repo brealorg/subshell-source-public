@@ -19,6 +19,7 @@ import io.github.brealorg.subshell.R
 import io.github.brealorg.subshell.applock.AppLockSettingsStore
 import io.github.brealorg.subshell.applock.hidesNotificationContent
 import io.github.brealorg.subshell.data.auth.CommunityComment
+import io.github.brealorg.subshell.data.privateprefs.SealedKeysPreferences
 import io.github.brealorg.subshell.model.Post
 import io.github.brealorg.subshell.ui.hiddenCommunityNamesPreferenceKey
 
@@ -238,7 +239,7 @@ internal object CommunityPostNotificationCenter {
 
     private fun isHiddenCommunity(context: Context, accountStableId: String, communityName: String): Boolean =
         runCatching {
-            context.getSharedPreferences(COMMUNITY_POST_WATCH_PREFERENCES, Context.MODE_PRIVATE)
+            SealedKeysPreferences.of(context)
                 .getStringSet(hiddenCommunityNamesPreferenceKey(accountStableId), emptySet())
                 .orEmpty()
                 .any { hidden -> hidden.equals(communityName.removePrefix("r/"), ignoreCase = true) }

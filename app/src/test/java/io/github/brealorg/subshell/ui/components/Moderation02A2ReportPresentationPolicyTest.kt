@@ -24,9 +24,15 @@ class Moderation02A2ReportPresentationPolicyTest {
         assertTrue(source("ui/components/ModeratorToolsSheet.kt").contains("ModeratorReportLookupButton(communityName)"))
         assertTrue(source("ui/components/ModeratorReports.kt").contains("Recently opened · this session"))
     }
+    // ISSUE295_ONE_MODERATE_ENTRY_OPENS_A_SHEET_V1: the post's and comment's ⋮
+    // menus open the moderator sheet, whose "Reports…" reopens them
+    // (Issue295ModActionsInMenuComposeTest exercises it).
     @Test fun postAndCommentOverflowsProvideQueueIndependentReversal() {
-        assertTrue(source("ui/components/Common.kt").contains("MODERATION02A2_POST_REPORT_REOPEN_OUTSIDE_QUEUE_V1"))
-        assertTrue(source("ui/screens/PostScreen.kt").contains("MODERATION02A2_COMMENT_REPORT_REOPEN_OUTSIDE_QUEUE_V1"))
+        val sheet = source("ui/components/ModeratorQuickActions.kt")
+        assertTrue(sheet.contains("MODERATION02A2_POST_REPORT_REOPEN_OUTSIDE_QUEUE_V1"))
+        assertTrue(sheet.contains("MODERATION02A2_COMMENT_REPORT_REOPEN_OUTSIDE_QUEUE_V1"))
+        assertTrue(source("ui/components/Common.kt").contains("ModeratorMenuItem("))
+        assertTrue(source("ui/screens/PostScreen.kt").contains("ModeratorMenuItem("))
     }
     @Test fun confirmationIsConsumedAndNoReportBodiesArePersistedOrLogged() {
         val ui = source("ui/components/ModeratorReports.kt")
@@ -40,7 +46,9 @@ class Moderation02A2ReportPresentationPolicyTest {
     @Test fun reportMenuUsesAutoMirroredFactCheckWithoutWarningSuppression() {
         val ui = source("ui/components/ModeratorReports.kt")
         // MATERIALSYMBOLS01: the symbol itself mirrors in right-to-left layouts.
-        assertTrue(ui.contains("Symbols.FactCheck"))
+        // ISSUE295_ONE_MODERATE_ENTRY_OPENS_A_SHEET_V1: the reports entry is the
+        // Moderate sheet's "Reports…" row.
+        assertTrue(source("ui/components/ModeratorQuickActions.kt").contains("SheetAction(\"Reports…\", Symbols.FactCheck)"))
         assertTrue(Symbols.FactCheck.autoMirror)
         assertFalse(ui.contains("@Suppress"))
         assertFalse(ui.contains("@file:Suppress"))
@@ -59,14 +67,13 @@ class Moderation02A2ReportPresentationPolicyTest {
     @Test fun lookupAndRowEntriesAreButtonsRatherThanBareText() {
         val ui = source("ui/components/ModeratorReports.kt")
         val lookup = ui.substringAfter("internal fun ModeratorReportLookupButton(").substringBefore("@Composable")
-        val row = ui.substringAfter("internal fun ModeratorReportsButton(").substringBefore("@Composable")
         assertTrue(lookup.contains("FilledTonalButton("))
         assertTrue(lookup.contains("Symbols.Search"))
         assertTrue(lookup.contains("Text(\"Find reports\")"))
-        assertTrue(row.contains("OutlinedButton("))
-        assertTrue(row.contains("View reports"))
         assertFalse(lookup.contains("TextButton("))
-        assertFalse(row.contains("TextButton("))
+        // ISSUE295_QUEUE_USES_THE_SHEET_V1: a queue row's reports are the
+        // Moderate sheet's "Reports…" row, not a button of their own.
+        assertFalse(ui.contains("internal fun ModeratorReportsButton("))
     }
     @Test fun lookupListsLoadedQueueBeforeSessionHistoryAndReadsOnlyOnSelection() {
         val ui = source("ui/components/ModeratorReports.kt")

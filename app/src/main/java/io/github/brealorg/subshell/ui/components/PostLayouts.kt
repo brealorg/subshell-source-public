@@ -319,20 +319,26 @@ private fun PostMetaLine(post: Post, state: SubshellState, read: Boolean) {
                     .semantics { contentDescription = "Unread post" },
             )
         }
-        postLabels(post).forEach { label ->
+        postLabels(post, showRemoved = postShowsRemoved(post, LocalModeratorQuickActions.current)).forEach { label ->
             Spacer(Modifier.width(6.dp))
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = if (label == "NSFW") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary,
+                color = if (label == "NSFW" || label == "REMOVED") {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.tertiary
+                },
                 maxLines = 1,
             )
         }
     }
 }
 
-internal fun postLabels(post: Post): List<String> = buildList {
+internal fun postLabels(post: Post, showRemoved: Boolean = false): List<String> = buildList {
+    // ISSUE295_REMOVED_POST_IS_MARKED_V1
+    if (showRemoved) add("REMOVED")
     if (post.pinned) add("PINNED")
     if (post.moderatorPost) add("MOD")
     if (post.spoiler) add("SPOILER")

@@ -74,6 +74,9 @@ internal object SubshellCacheCodec {
             post.flairRichText,
             ::encodeFlairRichTextSegment,
         ),
+        // ISSUE295_REMOVED_POST_IS_MARKED_V1: field 37; older payloads end at 36
+        // and read as not removed.
+        post.removed.toString(),
     )
 
     fun decodePost(payload: String): Post {
@@ -82,7 +85,7 @@ internal object SubshellCacheCodec {
                 fields.size == 28 ||
                 fields.size == 30 ||
                 fields.size == 32) || fields.size == 35 || fields.size == 36 ||
-                fields.size == 37) {
+                fields.size == 37 || fields.size == 38) {
             "Expected 23 through 26, 28, 30, or 32 post cache fields but found ${fields.size}"
         }
         val mediaFieldOffset = if (fields.size >= 25) 2 else 0
@@ -133,6 +136,7 @@ internal object SubshellCacheCodec {
             flairRichText = fields.getOrNull(36)
                 ?.let { decodeList(it, ::decodeFlairRichTextSegment) }
                 .orEmpty(),
+            removed = fields.getOrNull(37) == "true",
         )
     }
 

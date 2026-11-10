@@ -22,8 +22,11 @@ The selected mode and compatibility client identifier are stored as an encrypted
 `StoredOAuthClientSelection` under
 `noBackupFilesDir/subshell-auth-configuration`. Android Keystore AES-GCM protects the
 file. Removing the compatibility configuration deletes the encrypted selection and
-returns selection policy to native production mode. A process restart is required
-before the application runtime adopts a changed selection.
+returns selection policy to native production mode. This contract (written for
+0.57) required a process restart before the application runtime adopted a changed
+selection. That is out of date: Settings › Accounts › Connection now says "Changes
+are applied automatically" (`SettingsScreen.kt`). Read the current runtime code
+before relying on either statement.
 
 ## Callback and transaction isolation
 

@@ -10,6 +10,7 @@ import io.github.brealorg.subshell.data.RepositoryQueryKey
 import io.github.brealorg.subshell.data.account.AccountSessionSource
 import io.github.brealorg.subshell.data.cache.processRuntimeCacheStore
 import io.github.brealorg.subshell.data.normalizeRedditCommunityName
+import io.github.brealorg.subshell.data.privateprefs.SealedKeysPreferences
 import io.github.brealorg.subshell.data.scopedToAccount
 import io.github.brealorg.subshell.model.Community
 import io.github.brealorg.subshell.ui.SubshellSettings
@@ -76,7 +77,7 @@ internal object SubshellWidgetData {
                 processRuntimeCacheStore(context).newestPostFeedSnapshot(postsWidgetQueryPrefix(account, source))
             }.getOrNull()
         }
-        val preferences = context.getSharedPreferences(SUBSHELL_PREFERENCES, Context.MODE_PRIVATE)
+        val preferences = SealedKeysPreferences.of(context)
         val hidden = preferences.getStringSet(hiddenCommunityNamesPreferenceKey(account), emptySet()).orEmpty()
         val muted = activeMutedCommunityNamesAt(
             decodeCommunityMutes(preferences.getStringSet(communityMutesPreferenceKey(account), emptySet()).orEmpty()),
@@ -95,7 +96,7 @@ internal object SubshellWidgetData {
     /** The signed-in account's joined communities, for the Posts widget's picker; hidden ones left out. */
     suspend fun joinedCommunities(context: Context): List<Community> {
         val account = activeAccount(context) ?: return emptyList()
-        val hidden = context.getSharedPreferences(SUBSHELL_PREFERENCES, Context.MODE_PRIVATE)
+        val hidden = SealedKeysPreferences.of(context)
             .getStringSet(hiddenCommunityNamesPreferenceKey(account), emptySet())
             .orEmpty()
             .mapTo(HashSet()) { name -> name.removePrefix("r/").lowercase() }

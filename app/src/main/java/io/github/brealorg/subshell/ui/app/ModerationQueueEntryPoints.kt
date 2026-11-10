@@ -17,6 +17,12 @@ data class ModerationQueueEntryPoints(
         RedditModerationUiState(),
     val onLoadRedditModQueue: (String, String, Boolean) -> Unit = { _, _, _ -> },
     val onAppendRedditModQueue: (String, String) -> Unit = { _, _ -> },
+    // ISSUE295_REMOVED_CONTENT_LISTS_V1
+    val onSelectRedditModQueueList: (
+        String,
+        String,
+        io.github.brealorg.subshell.data.account.RedditModeratorQueueList,
+    ) -> Unit = { _, _, _ -> },
     val onResolveRedditModerationTarget: (String, String, (Post?) -> Unit) -> Unit =
         { _, _, onResolved -> onResolved(null) },
     val moderationActionState: RedditModeratorActionUiState =

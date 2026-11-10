@@ -5,6 +5,9 @@ import io.github.brealorg.subshell.data.network.NetworkPage
 import io.github.brealorg.subshell.data.network.NetworkResult
 import io.github.brealorg.subshell.data.network.SubshellHttpClient
 import io.github.brealorg.subshell.data.network.map
+import io.github.brealorg.subshell.language.ContentLanguages
+import io.github.brealorg.subshell.language.communityLanguageKey
+import io.github.brealorg.subshell.language.communityLanguageText
 import io.github.brealorg.subshell.model.COMMUNITY_AUTOCOMPLETE_MAX_QUERY_LENGTH
 import io.github.brealorg.subshell.model.Community
 import io.github.brealorg.subshell.model.CommunityDiscoveryItem
@@ -34,18 +37,46 @@ internal class RedditCommunityDiscoveryNetworkDataSource(
         cursor: String?,
         limit: Int,
         listingIncludeOver18: Boolean?,
-    ): NetworkResult<NetworkPage<CommunityDiscoveryItem>> = httpClient.getJson(
-        request = redditCommunityDiscoveryJsonRequest(
-            searchQuery = searchQuery,
-            searchSort = searchSort,
-            autocompleteIncludeOver18 = autocompleteIncludeOver18,
-            cursor = cursor,
-            limit = limit,
-            listingIncludeOver18 = listingIncludeOver18,
-        ),
-        deserializer = RedditCommunityDiscoveryListingDto.serializer(),
-    ).map(RedditCommunityDiscoveryListingDto::toNetworkPage)
+    ): NetworkResult<NetworkPage<CommunityDiscoveryItem>> {
+        val result = httpClient.getJson(
+            request = redditCommunityDiscoveryJsonRequest(
+                searchQuery = searchQuery,
+                searchSort = searchSort,
+                autocompleteIncludeOver18 = autocompleteIncludeOver18,
+                cursor = cursor,
+                limit = limit,
+                listingIncludeOver18 = listingIncludeOver18,
+            ),
+            deserializer = RedditCommunityDiscoveryListingDto.serializer(),
+        )
+        // ISSUE293_LANGUAGE_FILTER_V1: known before the page is shown, so a
+        // hidden community never flashes; a no-op while the filter is off.
+        if (result is NetworkResult.Success) {
+            ContentLanguages.detectAll(result.value.languageEntries(), result.value.languageHints())
+        }
+        return result.map(RedditCommunityDiscoveryListingDto::toNetworkPage)
+    }
 }
+
+private fun RedditCommunityDiscoveryListingDto.languageEntries(): List<Pair<String, String>> =
+    data?.children.orEmpty().mapNotNull { thing ->
+        val value = thing?.data ?: return@mapNotNull null
+        val name = value.displayName?.normalizedRedditCommunityName()
+            ?: value.displayNamePrefixed?.normalizedRedditCommunityName()
+            ?: return@mapNotNull null
+        communityLanguageKey(name) to communityLanguageText(value.title, value.publicDescription)
+    }
+
+/** Reddit's own `lang` per community, used only where it agrees with the device. */
+private fun RedditCommunityDiscoveryListingDto.languageHints(): Map<String, String> =
+    data?.children.orEmpty().mapNotNull { thing ->
+        val value = thing?.data ?: return@mapNotNull null
+        val lang = value.lang?.trim()?.takeIf(String::isNotEmpty) ?: return@mapNotNull null
+        val name = value.displayName?.normalizedRedditCommunityName()
+            ?: value.displayNamePrefixed?.normalizedRedditCommunityName()
+            ?: return@mapNotNull null
+        communityLanguageKey(name) to lang
+    }.toMap()
 
 @Serializable
 internal data class RedditCommunityDiscoveryListingDto(
@@ -80,6 +111,8 @@ internal data class RedditCommunityDiscoveryDataDto(
     @SerialName("key_color") val keyColor: String? = null,
     val over18: Boolean? = null,
     @SerialName("over_18") val legacyOver18: Boolean? = null,
+    val title: String? = null,
+    val lang: String? = null,
 )
 
 internal fun RedditCommunityDiscoveryListingDto.toNetworkPage():

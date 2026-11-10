@@ -112,10 +112,15 @@ internal class UiRequestState {
     fun consumeCustomFeedLinkPath(): String? =
         pendingCustomFeedLinkPath.also { pendingCustomFeedLinkPath = null }
 
-    fun requestPostManage(postId: String) {
+    // ISSUE295_MODERATOR_SETS_POST_FLAIR_V1: the request says whether the
+    // manage page opens as the author's or as a moderator's.
+    var pendingPostManageAsModerator: Boolean = false
+
+    fun requestPostManage(postId: String, asModerator: Boolean = false) {
         val normalizedPostId = normalizedPostIdentity(postId)
         if (normalizedPostId.isNotEmpty()) {
             pendingPostManageId = normalizedPostId
+            pendingPostManageAsModerator = asModerator
         }
     }
 

@@ -61,8 +61,6 @@ class Step3ModeratorToolsWorkspaceComposeTest {
                         onDismiss = {},
                         onRefresh = {},
                         onAppend = {},
-                        onModerate = {},
-                        savedResponses = SavedResponseActions(emptyList(), onSave = { _, _ -> null }, onDelete = {}),
                     )
                 }
             }

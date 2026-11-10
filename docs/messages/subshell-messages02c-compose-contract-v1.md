@@ -6,4 +6,6 @@ Private-message threads use Reddit's legacy `t4_` reply contract through `POST /
 
 Modern Reddit Direct Chat is a separate Matrix service. The public third-party OAuth grant used by Subshell does not expose supported Matrix send credentials. MESSAGES02C therefore provides draft composition in Direct Chat but deliberately disables remote send instead of emulating reddit.com cookies or first-party web-session JWTs.
 
+**Superseded for sending.** The paragraph above describes this phase only. Later slices send in Direct Chat through the first-party web session token and Matrix: see MESSAGES02C5 (media), MESSAGES02C6 (session hardening), MESSAGES02D2B (typing), MESSAGES02D3B (delete own message) and MESSAGES02E2A (reactions). The code is the current contract.
+
 Draft text is account/thread scoped in the application state and survives ordinary navigation away from and back to a conversation during the process lifetime. The composer is multiline, bounded to 10,000 characters, uses IME bottom inset handling, and exposes `Message` for Direct Chat and `Reply` for private-message threads. Attachments, Matrix write auth, destructive message actions, and a Room schema migration are outside this phase.

@@ -1,0 +1,40 @@
+{
+  "id": "v100",
+  "release": {
+    "versionCode": 259,
+    "versionName": "1.0.0",
+    "date": "2026-11-10",
+    "headline": "Subshell 1.0: moderation tools, clearer comment threads and private data stored encrypted",
+    "highlights": [
+      "Moderators can approve, remove or mark as spam from any ⋮ menu, change a post's flair, and see Removed, Edited and Unmoderated lists in Mod tools.",
+      "Comment threads are easier to follow: replies step right with each level (Settings > Comments > Reply indent), and Reply scrolls the comment you answer above the composer.",
+      "Tapping a post's flair searches its community for that flair, newest first.",
+      "New setting, off by default: Languages. Search skips communities and posts your phone is sure are in a language you have not chosen.",
+      "What is about you (inbox, joined communities, saved lists, hidden communities, notes, drafts, searches) is now stored encrypted. Diagnostics shows if anything cannot be opened.",
+      "Public posts, images and app settings are not encrypted. If something does not work for you, tell us on r/subshell or GitHub."
+    ],
+    "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v1.0.0"
+  },
+  "below": [
+    {
+      "versionCode": 258,
+      "versionName": "1.0.0-rc.2",
+      "date": "2026-11-07"
+    },
+    {
+      "versionCode": 257,
+      "versionName": "1.0.0-rc",
+      "date": "2026-11-06"
+    },
+    {
+      "versionCode": 256,
+      "versionName": "0.92-beta",
+      "date": "2026-11-05"
+    },
+    {
+      "versionCode": 255,
+      "versionName": "0.91-beta",
+      "date": "2026-11-01"
+    }
+  ]
+}

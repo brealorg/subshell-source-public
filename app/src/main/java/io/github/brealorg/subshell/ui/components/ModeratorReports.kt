@@ -28,7 +28,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -101,37 +100,6 @@ internal fun ModeratorReportLookupButton(communityName: String? = null) {
         Spacer(Modifier.width(8.dp))
         Text("Find reports")
     }
-}
-
-@Composable
-internal fun ModeratorReportsButton(item: RedditModeratorQueueItem) {
-    val entries = LocalModeratorReports.current ?: return
-    if (!entries.canInspect(item.communityName)) return
-    // MODERATION02A2R2_VISIBLE_ROW_REPORT_BUTTON_V1
-    OutlinedButton(
-        onClick = { entries.open(item.reportTarget()) },
-        modifier = Modifier.padding(horizontal = 12.dp).heightIn(min = 48.dp),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-    ) {
-        Icon(Symbols.FactCheck, contentDescription = null, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text("View reports")
-    }
-}
-
-@Composable
-internal fun ModeratorReportMenuItem(target: ModeratorReportTarget?, onDismissMenu: () -> Unit) {
-    val entries = LocalModeratorReports.current ?: return
-    val community = target?.communityName ?: return
-    if (!entries.canInspect(community)) return
-    DropdownMenuItem(
-        text = { Text("Moderator reports") },
-        leadingIcon = { Icon(Symbols.FactCheck, contentDescription = null) },
-        onClick = {
-            onDismissMenu()
-            entries.open(target)
-        },
-    )
 }
 
 // MODERATION02A2_SHARED_REPORT_DIALOG_READ_CONFIRM_READBACK_V1

@@ -94,12 +94,6 @@ internal fun ConversationRouteHost(
     val onAppendRedditModQueue = redditModeration.onAppendRedditModQueue
     val onResolveRedditModerationTarget = redditModeration.onResolveRedditModerationTarget
     val moderationActionState = redditModeration.moderationActionState
-    val onModerateRedditQueueItem = redditModeration.onModerateRedditQueueItem
-    val onRetryRedditModerationAction = redditModeration.onRetryRedditModerationAction
-    val onAuthorizeRedditModerationAction = redditModeration.onAuthorizeRedditModerationAction
-    val removalReasonState = redditModeration.removalReasonState
-    val onLoadRedditRemovalReasons = redditModeration.onLoadRedditRemovalReasons
-    val onAuthorizeRedditRemovalReasons = redditModeration.onAuthorizeRedditRemovalReasons
     val redditInboxState = redditInbox.redditInboxState
     val onLoadRedditInbox = redditInbox.onLoadRedditInbox
     val onAppendRedditInbox = redditInbox.onAppendRedditInbox
@@ -416,12 +410,6 @@ internal fun ConversationRouteHost(
                     onResolveRedditModerationTarget =
                         onResolveRedditModerationTarget,
                     moderationActionState = moderationActionState,
-                    onModerateRedditQueueItem = onModerateRedditQueueItem,
-                    onRetryRedditModerationAction = onRetryRedditModerationAction,
-                    onAuthorizeRedditModerationAction = onAuthorizeRedditModerationAction,
-                    removalReasonState = removalReasonState,
-                    onLoadRedditRemovalReasons = onLoadRedditRemovalReasons,
-                    onAuthorizeRedditRemovalReasons = onAuthorizeRedditRemovalReasons,
                     redditModmailState = redditModmailState,
                     onLoadRedditModmail = onLoadRedditModmail,
                     onAppendRedditModmail = onAppendRedditModmail,

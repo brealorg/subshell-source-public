@@ -29,6 +29,10 @@ internal class RedditSavedHistoryCacheStore(
         encodeDefaults = true
         ignoreUnknownKeys = true
     },
+    // PRIVATECACHE02_SAVED_HISTORY_FILES_ARE_SEALED_V1: what the reader saved, voted and hid is
+    // stored through the seal; a file an older build wrote as plain text is read as it is and
+    // sealed again on the first read.
+    private val seal: CachePayloadSeal = CachePayloadSeal.Plain,
 ) {
     @Synchronized
     fun read(
@@ -40,9 +44,10 @@ internal class RedditSavedHistoryCacheStore(
         // CACHE03_SAVED_HISTORY_STORAGE_FAULTS_V1: a file this build cannot
         // read is removed, so it does not stay in the way of every append.
         return runCatching {
+            val stored = file.readText(StandardCharsets.UTF_8)
             val decoded = json.decodeFromString(
                 RedditSavedHistoryCacheDto.serializer(),
-                file.readText(StandardCharsets.UTF_8),
+                seal.open(stored, CachePayloadSeal.PLACE_SAVED_HISTORY),
             )
             require(decoded.version == SAVED_HISTORY_CACHE_VERSION) {
                 "Unsupported saved history cache version"
@@ -52,7 +57,11 @@ internal class RedditSavedHistoryCacheStore(
                 nextCursor = decoded.nextCursor
                     ?.trim()
                     ?.takeIf(String::isNotEmpty),
-            )
+            ).also { snapshot ->
+                if (seal.encrypts && !stored.startsWith(CachePayloadSeal.SEALED_PREFIX)) {
+                    runCatching { write(queryKey, snapshot) }
+                }
+            }
         }.getOrElse {
             file.delete()
             null
@@ -122,11 +131,14 @@ internal class RedditSavedHistoryCacheStore(
             directory,
             ".${target.name}.${System.nanoTime()}.tmp",
         )
-        val encoded = json.encodeToString(
-            RedditSavedHistoryCacheDto(
-                nextCursor = snapshot.nextCursor,
-                items = snapshot.items.map(RedditSavedHistoryCacheEntryDto::fromDomain),
+        val encoded = seal.seal(
+            json.encodeToString(
+                RedditSavedHistoryCacheDto(
+                    nextCursor = snapshot.nextCursor,
+                    items = snapshot.items.map(RedditSavedHistoryCacheEntryDto::fromDomain),
+                ),
             ),
+            CachePayloadSeal.PLACE_SAVED_HISTORY,
         )
         try {
             FileOutputStream(temp).use { output ->

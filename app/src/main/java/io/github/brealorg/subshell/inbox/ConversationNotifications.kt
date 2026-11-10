@@ -25,6 +25,7 @@ import io.github.brealorg.subshell.auth.AuthApplicationRuntimeFactory
 import io.github.brealorg.subshell.data.account.MessageReplyChannel
 import io.github.brealorg.subshell.data.account.MessageReplyRequest
 import io.github.brealorg.subshell.data.auth.reddit.AuthenticatedRedditMessageReplyResult
+import io.github.brealorg.subshell.data.privateprefs.SealedKeysPreferences
 import io.github.brealorg.subshell.model.MessageBubble
 import io.github.brealorg.subshell.shortcuts.LauncherShortcutTarget
 import io.github.brealorg.subshell.shortcuts.launcherShortcutTargetIntent
@@ -183,7 +184,7 @@ internal object ConversationReplyTargets {
     private const val KEPT = 64
 
     fun put(context: Context, target: ConversationReplyTarget) = synchronized(this) {
-        val preferences = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        val preferences = SealedKeysPreferences.named(context, PREFERENCES)
         val order = preferences.getString(ORDER_KEY, "").orEmpty()
             .split('\n')
             .filter { key -> key.isNotEmpty() && key != target.eventKey } + target.eventKey
@@ -205,7 +206,7 @@ internal object ConversationReplyTargets {
     }
 
     fun get(context: Context, eventKey: String): ConversationReplyTarget? = synchronized(this) {
-        val fields = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        val fields = SealedKeysPreferences.named(context, PREFERENCES)
             .getString("target:$eventKey", null)
             ?.split('\n')
             ?.takeIf { values -> values.size == 5 }
@@ -365,7 +366,8 @@ internal object InboxReplyAttempts {
     private const val KEPT = 32
 
     fun claim(context: Context, requestId: String): Boolean = synchronized(this) {
-        val preferences = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        // Request ids only, nothing about the reader: not a sealed file.
+        val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
         val claimed = preferences.getString("claimed", "").orEmpty().split('\n').filter(String::isNotEmpty)
         if (requestId in claimed) return false
         preferences.edit()

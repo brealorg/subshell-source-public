@@ -1,5 +1,6 @@
 package io.github.brealorg.subshell.ui
 
+import io.github.brealorg.subshell.language.SELECTABLE_LANGUAGES
 import io.github.brealorg.subshell.ui.theme.AppTextScale
 import io.github.brealorg.subshell.ui.theme.AppUiScale
 import io.github.brealorg.subshell.data.RedditListingTimePeriod
@@ -97,6 +98,28 @@ enum class CommentThreadColours(val label: String) {
     ONE_COLOUR("One colour"),
 }
 
+/**
+ * REPLYCONTEXT03_INDENT_SIZE_IS_A_SETTING_V1: how far each reply level steps right (Guide lines).
+ * Normal is what REPLYCONTEXT02 introduced; None is the flat look of before.
+ */
+enum class CommentIndentSize(val label: String, val stepDp: Int) {
+    NONE("None", 0),
+    SMALL("Small", 4),
+    NORMAL("Normal", 6),
+    LARGE("Large", 9),
+}
+
+internal fun encodeShownLanguages(languages: Set<String>): String =
+    languages.filter { it in SELECTABLE_LANGUAGES }.sorted().joinToString(",")
+
+/** Unknown codes are dropped; nothing stored is off. */
+internal fun decodeShownLanguages(value: String?): Set<String> =
+    value.orEmpty()
+        .split(',')
+        .map { code -> code.trim().lowercase() }
+        .filter { code -> code in SELECTABLE_LANGUAGES }
+        .toSet()
+
 enum class DrawerCommunitiesMode(val label: String) {
     CURRENT("Simple"),
     COLLAPSIBLE("Dropdown"),
@@ -162,6 +185,11 @@ data class SubshellSettings(
     val commentCollapseMode: CommentCollapseMode = CommentCollapseMode.HEADER,
     val commentHierarchyStyle: CommentHierarchyStyle = CommentHierarchyStyle.GUIDE_LINES,
     val commentThreadColours: CommentThreadColours = CommentThreadColours.OFF,
+    val commentIndentSize: CommentIndentSize = CommentIndentSize.NORMAL,
+    // REPLYCONTEXT04_RAIL_FROM_PARENT_IS_A_SETTING_V1: on = the line a reply starts leaves the answered comment's middle.
+    val commentRailFromParent: Boolean = true,
+    // ISSUE293_LANGUAGE_FILTER_V1: empty = off (every language shown).
+    val shownLanguages: Set<String> = emptySet(),
     val swipeActionsEnabled: Boolean = false,
     val postSwipeLeftAction: PostSwipeAction = PostSwipeAction.UPVOTE,
     val postSwipeRightAction: PostSwipeAction = PostSwipeAction.DOWNVOTE,
@@ -267,6 +295,9 @@ data class SubshellSettings(
         COMMENT_COLLAPSE_MODE to commentCollapseMode.name,
         COMMENT_HIERARCHY_STYLE to commentHierarchyStyle.name,
         COMMENT_THREAD_COLOURS to commentThreadColours.name,
+        COMMENT_INDENT_SIZE to commentIndentSize.name,
+        COMMENT_RAIL_FROM_PARENT to commentRailFromParent.toString(),
+        SHOWN_LANGUAGES to encodeShownLanguages(shownLanguages),
         SWIPE_ACTIONS_ENABLED to swipeActionsEnabled.toString(),
         POST_SWIPE_LEFT_ACTION to postSwipeLeftAction.name,
         POST_SWIPE_RIGHT_ACTION to postSwipeRightAction.name,
@@ -355,6 +386,9 @@ data class SubshellSettings(
         const val COMMENT_COLLAPSE_MODE = "comment_collapse_mode"
         const val COMMENT_HIERARCHY_STYLE = "comment_hierarchy_style"
         const val COMMENT_THREAD_COLOURS = "comment_thread_colours"
+        const val COMMENT_INDENT_SIZE = "comment_indent_size"
+        const val COMMENT_RAIL_FROM_PARENT = "comment_rail_from_parent"
+        const val SHOWN_LANGUAGES = "shown_languages"
         const val SWIPE_ACTIONS_ENABLED = "swipe_actions_enabled"
         const val POST_SWIPE_LEFT_ACTION = "post_swipe_left_action"
         const val POST_SWIPE_RIGHT_ACTION = "post_swipe_right_action"
@@ -460,6 +494,9 @@ data class SubshellSettings(
             COMMENT_COLLAPSE_MODE,
             COMMENT_HIERARCHY_STYLE,
             COMMENT_THREAD_COLOURS,
+            COMMENT_INDENT_SIZE,
+            COMMENT_RAIL_FROM_PARENT,
+            SHOWN_LANGUAGES,
             SWIPE_ACTIONS_ENABLED,
             POST_SWIPE_LEFT_ACTION,
             POST_SWIPE_RIGHT_ACTION,
@@ -644,6 +681,13 @@ data class SubshellSettings(
                     compatibleValues,
                     CommentThreadColours.entries,
                 ),
+                commentIndentSize = enumValue(
+                    COMMENT_INDENT_SIZE,
+                    compatibleValues,
+                    CommentIndentSize.entries,
+                ),
+                commentRailFromParent = booleanValue(COMMENT_RAIL_FROM_PARENT, compatibleValues),
+                shownLanguages = decodeShownLanguages(compatibleValues[SHOWN_LANGUAGES]),
                 swipeActionsEnabled = booleanValue(SWIPE_ACTIONS_ENABLED, compatibleValues),
                 postSwipeLeftAction = enumValue(
                     POST_SWIPE_LEFT_ACTION,

@@ -2,6 +2,7 @@ package io.github.brealorg.subshell.ui.app
 
 import android.content.Context
 import io.github.brealorg.subshell.backup.processSettingsBackupRepository
+import io.github.brealorg.subshell.data.privateprefs.SealedKeysPreferences
 import io.github.brealorg.subshell.inbox.NotificationLaunchKey
 import io.github.brealorg.subshell.shortcuts.LAUNCHER_SHORTCUTS_PREFERENCES
 import io.github.brealorg.subshell.ui.RedditExternalPollHandoffStore
@@ -42,6 +43,14 @@ internal object StartupPreferences {
                 NotificationLaunchKey.PREFERENCES,
             ).forEach { name ->
                 runCatching { application.getSharedPreferences(name, Context.MODE_PRIVATE).all }
+            }
+            // PRIVATEPREFS01: seal what an older build left in plain text and open the sealed values
+            // once, so the first reads on Main (hidden communities, notes, drafts) find them in memory.
+            runCatching {
+                SealedKeysPreferences.allInstances(application).forEach { preferences ->
+                    preferences.sealLegacyValues()
+                    preferences.warm()
+                }
             }
             runCatching { processSettingsBackupRepository(application) }
             Unit

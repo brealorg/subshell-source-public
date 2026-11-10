@@ -50,7 +50,7 @@ class Step3CrosspostCacheHistoryTest {
 
     /** The current post payload with its crosspost field cut to [size] fields. */
     private fun withCrosspostFields(size: Int): String {
-        val fields = SubshellCacheCodec.decodeMutationFields(SubshellCacheCodec.encodePost(post), expectedSize = 37)
+        val fields = SubshellCacheCodec.decodeMutationFields(SubshellCacheCodec.encodePost(post), expectedSize = 38)
         val crosspostFields = SubshellCacheCodec.decodeMutationFields(requireNotNull(fields[crosspostIndex]), expectedSize = 25)
         val cut = SubshellCacheCodec.encodeMutationFields(*crosspostFields.take(size).toTypedArray())
         return SubshellCacheCodec.encodeMutationFields(

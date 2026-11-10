@@ -74,18 +74,23 @@ fun PostManageScreen(
     onReset: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    // ISSUE295_MODERATOR_SETS_POST_FLAIR_V1: flair, NSFW and spoiler of
+    // another reader's post, for a moderator of its community.
+    asModerator: Boolean = false,
 ) {
     val target = remember(
         post.id,
         state.activeAccountId,
         post.author,
         post.community,
+        asModerator,
     ) {
         PostManageTarget(
             accountStableId = state.activeAccountId,
             postFullname = normalizePostEditFullname(post.id),
             postAuthor = post.author,
             community = normalizePostManageCommunity(post.community),
+            asModerator = asModerator,
         )
     }
     val scopedState = manageState.takeIf {
@@ -212,7 +217,7 @@ fun PostManageScreen(
         topBar = {
             RouteTopBar(
                 scrollBehavior = routeTopBarScroll,
-                title = { Text("Manage post") },
+                title = { Text(if (asModerator) "Moderate post" else "Manage post") },
                 navigationIcon = {
                     IconButton(
                         enabled = !closeLocked,
@@ -352,47 +357,50 @@ fun PostManageScreen(
                             )
                         },
                     )
-                    HorizontalDivider()
-                    ListItem(
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.toggleable(
-                            value = snapshot.sendReplies,
-                            enabled = controlsEnabled,
-                            role = Role.Switch,
-                            onValueChange = { enabled ->
-                                onMutate(
-                                    PostManageMutationRequest(
-                                        target = target,
-                                        operation = PostManageOperation.SET_SEND_REPLIES,
-                                        enabled = enabled,
-                                    ),
-                                )
-                            },
-                        ),
-                        content = { Text("Reply notifications") },
-                        supportingContent = {
-                            Text("Receive Reddit inbox replies for this post")
-                        },
-                        trailingContent = {
-                            Switch(
-                                checked = snapshot.sendReplies,
-                                enabled = controlsEnabled,
-                                onCheckedChange = null,
-                            )
-                        },
-                    )
-                    if (post.kind != PostKind.TEXT) {
+                    // The author's own: reply notifications and the media note.
+                    if (!asModerator) {
                         HorizontalDivider()
                         ListItem(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            content = { Text("Published media") },
+                            modifier = Modifier.toggleable(
+                                value = snapshot.sendReplies,
+                                enabled = controlsEnabled,
+                                role = Role.Switch,
+                                onValueChange = { enabled ->
+                                    onMutate(
+                                        PostManageMutationRequest(
+                                            target = target,
+                                            operation = PostManageOperation.SET_SEND_REPLIES,
+                                            enabled = enabled,
+                                        ),
+                                    )
+                                },
+                            ),
+                            content = { Text("Reply notifications") },
                             supportingContent = {
-                                Text(
-                                    "Reddit does not expose a supported operation to replace " +
-                                        "the published media asset. Metadata above can still be changed.",
+                                Text("Receive Reddit inbox replies for this post")
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = snapshot.sendReplies,
+                                    enabled = controlsEnabled,
+                                    onCheckedChange = null,
                                 )
                             },
                         )
+                        if (post.kind != PostKind.TEXT) {
+                            HorizontalDivider()
+                            ListItem(
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                content = { Text("Published media") },
+                                supportingContent = {
+                                    Text(
+                                        "Reddit does not expose a supported operation to replace " +
+                                            "the published media asset. Metadata above can still be changed.",
+                                    )
+                                },
+                            )
+                        }
                     }
                     if (
                         scopedState.phase in setOf(

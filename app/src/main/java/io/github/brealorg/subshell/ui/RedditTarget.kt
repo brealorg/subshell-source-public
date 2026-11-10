@@ -1,5 +1,6 @@
 package io.github.brealorg.subshell.ui
 
+import io.github.brealorg.subshell.data.RedditSearchOrder
 import java.net.URI
 import java.net.URLDecoder
 
@@ -44,6 +45,9 @@ internal sealed interface RedditTarget {
     data class Search(
         val query: String,
         val community: String? = null,
+        // ISSUE294_FLAIR_SEARCH_SHOWS_THE_NEWEST_FIRST_V1: null is a new
+        // search's order (Relevance); a flair search asks for New.
+        val order: RedditSearchOrder? = null,
     ) : RedditTarget
 
     // ISSUE41_INLINE_VIDEO_LINK_TARGET_V1

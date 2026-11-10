@@ -468,6 +468,8 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
         // CRASH01_CRASHES_ARE_RECORDED_LOCALLY_V1: first, so a crash anywhere
         // after this point is recorded (once per process).
         CrashRecorder.install(applicationContext)
+        // ISSUE293_LANGUAGE_FILTER_V1
+        io.github.brealorg.subshell.language.ContentLanguages.install(applicationContext)
         // ISSUE265_SAVE_FOR_OFFLINE_V1
         RemoteImageLoader.offlineImageStore = OfflineImageStore.forContext(applicationContext)
         ListingSkipReports.install(applicationContext)
@@ -812,6 +814,8 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
                             moderationViewModel::loadRedditModQueue,
                         onAppendRedditModQueue =
                             moderationViewModel::appendRedditModQueue,
+                        onSelectRedditModQueueList =
+                            moderationViewModel::selectRedditModQueueList,
                         onResolveRedditModerationTarget =
                             moderationViewModel::resolveRedditModerationTarget,
                         moderationActionState = moderationActionState,

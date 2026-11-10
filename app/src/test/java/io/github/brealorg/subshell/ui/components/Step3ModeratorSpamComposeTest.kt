@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.junit4.StateRestorationTester
@@ -30,10 +31,10 @@ import org.robolectric.annotation.Config
 /**
  * STEP3 (moderation02a1): Spam asks first ("Mark this post as spam?") and
  * sends one SPAM request for exactly that item only after "Mark as spam"
- * (Cancel sends nothing); it is not offered while another action runs; the
- * question goes away when the item or account changes and is not brought
- * back after the screen is recreated; the inbox queue card offers Approve,
- * Remove and Spam.
+ * (Cancel sends nothing); it is not sent while another action runs; the
+ * question goes away when the account changes and is not brought back after
+ * the screen is recreated. ISSUE295_QUEUE_USES_THE_SHEET_V1: the queue card
+ * offers Approve and Remove, and Spam is in the Moderate sheet its ⋮ opens.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36], qualifiers = "w411dp-h891dp")
@@ -56,12 +57,22 @@ class Step3ModeratorSpamComposeTest {
     private var current by mutableStateOf(item())
     private var account by mutableStateOf("reddit:owner")
 
-    private fun show() {
-        composeRule.setContent {
-            SubshellTheme {
-                ModeratorSpamAction(item = current, accountStableId = account, actionUiState = action, onModerate = { requests += it })
+    @androidx.compose.runtime.Composable
+    private fun card() {
+        SubshellTheme {
+            ModeratorQuickActionsHarness(
+                accountStableId = account,
+                actionState = action,
+                onModerate = { requests += it },
+                notices = null,
+            ) {
+                InboxModeratorQueueItemCard(item = current, actionUiState = action, onOpen = {})
             }
         }
+    }
+
+    private fun show() {
+        composeRule.setContent { card() }
         composeRule.waitForIdle()
     }
 
@@ -70,19 +81,26 @@ class Step3ModeratorSpamComposeTest {
         composeRule.waitForIdle()
     }
 
+    private fun askSpam() {
+        composeRule.onAllNodes(hasContentDescription("More moderator actions") and hasClickAction()).onFirst()
+            .performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.waitForIdle()
+        click("Spam")
+    }
+
     private fun question() = composeRule.onAllNodesWithText("Mark this post as spam?").fetchSemanticsNodes().size
 
     @Test
     fun spamIsSentOnceForThatItemOnlyAfterTheReaderConfirms() {
         show()
 
-        click("Spam")
+        askSpam()
         assertEquals(1, question())
         click("Cancel")
         assertEquals(emptyList<RedditModeratorActionRequest>(), requests)
         assertEquals(0, question())
 
-        click("Spam")
+        askSpam()
         click("Mark as spam")
         val sent = requests.single()
         assertEquals(RedditModeratorAction.SPAM, sent.action)
@@ -92,26 +110,21 @@ class Step3ModeratorSpamComposeTest {
     }
 
     @Test
-    fun spamIsNotOfferedWhileAnotherActionRuns() {
+    fun spamIsNotSentWhileAnotherActionRuns() {
         show()
-        click("Spam")
+        askSpam()
         composeRule.runOnIdle { action = RedditModeratorActionUiState(phase = RedditModeratorActionPhase.SENDING) }
         composeRule.waitForIdle()
 
         composeRule.onAllNodes(hasText("Mark as spam") and hasClickAction()).onFirst().assertIsNotEnabled()
-        composeRule.onAllNodes(hasText("Spam") and hasClickAction()).onFirst().assertIsNotEnabled()
         assertEquals(emptyList<RedditModeratorActionRequest>(), requests)
     }
 
     @Test
-    fun theQuestionGoesAwayWhenTheItemOrAccountChanges() {
+    fun theQuestionGoesAwayWhenTheAccountChanges() {
         show()
-        click("Spam")
-        composeRule.runOnIdle { current = item(fullname = "t3_other") }
-        composeRule.waitForIdle()
-        assertEquals(0, question())
-
-        click("Spam")
+        askSpam()
+        assertEquals(1, question())
         composeRule.runOnIdle { account = "reddit:someone_else" }
         composeRule.waitForIdle()
         assertEquals(0, question())
@@ -121,12 +134,8 @@ class Step3ModeratorSpamComposeTest {
     @Test
     fun theQuestionIsNotBroughtBackAfterRecreation() {
         val restoration = StateRestorationTester(composeRule)
-        restoration.setContent {
-            SubshellTheme {
-                ModeratorSpamAction(item = current, accountStableId = account, actionUiState = action, onModerate = { requests += it })
-            }
-        }
-        click("Spam")
+        restoration.setContent { card() }
+        askSpam()
         assertEquals(1, question())
 
         restoration.emulateSavedInstanceStateRestore()
@@ -136,25 +145,14 @@ class Step3ModeratorSpamComposeTest {
     }
 
     @Test
-    fun theInboxQueueCardOffersApproveRemoveAndSpam() {
-        composeRule.setContent {
-            SubshellTheme {
-                InboxModeratorQueueItemCard(
-                    item = current,
-                    accountStableId = account,
-                    actionUiState = action,
-                    onOpen = {},
-                    onModerate = { requests += it },
-                    onRequestRemove = {},
-                )
-            }
-        }
-        composeRule.waitForIdle()
+    fun theInboxQueueCardOffersApproveRemoveAndTheSheet() {
+        show()
 
-        for (label in listOf("Approve", "Remove", "Spam")) {
+        for (label in listOf("Approve", "Remove")) {
             assertEquals(label, 1, composeRule.onAllNodes(hasText(label) and hasClickAction()).fetchSemanticsNodes().size)
         }
-        click("Spam")
+        assertEquals(0, composeRule.onAllNodes(hasText("Spam") and hasClickAction()).fetchSemanticsNodes().size)
+        askSpam()
         click("Mark as spam")
         assertEquals(RedditModeratorAction.SPAM, requests.single().action)
     }

@@ -127,12 +127,13 @@ class TextPostSubmitAttemptStore(
         val unparseable: String? = null,
     )
 
-    private companion object {
-        const val KEY = "composer09_text_post_submit_attempt_v1"
-        const val UNREADABLE_KEY = "composer09_text_post_submit_attempt_v1.unreadable"
+    companion object {
+        // Internal so the sealed-preferences test can check them against SealedKeysPreferences.
+        internal const val KEY = "composer09_text_post_submit_attempt_v1"
+        internal const val UNREADABLE_KEY = "composer09_text_post_submit_attempt_v1.unreadable"
 
         // Two store instances (runtime and view model) share one preferences file.
-        val LOCK = Any()
+        private val LOCK = Any()
     }
 }
 

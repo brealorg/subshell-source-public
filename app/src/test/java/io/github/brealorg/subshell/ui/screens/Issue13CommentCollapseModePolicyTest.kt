@@ -57,7 +57,11 @@ class Issue13CommentCollapseModePolicyTest {
         assertTrue(source.contains("state.commentCollapseMode == CommentCollapseMode.HEADER"))
         assertTrue(source.contains("state.commentCollapseMode == CommentCollapseMode.COMMENT"))
         assertTrue(source.contains("Modifier.clickable { onToggleComment(comment.id) }"))
-        assertTrue(source.contains("onCollapse = { onToggleComment(comment.id) }"))
+        // ISSUE295_MENU_OFFERS_ONLY_WHAT_THE_CARD_DOES_NOT_V1: the comment menu's
+        // "Collapse thread" (onCollapse) is gone; the header's collapse button and
+        // the mode-gated tap targets above still toggle the comment.
+        assertTrue(!source.contains("onCollapse = { onToggleComment(comment.id) }"))
+        assertTrue(source.contains("contentDescription = if (collapsed) \"Expand thread\" else \"Collapse thread\""))
         assertTrue(source.contains("CommentContent("))
         assertTrue(source.contains("InlineCommentMedia("))
     }

@@ -94,6 +94,9 @@ class Composer14CommentEditKeptComposeTest {
         composeRule.onAllNodes(hasScrollToKeyAction()).onFirst().performScrollToKey("comment:t1_mine")
         composeRule.waitForIdle()
         composeRule.onAllNodesWithContentDescription("Comment options").onFirst().performClick()
+        // ISSUE295_YOUR_COMMENT_ACTIONS_IN_ONE_SHEET_V1
+        composeRule.onNodeWithText("Your comment…").performClick()
+        composeRule.waitForIdle()
         composeRule.onNodeWithText("Edit comment").performClick()
         composeRule.waitForIdle()
         composeRule.onNode(hasSetTextAction()).performTextInput(" edited")

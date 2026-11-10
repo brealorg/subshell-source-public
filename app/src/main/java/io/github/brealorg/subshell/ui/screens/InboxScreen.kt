@@ -99,11 +99,9 @@ import io.github.brealorg.subshell.model.Post
 import io.github.brealorg.subshell.ui.SubshellState
 import io.github.brealorg.subshell.ui.components.ErrorNotice
 import io.github.brealorg.subshell.ui.components.SavedResponseActions
-import io.github.brealorg.subshell.ui.components.InboxModerationActionStatus
 import io.github.brealorg.subshell.ui.components.InboxModeratorQueueFailure
 import io.github.brealorg.subshell.ui.components.InboxModeratorQueueItemCard
 import io.github.brealorg.subshell.ui.components.ModeratorReportLookupButton
-import io.github.brealorg.subshell.ui.components.InboxModeratorRemovalDialog
 import io.github.brealorg.subshell.ui.components.InboxModmailComposer
 import io.github.brealorg.subshell.ui.components.InboxModmailConversationRow
 import io.github.brealorg.subshell.ui.components.InboxModmailFailure
@@ -191,12 +189,6 @@ fun InboxScreen(
         { _, _, onResolved -> onResolved(null) },
     moderationActionState: RedditModeratorActionUiState =
         RedditModeratorActionUiState(),
-    onModerateRedditQueueItem: (RedditModeratorActionRequest) -> Unit = {},
-    onRetryRedditModerationAction: () -> Unit = {},
-    onAuthorizeRedditModerationAction: () -> Unit = {},
-    removalReasonState: RedditRemovalReasonUiState = RedditRemovalReasonUiState(),
-    onLoadRedditRemovalReasons: (String, String, Boolean) -> Unit = { _, _, _ -> },
-    onAuthorizeRedditRemovalReasons: () -> Unit = {},
     redditModmailState: RedditModmailUiState = RedditModmailUiState(),
     onLoadRedditModmail: (String, Boolean) -> Unit = { _, _ -> },
     onAppendRedditModmail: (String) -> Unit = {},
@@ -414,15 +406,11 @@ fun InboxScreen(
             undoDismissedIdList = ArrayList()
         }
     }
-    var pendingModeratorRemoval by remember {
-        mutableStateOf<RedditModeratorQueueItem?>(null)
-    }
     LaunchedEffect(accountStableId, selectedTab, selectedModSection) {
         if (
             selectedTab != InboxPrimaryTab.MOD ||
             selectedModSection != InboxModSection.QUEUE
         ) {
-            pendingModeratorRemoval = null
         }
         if (
             selectedTab != InboxPrimaryTab.MOD ||
@@ -894,35 +882,6 @@ fun InboxScreen(
         }
     }
 
-    pendingModeratorRemoval?.let { item ->
-        InboxModeratorRemovalDialog(
-            item = item,
-            accountStableId = accountStableId,
-            actionUiState = moderationActionState,
-            removalReasonState = removalReasonState,
-            onLoadRemovalReasons = { communityName, force ->
-                onLoadRedditRemovalReasons(
-                    accountStableId,
-                    communityName,
-                    force,
-                )
-            },
-            onAuthorizeRemovalReasons = onAuthorizeRedditRemovalReasons,
-            onModerate = onModerateRedditQueueItem,
-            onDismiss = { pendingModeratorRemoval = null },
-            // MODRESPONSE01A3_SAVED_RESPONSES_PICKER_V1
-            savedResponses = SavedResponseActions(
-                responses = state.moderatorSavedResponses,
-                onSave = state::saveModeratorResponse,
-                onDelete = state::deleteModeratorResponse,
-                initialType = state.moderatorRemovalMessageType(state.activeAccountId),
-                onTypeUsed = { type ->
-                    state.rememberModeratorRemovalMessageType(state.activeAccountId, type)
-                },
-            ),
-        )
-    }
-
     if (
         showSelectedModmailThread &&
         selectedTab == InboxPrimaryTab.MOD &&
@@ -1104,7 +1063,6 @@ fun InboxScreen(
                                 onSelect = { section ->
                                     selectedModSectionName = section.name
                                     onModSectionChanged(section)
-                                    pendingModeratorRemoval = null
                                 },
                             )
                             Row(
@@ -1374,21 +1332,8 @@ fun InboxScreen(
                             }
                         }
 
-                        if (
-                            moderationActionState.phase !=
-                            io.github.brealorg.subshell.data.account.RedditModeratorActionPhase.IDLE &&
-                            moderationActionState.phase !=
-                            io.github.brealorg.subshell.data.account.RedditModeratorActionPhase.SENDING
-                        ) {
-                            item("mod-inbox-action-status") {
-                                InboxModerationActionStatus(
-                                    uiState = moderationActionState,
-                                    onRetry = onRetryRedditModerationAction,
-                                    onAuthorize = onAuthorizeRedditModerationAction,
-                                )
-                            }
-                        }
-
+                        // ISSUE295_QUEUE_USES_THE_SHEET_V1: an action's answer is the
+                        // tray notice and question every moderator action shows.
                         if (
                             moderationQueueLoading &&
                             moderationItems.isEmpty() &&
@@ -1419,11 +1364,8 @@ fun InboxScreen(
                             OpeningTargetOverlay(opening = item.fullname in openingTargetKeys) {
                                 InboxModeratorQueueItemCard(
                                     item = item,
-                                    accountStableId = accountStableId,
                                     actionUiState = moderationActionState,
                                     onOpen = { openModeratorItem(item) },
-                                    onModerate = onModerateRedditQueueItem,
-                                    onRequestRemove = { pendingModeratorRemoval = it },
                                 )
                             }
                         }

@@ -26,6 +26,7 @@ internal fun FilteredPostsSummaryRow(
     revealed: Boolean,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
+    text: String = filteredPostsSummaryText(filteredCount, revealed),
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -44,7 +45,7 @@ internal fun FilteredPostsSummaryRow(
             )
             Spacer(Modifier.width(10.dp))
             Text(
-                text = filteredPostsSummaryText(filteredCount, revealed),
+                text = text,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
@@ -54,6 +55,12 @@ internal fun FilteredPostsSummaryRow(
             }
         }
     }
+}
+
+/** ISSUE293_LANGUAGE_FILTER_V1: the same row for results hidden by the Languages setting. */
+internal fun languageHiddenSummaryText(hiddenCount: Int, revealed: Boolean): String {
+    val results = if (hiddenCount == 1) "1 result" else "$hiddenCount results"
+    return if (revealed) "Showing $results in other languages" else "$results hidden by language"
 }
 
 internal fun filteredPostsSummaryText(filteredCount: Int, revealed: Boolean): String {

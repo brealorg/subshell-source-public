@@ -73,6 +73,8 @@ import io.github.brealorg.subshell.data.account.RedditAccessCheckResult
 import io.github.brealorg.subshell.data.account.RedditAccessProbe
 import io.github.brealorg.subshell.data.account.RedditAccessProbeOutcome
 import io.github.brealorg.subshell.data.diagnostics.RedditAccessCheckRecord
+import io.github.brealorg.subshell.data.privateprefs.PrivateDataStatus
+import io.github.brealorg.subshell.data.privateprefs.SealedKeysPreferences
 import io.github.brealorg.subshell.data.diagnostics.RedditAccessCheckStore
 import io.github.brealorg.subshell.data.error.REDDIT_BLOCK_PAGE_REASON
 import io.github.brealorg.subshell.data.diagnostics.DiagnosticEvent
@@ -136,6 +138,12 @@ internal fun DiagnosticsScreen(
     var privacyExpanded by rememberSaveable { mutableStateOf(false) }
     var accessCheck by remember { mutableStateOf<RedditAccessCheckRecord?>(null) }
     var accessCheckBusy by remember { mutableStateOf(false) }
+    var privateData by remember { mutableStateOf<PrivateDataStatus?>(null) }
+    LaunchedEffect(appContext) {
+        privateData = withContext(Dispatchers.IO) {
+            runCatching { SealedKeysPreferences.statusOf(appContext) }.getOrNull()
+        }
+    }
 
     fun showMessage(message: String) {
         coroutineScope.launch {
@@ -537,6 +545,7 @@ internal fun DiagnosticsScreen(
                     PrivacyBoundaryCard(
                         expanded = privacyExpanded,
                         onToggle = { privacyExpanded = !privacyExpanded },
+                        privateData = privateData,
                         modifier = Modifier.padding(bottom = 16.dp),
                     )
                 }
@@ -879,6 +888,7 @@ internal fun redditAccessProbeStatus(probe: RedditAccessProbe): String = when (p
 private fun PrivacyBoundaryCard(
     expanded: Boolean,
     onToggle: () -> Unit,
+    privateData: PrivateDataStatus?,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -912,7 +922,12 @@ private fun PrivacyBoundaryCard(
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        "No Reddit content or credentials are collected",
+                        // PRIVATEPREFS03_PRIVATE_DATA_STATUS_V1: a lost key is visible without opening Details.
+                        if (privateData != null && privateData.cannotOpen > 0) {
+                            "${privateData.cannotOpen} private values cannot be opened"
+                        } else {
+                            "No Reddit content or credentials are collected"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
@@ -927,7 +942,8 @@ private fun PrivacyBoundaryCard(
                 Text(
                     text = "subshell stores structured app events only. OAuth tokens, cookies, " +
                         "usernames, request/response bodies and message text are excluded from " +
-                        "the diagnostic buffer.",
+                        "the diagnostic buffer." +
+                        (privateData?.let { "\n\n" + it.line() } ?: ""),
                     modifier = Modifier.padding(top = 10.dp),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -1,5 +1,8 @@
 package io.github.brealorg.subshell.data.network.reddit
 
+import io.github.brealorg.subshell.language.ContentLanguages
+import io.github.brealorg.subshell.language.postLanguageKey
+import io.github.brealorg.subshell.language.postLanguageText
 import io.github.brealorg.subshell.data.RepositoryPageRequest
 import io.github.brealorg.subshell.data.RedditListingTimePeriod
 import io.github.brealorg.subshell.data.RedditProfilePostsOrder
@@ -72,6 +75,14 @@ class RedditListingNetworkDataSource(
             ),
             deserializer = RedditReadListingDto.serializer(),
         ).map { listing -> listing.toNetworkPage(SubshellNetworkJson.providerJson, clock.epochSeconds()) }
+            .also { result ->
+                // ISSUE293_LANGUAGE_FILTER_V1: a search result's language is its title's.
+                if (result is NetworkResult.Success) {
+                    ContentLanguages.detectAll(
+                        result.value.items.map { post -> postLanguageKey(post.id) to postLanguageText(post.title, post.body) },
+                    )
+                }
+            }
             .let { result ->
                 // REDDITSEARCH01_REDIRECT_IS_NO_RESULTS_V1: Reddit answers some
                 // searches (URL-shaped queries seen on device) with a redirect

@@ -215,6 +215,49 @@ class Issue216CommunityAccessCharacterisationTest {
         assertEquals(2, discovery.calls.size)
     }
 
+    // ISSUE293_LANGUAGE_FILTER_V1: a community known to be in a left-out
+    // language is never picked; when that leaves none, the reader is told so.
+    @Test
+    fun aCommunityInALeftOutLanguageIsNotPicked() = runBlocking {
+        val languages = io.github.brealorg.subshell.language.ContentLanguages
+        try {
+            languages.clear()
+            languages.detector = io.github.brealorg.subshell.language.LanguageDetector { text ->
+                if (text.contains("Norge")) "nb" to 0.97f else "en" to 0.99f
+            }
+            languages.shownLanguages = setOf("en")
+            languages.detectAll(
+                listOf(
+                    io.github.brealorg.subshell.language.communityLanguageKey("norsk") to
+                        "Et sted for voksne i Norge som vil dele bilder",
+                    io.github.brealorg.subshell.language.communityLanguageKey("english") to
+                        "A place for adults who want to share pictures",
+                ),
+            )
+            val both = CommunityAccessCoordinator(
+                accessService = null,
+                discoveryLoader = FakeDiscovery(popular = listOf(item("norsk"), item("english"))),
+                activeAccountId = { accountA },
+            )
+            repeat(10) { assertEquals(found("english"), both.randomNsfwCommunity(accountA)) }
+
+            val onlyNorwegian = CommunityAccessCoordinator(
+                accessService = null,
+                discoveryLoader = FakeDiscovery(popular = listOf(item("norsk"))),
+                activeAccountId = { accountA },
+            )
+            assertEquals(RandomNsfwCommunityPick.NoneInShownLanguages, onlyNorwegian.randomNsfwCommunity(accountA))
+
+            // Off again: the Norwegian one is offered.
+            languages.shownLanguages = emptySet()
+            assertEquals(found("norsk"), onlyNorwegian.randomNsfwCommunity(accountA))
+        } finally {
+            languages.clear()
+            languages.detector = null
+            languages.shownLanguages = emptySet()
+        }
+    }
+
     private fun viewModel(
         discovery: AuthenticatedRedditCommunityDiscoveryLoader?,
         service: RedditCommunityAccessService? = null,

@@ -102,7 +102,9 @@ class Issue34UserTagsComposeTest {
         composeRule.setContent { SubshellTheme { PostCard(post = post, state = state, onOpen = {}) } }
 
         composeRule.onNodeWithContentDescription("Post actions").performClick()
-        composeRule.onNodeWithText("About u/alice").assertIsDisplayed()
+        // ISSUE295_MENU_OFFERS_ONLY_WHAT_THE_CARD_DOES_NOT_V1: the Large card opens the
+        // author itself, so "About u/alice" is not in its menu; Copy link always is.
+        composeRule.onNodeWithText("Copy link").assertIsDisplayed()
         composeRule.onNodeWithText("Private note on u/alice").assertDoesNotExist()
         assertFalse(state.canTagUser("alice"))
     }

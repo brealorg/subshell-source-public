@@ -77,6 +77,11 @@ class EditComment01ComposeTest {
         composeRule.waitForIdle()
         composeRule.onAllNodesWithContentDescription("Comment options").onFirst().performClick()
         composeRule.waitForIdle()
+        // ISSUE295_YOUR_COMMENT_ACTIONS_IN_ONE_SHEET_V1: Edit is in the "Your comment…" sheet.
+        if (composeRule.onAllNodesWithText("Your comment…").fetchSemanticsNodes().isNotEmpty()) {
+            composeRule.onAllNodesWithText("Your comment…").onFirst().performClick()
+            composeRule.waitForIdle()
+        }
         return composeRule.onAllNodesWithText("Edit comment").fetchSemanticsNodes().size
     }
 

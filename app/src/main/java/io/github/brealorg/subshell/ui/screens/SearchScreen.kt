@@ -93,6 +93,7 @@ import io.github.brealorg.subshell.ui.SearchScope
 import io.github.brealorg.subshell.ui.SubshellState
 import io.github.brealorg.subshell.ui.ZeroQueryCommunitySuggestion
 import io.github.brealorg.subshell.ui.components.FilteredPostsSummaryRow
+import io.github.brealorg.subshell.ui.components.languageHiddenSummaryText
 import io.github.brealorg.subshell.ui.selectZeroQueryCommunitySuggestions
 import io.github.brealorg.subshell.ui.canAppendRedditFeed
 import io.github.brealorg.subshell.ui.pagingFooterKey
@@ -249,6 +250,15 @@ fun SearchScreen(
             order = state.searchOrder,
         )
     }
+    // ISSUE293_LANGUAGE_FILTER_V1: Show lets results in other languages
+    // through for this search, like the content filters' summary.
+    var languageRevealed by rememberSaveable(pagingKey) { mutableStateOf(false) }
+    val joinedNamesForLanguage = state.communities
+        .filter { community -> community.joined }
+        .map { community -> community.name.lowercase() }
+        .toSet()
+    fun hiddenByLanguage(community: io.github.brealorg.subshell.model.Community): Boolean =
+        community.name.lowercase() !in joinedNamesForLanguage && state.languageHidesCommunity(community.name)
     val activeRedditFeedState = if (
         liveSearchEligible && redditFeedState.matches(
             accountStableId = state.activeAccountId,
@@ -322,7 +332,10 @@ fun SearchScreen(
         rankSearchMatches(
             rawQuery = query,
             values = (remoteCommunityCandidates + areaCommunities)
-                .distinctBy { community -> community.name.lowercase() },
+                .distinctBy { community -> community.name.lowercase() }
+                // ISSUE293_LANGUAGE_FILTER_V1: Reddit's answers and the communities
+                // the app knows alike; one the reader joined is never hidden.
+                .filterNot { community -> !languageRevealed && hiddenByLanguage(community) },
             primaryText = { community -> community.name },
             secondaryText = { community -> community.description },
             boost = { community ->
@@ -490,13 +503,22 @@ fun SearchScreen(
         .map { item -> item.community }
         .filter { community -> state.matchesSearchArea(community.name) }
         .toList()
+    val submittedCommunityCandidates = if (
+        submittedResultsActive && submittedScopeIncludesCommunities
+    ) {
+        (submittedRemoteCommunities + areaCommunities).distinctBy { community -> community.name.lowercase() }
+    } else {
+        emptyList()
+    }
+    // ISSUE293_LANGUAGE_FILTER_V1
+    val languageHiddenCommunities = submittedCommunityCandidates.count(::hiddenByLanguage)
     val submittedCommunityResults = if (
         submittedResultsActive && submittedScopeIncludesCommunities
     ) {
         rankSearchMatches(
             rawQuery = submittedQuery,
-            values = (submittedRemoteCommunities + areaCommunities)
-                .distinctBy { community -> community.name.lowercase() },
+            values = submittedCommunityCandidates
+                .filterNot { community -> !languageRevealed && hiddenByLanguage(community) },
             primaryText = { community -> community.name },
             secondaryText = { community -> community.description },
             boost = { community ->
@@ -619,6 +641,27 @@ fun SearchScreen(
     } else {
         emptyList()
     }
+    // ISSUE293_LANGUAGE_FILTER_V1: results on screen whose language is not yet
+    // known (read before the filter was on, or from the cache) are told now.
+    LaunchedEffect(
+        state.shownLanguages,
+        matchingPostResults.map(Post::id),
+        retainedSubmittedCommunityItems.value.map { item -> item.community.name },
+        activeCommunityDiscoveryState.items.map { item -> item.community.name },
+    ) {
+        state.detectLanguages(
+            matchingPostResults.map { post ->
+                io.github.brealorg.subshell.language.postLanguageKey(post.id) to
+                    io.github.brealorg.subshell.language.postLanguageText(post.title, post.body)
+            } + (retainedSubmittedCommunityItems.value + activeCommunityDiscoveryState.items).map { item ->
+                io.github.brealorg.subshell.language.communityLanguageKey(item.community.name) to
+                    io.github.brealorg.subshell.language.communityLanguageText(
+                        item.community.name,
+                        item.community.description,
+                    )
+            },
+        )
+    }
     // CONTENTFILTER04_FILTERED_SUMMARY_V1: the count row search shares with
     // the feeds; Show reveals the filtered results for this query.
     // CONTENTFILTER06_REVEAL_KEYED_ON_ACCOUNT_V1: the paging key carries
@@ -627,7 +670,10 @@ fun SearchScreen(
     // CONTENTFILTER02_EVERY_FEED_SURFACE_V1
     val filteredSearchResults = searchPostResults(
         matching = matchingPostResults,
-        showsPost = state::showsPost,
+        // ISSUE293_LANGUAGE_FILTER_V1: a result in a left-out language is not shown.
+        showsPost = { post ->
+            state.showsPost(post) && (languageRevealed || !state.languageHidesSearchPost(post))
+        },
         filters = state.contentFilters,
         summaryEnabled = state.filteredPostsSummary,
         revealed = filteredRevealed,
@@ -637,6 +683,9 @@ fun SearchScreen(
     )
     val filteredCount = filteredSearchResults.filteredCount
     val filteredSummaryVisible = filteredSearchResults.summaryVisible
+    val languageHiddenCount = languageHiddenCommunities +
+        matchingPostResults.count { post -> state.showsPost(post) && state.languageHidesSearchPost(post) }
+    val languageSummaryVisible = submittedResultsActive && languageHiddenCount > 0
     val postResults = filteredSearchResults.posts
     val draftUserResults = if (
         !state.activeAccountIsAuthenticated &&
@@ -878,6 +927,11 @@ fun SearchScreen(
         if (resubmitActiveQuery) submitCurrentSearch()
     }
 
+    // ISSUE294_A_SEARCH_FROM_A_LINK_OR_FLAIR_LOADS_V1
+    LaunchedEffect(state.searchLoadRequested) {
+        if (state.searchLoadRequested && state.takeSearchLoadRequest()) submitCurrentSearch()
+    }
+
     val linkNoticeHost = LocalViewportErrorHostState.current
     val linkUriHandler = LocalUriHandler.current
     fun openDirectSearchAction(action: SearchDirectAction) {
@@ -961,6 +1015,7 @@ fun SearchScreen(
         // LOWUI8_SEARCH_KEYS_MATCH_THE_ROWS_V1 (OCB-251): everything the list
         // below reads to choose its rows is a key here too.
         filteredSummaryVisible,
+        languageSummaryVisible,
     ) {
         buildList {
             when {
@@ -1029,6 +1084,8 @@ fun SearchScreen(
                             },
                         )
                     }
+                    // ISSUE293_LANGUAGE_FILTER_V1
+                    if (languageSummaryVisible) add("search-language-summary")
                     when (state.searchScope) {
                         SearchScope.ALL -> if (submittedResultsActive) {
                             if (
@@ -1487,6 +1544,17 @@ fun SearchScreen(
                                         avatarImageUri = user.avatarImageUri,
                                     )
                                 },
+                            )
+                        }
+                    }
+                    // ISSUE293_LANGUAGE_FILTER_V1
+                    if (languageSummaryVisible) {
+                        item("search-language-summary") {
+                            FilteredPostsSummaryRow(
+                                filteredCount = languageHiddenCount,
+                                revealed = languageRevealed,
+                                onToggle = { languageRevealed = !languageRevealed },
+                                text = languageHiddenSummaryText(languageHiddenCount, languageRevealed),
                             )
                         }
                     }

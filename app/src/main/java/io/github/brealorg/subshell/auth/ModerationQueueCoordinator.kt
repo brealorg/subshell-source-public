@@ -1,5 +1,6 @@
 package io.github.brealorg.subshell.auth
 
+import io.github.brealorg.subshell.data.account.RedditModeratorQueueList
 import io.github.brealorg.subshell.data.account.REDDIT_MODERATION_AGGREGATE_QUEUE
 import io.github.brealorg.subshell.data.account.RedditModerationUiFailureKind
 import io.github.brealorg.subshell.data.account.RedditModerationUiState
@@ -137,6 +138,9 @@ internal class ModerationQueueCoordinator(
 
         redditModQueueJob?.cancel()
         val preserve = current.takeIf { it.queueMatches(accountStableId, communityName) }
+        // ISSUE295_REMOVED_CONTENT_LISTS_V1: a reload keeps the community's
+        // chosen list; another community starts on the queue.
+        val list = preserve?.queueList ?: RedditModeratorQueueList.QUEUE
         // LOW8_MOD_QUEUE_STARTS_CLEAN_FOR_ANOTHER_ACCOUNT_V1 (OCB-590): the
         // moderator directory of another account is not carried over.
         val base = current.takeIf { it.matchesAccount(accountStableId) }
@@ -144,6 +148,7 @@ internal class ModerationQueueCoordinator(
         _redditModerationUiState.value = base.copy(
             accountStableId = accountStableId,
             queueCommunityName = communityName,
+            queueList = list,
             queueItems = preserve?.queueItems.orEmpty(),
             queueLoading = true,
             queueLoaded = preserve?.queueLoaded == true,
@@ -155,7 +160,7 @@ internal class ModerationQueueCoordinator(
         )
         redditModQueueJob = scope.launch {
             val result = try {
-                loader.loadModQueue(accountStableId, communityName, null)
+                loader.loadModList(accountStableId, communityName, list, null)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
@@ -165,7 +170,10 @@ internal class ModerationQueueCoordinator(
                     retryable = true,
                 )
             }
-            if (!_redditModerationUiState.value.queueMatches(accountStableId, communityName)) {
+            if (
+                !_redditModerationUiState.value.queueMatches(accountStableId, communityName) ||
+                _redditModerationUiState.value.queueList != list
+            ) {
                 return@launch
             }
             _redditModerationUiState.value = when (result) {
@@ -238,6 +246,37 @@ internal class ModerationQueueCoordinator(
         }
     }
 
+    // ISSUE295_REMOVED_CONTENT_LISTS_V1: Mod tools shows another of the
+    // community's moderator lists; it loads at once from its first page.
+    fun selectRedditModQueueList(
+        accountStableId: String,
+        rawCommunityName: String,
+        list: RedditModeratorQueueList,
+    ) {
+        val communityName = runCatching {
+            io.github.brealorg.subshell.data.normalizeRedditCommunityName(rawCommunityName)
+        }.getOrNull() ?: return
+        val current = _redditModerationUiState.value
+        if (current.queueMatches(accountStableId, communityName) && current.queueList == list) return
+        redditModQueueJob?.cancel()
+        val base = current.takeIf { it.matchesAccount(accountStableId) }
+            ?: RedditModerationUiState(accountStableId = accountStableId)
+        _redditModerationUiState.value = base.copy(
+            accountStableId = accountStableId,
+            queueCommunityName = communityName,
+            queueList = list,
+            queueItems = emptyList(),
+            queueLoading = false,
+            queueLoaded = false,
+            queueNextCursor = null,
+            queueFailureKind = null,
+            queueFailureRetryable = false,
+            queueFailureDetails = null,
+            queueFailureHttpStatusCode = null,
+        )
+        loadRedditModQueue(accountStableId, communityName, forceRefresh = true)
+    }
+
     fun appendRedditModQueue(
         accountStableId: String,
         rawCommunityName: String,
@@ -249,6 +288,7 @@ internal class ModerationQueueCoordinator(
         val after = current.queueNextCursor ?: return
         if (!current.queueMatches(accountStableId, communityName) || current.queueLoading) return
         val loader = moderationLoader ?: return
+        val list = current.queueList
 
         redditModQueueJob?.cancel()
         _redditModerationUiState.value = current.copy(
@@ -260,7 +300,7 @@ internal class ModerationQueueCoordinator(
         )
         redditModQueueJob = scope.launch {
             val result = try {
-                loader.loadModQueue(accountStableId, communityName, after)
+                loader.loadModList(accountStableId, communityName, list, after)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
@@ -270,7 +310,10 @@ internal class ModerationQueueCoordinator(
                     retryable = true,
                 )
             }
-            if (!_redditModerationUiState.value.queueMatches(accountStableId, communityName)) {
+            if (
+                !_redditModerationUiState.value.queueMatches(accountStableId, communityName) ||
+                _redditModerationUiState.value.queueList != list
+            ) {
                 return@launch
             }
             _redditModerationUiState.value = when (result) {

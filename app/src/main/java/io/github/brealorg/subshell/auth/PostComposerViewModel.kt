@@ -1,5 +1,6 @@
 package io.github.brealorg.subshell.auth
 
+import io.github.brealorg.subshell.data.privateprefs.SealedKeysPreferences
 import io.github.brealorg.subshell.ui.CrosspostReviewUiState
 import io.github.brealorg.subshell.ui.PostComposerDraft
 import io.github.brealorg.subshell.ui.crosspostDraftWriteAvailable
@@ -53,7 +54,7 @@ internal class PostComposerViewModel internal constructor(
     }
 
     private val textPostSubmitAttemptStore = TextPostSubmitAttemptStore(
-        application.getSharedPreferences("subshell_preferences", 0),
+        SealedKeysPreferences.of(application),
     )
     private val postManageCoordinator = PostManageCoordinator(
         manager = runtime.postManager,

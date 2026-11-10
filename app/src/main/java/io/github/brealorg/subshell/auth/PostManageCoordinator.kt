@@ -73,7 +73,7 @@ internal class PostManageCoordinator(
                     failure(target, PostManageFailureKind.ACCOUNT_CHANGED)
                 return
             }
-            if (!isOwner(account.username, target.postAuthor)) {
+            if (!target.asModerator && !isOwner(account.username, target.postAuthor)) {
                 mutableUiState.value =
                     failure(target, PostManageFailureKind.NOT_OWNER)
                 return
@@ -104,7 +104,7 @@ internal class PostManageCoordinator(
             }
             when (result) {
                 is AuthenticatedPostManageLoadResult.Loaded -> {
-                    if (!isOwner(account.username, result.snapshot.author)) {
+                    if (!target.asModerator && !isOwner(account.username, result.snapshot.author)) {
                         mutableUiState.value =
                             failure(target, PostManageFailureKind.NOT_OWNER)
                         return
@@ -145,7 +145,11 @@ internal class PostManageCoordinator(
                 )
                 return
             }
-            if (!isOwner(account.username, request.target.postAuthor)) {
+            // ISSUE295_MODERATOR_SETS_POST_FLAIR_V1: a moderator never changes the
+            // author's reply notifications.
+            val moderatorMayChange = request.target.asModerator &&
+                request.operation != PostManageOperation.SET_SEND_REPLIES
+            if (!moderatorMayChange && !isOwner(account.username, request.target.postAuthor)) {
                 mutableUiState.value = failure(
                     target = request.target,
                     kind = PostManageFailureKind.NOT_OWNER,

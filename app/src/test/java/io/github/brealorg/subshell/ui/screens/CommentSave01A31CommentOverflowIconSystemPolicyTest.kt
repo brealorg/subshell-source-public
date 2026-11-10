@@ -2,6 +2,7 @@ package io.github.brealorg.subshell.ui.screens
 
 import io.github.brealorg.subshell.harness.SUBSHELL_PACKAGE_DIR
 import java.io.File
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -40,10 +41,13 @@ class CommentSave01A31CommentOverflowIconSystemPolicyTest {
         val row = commentActionRowSource()
 
         assertTrue(row.contains("COMMENTSAVE01A31_COMMENT_OVERFLOW_ICON_SYSTEM_V1"))
-        assertTrue(row.contains("text = { Text(\"Edit comment\") }"))
+        // ISSUE295_YOUR_COMMENT_ACTIONS_IN_ONE_SHEET_V1: Edit and Delete moved
+        // into the "Your comment…" sheet; the entry and the sheet rows keep icons.
+        assertTrue(row.contains("text = { Text(\"Your comment…\") }"))
         assertTrue(row.contains("imageVector = Symbols.Edit"))
+        assertTrue(row.contains("SheetAction(\"Edit comment\", Symbols.Edit)"))
         assertTrue(row.contains("\"Delete comment\""))
-        assertTrue(row.contains("imageVector = Symbols.Delete"))
+        assertTrue(row.contains("Symbols.Delete,"))
         assertTrue(row.contains("Text(if (saved) \"Unsave comment\" else \"Save comment\")"))
         assertTrue(row.contains("Symbols.BookmarkFilled"))
         assertTrue(row.contains("Symbols.Bookmark"))
@@ -51,18 +55,19 @@ class CommentSave01A31CommentOverflowIconSystemPolicyTest {
         assertTrue(row.contains("imageVector = Symbols.Share"))
         assertTrue(row.contains("text = { Text(\"Copy text\") }"))
         assertTrue(row.contains("imageVector = Symbols.ContentCopy"))
-        assertTrue(row.contains("text = { Text(\"Collapse thread\") }"))
-        assertTrue(row.contains("imageVector = Symbols.ExpandLess"))
-        assertTrue(row.split("leadingIcon =").size - 1 >= 6)
+        // ISSUE295_MENU_OFFERS_ONLY_WHAT_THE_CARD_DOES_NOT_V1: a tap on the
+        // comment collapses it; the menu no longer repeats it.
+        assertFalse(row.contains("text = { Text(\"Collapse thread\") }"))
+        assertTrue(row.split("leadingIcon =").size - 1 >= 5)
     }
 
     @Test
     fun destructiveCommentActionKeepsErrorSemantics() {
         val row = commentActionRowSource()
 
-        assertTrue(row.contains("\"Delete comment\",\n                                color = MaterialTheme.colorScheme.error"))
-        assertTrue(row.contains("imageVector = Symbols.Delete"))
-        assertTrue(row.contains("tint = MaterialTheme.colorScheme.error"))
+        // ISSUE295_YOUR_COMMENT_ACTIONS_IN_ONE_SHEET_V1: Delete is a destructive
+        // sheet row (error colour for text and icon, see ItemActionsSheet).
+        assertTrue(row.contains("\"Delete comment\",\n                        Symbols.Delete,\n                        destructive = true,"))
     }
 
     @Test

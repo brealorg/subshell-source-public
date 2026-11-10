@@ -15,6 +15,12 @@ sealed interface RandomNsfwCommunityPick {
         val searchedCommunities: Int,
     ) : RandomNsfwCommunityPick
 
+    /**
+     * ISSUE293_LANGUAGE_FILTER_V1: Reddit offered NSFW communities, but every
+     * one is known to be in a language the reader left out.
+     */
+    data object NoneInShownLanguages : RandomNsfwCommunityPick
+
     /** Reddit could not be asked (a read failed or no loader). */
     data object Failed : RandomNsfwCommunityPick
 }

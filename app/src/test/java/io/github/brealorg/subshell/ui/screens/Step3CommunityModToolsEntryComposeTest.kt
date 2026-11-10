@@ -147,8 +147,9 @@ class Step3CommunityModToolsEntryComposeTest {
 
         assertEquals(listOf(Triple("reddit:me", "android", false)), loads)
         assertTrue(composeRule.onAllNodesWithText("Mod queue").fetchSemanticsNodes().isNotEmpty())
-        // The screen's action state reaches the sheet.
-        assertEquals(1, composeRule.onAllNodesWithText("Moderator authorization required").fetchSemanticsNodes().size)
+        // ISSUE295_QUEUE_USES_THE_SHEET_V1: authorization is asked by the shared
+        // ModeratorQuickActionsHost ("Allow moderation"), not inside the queue.
+        assertEquals(0, composeRule.onAllNodesWithText("Moderator authorization required").fetchSemanticsNodes().size)
     }
 
     @Test

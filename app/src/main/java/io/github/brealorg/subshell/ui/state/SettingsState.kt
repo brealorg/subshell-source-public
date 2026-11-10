@@ -11,7 +11,10 @@ import io.github.brealorg.subshell.ui.CommentActionPlacement
 import io.github.brealorg.subshell.ui.CommentActionPreference
 import io.github.brealorg.subshell.ui.CommentCollapseMode
 import io.github.brealorg.subshell.ui.CommentHierarchyStyle
+import io.github.brealorg.subshell.ui.CommentIndentSize
 import io.github.brealorg.subshell.ui.CommentThreadColours
+import io.github.brealorg.subshell.ui.decodeShownLanguages
+import io.github.brealorg.subshell.ui.encodeShownLanguages
 import io.github.brealorg.subshell.ui.CommentSwipeAction
 import io.github.brealorg.subshell.ui.CommentTimeFormat
 import io.github.brealorg.subshell.ui.CommunityDiscoveryLayout
@@ -65,6 +68,9 @@ internal class SettingsState(
     initialCommentCollapseMode: CommentCollapseMode,
     initialCommentHierarchyStyle: CommentHierarchyStyle,
     initialCommentThreadColours: CommentThreadColours,
+    initialCommentIndentSize: CommentIndentSize,
+    initialCommentRailFromParent: Boolean,
+    initialShownLanguages: Set<String>,
     initialSwipeActionsEnabled: Boolean,
     initialPostSwipeLeftAction: PostSwipeAction,
     initialPostSwipeRightAction: PostSwipeAction,
@@ -157,6 +163,9 @@ internal class SettingsState(
         internal set
     var commentHierarchyStyle by mutableStateOf(initialCommentHierarchyStyle)
     var commentThreadColours by mutableStateOf(initialCommentThreadColours)
+    var commentIndentSize by mutableStateOf(initialCommentIndentSize)
+    var commentRailFromParent by mutableStateOf(initialCommentRailFromParent)
+    var shownLanguages by mutableStateOf(initialShownLanguages)
         internal set
     var swipeActionsEnabled by mutableStateOf(initialSwipeActionsEnabled)
         internal set
@@ -328,6 +337,21 @@ internal class SettingsState(
     fun updateCommentThreadColours(colours: CommentThreadColours) {
         commentThreadColours = colours
         persistPreference(SubshellSettings.COMMENT_THREAD_COLOURS, colours.name)
+    }
+
+    fun updateCommentRailFromParent(enabled: Boolean) {
+        commentRailFromParent = enabled
+        persistPreference(SubshellSettings.COMMENT_RAIL_FROM_PARENT, enabled.toString())
+    }
+
+    fun updateCommentIndentSize(size: CommentIndentSize) {
+        commentIndentSize = size
+        persistPreference(SubshellSettings.COMMENT_INDENT_SIZE, size.name)
+    }
+
+    fun updateShownLanguages(languages: Set<String>) {
+        shownLanguages = decodeShownLanguages(encodeShownLanguages(languages))
+        persistPreference(SubshellSettings.SHOWN_LANGUAGES, encodeShownLanguages(shownLanguages))
     }
 
     fun updateSwipeActionsEnabled(enabled: Boolean) {

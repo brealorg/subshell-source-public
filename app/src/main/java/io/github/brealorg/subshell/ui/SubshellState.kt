@@ -764,6 +764,9 @@ class SubshellState(
     initialCommentCollapseMode: CommentCollapseMode = CommentCollapseMode.HEADER,
     initialCommentHierarchyStyle: CommentHierarchyStyle = CommentHierarchyStyle.GUIDE_LINES,
     initialCommentThreadColours: CommentThreadColours = CommentThreadColours.OFF,
+    initialCommentIndentSize: CommentIndentSize = CommentIndentSize.NORMAL,
+    initialCommentRailFromParent: Boolean = true,
+    initialShownLanguages: Set<String> = emptySet(),
     initialSwipeActionsEnabled: Boolean = false,
     initialPostSwipeLeftAction: PostSwipeAction = DefaultSubshellSettings.postSwipeLeftAction,
     initialPostSwipeRightAction: PostSwipeAction = DefaultSubshellSettings.postSwipeRightAction,
@@ -1086,6 +1089,9 @@ class SubshellState(
         initialCommentCollapseMode = initialCommentCollapseMode,
         initialCommentHierarchyStyle = initialCommentHierarchyStyle,
         initialCommentThreadColours = initialCommentThreadColours,
+        initialCommentIndentSize = initialCommentIndentSize,
+        initialCommentRailFromParent = initialCommentRailFromParent,
+        initialShownLanguages = initialShownLanguages,
         initialSwipeActionsEnabled = initialSwipeActionsEnabled,
         initialPostSwipeLeftAction = initialPostSwipeLeftAction,
         initialPostSwipeRightAction = initialPostSwipeRightAction,
@@ -1222,6 +1228,12 @@ class SubshellState(
         private set
     var commentHierarchyStyle by settings::commentHierarchyStyle
     var commentThreadColours by settings::commentThreadColours
+        private set
+    var commentIndentSize by settings::commentIndentSize
+        private set
+    var commentRailFromParent by settings::commentRailFromParent
+        private set
+    var shownLanguages by settings::shownLanguages
         private set
 
     /**
@@ -3595,7 +3607,11 @@ class SubshellState(
                 openSearch(refocus = false)
                 if (target.community == null) updateSearchArea(SearchArea.ALL_SUBSHELL)
                 updateSearchQuery(target.query)
-                submitSearch()
+                updateSearchOrder(target.order ?: RedditSearchOrder.DEFAULT)
+                // ISSUE294_A_SEARCH_FROM_A_LINK_OR_FLAIR_LOADS_V1: only the search
+                // screen sends a search to Reddit; it takes this request once and
+                // loads, instead of showing "Search is ready" until a tap.
+                if (submitSearch() != null) searchLoadRequestAccountId = activeAccountId
                 true
             }
             is RedditTarget.Post -> {
@@ -3843,12 +3859,16 @@ class SubshellState(
         return consumedPostEntryVisitIds.add(visitId)
     }
 
-    fun requestPostManage(postId: String) {
-        uiRequests.requestPostManage(postId)
+    fun requestPostManage(postId: String, asModerator: Boolean = false) {
+        uiRequests.requestPostManage(postId, asModerator)
     }
 
     fun consumePostManageRequest(postId: String): Boolean =
         uiRequests.consumePostManageRequest(postId)
+
+    /** ISSUE295_MODERATOR_SETS_POST_FLAIR_V1: read before consuming the request. */
+    val postManageRequestedAsModerator: Boolean
+        get() = uiRequests.pendingPostManageAsModerator
 
     fun requestPostDelete(postId: String) {
         uiRequests.requestPostDelete(postId)
@@ -3917,6 +3937,30 @@ class SubshellState(
             routedPostsByVisitId[visitId]?.let { post ->
                 routedPostsByVisitId[visitId] = updated(post)
             }
+        }
+        selectedPost = selectedPost?.let(::updated)
+        selectedMediaPost = selectedMediaPost?.let(::updated)
+        storeEditedPost(postId, ::updated)
+    }
+
+    /**
+     * ISSUE295_REMOVED_POST_IS_MARKED_V1: Reddit confirmed that a moderator
+     * removed (or approved, which restores) this post; every loaded feed, the
+     * open post and the store show it at once.
+     */
+    fun applyModeratedPostRemoved(postId: String, removed: Boolean) {
+        val normalizedPostId = normalizedPostIdentity(postId)
+        if (normalizedPostId.isEmpty()) return
+
+        fun updated(post: Post): Post =
+            if (normalizedPostIdentity(post.id) == normalizedPostId) post.copy(removed = removed) else post
+
+        postPagingSnapshots.keys.toList().forEach { queryKey ->
+            val snapshot = postPagingSnapshots[queryKey] ?: return@forEach
+            postPagingSnapshots[queryKey] = snapshot.copy(items = snapshot.items.map(::updated))
+        }
+        routedPostsByVisitId.keys.toList().forEach { visitId ->
+            routedPostsByVisitId[visitId]?.let { post -> routedPostsByVisitId[visitId] = updated(post) }
         }
         selectedPost = selectedPost?.let(::updated)
         selectedMediaPost = selectedMediaPost?.let(::updated)
@@ -4271,6 +4315,19 @@ class SubshellState(
                 community.id in joinedCommunityIds
         }
         SearchArea.CURRENT_COMMUNITY -> searchOriginCommunity?.equals(communityName, ignoreCase = true) == true
+    }
+
+    private var searchLoadRequestAccountId by mutableStateOf<String?>(null)
+
+    /** A search opened from a link or a flair waits for the search screen to load it. */
+    internal val searchLoadRequested: Boolean
+        get() = searchLoadRequestAccountId != null
+
+    /** Taken once; false when the account changed since the request. */
+    internal fun takeSearchLoadRequest(): Boolean {
+        val requestedFor = searchLoadRequestAccountId ?: return false
+        searchLoadRequestAccountId = null
+        return requestedFor == activeAccountId
     }
 
     fun submitSearch(): String? {
@@ -5862,6 +5919,54 @@ class SubshellState(
         settings.updateCommentThreadColours(colours)
     }
 
+    fun updateCommentIndentSize(size: CommentIndentSize) {
+        settings.updateCommentIndentSize(size)
+    }
+
+    fun updateCommentRailFromParent(enabled: Boolean) {
+        settings.updateCommentRailFromParent(enabled)
+    }
+
+    fun updateShownLanguages(languages: Set<String>) {
+        settings.updateShownLanguages(languages)
+        io.github.brealorg.subshell.language.ContentLanguages.shownLanguages = shownLanguages
+    }
+
+    // ISSUE293_LANGUAGE_FILTER_V1: bumped when the device has told more
+    // languages, so a list already on screen (read before the filter was on,
+    // or from the cache) is filtered as soon as its languages are known.
+    internal var languageDetectionRevision by mutableIntStateOf(0)
+        private set
+
+    /** Tells the language of shown items not yet known; nothing while the filter is off. */
+    internal suspend fun detectLanguages(entries: List<Pair<String, String>>) {
+        if (shownLanguages.isEmpty() || entries.isEmpty()) return
+        val languages = io.github.brealorg.subshell.language.ContentLanguages
+        languages.shownLanguages = shownLanguages
+        val unknown = entries.filterNot { (key, _) -> languages.told(key) }
+        if (unknown.isEmpty()) return
+        languages.detectAll(unknown)
+        languageDetectionRevision++
+    }
+
+    /** ISSUE293_LANGUAGE_FILTER_V1: a community the device knows is in a language the reader left out. */
+    internal fun languageHidesCommunity(name: String): Boolean =
+        languageDetectionRevision >= 0 && io.github.brealorg.subshell.language.languageHides(
+            io.github.brealorg.subshell.language.ContentLanguages.detected(
+                io.github.brealorg.subshell.language.communityLanguageKey(name),
+            ),
+            shownLanguages,
+        )
+
+    /** ISSUE293_LANGUAGE_FILTER_V1: the same for a search result, by its title. */
+    internal fun languageHidesSearchPost(post: Post): Boolean =
+        languageDetectionRevision >= 0 && io.github.brealorg.subshell.language.languageHides(
+            io.github.brealorg.subshell.language.ContentLanguages.detected(
+                io.github.brealorg.subshell.language.postLanguageKey(post.id),
+            ),
+            shownLanguages,
+        )
+
     fun updateSwipeActionsEnabled(enabled: Boolean) {
         settings.updateSwipeActionsEnabled(enabled)
     }
@@ -6289,6 +6394,9 @@ class SubshellState(
         commentCollapseMode = commentCollapseMode,
         commentHierarchyStyle = commentHierarchyStyle,
         commentThreadColours = commentThreadColours,
+        commentIndentSize = commentIndentSize,
+        commentRailFromParent = commentRailFromParent,
+        shownLanguages = shownLanguages,
         swipeActionsEnabled = swipeActionsEnabled,
         postSwipeLeftAction = postSwipeLeftAction,
         postSwipeRightAction = postSwipeRightAction,
@@ -6380,6 +6488,9 @@ class SubshellState(
         commentTimeFormat = settings.commentTimeFormat
         commentHierarchyStyle = settings.commentHierarchyStyle
         commentThreadColours = settings.commentThreadColours
+        commentIndentSize = settings.commentIndentSize
+        commentRailFromParent = settings.commentRailFromParent
+        shownLanguages = settings.shownLanguages
         // ISSUE71_RESTORE_APPLIES_COMMENT_COLLAPSE_MODE_V1: the only setting a
         // restore wrote to disk but left stale in the live state.
         commentCollapseMode = settings.commentCollapseMode

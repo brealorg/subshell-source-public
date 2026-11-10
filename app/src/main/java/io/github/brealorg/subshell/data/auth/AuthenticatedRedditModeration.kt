@@ -88,6 +88,23 @@ internal interface AuthenticatedRedditModerationLoader {
         after: String? = null,
     ): AuthenticatedRedditModQueueResult
 
+    // ISSUE295_REMOVED_CONTENT_LISTS_V1: a loader that knows only the queue
+    // refuses the other lists rather than showing the queue under their name.
+    suspend fun loadModList(
+        accountStableId: String,
+        rawCommunityName: String,
+        list: io.github.brealorg.subshell.data.account.RedditModeratorQueueList,
+        after: String? = null,
+    ): AuthenticatedRedditModQueueResult =
+        if (list == io.github.brealorg.subshell.data.account.RedditModeratorQueueList.QUEUE) {
+            loadModQueue(accountStableId, rawCommunityName, after)
+        } else {
+            AuthenticatedRedditModQueueResult.Failed(
+                communityName = rawCommunityName.trim().lowercase(),
+                kind = AuthenticatedRedditModerationFailureKind.PROTOCOL,
+            )
+        }
+
     suspend fun resolveTargetPost(
         accountStableId: String,
         postId: String,

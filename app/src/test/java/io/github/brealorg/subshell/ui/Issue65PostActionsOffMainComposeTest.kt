@@ -9,6 +9,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import io.github.brealorg.subshell.harness.ensureWorkManagerInitialized
+import io.github.brealorg.subshell.data.cache.CachePayloadSeal
+import io.github.brealorg.subshell.data.cache.CipherCachePayloadSeal
+import io.github.brealorg.subshell.data.cache.SoftwareAesCipher
+import io.github.brealorg.subshell.data.privateprefs.SealedKeysPreferences
+import org.junit.After
+import org.junit.Before
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -29,6 +35,23 @@ import org.robolectric.annotation.Config
 class Issue65PostActionsOffMainComposeTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    // The Android Keystore is not there under Robolectric: a software key stands in for it.
+    private val productionSealBefore = CachePayloadSeal.production
+
+    private fun useSoftwareSeal() {
+        CachePayloadSeal.production = { CipherCachePayloadSeal(SoftwareAesCipher(keyByte = 1)) }
+    }
+
+    private fun restoreSeal() {
+        CachePayloadSeal.production = productionSealBefore
+    }
+
+    @Before
+    fun softwareSeal() = useSoftwareSeal()
+
+    @After
+    fun sealBack() = restoreSeal()
 
     @Test
     fun openingAPostDoesNotCommitTheSettingsFile() {
@@ -55,7 +78,9 @@ class Issue65PostActionsOffMainComposeTest {
 
         assertEquals(0, preferences.commits)
         val readKey = accountPostActionsPreferenceKey(launched.activeAccountUsername, ACCOUNT_ACTION_FIELD_READ)
-        assertTrue("issue65" in preferences.getStringSet(readKey, emptySet()).orEmpty())
+        // The read-set is stored sealed; read it back through the same layer the app uses.
+        val opened: SharedPreferences = SealedKeysPreferences(preferences, CachePayloadSeal.production)
+        assertTrue("issue65" in opened.getStringSet(readKey, emptySet()).orEmpty())
     }
 
     @Test

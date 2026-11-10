@@ -92,6 +92,7 @@ import io.github.brealorg.subshell.ui.FeedSort
 import io.github.brealorg.subshell.ui.ProfileActivityEvidence
 import io.github.brealorg.subshell.ui.PostLayout
 import io.github.brealorg.subshell.ui.SubshellState
+import io.github.brealorg.subshell.ui.flairSearchTarget
 import io.github.brealorg.subshell.ui.MainDestination
 import io.github.brealorg.subshell.ui.SecondaryDestination
 import io.github.brealorg.subshell.ui.VoteColorPalette
@@ -1050,6 +1051,9 @@ fun PostCard(
     bodyMaxLines: Int = 4,
     onEditPost: (() -> Unit)? = null,
     onManagePost: (() -> Unit)? = null,
+    // ISSUE295_MODERATOR_SETS_POST_FLAIR_V1: the post view opens its manage page
+    // as a moderator's; elsewhere the card asks the post view to.
+    onModeratePost: (() -> Unit)? = null,
     onDeletePost: (() -> Unit)? = null,
     onRefreshComments: (() -> Unit)? = null,
     knownHidden: Boolean = false,
@@ -1088,6 +1092,7 @@ fun PostCard(
     val context = LocalContext.current
     val notices = LocalViewportErrorHostState.current
     var overflowExpanded by remember(post.id) { mutableStateOf(false) }
+    var ownPostSheetVisible by remember(post.id) { mutableStateOf(false) }
     // ISSUE284_POST_TEXT_COLLAPSES_LIKE_A_COMMENT_V1 (#284, owner: optional,
     // off by default): on the post screen a tap on the title hides the post's
     // text, as a tap collapses a comment. The community and author above it
@@ -1103,6 +1108,49 @@ fun PostCard(
     // ISSUE34_USER_TAGS_V1
     val authorTag = state.userTagFor(post.author)
     var userTagEditorVisible by remember(post.id) { mutableStateOf(false) }
+    // ISSUE295_YOUR_POST_ACTIONS_IN_ONE_SHEET_V1
+    if (ownPostSheetVisible) {
+        ItemActionsSheet(
+            title = "Your post",
+            groups = listOf(
+                listOfNotNull(
+                    SheetAction(
+                        if (bodyEditEntryMode == PostBodyEditEntryMode.PROBE) "Edit body (test)" else "Edit post",
+                        Symbols.Edit,
+                    ) {
+                        if (onEditPost != null) {
+                            onEditPost()
+                        } else {
+                            state.requestPostEdit(post.id)
+                            beforeNavigation()
+                            onOpen()
+                        }
+                    }.takeIf { state.activeAccountIsAuthenticated && bodyEditEntryMode != null },
+                    SheetAction("Manage post", Symbols.Tune) {
+                        if (onManagePost != null) {
+                            onManagePost()
+                        } else {
+                            state.requestPostManage(post.id)
+                            beforeNavigation()
+                            onOpen()
+                        }
+                    }.takeIf { state.activeAccountIsAuthenticated && ownPostActions.canDelete },
+                ),
+                listOfNotNull(
+                    SheetAction("Delete post", Symbols.Delete, destructive = true) {
+                        if (onDeletePost != null) {
+                            onDeletePost()
+                        } else {
+                            state.requestPostDelete(post.id)
+                            beforeNavigation()
+                            onOpen()
+                        }
+                    }.takeIf { state.activeAccountIsAuthenticated && ownPostActions.canDelete },
+                ),
+            ),
+            onDismiss = { ownPostSheetVisible = false },
+        )
+    }
     if (userTagEditorVisible) {
         UserTagEditorDialog(
             username = post.author,
@@ -1163,63 +1211,18 @@ fun PostCard(
                     )
                 }
 
+                // ISSUE295_YOUR_POST_ACTIONS_IN_ONE_SHEET_V1 (owner: the ⋮ menu was
+                // too long): Edit, Manage and Delete are one entry opening a sheet.
                 if (
                     state.activeAccountIsAuthenticated &&
-                    bodyEditEntryMode != null
+                    (bodyEditEntryMode != null || ownPostActions.canDelete)
                 ) {
                     DropdownMenuItem(
-                        text = {
-                        if (bodyEditEntryMode == PostBodyEditEntryMode.PROBE) {
-                            Text("Edit body (test)")
-                        } else {
-                            Text("Edit post")
-                        }
-                    },
+                        text = { Text("Your post…") },
+                        leadingIcon = { Icon(Symbols.Edit, contentDescription = null) },
                         onClick = {
                             overflowExpanded = false
-                            if (onEditPost != null) {
-                                onEditPost()
-                            } else {
-                                state.requestPostEdit(post.id)
-                                beforeNavigation()
-                                onOpen()
-                            }
-                        },
-                    )
-                }
-                if (
-                    state.activeAccountIsAuthenticated &&
-                    ownPostActions.canDelete
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Manage post") },
-                        onClick = {
-                            overflowExpanded = false
-                            if (onManagePost != null) {
-                                onManagePost()
-                            } else {
-                                state.requestPostManage(post.id)
-                                beforeNavigation()
-                                onOpen()
-                            }
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                "Delete post",
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                        },
-                        onClick = {
-                            overflowExpanded = false
-                            if (onDeletePost != null) {
-                                onDeletePost()
-                            } else {
-                                state.requestPostDelete(post.id)
-                                beforeNavigation()
-                                onOpen()
-                            }
+                            ownPostSheetVisible = true
                         },
                     )
                 }
@@ -1232,22 +1235,30 @@ fun PostCard(
                         },
                     )
                 }
-                DropdownMenuItem(
-                    text = { Text("Go to ${state.subredditLabel(post.community)}") },
-                    onClick = {
-                        overflowExpanded = false
-                        beforeNavigation()
-                        state.openSubreddit(post.community)
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("About u/${post.author}") },
-                    onClick = {
-                        overflowExpanded = false
-                        beforeNavigation()
-                        state.openUser(post.author, ProfileActivityEvidence.POST)
-                    },
-                )
+                // ISSUE295_MENU_OFFERS_ONLY_WHAT_THE_CARD_DOES_NOT_V1: the Large card
+                // (and the post view) opens the community and the author from its
+                // header, Compact the community; only where the card cannot does
+                // the menu offer the way.
+                if (!postLayoutOpensCommunity(layout)) {
+                    DropdownMenuItem(
+                        text = { Text("Go to ${state.subredditLabel(post.community)}") },
+                        onClick = {
+                            overflowExpanded = false
+                            beforeNavigation()
+                            state.openSubreddit(post.community)
+                        },
+                    )
+                }
+                if (!postLayoutOpensAuthor(layout)) {
+                    DropdownMenuItem(
+                        text = { Text("About u/${post.author}") },
+                        onClick = {
+                            overflowExpanded = false
+                            beforeNavigation()
+                            state.openUser(post.author, ProfileActivityEvidence.POST)
+                        },
+                    )
+                }
                 if (state.canTagUser(post.author)) {
                     DropdownMenuItem(
                         text = { Text("Private note on u/${post.author}") },
@@ -1257,21 +1268,23 @@ fun PostCard(
                         },
                     )
                 }
-                // MODERATION02A2_POST_REPORT_REOPEN_OUTSIDE_QUEUE_V1
-                ModeratorReportMenuItem(
+                // ISSUE295_ONE_MODERATE_ENTRY_OPENS_A_SHEET_V1: reports, approve,
+                // remove, spam, lock and distinguish are in the sheet it opens.
+                ModeratorMenuItem(
                     target = io.github.brealorg.subshell.data.account.moderatorReportTargetOrNull(
                         if (post.id.startsWith("t3_")) post.id else "t3_${post.id}",
                         post.community,
                     ),
                     onDismissMenu = { overflowExpanded = false },
-                )
-                // MODERATION02A3_POST_CONTENT_CONTROLS_REOPEN_V1
-                ModeratorContentControlsMenuItem(
-                    target = io.github.brealorg.subshell.data.account.moderatorReportTargetOrNull(
-                        if (post.id.startsWith("t3_")) post.id else "t3_${post.id}",
-                        post.community,
-                    ),
-                    onDismissMenu = { overflowExpanded = false },
+                    onChangeFlair = {
+                        if (onModeratePost != null) {
+                            onModeratePost()
+                        } else {
+                            state.requestPostManage(post.id, asModerator = true)
+                            beforeNavigation()
+                            onOpen()
+                        }
+                    },
                 )
                 // SAFETY01A3_REAL_POST_HIDE_UNHIDE_REPORT_UI_V1
                 DropdownMenuItem(
@@ -1504,14 +1517,33 @@ fun PostCard(
                     }
                     postOverflowMenu()
                 }
-                if (post.pinned || post.moderatorPost || post.flair != null || post.spoiler || post.nsfw) {
+                // ISSUE295_REMOVED_POST_IS_MARKED_V1: only a moderator of the
+                // community sees that a post was removed.
+                val showRemoved = postShowsRemoved(post, LocalModeratorQuickActions.current)
+                if (showRemoved || post.pinned || post.moderatorPost || post.flair != null || post.spoiler || post.nsfw) {
                     Row(
                         modifier = Modifier.padding(top = 6.dp),
                         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
                     ) {
+                        if (showRemoved) MetadataChip("REMOVED", tone = MetadataChipTone.SENSITIVE)
                         if (post.pinned) MetadataChip("PINNED")
                         if (post.moderatorPost) MetadataChip("MOD")
-                        post.flair?.let { PostFlairChip(text = it, richText = post.flairRichText) }
+                        post.flair?.let { flair ->
+                            val flairSearch = flairSearchTarget(post)
+                            PostFlairChip(
+                                text = flair,
+                                richText = post.flairRichText,
+                                onClick = flairSearch?.let { target ->
+                                    {
+                                        beforeNavigation()
+                                        state.openRedditTarget(target)
+                                    }
+                                },
+                                onClickLabel = flairSearch?.let {
+                                    "Search ${state.subredditLabel(post.community)} for this flair"
+                                },
+                            )
+                        }
                         if (post.spoiler) {
                             MetadataChip(
                                 label = "SPOILER",
@@ -1650,6 +1682,7 @@ internal fun resolvedPostBodyMaxLines(kind: PostKind, requestedMaxLines: Int): I
 @Composable
 private fun MetadataChip(
     label: String,
+    modifier: Modifier = Modifier,
     tone: MetadataChipTone = MetadataChipTone.DEFAULT,
 ) {
     val containerColor = when (tone) {
@@ -1665,6 +1698,7 @@ private fun MetadataChip(
     Surface(
         shape = CircleShape,
         color = containerColor,
+        modifier = modifier,
     ) {
         Text(
             label,
@@ -1682,14 +1716,27 @@ private fun MetadataChip(
 internal fun PostFlairChip(
     text: String,
     richText: List<FlairRichTextSegment>,
+    onClick: (() -> Unit)? = null,
+    onClickLabel: String? = null,
 ) {
+    // ISSUE294_FLAIR_OPENS_A_FLAIR_SEARCH_V1: the chip keeps its size; Compose
+    // widens a small clickable's touch area to the minimum touch target when
+    // no other target is nearer, so the row does not grow.
+    val clickModifier = if (onClick != null) {
+        Modifier
+            .clip(CircleShape)
+            .clickable(onClickLabel = onClickLabel, role = Role.Button, onClick = onClick)
+    } else {
+        Modifier
+    }
     if (richText.isEmpty()) {
-        MetadataChip(redditFlairFallbackText(text).ifBlank { text })
+        MetadataChip(redditFlairFallbackText(text).ifBlank { text }, modifier = clickModifier)
         return
     }
     Surface(
         shape = CircleShape,
         color = MaterialTheme.colorScheme.secondaryContainer,
+        modifier = clickModifier,
     ) {
         FlairRichTextLabel(
             text = text,
@@ -2015,3 +2062,12 @@ fun accentFor(seed: String): Color {
 // ISSUE76_ACCENT_INDEX_NEVER_NEGATIVE_V1
 internal fun accentIndex(seed: String, size: Int): Int =
     (seed.hashCode().toLong().absoluteValue % size).toInt()
+
+// ISSUE295_MENU_OFFERS_ONLY_WHAT_THE_CARD_DOES_NOT_V1: the Large card (and the
+// post view) opens the community and the author from its header; Compact opens
+// the community; List and Grid open neither, so their menu keeps both.
+internal fun postLayoutOpensCommunity(layout: PostLayout): Boolean =
+    layout == PostLayout.LARGE || layout == PostLayout.COMPACT
+
+internal fun postLayoutOpensAuthor(layout: PostLayout): Boolean =
+    layout == PostLayout.LARGE

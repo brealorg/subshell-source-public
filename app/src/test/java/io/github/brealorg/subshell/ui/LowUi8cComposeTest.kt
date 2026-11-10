@@ -288,6 +288,9 @@ class LowUi8cComposeTest {
         val options = composeRule.onAllNodesWithContentDescription("Comment options")
         options[options.fetchSemanticsNodes().size - 1].performClick()
         composeRule.waitForIdle()
+        // ISSUE295_YOUR_COMMENT_ACTIONS_IN_ONE_SHEET_V1
+        composeRule.onNodeWithText("Your comment…").performClick()
+        composeRule.waitForIdle()
         composeRule.onNodeWithText("Delete comment").performClick()
         composeRule.waitForIdle()
         refreshes.clear()

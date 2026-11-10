@@ -104,6 +104,9 @@ internal data class RedditPostDataDto(
     val linkFlairRichText: List<RedditFlairRichTextDto> = emptyList(),
     // CROSSPOST01A1B_DESTINATION_FLAIR_ID_READBACK_V1
     @SerialName("link_flair_template_id") val linkFlairTemplateId: String? = null,
+    // ISSUE295_REMOVED_POST_IS_MARKED_V1
+    val removed: Boolean? = null,
+    @SerialName("removed_by_category") val removedByCategory: String? = null,
 )
 
 @Serializable
@@ -544,6 +547,7 @@ private fun RedditPostDataDto.toPost(nowEpochSeconds: Long): Post {
             .orEmpty(),
         pinned = stickied,
         moderatorPost = distinguished == "moderator",
+        removed = redditPostIsRemoved(removed, removedByCategory),
         spoiler = spoiler,
         nsfw = over18,
         saved = saved,
@@ -839,3 +843,14 @@ private const val REDDIT_MEDIA_KIND_IMAGE = "Image"
 private const val REDDIT_MEDIA_KIND_ANIMATED_IMAGE = "AnimatedImage"
 private const val REDDIT_MEDIA_STATUS_VALID = "valid"
 private const val MAX_REDDIT_COMMUNITY_NAME_LENGTH = 100
+
+/**
+ * ISSUE295_REMOVED_POST_IS_MARKED_V1: Reddit's own word for moderators
+ * (`removed`) decides; otherwise a removal category other than the author's
+ * own deletion does. "deleted" is the author's; it is not a removal.
+ */
+internal fun redditPostIsRemoved(removed: Boolean?, removedByCategory: String?): Boolean {
+    if (removed != null) return removed
+    val category = removedByCategory?.trim()?.lowercase()?.takeIf(String::isNotEmpty) ?: return false
+    return category != "deleted" && category != "author"
+}

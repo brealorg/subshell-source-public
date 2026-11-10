@@ -14,6 +14,11 @@ import io.github.brealorg.subshell.data.auth.StoredOAuthSession
 import io.github.brealorg.subshell.data.auth.authenticatedAccountId
 import io.github.brealorg.subshell.data.network.SubshellNetworkJson
 import io.github.brealorg.subshell.model.MessageBubble
+import io.github.brealorg.subshell.data.cache.CachePayloadSeal
+import io.github.brealorg.subshell.data.cache.CipherCachePayloadSeal
+import io.github.brealorg.subshell.data.cache.SoftwareAesCipher
+import org.junit.After
+import org.junit.Before
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import io.github.brealorg.subshell.data.account.ConnectAccountPhase
@@ -88,6 +93,23 @@ class AuthConnectViewModelLogoutTest {
     }
 
     // ACCOUNT01_REACTION_CACHE_ACCOUNT_SCOPED_V1 --------------------------------
+
+    // The Android Keystore is not there under Robolectric: a software key stands in for it.
+    private val productionSealBefore = CachePayloadSeal.production
+
+    private fun useSoftwareSeal() {
+        CachePayloadSeal.production = { CipherCachePayloadSeal(SoftwareAesCipher(keyByte = 1)) }
+    }
+
+    private fun restoreSeal() {
+        CachePayloadSeal.production = productionSealBefore
+    }
+
+    @Before
+    fun softwareSeal() = useSoftwareSeal()
+
+    @After
+    fun sealBack() = restoreSeal()
 
     private val chatPreferences = application.getSharedPreferences("account01-logout", android.content.Context.MODE_PRIVATE)
     private val chatCache = DirectChatReactionPresentationCache(

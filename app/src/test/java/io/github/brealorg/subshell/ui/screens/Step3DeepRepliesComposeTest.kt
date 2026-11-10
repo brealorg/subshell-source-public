@@ -30,7 +30,7 @@ import org.robolectric.annotation.Config
 
 /**
  * STEP3 (profile01a5): a reply nested deeper than the indentation shows says
- * whom it answers ("↳ name", from the third level, #285), and replies still to come load by
+ * whom it answers ("↳ name", past the sixth level since REPLYCONTEXT02; #285 first used the third), and replies still to come load by
  * themselves — the thread has no "Continue thread" row and no "N more" count.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -80,7 +80,37 @@ class Step3DeepRepliesComposeTest {
             listOf(
                 comment(
                     "t1_b", "bert", 1,
-                    listOf(comment("t1_c", "carl", 2, listOf(comment("t1_d", "dina", 3)))),
+                    listOf(
+                        comment(
+                            "t1_c", "carl", 2,
+                            listOf(
+                                comment(
+                                    "t1_d", "dina", 3,
+                                    listOf(
+                                        comment(
+                                            "t1_e", "eve", 4,
+                                            listOf(
+                                                comment(
+                                                    "t1_f", "finn", 5,
+                                                    listOf(
+                                                        comment(
+                                                            "t1_g", "gus", 6,
+                                                            listOf(
+                                                                comment(
+                                                                    "t1_h", "hal", 7,
+                                                                    listOf(comment("t1_i", "ida", 8)),
+                                                                ),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
                 ),
                 moreNode,
             ),
@@ -118,16 +148,17 @@ class Step3DeepRepliesComposeTest {
         composeRule.waitForIdle()
 
         fun shown(text: String) = composeRule.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().size
-        val deep = androidx.compose.ui.test.hasText("Comment by dina", substring = true)
+        val deep = androidx.compose.ui.test.hasText("Comment by ida", substring = true)
         val lists = composeRule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())
         for (index in 0 until lists.fetchSemanticsNodes().size) {
             if (runCatching { lists[index].performScrollToNode(deep) }.isSuccess) break
         }
         composeRule.waitForIdle()
-        assertEquals(1, shown("Comment by dina"))
-        // ISSUE285_DEEP_REPLIES_SAY_WHO_THEY_ANSWER_V1: from the third level (carl, depth 2) on.
-        assertEquals(1, shown("↳ carl"))
-        assertEquals(1, shown("↳ bert"))
+        assertEquals(1, shown("Comment by ida"))
+        // ISSUE285_DEEP_REPLIES_SAY_WHO_THEY_ANSWER_V1 / REPLYCONTEXT02: only past the
+        // indent cap (depth 7 = hal and 8 = ida); the levels the indent shows say nothing.
+        assertEquals(1, shown("↳ hal"))
+        assertEquals(0, shown("↳ carl"))
         assertEquals(0, shown("↳ anna"))
         assertEquals(0, shown("replying to u/"))
         assertEquals(0, shown("Continue thread"))

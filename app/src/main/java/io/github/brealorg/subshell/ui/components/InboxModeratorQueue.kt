@@ -58,11 +58,8 @@ import io.github.brealorg.subshell.ui.symbols.Symbols
 @Composable
 internal fun InboxModeratorQueueItemCard(
     item: RedditModeratorQueueItem,
-    accountStableId: String,
     actionUiState: RedditModeratorActionUiState,
     onOpen: () -> Unit,
-    onModerate: (RedditModeratorActionRequest) -> Unit,
-    onRequestRemove: (RedditModeratorQueueItem) -> Unit,
 ) {
     val itemInProgress = actionUiState.inProgressFor(item.fullname)
     Surface(
@@ -76,137 +73,9 @@ internal fun InboxModeratorQueueItemCard(
                 inProgress = itemInProgress,
                 modifier = Modifier.clickable(enabled = !itemInProgress, onClick = onOpen),
             )
-            ModeratorReportsButton(item)
-            FlowRow(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                // MODERATION02A3_QUEUE_CONTENT_CONTROLS_ENTRY_V1
-                ModeratorContentControlsButton(item)
-                TextButton(
-                    modifier = Modifier.heightIn(min = 48.dp),
-                    onClick = {
-                        onModerate(
-                            RedditModeratorActionRequest(
-                                accountStableId = accountStableId,
-                                communityName = item.communityName,
-                                thingFullname = item.fullname,
-                                action = RedditModeratorAction.APPROVE,
-                            ),
-                        )
-                    },
-                    enabled = !actionUiState.inProgress,
-                ) {
-                    ModeratorActionIcon(Symbols.Check)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Approve")
-                }
-                TextButton(
-                    modifier = Modifier.heightIn(min = 48.dp),
-                    onClick = { onRequestRemove(item) },
-                    enabled = !actionUiState.inProgress,
-                ) {
-                    ModeratorActionIcon(Symbols.Block)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Remove")
-                }
-                ModeratorSpamAction(
-                    item = item,
-                    accountStableId = accountStableId,
-                    actionUiState = actionUiState,
-                    onModerate = onModerate,
-                )
-            }
+            // ISSUE295_QUEUE_USES_THE_SHEET_V1
+            ModeratorQueueItemActions(item, inProgress = actionUiState.inProgress)
         }
-    }
-}
-
-@Composable
-internal fun InboxModeratorRemovalDialog(
-    item: RedditModeratorQueueItem,
-    accountStableId: String,
-    actionUiState: RedditModeratorActionUiState,
-    removalReasonState: RedditRemovalReasonUiState,
-    onLoadRemovalReasons: (String, Boolean) -> Unit,
-    onAuthorizeRemovalReasons: () -> Unit,
-    onModerate: (RedditModeratorActionRequest) -> Unit,
-    onDismiss: () -> Unit,
-    // STEP3_SAVED_RESPONSES_ARE_WIRED_V1: required, so the compiler proves the
-    // screen passes the moderator's saved responses (was nullable, default null).
-    savedResponses: SavedResponseActions,
-) {
-    // M3225_FORM_DIALOGS_ARE_FULL_SCREEN_ON_PHONES_V1: the same removal form as
-    // the mod tools sheet.
-    ModeratorRemovalDialog(
-        item = item,
-        accountStableId = accountStableId,
-        communityName = item.communityName,
-        displayCommunityName = item.communityName,
-        actionUiState = actionUiState,
-        removalReasonState = removalReasonState,
-        removalReasonsCommunity = item.communityName,
-        onLoadRemovalReasons = { force -> onLoadRemovalReasons(item.communityName, force) },
-        onAuthorizeRemovalReasons = onAuthorizeRemovalReasons,
-        onModerate = onModerate,
-        onDismiss = onDismiss,
-        savedResponses = savedResponses,
-    )
-}
-
-@Composable
-internal fun InboxModerationActionStatus(
-    uiState: RedditModeratorActionUiState,
-    onRetry: () -> Unit,
-    onAuthorize: () -> Unit,
-) {
-    when (uiState.phase) {
-        RedditModeratorActionPhase.AUTHORIZATION_REQUIRED ->
-            InboxModerationNotice(
-                title = "Moderator authorization required",
-                message = "Reddit needs the modposts permission before this action can be sent.",
-                actionLabel = "Authorize",
-                onAction = onAuthorize,
-            )
-
-        RedditModeratorActionPhase.FAILED -> {
-            val message = when {
-                uiState.failureKind == RedditModeratorActionFailureKind.AUTHORIZATION &&
-                    uiState.httpStatusCode == 403 ->
-                    "Reddit denied this moderation action. Your moderator role may not include the required Posts permission."
-                uiState.failureKind == RedditModeratorActionFailureKind.OUTCOME_UNKNOWN ->
-                    "The outcome could not be confirmed. The mod queue is being refreshed from Reddit before you act again."
-                uiState.failureKind == RedditModeratorActionFailureKind.SESSION ->
-                    "The Reddit sign-in for this account needs attention."
-                uiState.failureKind == RedditModeratorActionFailureKind.TRANSPORT ->
-                    "subshell couldn't reach Reddit for this moderation action."
-                uiState.failureKind == RedditModeratorActionFailureKind.HTTP ->
-                    "Reddit rejected this moderation action."
-                else -> "This moderation action couldn't be completed."
-            }
-            InboxModerationNotice(
-                title = "Moderator action failed",
-                message = message,
-                actionLabel = "Retry".takeIf { uiState.retryable },
-                onAction = onRetry,
-            )
-        }
-
-        RedditModeratorActionPhase.SUCCEEDED -> {
-            if (uiState.removalReasonWarning || uiState.removalMessageOutcome == RedditRemovalStepOutcome.FAILED) {
-                InboxModerationNotice(
-                    title = "Item removed",
-                    message = removalPartialSuccessMessage(
-                        reasonWarning = uiState.removalReasonWarning,
-                        messageOutcome = uiState.removalMessageOutcome,
-                    ),
-                    actionLabel = null,
-                    onAction = {},
-                )
-            }
-        }
-
-        else -> Unit
     }
 }
 

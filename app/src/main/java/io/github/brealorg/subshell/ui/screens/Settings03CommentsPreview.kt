@@ -68,6 +68,9 @@ internal fun CommentsSettingsPreview(
     hierarchyStyle: CommentHierarchyStyle,
     threadColours: CommentThreadColours,
     modifier: Modifier = Modifier,
+    // REPLYCONTEXT04_PREVIEW_FOLLOWS_INDENT_AND_PARENT_RAIL_V1
+    indentStepDp: Int = COMMENT_DEPTH_INDENT_STEP_DP,
+    railFromParent: Boolean = true,
 ) {
     val actionPlacement = commentsPreviewResolvedPlacement(
         preference = actionPreference,
@@ -187,6 +190,7 @@ internal fun CommentsSettingsPreview(
                     CommentHierarchyPreviewRail(
                         hierarchyStyle = hierarchyStyle,
                         threadColours = threadColours,
+                        railFromParent = railFromParent,
                     )
 
                     Column(
@@ -215,6 +219,7 @@ internal fun CommentsSettingsPreview(
                             showAvatar = showCommentAvatars,
                             collapsed = replyCollapsed,
                             collapseMode = collapseMode,
+                            indentDp = if (hierarchyStyle == CommentHierarchyStyle.GUIDE_LINES) indentStepDp else 0,
                             headerDemoColor = headerDemoColor,
                             bodyDemoColor = bodyDemoColor,
                             onToggle = {
@@ -279,6 +284,7 @@ private fun PreviewReplyComment(
     showAvatar: Boolean,
     collapsed: Boolean,
     collapseMode: CommentCollapseMode,
+    indentDp: Int,
     headerDemoColor: Color,
     bodyDemoColor: Color,
     onToggle: () -> Unit,
@@ -307,7 +313,7 @@ private fun PreviewReplyComment(
                 MaterialTheme.shapes.small,
             )
             .padding(
-                start = 54.dp,
+                start = (54 + indentDp).dp,
                 top = 4.dp,
                 end = 7.dp,
                 bottom = 3.dp,
@@ -496,6 +502,7 @@ private fun PreviewAction(
 private fun CommentHierarchyPreviewRail(
     hierarchyStyle: CommentHierarchyStyle,
     threadColours: CommentThreadColours = CommentThreadColours.OFF,
+    railFromParent: Boolean = true,
 ) {
     val accent = MaterialTheme.colorScheme.primary
     val laneColor = previewThreadLaneColor(
@@ -525,6 +532,16 @@ private fun CommentHierarchyPreviewRail(
                  * Current behaviour: a guide belongs visually to the reply
                  * region rather than clearly originating at its parent.
                  */
+                if (railFromParent) {
+                    // REPLYCONTEXT04_PREVIEW_FOLLOWS_INDENT_AND_PARENT_RAIL_V1: the line leaves the
+                    // middle of the parent (its row is 0..78 dp).
+                    drawLine(
+                        color = if (coloured) laneColor else accent.copy(alpha = 0.50f),
+                        start = Offset(railX, 39.dp.toPx()),
+                        end = Offset(railX, 80.dp.toPx()),
+                        strokeWidth = stroke,
+                    )
+                }
                 drawLine(
                     color = if (coloured) laneColor else accent.copy(alpha = 0.50f),
                     start = Offset(

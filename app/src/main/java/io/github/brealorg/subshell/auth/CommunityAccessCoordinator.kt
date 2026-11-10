@@ -1,5 +1,6 @@
 package io.github.brealorg.subshell.auth
 
+import io.github.brealorg.subshell.language.ContentLanguages
 import io.github.brealorg.subshell.data.account.NsfwPreferencesResult
 import io.github.brealorg.subshell.data.account.QuarantineOptInResult
 import io.github.brealorg.subshell.data.account.RedditAccessCheckResult
@@ -54,11 +55,16 @@ internal class CommunityAccessCoordinator(
     private var lastRandomNsfwCommunity: String? = null
     private var randomNsfwCandidates: Triple<String, Long, List<String>>? = null
 
+    // ISSUE293_LANGUAGE_FILTER_V1: candidates read under another language
+    // choice were not told their language; they are read again.
+    private var randomNsfwCandidatesLanguages: Set<String> = emptySet()
+
     suspend fun randomNsfwCommunity(account: String): RandomNsfwCommunityPick {
         val now = now()
         val cached = randomNsfwCandidates
             ?.takeIf { (cachedAccount, at, names) ->
-                cachedAccount == account && now - at < RANDOM_NSFW_CANDIDATES_TTL_MS && names.isNotEmpty()
+                cachedAccount == account && now - at < RANDOM_NSFW_CANDIDATES_TTL_MS && names.isNotEmpty() &&
+                    randomNsfwCandidatesLanguages == ContentLanguages.shownLanguages
             }
             ?.third
         val names = cached ?: run {
@@ -99,10 +105,15 @@ internal class CommunityAccessCoordinator(
             }
             candidates.map { it.community.name }.also { fetched ->
                 randomNsfwCandidates = Triple(account, now, fetched)
+                randomNsfwCandidatesLanguages = ContentLanguages.shownLanguages
             }
         }
+        // ISSUE293_LANGUAGE_FILTER_V1: only communities not known to be in a
+        // left-out language; the cached list keeps them all.
+        val inShownLanguages = names.filterNot(ContentLanguages::hidesCommunity)
+        if (inShownLanguages.isEmpty()) return RandomNsfwCommunityPick.NoneInShownLanguages
         val picked = pickRandomNsfwCommunity(
-            candidates = names.map { name ->
+            candidates = inShownLanguages.map { name ->
                 CommunityDiscoveryItem(
                     community = Community(
                         id = name, name = name, description = "", members = "", accent = 0L,

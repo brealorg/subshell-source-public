@@ -16,6 +16,7 @@ import io.github.brealorg.subshell.data.auth.CommunityComment
 import io.github.brealorg.subshell.data.diagnostics.DiagnosticEventStore
 import io.github.brealorg.subshell.data.error.FailureDetails
 import io.github.brealorg.subshell.data.error.LocalFailureKind
+import io.github.brealorg.subshell.data.privateprefs.SealedKeysPreferences
 import io.github.brealorg.subshell.inbox.INBOX_BACKGROUND_RETRY_BACKOFF_SECONDS
 import io.github.brealorg.subshell.inbox.INBOX_BACKGROUND_SYNC_INTERVAL_MINUTES
 import io.github.brealorg.subshell.inbox.backgroundSyncFailureDetails
@@ -170,8 +171,7 @@ internal class CommunityPostCheckWorker(
     }
 
     private fun mutedCommunityNames(account: String, now: Long): Set<String> = runCatching {
-        val stored = applicationContext
-            .getSharedPreferences(COMMUNITY_POST_WATCH_PREFERENCES, Context.MODE_PRIVATE)
+        val stored = SealedKeysPreferences.of(applicationContext)
             .getStringSet(communityMutesPreferenceKey(account), emptySet())
             .orEmpty()
         activeMutedCommunityNamesAt(decodeCommunityMutes(stored), now)

@@ -431,6 +431,11 @@ fun SubshellApp(
     var coldStartAccountId by rememberSaveable {
         mutableStateOf(state.activeAccountId.takeIf { state.activeAccountIsAuthenticated })
     }
+    // ISSUE293_LANGUAGE_FILTER_V1: languages are told only while the filter is
+    // on; keyed, so a change (or a restore) reaches the network layer at once.
+    LaunchedEffect(state.shownLanguages) {
+        io.github.brealorg.subshell.language.ContentLanguages.shownLanguages = state.shownLanguages
+    }
     LaunchedEffect(state.activeAccountId, state.activeAccountIsAuthenticated) {
         if (coldStartAccountId != state.activeAccountId || !state.activeAccountIsAuthenticated) {
             coldStartAccountId = null
@@ -480,6 +485,30 @@ fun SubshellApp(
     val moderatorContentControlEntries = moderatorToolsRoot.contentControls
     val moderatorLogEntries = moderatorToolsRoot.log
     val moderatorUserManagementEntries = moderatorToolsRoot.userManagement
+    // ISSUE295_MOD_ACTIONS_IN_THE_MENU_V1: Approve, Remove… and Spam in every
+    // post's and comment's ⋮ menu, for a moderator of its community.
+    val moderatorQuickActionsState = remember { io.github.brealorg.subshell.ui.components.ModeratorQuickActionsState() }
+    LaunchedEffect(state.activeAccountId) {
+        moderatorQuickActionsState.sheetTarget = null
+        moderatorQuickActionsState.pendingRemoval = null
+        moderatorQuickActionsState.pendingSpam = null
+        moderatorQuickActionsState.awaiting = null
+    }
+    val moderatorQuickActionEntries = io.github.brealorg.subshell.ui.components.ModeratorQuickActionsEntryPoints(
+        canModerate = moderatorContentControlEntries.canInspect,
+        moderate = { target, action ->
+            io.github.brealorg.subshell.ui.components.moderatorQuickActionRequest(state.activeAccountId, target, action)
+                ?.let { request ->
+                    moderatorQuickActionsState.awaiting = request
+                    redditModeration.onModerateRedditQueueItem(request)
+                }
+        },
+        requestRemoval = { target -> moderatorQuickActionsState.pendingRemoval = target },
+        openSheet = { target, changeFlair ->
+            moderatorQuickActionsState.sheetChangeFlair = changeFlair
+            moderatorQuickActionsState.sheetTarget = target
+        },
+    )
     ProvideVideoPlaybackCoordinator(
         state = state,
         coordinator = videoPlaybackCoordinator,
@@ -489,6 +518,7 @@ fun SubshellApp(
             LocalModeratorToolsWorkspaceContent provides moderatorToolsWorkspaceContent,
             LocalModeratorReports provides moderatorReportsEntries,
             LocalModeratorContentControls provides moderatorContentControlEntries,
+            io.github.brealorg.subshell.ui.components.LocalModeratorQuickActions provides moderatorQuickActionEntries,
             LocalModeratorLog provides moderatorLogEntries,
             LocalModeratorUserManagement provides moderatorUserManagementEntries,
         ) {
@@ -605,6 +635,39 @@ fun SubshellApp(
         }
         val screenStateHolder = rememberPostVisitPruningStateHolder(state.livePostVisitIds)
         val viewportErrorHostState = rememberViewportErrorHostState()
+        if (state.activeAccountIsAuthenticated) {
+            io.github.brealorg.subshell.ui.components.ModeratorQuickActionsHost(
+                quickActions = moderatorQuickActionsState,
+                accountStableId = state.activeAccountId,
+                actionState = redditModeration.moderationActionState,
+                removalReasonState = redditModeration.removalReasonState,
+                onLoadRemovalReasons = redditModeration.onLoadRedditRemovalReasons,
+                onAuthorizeRemovalReasons = redditModeration.onAuthorizeRedditRemovalReasons,
+                onModerate = redditModeration.onModerateRedditQueueItem,
+                onAuthorize = redditModeration.onAuthorizeRedditModerationAction,
+                savedResponses = io.github.brealorg.subshell.ui.components.SavedResponseActions(
+                    responses = state.moderatorSavedResponses,
+                    onSave = state::saveModeratorResponse,
+                    onDelete = state::deleteModeratorResponse,
+                    initialType = state.moderatorRemovalMessageType(state.activeAccountId),
+                    onTypeUsed = { type ->
+                        state.rememberModeratorRemovalMessageType(state.activeAccountId, type)
+                    },
+                ),
+                notices = viewportErrorHostState,
+                onRetry = redditModeration.onRetryRedditModerationAction,
+                // ISSUE295_REMOVED_POST_IS_MARKED_V1
+                onApplied = { request ->
+                    if (request.thingFullname.startsWith("t3_")) {
+                        state.applyModeratedPostRemoved(
+                            postId = request.thingFullname,
+                            removed = request.action !=
+                                io.github.brealorg.subshell.data.account.RedditModeratorAction.APPROVE,
+                        )
+                    }
+                },
+            )
+        }
         // ISSUE268_SUGGESTIONS_HIDE_OR_LEAVE_V1: the signed-in account's
         // subscriptions and Leave, for "Your reading"'s suggestions.
         val readingStatsCommunities = io.github.brealorg.subshell.ui.screens.readingStatsCommunities(

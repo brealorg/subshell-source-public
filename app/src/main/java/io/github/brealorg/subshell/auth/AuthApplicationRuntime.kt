@@ -99,6 +99,7 @@ import io.github.brealorg.subshell.data.auth.reddit.AuthenticatedRedditDirectCha
 import io.github.brealorg.subshell.data.auth.reddit.AuthenticatedRedditDirectChatReactionWriter
 import io.github.brealorg.subshell.data.auth.reddit.AuthenticatedRedditDirectChatReactionRelationsProbeReader
 import io.github.brealorg.subshell.data.auth.AuthenticatedRedditUserFlairManager
+import io.github.brealorg.subshell.data.privateprefs.SealedKeysPreferences
 
 internal data class AuthApplicationRuntime(
     val accountSessionDirectory: AccountSessionDirectory?,
@@ -264,7 +265,7 @@ internal object AuthApplicationRuntimeFactory {
         // ISSUE32_REDDIT_REFUSED_ACCESS_IS_ONE_STATE_V1
         io.github.brealorg.subshell.data.account.RedditAccessRefusal.install(appContext)
         val textPostSubmitAttemptStore = TextPostSubmitAttemptStore(
-            appContext.getSharedPreferences("subshell_preferences", Context.MODE_PRIVATE),
+            SealedKeysPreferences.of(appContext),
         )
         val store = EncryptedAuthSessionStore(appContext, cipher)
         // LOW9_CLIENT_SELECTION_READ_IS_RETRIED_V1 (OCB-397): one failed read

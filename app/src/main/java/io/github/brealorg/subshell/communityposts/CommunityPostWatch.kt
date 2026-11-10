@@ -3,6 +3,7 @@ package io.github.brealorg.subshell.communityposts
 import android.content.Context
 import io.github.brealorg.subshell.data.auth.CommunityComment
 import io.github.brealorg.subshell.data.normalizeRedditCommunityName
+import io.github.brealorg.subshell.data.privateprefs.SealedKeysPreferences
 import io.github.brealorg.subshell.model.Post
 
 // ISSUE239_NEW_POSTS_IN_A_WATCHED_COMMUNITY_V1 (owner 2026-10-21): the reader
@@ -31,7 +32,7 @@ internal fun normalizeWatchedCommunityNames(names: Iterable<String>): List<Strin
 
 internal fun readWatchedCommunityNames(context: Context, accountStableId: String): List<String> =
     runCatching {
-        context.getSharedPreferences(COMMUNITY_POST_WATCH_PREFERENCES, Context.MODE_PRIVATE)
+        SealedKeysPreferences.of(context)
             .getStringSet(communityPostWatchPreferenceKey(accountStableId), emptySet())
             .orEmpty()
     }.map(::normalizeWatchedCommunityNames).getOrDefault(emptyList())

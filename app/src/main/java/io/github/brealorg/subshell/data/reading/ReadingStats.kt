@@ -1,6 +1,7 @@
 package io.github.brealorg.subshell.data.reading
 
 import android.content.Context
+import io.github.brealorg.subshell.data.cache.CachePayloadSeal
 import java.io.File
 import java.security.MessageDigest
 import java.time.LocalDate
@@ -56,11 +57,18 @@ internal data class ReadingSummary(
 internal class ReadingStatsStore(
     directoryOf: () -> File,
     private val today: () -> Long = { LocalDate.now().toEpochDay() },
+    sealOf: () -> CachePayloadSeal = { CachePayloadSeal.Plain },
 ) {
     constructor(
         directory: File,
         today: () -> Long = { LocalDate.now().toEpochDay() },
-    ) : this({ directory }, today)
+        sealOf: () -> CachePayloadSeal = { CachePayloadSeal.Plain },
+    ) : this({ directory }, today, sealOf)
+
+    // PRIVATECACHE02_READING_COUNTS_ARE_SEALED_V1: which communities the reader opens is private;
+    // the days file goes through the seal (the Keystore is first touched on the store's own
+    // thread, like the folder). The settings file holds only "on" and a day number.
+    private val seal by lazy(sealOf)
 
     // ISSUE268_THE_READING_STORE_TOUCHES_NO_DISK_WHEN_MADE_V1: the folder (noBackupFilesDir,
     // a disk read the first time) is looked up by the first read or write, which runs on the
@@ -149,14 +157,14 @@ internal class ReadingStatsStore(
         loaded?.let { return it }
         val read = readFiles()
         val pruned = read.copy(buckets = prune(read.buckets))
-        loaded = pruned
+        loaded = pruned.takeUnless { it.daysUnreadable }
         enabledState.value = pruned.enabled
         return pruned
     }
 
     private fun save(next: Loaded) {
         val pruned = next.copy(buckets = prune(next.buckets))
-        loaded = pruned
+        loaded = pruned.takeUnless { it.daysUnreadable }
         runCatching { writeFiles(pruned) }
         enabledState.value = pruned.enabled
         revisionState.value += 1
@@ -174,19 +182,29 @@ internal class ReadingStatsStore(
         val enabled = settings["enabled"] == "true"
         val since = settings["since"]?.toLongOrNull() ?: today()
         if (!enabled) return Loaded(enabled = false, sinceEpochDay = since, buckets = emptyMap())
-        val buckets = runCatching { File(directory, DAYS_FILE).readLines() }.getOrDefault(emptyList())
+        val daysFile = File(directory, DAYS_FILE)
+        // A days file that exists but cannot be opened (the Keystore is not ready right after
+        // boot, or the key is gone) is left alone and read again next time; it is not replaced
+        // by an empty one.
+        val opened = if (daysFile.isFile) {
+            runCatching { seal.open(daysFile.readText(), CachePayloadSeal.PLACE_READING).lines() }.getOrNull()
+        } else {
+            emptyList()
+        }
+        val buckets = (opened ?: emptyList())
             .mapNotNull(::decodeBucket)
             .groupBy({ it.first }, { it.second })
             .mapValues { (_, counts) ->
                 Counts(counts.sumOf(Counts::opens), counts.sumOf(Counts::postOpens), counts.sumOf(Counts::seconds))
             }
-        return Loaded(enabled = true, sinceEpochDay = since, buckets = buckets)
+        return Loaded(enabled = true, sinceEpochDay = since, buckets = buckets, daysUnreadable = opened == null)
     }
 
     private fun writeFiles(state: Loaded) {
         directory.mkdirs()
         File(directory, SETTINGS_FILE).writeText("enabled=${state.enabled}\nsince=${state.sinceEpochDay}\n")
         val days = File(directory, DAYS_FILE)
+        if (state.daysUnreadable && state.enabled) return
         if (!state.enabled || state.buckets.isEmpty()) {
             days.delete()
             return
@@ -202,10 +220,11 @@ internal class ReadingStatsStore(
                 counts.seconds.toString(),
             ).joinToString("|")
         }
+        val stored = seal.seal(text, CachePayloadSeal.PLACE_READING)
         val temporary = File(directory, "$DAYS_FILE.tmp")
-        temporary.writeText(text)
+        temporary.writeText(stored)
         if (!temporary.renameTo(days)) {
-            days.writeText(text)
+            days.writeText(stored)
             temporary.delete()
         }
     }
@@ -226,6 +245,7 @@ internal class ReadingStatsStore(
         val enabled: Boolean,
         val sinceEpochDay: Long,
         val buckets: Map<BucketKey, Counts>,
+        val daysUnreadable: Boolean = false,
     )
 
     private data class BucketKey(val epochDay: Long, val account: String, val target: String)
@@ -262,7 +282,10 @@ internal object ReadingStats {
     fun store(context: Context): ReadingStatsStore =
         store ?: synchronized(this) {
             store ?: context.applicationContext.let { appContext ->
-                ReadingStatsStore({ File(appContext.noBackupFilesDir, "reading") })
+                ReadingStatsStore(
+                    directoryOf = { File(appContext.noBackupFilesDir, "reading") },
+                    sealOf = { CachePayloadSeal.production() },
+                )
             }.also { store = it }
         }
 

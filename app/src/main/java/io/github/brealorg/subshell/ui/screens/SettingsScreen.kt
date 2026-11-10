@@ -1,5 +1,6 @@
 package io.github.brealorg.subshell.ui.screens
 
+import io.github.brealorg.subshell.language.SELECTABLE_LANGUAGES
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.brealorg.subshell.ui.app.onDisk
 import androidx.compose.foundation.selection.selectable
@@ -43,6 +44,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -107,6 +109,7 @@ import io.github.brealorg.subshell.BuildConfig
 import io.github.brealorg.subshell.ui.CommentActionPreference
 import io.github.brealorg.subshell.ui.CommentCollapseMode
 import io.github.brealorg.subshell.ui.CommentHierarchyStyle
+import io.github.brealorg.subshell.ui.CommentIndentSize
 import io.github.brealorg.subshell.ui.CommentThreadColours
 import io.github.brealorg.subshell.ui.CommentSwipeAction
 import io.github.brealorg.subshell.ui.PostSwipeAction
@@ -847,6 +850,25 @@ fun SettingsScreen(
             label = CommentThreadColours::label,
             onSelect = { colours ->
                 state.updateCommentThreadColours(colours)
+                choiceDialogKey = null
+            },
+            onDismiss = { choiceDialogKey = null },
+        )
+        "comment-indent-size" -> SettingsSingleChoiceDialog(
+            title = "Reply indent",
+            options = CommentIndentSize.entries,
+            selected = state.commentIndentSize,
+            label = CommentIndentSize::label,
+            onSelect = { size ->
+                state.updateCommentIndentSize(size)
+                choiceDialogKey = null
+            },
+            onDismiss = { choiceDialogKey = null },
+        )
+        "shown-languages" -> ShownLanguagesDialog(
+            selected = state.shownLanguages,
+            onDone = { languages ->
+                state.updateShownLanguages(languages)
                 choiceDialogKey = null
             },
             onDismiss = { choiceDialogKey = null },
@@ -2318,6 +2340,19 @@ fun SettingsScreen(
                         onCheckedChange = state::updateSavedSearchesEnabled,
                     )
                 }
+                // ISSUE293_LANGUAGE_FILTER_V1: off by default.
+                if (searchResult.isItemVisible("shown-languages")) item("shown-languages") {
+                    ValueSettingRow(
+                        icon = Symbols.Public,
+                        title = "Languages",
+                        description = "Hide communities and search results in other languages, " +
+                            "when the device is sure of the language",
+                        value = shownLanguagesSummary(state.shownLanguages),
+                        onClick = {
+                            choiceDialogKey = "shown-languages"
+                        },
+                    )
+                }
             }
 
             if (
@@ -2777,6 +2812,8 @@ fun SettingsScreen(
                             timeFormat = state.commentTimeFormat,
                             collapseMode = state.commentCollapseMode,
                             hierarchyStyle = state.commentHierarchyStyle,
+                            indentStepDp = state.commentIndentSize.stepDp,
+                            railFromParent = state.commentRailFromParent,
                             threadColours = if (state.commentHierarchyStyle == CommentHierarchyStyle.GUIDE_LINES) {
                                 state.commentThreadColours
                             } else {
@@ -2842,6 +2879,38 @@ fun SettingsScreen(
                         onClick = {
                             choiceDialogKey = "comment-thread-colours"
                         },
+                    )
+                }
+                // REPLYCONTEXT03_INDENT_SIZE_IS_A_SETTING_V1
+                if (searchResult.isItemVisible("comment-indent-size")) item("comment-indent-size") {
+                    ValueSettingRow(
+                        icon = Symbols.Forum,
+                        title = "Reply indent",
+                        description = if (state.commentHierarchyStyle == CommentHierarchyStyle.GUIDE_LINES) {
+                            "How far each reply level steps to the right"
+                        } else {
+                            "Needs the Guide lines comment hierarchy"
+                        },
+                        value = state.commentIndentSize.label,
+                        enabled = state.commentHierarchyStyle == CommentHierarchyStyle.GUIDE_LINES,
+                        onClick = {
+                            choiceDialogKey = "comment-indent-size"
+                        },
+                    )
+                }
+                // REPLYCONTEXT04_RAIL_FROM_PARENT_IS_A_SETTING_V1
+                if (searchResult.isItemVisible("comment-rail-from-parent")) item("comment-rail-from-parent") {
+                    ToggleRow(
+                        icon = Symbols.Forum,
+                        title = "Reply lines start in the parent",
+                        description = if (state.commentHierarchyStyle == CommentHierarchyStyle.GUIDE_LINES) {
+                            "The line a reply starts leaves the middle of the comment it answers"
+                        } else {
+                            "Needs the Guide lines comment hierarchy"
+                        },
+                        checked = state.commentRailFromParent,
+                        onCheckedChange = state::updateCommentRailFromParent,
+                        enabled = state.commentHierarchyStyle == CommentHierarchyStyle.GUIDE_LINES,
                     )
                 }
                 if (searchResult.isItemVisible("highlight-new-comments")) item("highlight-new-comments") {
@@ -3340,6 +3409,66 @@ private fun SettingsCodeFontDialog(
             }
         },
         confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
+internal fun languageDisplayName(code: String): String =
+    java.util.Locale.forLanguageTag(code).getDisplayLanguage(java.util.Locale.ENGLISH)
+        .ifBlank { code }
+
+/** ISSUE293_LANGUAGE_FILTER_V1: "Off", or the chosen languages by name. */
+internal fun shownLanguagesSummary(languages: Set<String>): String {
+    if (languages.isEmpty()) return "Off"
+    val names = SELECTABLE_LANGUAGES.filter { it in languages }.map(::languageDisplayName)
+    return if (names.size <= 3) names.joinToString(", ") else names.take(2).joinToString(", ") + " +${names.size - 2}"
+}
+
+@Composable
+private fun ShownLanguagesDialog(
+    selected: Set<String>,
+    onDone: (Set<String>) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var chosen by rememberSaveable { mutableStateOf(selected.toList()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Languages") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Text(
+                    "Show only these languages. Communities and search results the device is sure " +
+                        "are in another language are hidden; anything it is unsure of stays. " +
+                        "None chosen is off.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                SELECTABLE_LANGUAGES.forEach { code ->
+                    val checked = code in chosen
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .toggleable(
+                                value = checked,
+                                role = Role.Checkbox,
+                                onValueChange = { on -> chosen = if (on) chosen + code else chosen - code },
+                            )
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        androidx.compose.material3.Checkbox(checked = checked, onCheckedChange = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(languageDisplayName(code), style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onDone(chosen.toSet()) }) { Text("Done") }
+        },
+        dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
         },
     )

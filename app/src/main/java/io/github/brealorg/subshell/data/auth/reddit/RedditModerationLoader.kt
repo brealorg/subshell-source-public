@@ -1,5 +1,6 @@
 package io.github.brealorg.subshell.data.auth.reddit
 
+import io.github.brealorg.subshell.data.account.RedditModeratorQueueList
 import io.github.brealorg.subshell.data.account.AccountSessionSource
 import io.github.brealorg.subshell.data.account.ModeratorReportTarget
 import io.github.brealorg.subshell.data.account.RedditModeratorQueueItem
@@ -90,6 +91,14 @@ internal class RedditModerationLoader(
         accountStableId: String,
         rawCommunityName: String,
         after: String?,
+    ): AuthenticatedRedditModQueueResult =
+        loadModList(accountStableId, rawCommunityName, RedditModeratorQueueList.QUEUE, after)
+
+    override suspend fun loadModList(
+        accountStableId: String,
+        rawCommunityName: String,
+        list: RedditModeratorQueueList,
+        after: String?,
     ): AuthenticatedRedditModQueueResult = withContext(ioDispatcher) {
         val communityName = runCatching {
             io.github.brealorg.subshell.data.normalizeRedditCommunityName(rawCommunityName)
@@ -107,8 +116,9 @@ internal class RedditModerationLoader(
                     retryable = lastSessionFailureRetryable,
                 )
             when (
-                val result = RedditModerationNetworkDataSource(client).modQueue(
+                val result = RedditModerationNetworkDataSource(client).modList(
                     communityName = communityName,
+                    list = list,
                     after = after,
                 )
             ) {

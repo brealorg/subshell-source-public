@@ -25,6 +25,9 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import io.github.brealorg.subshell.data.cache.CachePayloadSeal
+import io.github.brealorg.subshell.data.cache.CipherCachePayloadSeal
+import io.github.brealorg.subshell.data.cache.SoftwareAesCipher
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -71,8 +74,20 @@ class Issue253ConversationNotificationsTest {
         unread = true,
     )
 
+    // The Android Keystore is not there under Robolectric: a software key stands in for it.
+    private val productionSealBefore = CachePayloadSeal.production
+
+    private fun useSoftwareSeal() {
+        CachePayloadSeal.production = { CipherCachePayloadSeal(SoftwareAesCipher(keyByte = 1)) }
+    }
+
+    private fun restoreSeal() {
+        CachePayloadSeal.production = productionSealBefore
+    }
+
     @Before
     fun allowNotifications() {
+        useSoftwareSeal()
         shadowOf(context).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
         context.getSharedPreferences("subshell_preferences", Context.MODE_PRIVATE)
             .edit()
@@ -83,6 +98,7 @@ class Issue253ConversationNotificationsTest {
 
     @After
     fun restoreWork() {
+        restoreSeal()
         InboxReplyWork.enqueue = defaultEnqueue
     }
 

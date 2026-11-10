@@ -2,6 +2,7 @@ package io.github.brealorg.subshell.data.account
 
 import android.content.Context
 import android.content.SharedPreferences
+import io.github.brealorg.subshell.data.privateprefs.SealedKeysPreferences
 
 /**
  * REDDITFAV01_DEVICE_LOCAL_REDDIT_FAVORITES_V1: the communities Reddit marks
@@ -19,9 +20,9 @@ internal interface RedditFavoriteCommunityStore {
 }
 
 internal object RedditFavoriteSyncSettingStore {
+    // PRIVATEPREFS02: the favourite names are about the reader, so this file is the sealed layer.
     fun preferences(context: Context): SharedPreferences =
-        context.applicationContext
-            .getSharedPreferences(REDDIT_FAVORITES_PREFERENCES, Context.MODE_PRIVATE)
+        SealedKeysPreferences.named(context, REDDIT_FAVORITES_PREFERENCES)
 
     fun read(context: Context): Boolean =
         preferences(context).getBoolean(REDDIT_FAVORITE_SYNC_ENABLED_KEY, false)

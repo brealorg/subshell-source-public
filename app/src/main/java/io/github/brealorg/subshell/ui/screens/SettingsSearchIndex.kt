@@ -76,6 +76,7 @@ internal val settingsSearchEntries: List<SettingsSearchEntry> = listOf(
     setting("app-lock-notifications", "Privacy", "hide notification content preview app lock private messages modmail"),
 
     setting("search-keyboard", "Search", "open keyboard entering search focus suggestions scope"),
+    setting("shown-languages", "Search", "languages language filter foreign other languages hide communities search results random english norwegian"),
     setting("saved-searches", "Search", "saved searches save bookmark run again query"),
 
     setting("sensitive-media-previews", "Media & links", "sensitive media previews NSFW spoiler blur preload load on tap hide preview"),
@@ -119,6 +120,8 @@ internal val settingsSearchEntries: List<SettingsSearchEntry> = listOf(
     setting("comment-swipe-right", "Navigation", "comment swipe right upvote downvote none gesture"),
     setting("comment-hierarchy-style", "Comments", "comment hierarchy guide lines parent connectors replies thread"),
     setting("comment-thread-colours", "Comments", "thread colours colors colour color lines guide depth warm cold accent card top level parent comments"),
+    setting("comment-rail-from-parent", "Comments", "reply line starts parent middle guide lines rail thread connector"),
+    setting("comment-indent-size", "Comments", "reply indent indentation size depth nested replies space left none small normal large"),
     setting("highlight-new-comments", "Comments", "highlight new comments replies"),
     setting("show-comment-avatars", "Comments", "avatars snoovatar profile picture comment author image"),
     setting("top-level-comment-jump", "Comments", "jump next previous top-level parent comment navigate button thread"),

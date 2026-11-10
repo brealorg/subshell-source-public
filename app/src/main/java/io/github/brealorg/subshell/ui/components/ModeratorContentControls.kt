@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -62,51 +61,6 @@ internal data class ModeratorContentControlsEntryPoints(
 
 internal val LocalModeratorContentControls =
     staticCompositionLocalOf<ModeratorContentControlsEntryPoints?> { null }
-
-@Composable
-internal fun ModeratorContentControlsButton(
-    item: RedditModeratorQueueItem,
-) {
-    val entries = LocalModeratorContentControls.current ?: return
-    if (!entries.canInspect(item.communityName)) return
-    OutlinedButton(
-        onClick = { entries.open(item.reportTarget()) },
-        modifier = Modifier.heightIn(min = 48.dp),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-    ) {
-        Icon(
-            Symbols.AdminPanelSettings,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp),
-        )
-        Spacer(Modifier.width(8.dp))
-        Text("Controls")
-    }
-}
-
-@Composable
-internal fun ModeratorContentControlsMenuItem(
-    target: ModeratorReportTarget?,
-    onDismissMenu: () -> Unit,
-) {
-    val entries = LocalModeratorContentControls.current ?: return
-    val resolved = target ?: return
-    val community = resolved.communityName ?: return
-    if (!entries.canInspect(community)) return
-    DropdownMenuItem(
-        text = { Text("Moderation controls") },
-        leadingIcon = {
-            Icon(
-                Symbols.AdminPanelSettings,
-                contentDescription = null,
-            )
-        },
-        onClick = {
-            onDismissMenu()
-            entries.open(resolved)
-        },
-    )
-}
 
 // MODERATION02A3_MATERIAL_CONTENT_CONTROL_DIALOG_V1
 @Composable

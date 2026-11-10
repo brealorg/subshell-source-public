@@ -490,6 +490,14 @@ internal class ModerationViewModel internal constructor(
     ) =
         moderationQueueCoordinator.appendRedditModQueue(accountStableId, rawCommunityName)
 
+    // ISSUE295_REMOVED_CONTENT_LISTS_V1
+    fun selectRedditModQueueList(
+        accountStableId: String,
+        rawCommunityName: String,
+        list: io.github.brealorg.subshell.data.account.RedditModeratorQueueList,
+    ) =
+        moderationQueueCoordinator.selectRedditModQueueList(accountStableId, rawCommunityName, list)
+
     // MOD01A2_VIEWMODEL_APPROVE_REMOVE_ACTIONS_V1
     fun moderateRedditQueueItem(request: RedditModeratorActionRequest) {
         viewModelScope.launch {

@@ -1,5 +1,7 @@
 package io.github.brealorg.subshell.ui.components
 
+import androidx.compose.material3.FilterChip
+import io.github.brealorg.subshell.data.account.RedditModeratorQueueList
 import io.github.brealorg.subshell.ui.error.redditModQueueFailureMessage
 import io.github.brealorg.subshell.ui.error.redditModQueueMoreFailedLabel
 import androidx.compose.foundation.selection.selectable
@@ -16,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import io.github.brealorg.subshell.data.account.RedditRemovalMessageType
 import io.github.brealorg.subshell.data.account.RedditRemovalStepOutcome
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
@@ -115,16 +118,11 @@ fun ModeratorToolsSheet(
     onDismiss: () -> Unit,
     onRefresh: () -> Unit,
     onAppend: () -> Unit,
+    // ISSUE295_QUEUE_USES_THE_SHEET_V1: Approve, Remove and the Moderate sheet
+    // write through LocalModeratorQuickActions; the queue only shows progress.
     actionUiState: RedditModeratorActionUiState = RedditModeratorActionUiState(),
-    onModerate: (RedditModeratorActionRequest) -> Unit = {},
-    onRetryAction: () -> Unit = {},
-    onAuthorizeAction: () -> Unit = {},
-    removalReasonState: RedditRemovalReasonUiState = RedditRemovalReasonUiState(),
-    onLoadRemovalReasons: (Boolean) -> Unit = {},
-    onAuthorizeRemovalReasons: () -> Unit = {},
-    // STEP3_SAVED_RESPONSES_ARE_WIRED_V1: required, so the compiler proves the
-    // screen passes the moderator's saved responses (was nullable, default null).
-    savedResponses: SavedResponseActions,
+    // ISSUE295_REMOVED_CONTENT_LISTS_V1
+    onSelectList: (RedditModeratorQueueList) -> Unit = {},
 ) {
     val workspaceNavigation = LocalModeratorToolsNavigation.current
     val workspaceContent = LocalModeratorToolsWorkspaceContent.current
@@ -185,26 +183,7 @@ fun ModeratorToolsSheet(
     val loading = !matches || uiState.queueLoading
     val failureKind = uiState.queueFailureKind.takeIf { matches }
     val nextCursor = uiState.queueNextCursor.takeIf { matches }
-    var pendingRemove by remember(communityName) {
-        mutableStateOf<RedditModeratorQueueItem?>(null)
-    }
-    pendingRemove?.let { item ->
-        ModeratorRemovalDialog(
-            item = item,
-            accountStableId = accountStableId,
-            communityName = moderatedCommunityName,
-            displayCommunityName = communityName,
-            actionUiState = actionUiState,
-            removalReasonState = removalReasonState,
-            removalReasonsCommunity = communityName,
-            onLoadRemovalReasons = onLoadRemovalReasons,
-            onAuthorizeRemovalReasons = onAuthorizeRemovalReasons,
-            onModerate = onModerate,
-            onDismiss = { pendingRemove = null },
-            savedResponses = savedResponses,
-        )
-    }
-
+    val list = uiState.queueList.takeIf { matches } ?: RedditModeratorQueueList.QUEUE
     ModalBottomSheet(
         onDismissRequest = {
             if (workspaceBusy.busy) return@ModalBottomSheet
@@ -220,6 +199,11 @@ fun ModeratorToolsSheet(
         },
         sheetState = sheetState,
     ) {
+        // ISSUE295_QUEUE_USES_THE_SHEET_V1: the sheet is its own window, so the
+        // app's tray (moderator action notices, Retry) is drawn here too while
+        // it is open; the same state, so a notice shows once and goes once.
+        val trayState = io.github.brealorg.subshell.ui.error.LocalViewportErrorHostState.current
+        Box(modifier = Modifier.fillMaxWidth()) {
         when (workspaceDestination) {
             ModeratorToolsWorkspaceDestination.ROOT -> {
             LazyColumn(
@@ -312,14 +296,30 @@ fun ModeratorToolsSheet(
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         Text(
-                            text = "Mod queue",
+                            text = moderatorQueueListTitle(list),
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Text(
-                            text = "Review reported posts and comments, then approve, remove, or mark them as spam.",
+                            text = moderatorQueueListDescription(list),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                }
+                // ISSUE295_REMOVED_CONTENT_LISTS_V1: the community's moderator
+                // lists; every one uses the same cards and Moderate sheet.
+                item("modqueue-lists") {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        RedditModeratorQueueList.entries.forEach { option ->
+                            FilterChip(
+                                selected = option == list,
+                                onClick = { if (option != list) onSelectList(option) },
+                                label = { Text(option.label) },
+                            )
+                        }
                     }
                 }
 
@@ -335,47 +335,9 @@ fun ModeratorToolsSheet(
                     }
                 }
 
-                if (
-                    actionUiState.phase == RedditModeratorActionPhase.AUTHORIZATION_REQUIRED &&
-                    actionUiState.request?.communityName == moderatedCommunityName
-                ) {
-                    item("modqueue-action-auth") {
-                        ModerationActionNotice(
-                            title = "Moderator authorization required",
-                            message = "Reddit needs the modposts permission before this action can be sent.",
-                            actionLabel = "Authorize",
-                            onAction = onAuthorizeAction,
-                        )
-                    }
-                } else if (
-                    actionUiState.phase == RedditModeratorActionPhase.FAILED &&
-                    actionUiState.request?.communityName == moderatedCommunityName
-                ) {
-                    item("modqueue-action-error") {
-                        ModerationActionFailure(
-                            uiState = actionUiState,
-                            onRetry = onRetryAction,
-                        )
-                    }
-                }
-
-                if (
-                    actionUiState.phase == RedditModeratorActionPhase.SUCCEEDED &&
-                    (actionUiState.removalReasonWarning || actionUiState.removalMessageOutcome == RedditRemovalStepOutcome.FAILED) &&
-                    actionUiState.request?.communityName == moderatedCommunityName
-                ) {
-                    item("modqueue-removal-reason-warning") {
-                        ModerationActionNotice(
-                            title = "Item removed",
-                            message = removalPartialSuccessMessage(
-                                reasonWarning = actionUiState.removalReasonWarning,
-                                messageOutcome = actionUiState.removalMessageOutcome,
-                            ),
-                            actionLabel = null,
-                            onAction = {},
-                        )
-                    }
-                }
+                // ISSUE295_QUEUE_USES_THE_SHEET_V1: an action's answer (authorization,
+                // failure with Retry, partial removal) is the tray notice and the
+                // question ModeratorQuickActionsHost shows for every moderator action.
 
                 if (loading && items.isEmpty() && failureKind == null) {
                     item("modqueue-loading") {
@@ -408,11 +370,11 @@ fun ModeratorToolsSheet(
                                 verticalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
                                 Text(
-                                    text = "Mod queue is clear",
+                                    text = moderatorQueueListEmptyTitle(list),
                                     style = MaterialTheme.typography.titleMedium,
                                 )
                                 Text(
-                                    text = "Reddit returned no posts or comments requiring review.",
+                                    text = moderatorQueueListEmptyMessage(list),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -435,49 +397,10 @@ fun ModeratorToolsSheet(
                             ModeratorQueueItemSummary(
                                 item = item,
                                 inProgress = actionUiState.inProgressFor(item.fullname),
+                                showsReportCount = list == RedditModeratorQueueList.QUEUE,
                             )
-                            ModeratorReportsButton(item)
-                            FlowRow(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                // MODERATION02A3_COMMUNITY_CONTENT_CONTROLS_ENTRY_V1
-                                ModeratorContentControlsButton(item)
-                                TextButton(
-                                    modifier = Modifier.heightIn(min = 48.dp),
-                                    onClick = {
-                                        onModerate(
-                                            RedditModeratorActionRequest(
-                                                accountStableId = accountStableId,
-                                                communityName = moderatedCommunityName,
-                                                thingFullname = item.fullname,
-                                                action = RedditModeratorAction.APPROVE,
-                                            ),
-                                        )
-                                    },
-                                    enabled = !actionUiState.inProgress,
-                                ) {
-                                    ModeratorActionIcon(Symbols.Check)
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("Approve")
-                                }
-                                TextButton(
-                                    modifier = Modifier.heightIn(min = 48.dp),
-                                    onClick = { pendingRemove = item },
-                                    enabled = !actionUiState.inProgress,
-                                ) {
-                                    ModeratorActionIcon(Symbols.Block)
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("Remove")
-                                }
-                                ModeratorSpamAction(
-                                    item = item,
-                                    accountStableId = accountStableId,
-                                    actionUiState = actionUiState,
-                                    onModerate = onModerate,
-                                )
-                            }
+                            // ISSUE295_QUEUE_USES_THE_SHEET_V1
+                            ModeratorQueueItemActions(item, inProgress = actionUiState.inProgress)
                         }
                     }
                 }
@@ -553,6 +476,13 @@ fun ModeratorToolsSheet(
                 }
             }
         }
+            if (trayState != null) {
+                ViewportErrorTrayHost(
+                    state = trayState,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp),
+                )
+            }
+        }
     }
 }
 
@@ -568,12 +498,9 @@ internal fun removalPartialSuccessMessage(
     return "Reddit removed the item, but " + parts.joinToString(" and ") + "."
 }
 
-@Composable
-private fun ModerationActionFailure(
-    uiState: RedditModeratorActionUiState,
-    onRetry: () -> Unit,
-) {
-    val message = when {
+/** What a failed approve, remove or spam says, in the queue and from the ⋮ menu. */
+internal fun moderatorActionFailureMessage(uiState: RedditModeratorActionUiState): String =
+    when {
         uiState.failureKind == RedditModeratorActionFailureKind.AUTHORIZATION &&
             uiState.httpStatusCode == 403 ->
             "Reddit denied this moderation action. Your moderator role may not include the required Posts permission."
@@ -588,29 +515,6 @@ private fun ModerationActionFailure(
         else ->
             "This moderation action couldn't be completed."
     }
-    ModerationActionNotice(
-        title = "Moderator action failed",
-        message = message,
-        actionLabel = "Retry".takeIf { uiState.retryable },
-        onAction = onRetry,
-    )
-}
-
-@Composable
-private fun ModerationActionNotice(
-    title: String,
-    message: String,
-    actionLabel: String?,
-    onAction: () -> Unit,
-) {
-    // ISSUE222_ONE_INLINE_ERROR_NOTICE_V1
-    InlineErrorNotice(
-        message = message,
-        title = title,
-        actionLabel = actionLabel,
-        onAction = onAction,
-    )
-}
 
 @Composable
 private fun ModeratorQueueFailure(
@@ -637,9 +541,14 @@ private fun ModeratorQueueFailure(
 // composable for the mod tools sheet and the Inbox queue, not a form inside an
 // AlertDialog copied twice. The reasons are plain rows in the form's own
 // scroll, not a nested scrolling list.
+/**
+ * ISSUE295_REMOVE_FROM_THE_MENU_V1 (#295): the same removal form for a post or
+ * comment removed from its ⋮ menu, outside the mod queue.
+ */
 @Composable
 internal fun ModeratorRemovalDialog(
-    item: RedditModeratorQueueItem,
+    thingFullname: String,
+    kind: RedditModeratorQueueKind,
     accountStableId: String,
     communityName: String,
     displayCommunityName: String,
@@ -652,10 +561,10 @@ internal fun ModeratorRemovalDialog(
     onDismiss: () -> Unit,
     savedResponses: SavedResponseActions,
 ) {
-    var selectedRemovalReasonId by remember(item.fullname) { mutableStateOf<String?>(null) }
-    var removalModNote by remember(item.fullname) { mutableStateOf("") }
+    var selectedRemovalReasonId by remember(thingFullname) { mutableStateOf<String?>(null) }
+    var removalModNote by remember(thingFullname) { mutableStateOf("") }
     // MODRESPONSE01A2_REMOVAL_RESPONSE_DRAFT_V1
-    val removalResponse = remember(item.fullname) {
+    val removalResponse = remember(thingFullname) {
         RemovalResponseDraft(initialType = savedResponses.initialType)
     }
     val removalReasonsMatch = removalReasonState.matches(accountStableId, removalReasonsCommunity)
@@ -664,7 +573,7 @@ internal fun ModeratorRemovalDialog(
     } else {
         emptyList()
     }
-    LaunchedEffect(item.fullname, accountStableId, removalReasonsCommunity) {
+    LaunchedEffect(thingFullname, accountStableId, removalReasonsCommunity) {
         selectedRemovalReasonId = null
         removalModNote = ""
         onLoadRemovalReasons(false)
@@ -675,7 +584,7 @@ internal fun ModeratorRemovalDialog(
     }
 
     AdaptiveFullScreenDialog(
-        title = when (item.kind) {
+        title = when (kind) {
             RedditModeratorQueueKind.POST -> "Remove this post?"
             RedditModeratorQueueKind.COMMENT -> "Remove this comment?"
         },
@@ -691,7 +600,7 @@ internal fun ModeratorRemovalDialog(
                         RedditModeratorActionRequest(
                             accountStableId = accountStableId,
                             communityName = communityName,
-                            thingFullname = item.fullname,
+                            thingFullname = thingFullname,
                             action = RedditModeratorAction.REMOVE,
                             removalReasonId = selectedRemovalReasonId
                                 .takeIf { reasonsAvailable },
@@ -801,7 +710,7 @@ internal fun ModeratorRemovalDialog(
             // MODRESPONSE01A2_REMOVAL_RESPONSE_DRAFT_V1
             RemovalResponseSection(
                 draft = removalResponse,
-                kind = item.kind,
+                kind = kind,
                 savedResponses = savedResponses,
             )
         }
@@ -830,4 +739,37 @@ private fun RemovalReasonRow(
             onClick = onSelect,
         ),
     )
+}
+
+// ISSUE295_REMOVED_CONTENT_LISTS_V1: what each list is, in the sheet's words.
+internal fun moderatorQueueListTitle(list: RedditModeratorQueueList): String = when (list) {
+    RedditModeratorQueueList.QUEUE -> "Mod queue"
+    RedditModeratorQueueList.REMOVED -> "Removed"
+    RedditModeratorQueueList.EDITED -> "Edited"
+    RedditModeratorQueueList.UNMODERATED -> "Unmoderated"
+}
+
+internal fun moderatorQueueListDescription(list: RedditModeratorQueueList): String = when (list) {
+    RedditModeratorQueueList.QUEUE ->
+        "Review reported posts and comments, then approve, remove, or mark them as spam."
+    RedditModeratorQueueList.REMOVED ->
+        "Posts and comments removed by moderators or Reddit's filters. Approve puts one back."
+    RedditModeratorQueueList.EDITED ->
+        "Posts and comments edited after they were posted."
+    RedditModeratorQueueList.UNMODERATED ->
+        "Posts no moderator has approved or removed yet."
+}
+
+internal fun moderatorQueueListEmptyTitle(list: RedditModeratorQueueList): String = when (list) {
+    RedditModeratorQueueList.QUEUE -> "Mod queue is clear"
+    RedditModeratorQueueList.REMOVED -> "Nothing removed"
+    RedditModeratorQueueList.EDITED -> "Nothing edited"
+    RedditModeratorQueueList.UNMODERATED -> "Nothing unmoderated"
+}
+
+internal fun moderatorQueueListEmptyMessage(list: RedditModeratorQueueList): String = when (list) {
+    RedditModeratorQueueList.QUEUE -> "Reddit returned no posts or comments requiring review."
+    RedditModeratorQueueList.REMOVED -> "Reddit returned no removed posts or comments."
+    RedditModeratorQueueList.EDITED -> "Reddit returned no edited posts or comments."
+    RedditModeratorQueueList.UNMODERATED -> "Reddit returned no posts waiting for a moderator."
 }

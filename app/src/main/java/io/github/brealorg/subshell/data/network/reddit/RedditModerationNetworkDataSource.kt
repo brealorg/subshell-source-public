@@ -2,6 +2,7 @@ package io.github.brealorg.subshell.data.network.reddit
 
 import io.github.brealorg.subshell.data.account.REDDIT_MODERATION_AGGREGATE_QUEUE
 import io.github.brealorg.subshell.data.account.RedditModeratorQueueItem
+import io.github.brealorg.subshell.data.account.RedditModeratorQueueList
 import io.github.brealorg.subshell.data.account.RedditModeratorQueueKind
 import io.github.brealorg.subshell.data.account.ModeratorReportTarget
 import io.github.brealorg.subshell.data.network.JsonGetRequest
@@ -25,6 +26,17 @@ internal interface RedditModerationSource {
         communityName: String,
         after: String? = null,
     ): NetworkResult<NetworkPage<RedditModeratorQueueItem>>
+
+    // ISSUE295_REMOVED_CONTENT_LISTS_V1: one of the community's moderator
+    // lists; a source that knows only the queue serves only the queue.
+    suspend fun modList(
+        communityName: String,
+        list: RedditModeratorQueueList,
+        after: String? = null,
+    ): NetworkResult<NetworkPage<RedditModeratorQueueItem>> {
+        check(list == RedditModeratorQueueList.QUEUE) { "This source has only the mod queue" }
+        return modQueue(communityName, after)
+    }
 }
 
 internal class RedditModerationNetworkDataSource(
@@ -42,8 +54,15 @@ internal class RedditModerationNetworkDataSource(
         communityName: String,
         after: String?,
     ): NetworkResult<NetworkPage<RedditModeratorQueueItem>> =
+        modList(communityName, RedditModeratorQueueList.QUEUE, after)
+
+    override suspend fun modList(
+        communityName: String,
+        list: RedditModeratorQueueList,
+        after: String?,
+    ): NetworkResult<NetworkPage<RedditModeratorQueueItem>> =
         httpClient.getJson(
-            request = redditModQueueRequest(communityName, after),
+            request = redditModQueueRequest(communityName, after, list),
             deserializer = RedditModerationListingDto.serializer(),
         ).map { listing -> listing.toModeratorQueuePage(communityName) }
 
@@ -79,10 +98,11 @@ internal fun redditModeratedCommunitiesRequest(
 internal fun redditModQueueRequest(
     rawCommunityName: String,
     after: String? = null,
+    list: RedditModeratorQueueList = RedditModeratorQueueList.QUEUE,
 ): JsonGetRequest {
     val communityName = normalizeRedditCommunityName(rawCommunityName)
     return JsonGetRequest(
-        pathSegments = listOf("r", communityName, "about", "modqueue"),
+        pathSegments = listOf("r", communityName, "about", list.path),
         queryParameters = buildList {
             add("limit" to MODQUEUE_PAGE_LIMIT.toString())
             add("raw_json" to "1")

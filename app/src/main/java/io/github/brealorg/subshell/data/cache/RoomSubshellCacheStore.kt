@@ -146,6 +146,12 @@ internal class RoomSubshellCacheStore(
     init {
         require(maxQueryCount > 0) { "Max query count must be positive" }
         require(freshForMs >= 0L) { "Cache freshness window cannot be negative" }
+
+        // PRIVATECACHE01: seal what an older build left in plain text. Best effort and off the
+        // caller's thread; a failure leaves the rows as they are and costs nothing but time.
+        if (database.payloadSeal.encrypts) {
+            executor.execute { runCatching { sealLegacyPayloads() } }
+        }
     }
 
     // CACHE01_READ_TOUCHES_ONLY_LAST_ACCESS_V1: metadata, count and rows are
@@ -362,7 +368,7 @@ internal class RoomSubshellCacheStore(
                         val updated = transform(stored)
                         if (updated != stored) {
                             dao.upsertPosts(
-                                listOf(entity.copy(payload = SubshellCacheCodec.encodePost(updated), lastAccessEpochMs = now)),
+                                listOf(entity.copy(payload = encodePostPayload(entity.postId, updated), lastAccessEpochMs = now)),
                             )
                         }
                     }
@@ -386,8 +392,82 @@ internal class RoomSubshellCacheStore(
     private fun List<CachedPostEntity>.decodedPostsOrNull(): List<Post>? =
         map { entity -> decodePostOrNull(entity.payload) ?: return null }
 
+    // PRIVATECACHE03_ACCOUNT_SCOPED_POST_ROWS_ARE_SEALED_V1: a row of an account-scoped feed (Home,
+    // Saved, Upvoted ...) carries that account's vote and saved state, so it is stored sealed; a
+    // row of a public feed stays as it is. Reading opens either: a plain payload passes through.
     private fun decodePostOrNull(payload: String): Post? =
-        decodeOrNull { SubshellCacheCodec.decodePost(payload) }
+        decodeOrNull {
+            SubshellCacheCodec.decodePost(database.payloadSeal.open(payload, CachePayloadSeal.PLACE_POST_SCOPED))
+        }
+
+    private fun encodePostPayload(rowKey: String, post: Post): String {
+        val plain = SubshellCacheCodec.encodePost(post)
+        return if (rowKey.contains(CACHED_POST_ROW_SEPARATOR)) {
+            database.payloadSeal.seal(plain, CachePayloadSeal.PLACE_POST_SCOPED)
+        } else {
+            plain
+        }
+    }
+
+    // PRIVATECACHE01_PRIVATE_ROWS_ARE_SEALED_V1: inbox items and the joined-community list
+    // are the reader's own; they are stored through the database's seal (CachePayloadSeal).
+    private fun encodeInboxPayload(item: InboxItem): String =
+        database.payloadSeal.seal(SubshellCacheCodec.encodeInboxItem(item), CachePayloadSeal.PLACE_INBOX)
+
+    private fun decodeInboxPayload(payload: String): InboxItem =
+        SubshellCacheCodec.decodeInboxItem(database.payloadSeal.open(payload, CachePayloadSeal.PLACE_INBOX))
+
+    private fun encodeSubscriptionPayload(community: Community): String =
+        database.payloadSeal.seal(
+            SubshellCacheCodec.encodeCommunity(community),
+            CachePayloadSeal.PLACE_SUBSCRIPTION,
+        )
+
+    private fun decodeSubscriptionPayload(payload: String): Community =
+        SubshellCacheCodec.decodeCommunity(
+            database.payloadSeal.open(payload, CachePayloadSeal.PLACE_SUBSCRIPTION),
+        )
+
+    /**
+     * PRIVATECACHE01: rows an older build wrote in plain text are sealed once, when the store
+     * starts. A row that cannot be read as it is stays as it is (it is a cache miss and the next
+     * network write replaces it); nothing is ever sealed from a guess.
+     */
+    fun sealLegacyPayloads(): Int = databaseCall {
+        val seal = database.payloadSeal
+        if (!seal.encrypts) return@databaseCall 0
+        database.runInTransaction<Int> {
+            sealRows(
+                dao.unsealedInbox(), seal, CachePayloadSeal.PLACE_INBOX,
+                { it.payload }, { row, payload -> row.copy(payload = payload) }, dao::upsertInbox,
+            ) + sealRows(
+                dao.unsealedLiveInboxEntries(), seal, CachePayloadSeal.PLACE_INBOX,
+                { it.payload }, { row, payload -> row.copy(payload = payload) }, dao::upsertLiveInboxEntries,
+            ) + sealRows(
+                dao.unsealedSubscriptions(), seal, CachePayloadSeal.PLACE_SUBSCRIPTION,
+                { it.payload }, { row, payload -> row.copy(payload = payload) }, dao::upsertSubscriptions,
+            ) + sealRows(
+                dao.unsealedScopedPosts(), seal, CachePayloadSeal.PLACE_POST_SCOPED,
+                { it.payload }, { row, payload -> row.copy(payload = payload) }, dao::upsertPosts,
+            )
+        }
+    }
+
+    private fun <R> sealRows(
+        rows: List<R>,
+        seal: CachePayloadSeal,
+        place: String,
+        payloadOf: (R) -> String,
+        withPayload: (R, String) -> R,
+        write: (List<R>) -> Unit,
+    ): Int {
+        val sealed = rows
+            .filterNot { payloadOf(it).startsWith(CachePayloadSeal.UNAVAILABLE_PREFIX) }
+            .map { row -> withPayload(row, seal.seal(payloadOf(row), place)) }
+            .filterNot { payloadOf(it).startsWith(CachePayloadSeal.UNAVAILABLE_PREFIX) }
+        if (sealed.isNotEmpty()) write(sealed)
+        return sealed.size
+    }
 
     // CACHE06_UNREADABLE_ROW_IS_A_CACHE_MISS_V1 (#204): the CACHE02 rule for
     // every cached type. A single row this build cannot read is a miss; a
@@ -467,7 +547,7 @@ internal class RoomSubshellCacheStore(
                             accountStableId = normalizedAccountId,
                             communityId = community.id,
                             position = index,
-                            payload = SubshellCacheCodec.encodeCommunity(community),
+                            payload = encodeSubscriptionPayload(community),
                         )
                     },
                 )
@@ -486,7 +566,7 @@ internal class RoomSubshellCacheStore(
             ?: return@databaseCall null
         CachedSubscriptionSnapshot(
             communities = dao.subscriptions(normalizedAccountId)
-                .decodedAllOrNull { entity -> SubshellCacheCodec.decodeCommunity(entity.payload) }
+                .decodedAllOrNull { entity -> decodeSubscriptionPayload(entity.payload) }
                 ?: return@databaseCall null,
             lastSuccessfulRefreshEpochMs = metadata.lastSuccessfulRefreshEpochMs,
         )
@@ -597,7 +677,7 @@ internal class RoomSubshellCacheStore(
                 values.map { value ->
                     CachedInboxEntity(
                         itemId = value.id,
-                        payload = SubshellCacheCodec.encodeInboxItem(value),
+                        payload = encodeInboxPayload(value),
                         lastAccessEpochMs = now,
                     )
                 },
@@ -608,13 +688,13 @@ internal class RoomSubshellCacheStore(
     fun inbox(request: RepositoryPageRequest): List<InboxItem> = databaseCall {
         val offset = request.cursor?.toIntOrNull()?.coerceAtLeast(0) ?: 0
         dao.inbox(offset, request.limit)
-            .decodedAllOrNull { entity -> SubshellCacheCodec.decodeInboxItem(entity.payload) }
+            .decodedAllOrNull { entity -> decodeInboxPayload(entity.payload) }
             .orEmpty()
     }
 
     fun inboxItem(itemId: String): InboxItem? = databaseCall {
         dao.inboxItem(itemId)?.payload?.let { payload ->
-            decodeOrNull { SubshellCacheCodec.decodeInboxItem(payload) }
+            decodeOrNull { decodeInboxPayload(payload) }
         }
     }
 
@@ -657,7 +737,7 @@ internal class RoomSubshellCacheStore(
                         accountStableId = account,
                         itemId = item.id,
                         position = index,
-                        payload = SubshellCacheCodec.encodeInboxItem(item),
+                        payload = encodeInboxPayload(item),
                     )
                 },
             )
@@ -743,11 +823,11 @@ internal class RoomSubshellCacheStore(
                 val merged = existing.mapNotNull { entity ->
                     val update = incoming.firstOrNull { item -> item.id == entity.itemId }
                         ?: return@mapNotNull null
-                    val stored = runCatching { SubshellCacheCodec.decodeInboxItem(entity.payload) }
+                    val stored = runCatching { decodeInboxPayload(entity.payload) }
                         .getOrNull()
                         ?: return@mapNotNull null
                     val combined = mergeAppendedInboxItem(stored, update)
-                    if (combined == stored) null else entity.copy(payload = SubshellCacheCodec.encodeInboxItem(combined))
+                    if (combined == stored) null else entity.copy(payload = encodeInboxPayload(combined))
                 }
                 if (merged.isNotEmpty()) {
                     dao.upsertLiveInboxEntries(merged)
@@ -761,7 +841,7 @@ internal class RoomSubshellCacheStore(
                                 accountStableId = account,
                                 itemId = item.id,
                                 position = existing.size + index,
-                                payload = SubshellCacheCodec.encodeInboxItem(item),
+                                payload = encodeInboxPayload(item),
                             )
                         },
                     )
@@ -788,7 +868,7 @@ internal class RoomSubshellCacheStore(
     private fun keepLiveInboxInTimeOrder(account: String) {
         val entries = dao.liveInboxEntries(account)
         val timed = entries.map { entity ->
-            entity to runCatching { SubshellCacheCodec.decodeInboxItem(entity.payload).createdEpochSeconds }
+            entity to runCatching { decodeInboxPayload(entity.payload).createdEpochSeconds }
                 .getOrElse { return }
         }
         val ordered = timed.sortedByDescending { (_, created) -> created ?: Long.MIN_VALUE }.map { (entity, _) -> entity }
@@ -844,7 +924,7 @@ internal class RoomSubshellCacheStore(
         if (touch) dao.touchLiveInboxList(account, clock.nowEpochMs())
         return CachedLiveInboxSnapshot(
             items = dao.liveInboxEntries(account)
-                .decodedAllOrNull { entity -> SubshellCacheCodec.decodeInboxItem(entity.payload) }
+                .decodedAllOrNull { entity -> decodeInboxPayload(entity.payload) }
                 ?: return null,
             nextCursor = metadata.nextCursor,
             locallySeenIds = dao.liveInboxSeen(account)
@@ -941,12 +1021,12 @@ internal class RoomSubshellCacheStore(
         databaseCall {
             database.runInTransaction {
                 val entity = dao.liveInboxEntry(account, item) ?: return@runInTransaction
-                val decoded = decodeOrNull { SubshellCacheCodec.decodeInboxItem(entity.payload) }
+                val decoded = decodeOrNull { decodeInboxPayload(entity.payload) }
                 if (decoded?.unread == true) {
                     dao.upsertLiveInboxEntries(
                         listOf(
                             entity.copy(
-                                payload = SubshellCacheCodec.encodeInboxItem(
+                                payload = encodeInboxPayload(
                                     decoded.copy(unread = false),
                                 ),
                             ),
@@ -964,10 +1044,10 @@ internal class RoomSubshellCacheStore(
         databaseCall {
             database.runInTransaction {
                 val updated = dao.liveInboxEntries(account).map { entity ->
-                    val decoded = decodeOrNull { SubshellCacheCodec.decodeInboxItem(entity.payload) }
+                    val decoded = decodeOrNull { decodeInboxPayload(entity.payload) }
                     if (decoded?.unread == true) {
                         entity.copy(
-                            payload = SubshellCacheCodec.encodeInboxItem(
+                            payload = encodeInboxPayload(
                                 decoded.copy(unread = false),
                             ),
                         )
@@ -1413,9 +1493,10 @@ internal class RoomSubshellCacheStore(
                 // CACHE05_ACCOUNT_SCOPED_POST_ROWS_V1
                 dao.upsertPosts(
                     posts.map { post ->
+                        val rowKey = cachedPostRowKey(request.queryKey, post.id)
                         CachedPostEntity(
-                            postId = cachedPostRowKey(request.queryKey, post.id),
-                            payload = SubshellCacheCodec.encodePost(post),
+                            postId = rowKey,
+                            payload = encodePostPayload(rowKey, post),
                             lastAccessEpochMs = now,
                         )
                     },

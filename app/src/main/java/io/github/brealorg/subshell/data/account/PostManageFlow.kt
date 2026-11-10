@@ -40,6 +40,10 @@ data class PostManageTarget(
     val postFullname: String,
     val postAuthor: String,
     val community: String,
+    // ISSUE295_MODERATOR_SETS_POST_FLAIR_V1 (#295 part 2): a moderator changes
+    // another reader's post flair, NSFW and spoiler; Reddit decides whether the
+    // account may (403 otherwise). Reply notifications stay the author's.
+    val asModerator: Boolean = false,
 ) {
     init {
         require(accountStableId.isNotBlank()) { "Post-manage account ID cannot be blank" }

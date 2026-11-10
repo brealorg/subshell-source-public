@@ -1,6 +1,5 @@
 package io.github.brealorg.subshell.ui.components
 
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.SemanticsActions
@@ -9,6 +8,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import io.github.brealorg.subshell.data.account.ModeratorContentControlConfirmation
 import io.github.brealorg.subshell.data.account.ModeratorContentControlsUiState
@@ -144,29 +144,37 @@ class Step3ModeratorContentControlsComposeTest {
     }
 
     @Test
-    fun theRowButtonAndTheOverflowItemOpenTheirOwnItem() {
+    // ISSUE295_ONE_MODERATE_ENTRY_OPENS_A_SHEET_V1: the ⋮ entry moved into the
+    // moderator sheet ("Lock or distinguish…"); Issue295ModActionsInMenuComposeTest
+    // checks that it opens its own item.
+    fun theQueueRowsSheetOpensItsOwnItem() {
         val entries = ModeratorContentControlsEntryPoints(
             canInspect = { it == "subshell" },
             open = { opened += it },
         )
-        val comment = ModeratorReportTarget("t1_def", "subshell")
         composeRule.setContent {
             SubshellTheme {
                 CompositionLocalProvider(LocalModeratorContentControls provides entries) {
-                    ModeratorContentControlsButton(item())
-                    DropdownMenu(expanded = true, onDismissRequest = {}) {
-                        ModeratorContentControlsMenuItem(comment, onDismissMenu = {})
-                        ModeratorContentControlsMenuItem(ModeratorReportTarget("t3_other", "elsewhere"), onDismissMenu = {})
+                    ModeratorQuickActionsHarness(
+                        accountStableId = "reddit:owner",
+                        actionState = io.github.brealorg.subshell.data.account.RedditModeratorActionUiState(),
+                        onModerate = {},
+                        notices = null,
+                    ) {
+                        ModeratorQueueItemActions(item(), inProgress = false)
                     }
                 }
             }
         }
         composeRule.waitForIdle()
 
-        assertEquals(1, count("Moderation controls"))
-        click("Controls")
-        click("Moderation controls")
+        composeRule.onNode(
+            androidx.compose.ui.test.hasContentDescription("More moderator actions") and
+                androidx.compose.ui.test.hasClickAction(),
+        ).performClick()
+        composeRule.waitForIdle()
+        click("Lock or distinguish…")
 
-        assertEquals(listOf(target, comment), opened)
+        assertEquals(listOf(target), opened.toList())
     }
 }

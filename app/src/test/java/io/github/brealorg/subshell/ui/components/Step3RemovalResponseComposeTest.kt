@@ -68,25 +68,33 @@ class Step3RemovalResponseComposeTest {
         responses: SavedResponseActions = savedResponses(),
         onModerate: (RedditModeratorActionRequest) -> Unit = {},
     ) {
+        // ISSUE295_QUEUE_USES_THE_SHEET_V1: the queue's Remove opens the shared
+        // removal form through the Moderate sheet's host.
         composeRule.setContent {
             SubshellTheme {
-                ModeratorToolsSheet(
-                    communityLabel = "r/subshell",
-                    communityName = "subshell",
+                ModeratorQuickActionsHarness(
                     accountStableId = account,
-                    uiState = RedditModerationUiState(
-                        accountStableId = account,
-                        queueCommunityName = "subshell",
-                        queueItems = listOf(item),
-                        queueLoaded = true,
-                    ),
-                    onDismiss = {},
-                    onRefresh = {},
-                    onAppend = {},
-                    actionUiState = actionUiState,
+                    actionState = actionUiState,
                     onModerate = onModerate,
+                    notices = null,
                     savedResponses = responses,
-                )
+                ) {
+                    ModeratorToolsSheet(
+                        communityLabel = "r/subshell",
+                        communityName = "subshell",
+                        accountStableId = account,
+                        uiState = RedditModerationUiState(
+                            accountStableId = account,
+                            queueCommunityName = "subshell",
+                            queueItems = listOf(item),
+                            queueLoaded = true,
+                        ),
+                        onDismiss = {},
+                        onRefresh = {},
+                        onAppend = {},
+                        actionUiState = actionUiState,
+                    )
+                }
             }
         }
         composeRule.waitForIdle()
@@ -95,21 +103,27 @@ class Step3RemovalResponseComposeTest {
     }
 
     private fun showQueueDialog(onModerate: (RedditModeratorActionRequest) -> Unit) {
+        // ISSUE295_QUEUE_USES_THE_SHEET_V1: the Inbox queue card's Remove opens
+        // the same removal form.
         composeRule.setContent {
             SubshellTheme {
-                InboxModeratorRemovalDialog(
-                    item = item,
+                ModeratorQuickActionsHarness(
                     accountStableId = account,
-                    actionUiState = RedditModeratorActionUiState(),
-                    removalReasonState = RedditRemovalReasonUiState(),
-                    onLoadRemovalReasons = { _, _ -> },
-                    onAuthorizeRemovalReasons = {},
+                    actionState = RedditModeratorActionUiState(),
                     onModerate = onModerate,
-                    onDismiss = {},
+                    notices = null,
                     savedResponses = savedResponses(),
-                )
+                ) {
+                    InboxModeratorQueueItemCard(
+                        item = item,
+                        actionUiState = RedditModeratorActionUiState(),
+                        onOpen = {},
+                    )
+                }
             }
         }
+        composeRule.waitForIdle()
+        composeRule.onAllNodes(hasText("Remove") and hasClickAction()).onFirst().performClick()
         composeRule.waitForIdle()
     }
 
@@ -183,14 +197,26 @@ class Step3RemovalResponseComposeTest {
             request = removed,
             removalMessageOutcome = RedditRemovalStepOutcome.FAILED,
         )
+        // ISSUE295_QUEUE_USES_THE_SHEET_V1: said in the tray, for the queue and the menu alike.
+        lateinit var notices: io.github.brealorg.subshell.ui.error.ViewportErrorHostState
         composeRule.setContent {
+            notices = io.github.brealorg.subshell.ui.error.rememberViewportErrorHostState()
             SubshellTheme {
-                InboxModerationActionStatus(uiState = partial, onRetry = {}, onAuthorize = {})
+                ModeratorQuickActionsHarness(
+                    accountStableId = account,
+                    actionState = partial,
+                    onModerate = {},
+                    notices = notices,
+                    quickActions = ModeratorQuickActionsState().apply { awaiting = removed },
+                ) {}
             }
         }
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithText("Reddit removed the item, but the removal message was not sent.").assertExists()
+        assertEquals(
+            "Reddit removed the item, but the removal message was not sent.",
+            notices.currentRequest?.presentation?.message,
+        )
     }
 
     @Test

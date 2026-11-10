@@ -316,6 +316,10 @@ internal interface SubshellCacheDao {
     @Upsert
     fun upsertPosts(posts: List<CachedPostEntity>)
 
+    // PRIVATECACHE03: account-scoped rows ("<scope>|post|<id>") an older build wrote in plain text.
+    @Query("SELECT * FROM cached_posts WHERE post_id LIKE '%|post|%' AND payload NOT LIKE 'e1:%'")
+    fun unsealedScopedPosts(): List<CachedPostEntity>
+
     @Upsert
     fun upsertQuery(query: CachedQueryEntity)
 
@@ -398,6 +402,10 @@ internal interface SubshellCacheDao {
 
     @Upsert
     fun upsertSubscriptions(values: List<CachedSubscriptionEntity>)
+
+    // PRIVATECACHE01: rows without the sealed prefix (written by an older build).
+    @Query("SELECT * FROM cached_subscriptions WHERE payload NOT LIKE 'e1:%'")
+    fun unsealedSubscriptions(): List<CachedSubscriptionEntity>
 
     @Query("DELETE FROM cached_subscriptions WHERE account_stable_id = :accountStableId")
     fun deleteSubscriptions(accountStableId: String)
@@ -507,6 +515,9 @@ internal interface SubshellCacheDao {
     @Upsert
     fun upsertInbox(values: List<CachedInboxEntity>)
 
+    @Query("SELECT * FROM cached_inbox WHERE payload NOT LIKE 'e1:%'")
+    fun unsealedInbox(): List<CachedInboxEntity>
+
     @Query("SELECT * FROM cached_inbox ORDER BY item_id LIMIT :limit OFFSET :offset")
     fun inbox(offset: Int, limit: Int): List<CachedInboxEntity>
 
@@ -543,6 +554,9 @@ internal interface SubshellCacheDao {
 
     @Upsert
     fun upsertLiveInboxEntries(values: List<CachedLiveInboxEntryEntity>)
+
+    @Query("SELECT * FROM cached_live_inbox_entries WHERE payload NOT LIKE 'e1:%'")
+    fun unsealedLiveInboxEntries(): List<CachedLiveInboxEntryEntity>
 
     @Upsert
     fun upsertLiveInboxSeen(value: CachedLiveInboxSeenEntity)
@@ -647,6 +661,14 @@ internal interface SubshellCacheDao {
 )
 internal abstract class SubshellCacheDatabase : RoomDatabase() {
     abstract fun cacheDao(): SubshellCacheDao
+
+    /**
+     * PRIVATECACHE01_PRIVATE_ROWS_ARE_SEALED_V1: how the rows about the reader's own account are
+     * stored. [open] leaves it plain (tests, and the database files they build); [processShared],
+     * which the app and the account runtime use, seals them under the cache key.
+     */
+    @Volatile
+    var payloadSeal: CachePayloadSeal = CachePayloadSeal.Plain
 
     companion object {
         val Migration1To2: Migration = object : Migration(1, 2) {
@@ -858,7 +880,10 @@ internal abstract class SubshellCacheDatabase : RoomDatabase() {
             shared?.takeIf { (owner, _) -> owner === appContext }?.let { (_, database) -> return database }
             return synchronized(this) {
                 shared?.takeIf { (owner, _) -> owner === appContext }?.second
-                    ?: open(appContext).also { created -> shared = appContext to created }
+                    ?: open(appContext).also { created ->
+                        created.payloadSeal = CachePayloadSeal.production()
+                        shared = appContext to created
+                    }
             }
         }
 

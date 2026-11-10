@@ -81,10 +81,11 @@ class ComposerDraftStore(
     private fun encode(drafts: List<PostComposerDraft>): String =
         json.encodeToString(drafts.map(StoredComposerDraft::fromDraft))
 
-    private companion object {
-        const val KEY = "post_composer_drafts.v1"
-        const val CROSSPOST_KEY = "post_composer_crosspost_drafts.v1"
-        const val MAX_DRAFTS = 100
+    companion object {
+        // Internal so the sealed-preferences test can check them against SealedKeysPreferences.
+        internal const val KEY = "post_composer_drafts.v1"
+        internal const val CROSSPOST_KEY = "post_composer_crosspost_drafts.v1"
+        private const val MAX_DRAFTS = 100
     }
 }
 

@@ -560,7 +560,32 @@ fun ExploreCommunitiesScreen(
     } else {
         emptyList()
     }
+    // ISSUE293_LANGUAGE_FILTER_V1: communities on screen whose language is not
+    // yet known are told now; those known to be in a left-out language are hidden.
+    LaunchedEffect(state.shownLanguages, discoveryState.items.map { item -> item.community.name }) {
+        state.detectLanguages(
+            discoveryState.items.map { item ->
+                io.github.brealorg.subshell.language.communityLanguageKey(item.community.name) to
+                    io.github.brealorg.subshell.language.communityLanguageText(
+                        item.community.name,
+                        item.community.description,
+                    )
+            },
+        )
+    }
+    // Show lets them through until the list changes, like the content filters' summary.
+    var languageRevealed by rememberSaveable(discoveryState.searchQuery, discoveryState.searchSort) {
+        mutableStateOf(false)
+    }
+    val languageHiddenCount = discoveryState.items.takeIf { discoveryMatchesDraft }.orEmpty().count { item ->
+        (state.showNsfwPosts || !item.nsfw) && item.community.name.lowercase() !in joinedCommunityNames &&
+            state.languageHidesCommunity(item.community.name)
+    }
     val stateDiscoveryItems = discoveryState.items.takeIf { discoveryMatchesDraft }.orEmpty()
+        .filterNot { item ->
+            !languageRevealed && item.community.name.lowercase() !in joinedCommunityNames &&
+                state.languageHidesCommunity(item.community.name)
+        }
     val candidateDiscoveryItems = if (typeaheadDraftActive) {
         (stateDiscoveryItems + localTypeaheadItems)
             .distinctBy { item -> item.community.name.lowercase() }
@@ -724,6 +749,9 @@ fun ExploreCommunitiesScreen(
             liveState = liveState,
             discoveryState = discoveryState,
             visibleDiscoveryItems = visibleDiscoveryItems,
+            languageHiddenCount = languageHiddenCount,
+            languageRevealed = languageRevealed,
+            onToggleLanguageRevealed = { languageRevealed = !languageRevealed },
             joinedCommunityNames = joinedCommunityNames,
             discoveryDraft = discoveryDraft,
             normalizedDraft = normalizedDraft,
@@ -870,7 +898,11 @@ private fun JoinedCommunitiesContent(
         .map { community -> community.name.lowercase() }
         .toSet()
     val inlineDiscoveryItems = inlineCommunityDiscoveryItems(
-        items = if (discoveryState.searchQuery == null) discoveryState.items else emptyList(),
+        items = if (discoveryState.searchQuery == null) {
+            discoveryState.items.filterNot { item -> state.languageHidesCommunity(item.community.name) }
+        } else {
+            emptyList()
+        },
         joinedCommunityNames = joinedCommunityNames,
         showNsfw = state.showNsfwPosts,
         limit = when (state.communityDiscoveryLayout) {
@@ -1547,6 +1579,9 @@ private fun ExploreCommunitiesContent(
     liveState: RedditSubscriptionsUiState,
     discoveryState: RedditCommunityDiscoveryUiState,
     visibleDiscoveryItems: List<CommunityDiscoveryItem>,
+    languageHiddenCount: Int,
+    languageRevealed: Boolean,
+    onToggleLanguageRevealed: () -> Unit,
     joinedCommunityNames: Set<String>,
     discoveryDraft: String,
     normalizedDraft: String,
@@ -1796,6 +1831,21 @@ private fun ExploreCommunitiesContent(
             }
         }
 
+        // ISSUE293_LANGUAGE_FILTER_V1
+        if (languageHiddenCount > 0) {
+            item("discovery-language-summary") {
+                io.github.brealorg.subshell.ui.components.FilteredPostsSummaryRow(
+                    filteredCount = languageHiddenCount,
+                    revealed = languageRevealed,
+                    onToggle = onToggleLanguageRevealed,
+                    text = io.github.brealorg.subshell.ui.components.languageHiddenSummaryText(
+                        languageHiddenCount,
+                        languageRevealed,
+                    ),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+        }
         when {
             visibleDiscoveryItems.isNotEmpty() -> {
                 item("live-discovery-title") {

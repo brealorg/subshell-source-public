@@ -202,14 +202,14 @@ fun CommunityScreen(
         RedditModerationUiState(),
     onLoadRedditModQueue: (String, String, Boolean) -> Unit = { _, _, _ -> },
     onAppendRedditModQueue: (String, String) -> Unit = { _, _ -> },
+    // ISSUE295_REMOVED_CONTENT_LISTS_V1
+    onSelectRedditModQueueList: (
+        String,
+        String,
+        io.github.brealorg.subshell.data.account.RedditModeratorQueueList,
+    ) -> Unit = { _, _, _ -> },
     moderationActionState: RedditModeratorActionUiState =
         RedditModeratorActionUiState(),
-    onModerateRedditQueueItem: (RedditModeratorActionRequest) -> Unit = {},
-    onRetryRedditModerationAction: () -> Unit = {},
-    onAuthorizeRedditModerationAction: () -> Unit = {},
-    removalReasonState: RedditRemovalReasonUiState = RedditRemovalReasonUiState(),
-    onLoadRedditRemovalReasons: (String, String, Boolean) -> Unit = { _, _, _ -> },
-    onAuthorizeRedditRemovalReasons: () -> Unit = {},
     communityMembershipState: CommunityMembershipUiState =
         CommunityMembershipUiState(),
     onChangeCommunityMembership: (
@@ -1678,28 +1678,9 @@ fun CommunityScreen(
                 )
             },
             actionUiState = moderationActionState,
-            onModerate = onModerateRedditQueueItem,
-            onRetryAction = onRetryRedditModerationAction,
-            onAuthorizeAction = onAuthorizeRedditModerationAction,
-            removalReasonState = removalReasonState,
-            onLoadRemovalReasons = { force ->
-                onLoadRedditRemovalReasons(
-                    state.activeAccountId,
-                    community.name,
-                    force,
-                )
+            onSelectList = { list ->
+                onSelectRedditModQueueList(state.activeAccountId, community.name, list)
             },
-            onAuthorizeRemovalReasons = onAuthorizeRedditRemovalReasons,
-            // MODRESPONSE01A3_SAVED_RESPONSES_PICKER_V1
-            savedResponses = SavedResponseActions(
-                responses = state.moderatorSavedResponses,
-                onSave = state::saveModeratorResponse,
-                onDelete = state::deleteModeratorResponse,
-                initialType = state.moderatorRemovalMessageType(state.activeAccountId),
-                onTypeUsed = { type ->
-                    state.rememberModeratorRemovalMessageType(state.activeAccountId, type)
-                },
-            ),
         )
     }
 

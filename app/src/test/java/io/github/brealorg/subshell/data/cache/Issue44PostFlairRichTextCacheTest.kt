@@ -53,7 +53,7 @@ class Issue44PostFlairRichTextCacheTest {
 
     @Test
     fun payloadsWrittenBeforeTheFieldStillDecodeWithoutRichText() {
-        val fields = SubshellCacheCodec.decodeMutationFields(SubshellCacheCodec.encodePost(post), expectedSize = 37)
+        val fields = SubshellCacheCodec.decodeMutationFields(SubshellCacheCodec.encodePost(post), expectedSize = 38)
         val crosspostIndex = 16
         val crosspostFields =
             SubshellCacheCodec.decodeMutationFields(requireNotNull(fields[crosspostIndex]), expectedSize = 25)

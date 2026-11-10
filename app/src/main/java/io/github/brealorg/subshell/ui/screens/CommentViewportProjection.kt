@@ -290,6 +290,12 @@ internal data class CommentBranchRailVisual(
     val continuesToNextRailIds: Set<String>,
     // ISSUE285_THREAD_COLOURS_V1: the next comment on screen starts another thread (or there is none).
     val endsThread: Boolean = false,
+    // REPLYCONTEXT03_RAIL_STARTS_IN_THE_PARENT_V1 (reader idea, r/subshell 1xsnbqe): the lines
+    // a reply starts begin in the middle of the comment that was answered, not at the reply.
+    // Indices (in the next row's rails) of the rails the next row, a direct reply, starts.
+    val startsInNextRowRailIndices: List<Int> = emptyList(),
+    // The rails of this row that the previous row, its parent, started in its middle.
+    val startedByPreviousRowRailIds: Set<String> = emptySet(),
 ) {
     val branchRailCount: Int
         get() = railAccents.size
@@ -391,9 +397,29 @@ internal fun commentBranchRailVisualByCommentId(
                 ?.railIds
                 .orEmpty()
                 .toSet()
+            val previousVisual = visibleCommentIds.getOrNull(index - 1)?.let(rawVisuals::get)
+            val nextVisual = visibleCommentIds.getOrNull(index + 1)?.let(rawVisuals::get)
             put(
                 commentId,
                 visual.copy(
+                    startsInNextRowRailIndices = if (
+                        nextVisual != null && nextVisual.actualDepth == visual.actualDepth + 1
+                    ) {
+                        nextVisual.railIds.indices.filter { railIndex ->
+                            nextVisual.railIds[railIndex] !in visual.railIds
+                        }
+                    } else {
+                        emptyList()
+                    },
+                    startedByPreviousRowRailIds = if (
+                        previousVisual != null && visual.actualDepth == previousVisual.actualDepth + 1
+                    ) {
+                        visual.railIds.filterTo(linkedSetOf()) { railId ->
+                            railId !in previousVisual.railIds
+                        }
+                    } else {
+                        emptySet()
+                    },
                     layoutRailCount = layoutRailCount,
                     continuesFromPreviousRailIds = visual.railIds
                         .filterTo(linkedSetOf()) { railId -> railId in previousRailIds },
@@ -741,6 +767,30 @@ internal fun commentViewportInsetDp(depth: Int): Int =
 internal fun commentViewportShowsReplyContext(depth: Int): Boolean =
     depth >= COMMENT_VISUAL_DEPTH_CAP
 
+// REPLYCONTEXT02_REPLIES_INDENT_WITH_DEPTH_V1 (reader feedback, r/subshell
+// 1xsnbqe): with Guide lines a rail is only added where a thread branches, so
+// a chain of single replies kept the same left edge. Content now also steps
+// right by a small amount per level, up to a deeper cap than the old two
+// levels; the coloured lines stay. "↳ name" is for replies past that cap.
+internal fun commentDepthIndentDp(
+    depth: Int,
+    stepDp: Int = COMMENT_DEPTH_INDENT_STEP_DP,
+): Int = depth.coerceIn(0, COMMENT_DEPTH_INDENT_CAP) * stepDp
+
+// With no indent the levels are not shown by position, so the reply line starts
+// where #285 first put it (the third level).
+internal fun commentDepthShowsReplyContext(
+    depth: Int,
+    stepDp: Int = COMMENT_DEPTH_INDENT_STEP_DP,
+): Boolean = if (stepDp <= 0) {
+    depth >= COMMENT_VISUAL_DEPTH_CAP
+} else {
+    depth > COMMENT_DEPTH_INDENT_CAP
+}
+
+internal const val COMMENT_DEPTH_INDENT_STEP_DP = 6
+internal const val COMMENT_DEPTH_INDENT_CAP = 6
+
 internal fun focusedCommentLandingAnchorFraction(
     itemSizePx: Int,
     viewportStartOffset: Int,
@@ -767,3 +817,26 @@ internal const val COMMENT_BRANCH_RAIL_BASE_GUTTER_DP = 12
 internal const val COMMENT_BRANCH_RAIL_PREFERRED_SPACING_DP = 7
 internal const val COMMENT_BRANCH_RAIL_MAX_GUTTER_DP = 44
 internal const val COMMENT_BRANCH_RAIL_EDGE_PADDING_DP = 3
+
+/**
+ * REPLYCONTEXT01_REPLY_SCROLLS_THE_TARGET_ABOVE_THE_COMPOSER_V1: how far the list
+ * must scroll (positive = forward) so the comment being answered is fully
+ * visible above the composer. [itemTopPx] is the item's offset in the list
+ * viewport, [availableBottomPx] where the composer starts in the same
+ * coordinates. A comment taller than the free space keeps its top visible.
+ */
+internal fun replyTargetScrollDeltaPx(
+    itemTopPx: Int,
+    itemSizePx: Int,
+    viewportStartPx: Int,
+    availableBottomPx: Int,
+    marginPx: Int,
+): Int {
+    val limit = availableBottomPx - marginPx
+    val bottom = itemTopPx + itemSizePx
+    return when {
+        itemTopPx < viewportStartPx -> itemTopPx - viewportStartPx
+        bottom <= limit -> 0
+        else -> minOf(bottom - limit, itemTopPx - viewportStartPx)
+    }
+}

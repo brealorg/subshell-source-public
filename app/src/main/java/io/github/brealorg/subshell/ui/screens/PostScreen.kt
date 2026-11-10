@@ -3,6 +3,8 @@ package io.github.brealorg.subshell.ui.screens
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.WindowInsetsRulers
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.foundation.layout.fitInside
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -70,8 +72,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import io.github.brealorg.subshell.ui.components.ModeratorReportMenuItem
-import io.github.brealorg.subshell.ui.components.ModeratorContentControlsMenuItem
 import io.github.brealorg.subshell.data.account.ModeratorReportTarget
 import io.github.brealorg.subshell.data.account.moderatorReportTargetOrNull
 import io.github.brealorg.subshell.data.account.normalizeCommentEditFullname
@@ -199,6 +199,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -463,6 +466,10 @@ fun PostScreen(
     var managingPost by rememberSaveable(post.id, state.activeAccountId) {
         mutableStateOf(false)
     }
+    // ISSUE295_MODERATOR_SETS_POST_FLAIR_V1
+    var managingAsModerator by rememberSaveable(post.id, state.activeAccountId) {
+        mutableStateOf(false)
+    }
     LaunchedEffect(post.id, state.postVisitId, state.activeAccountId) {
         if (state.consumePostEditRequest(post.id)) {
             onResetPostEditState()
@@ -472,8 +479,10 @@ fun PostScreen(
             onResetPostDeleteState()
             deletingPost = true
         }
+        val asModerator = state.postManageRequestedAsModerator
         if (state.consumePostManageRequest(post.id)) {
             onResetPostManageState()
+            managingAsModerator = asModerator
             managingPost = true
         }
     }
@@ -1923,9 +1932,11 @@ fun PostScreen(
             onReset = onResetPostManageState,
             onClose = {
                 managingPost = false
+                managingAsModerator = false
                 onResetPostManageState()
             },
             modifier = modifier,
+            asModerator = managingAsModerator,
         )
         return
     }
@@ -2316,6 +2327,13 @@ fun PostScreen(
         state.commentComposerVisible && activeCommentDraft?.target?.postId == post.id
 
     val postListScope = rememberCoroutineScope()
+    // REPLYCONTEXT01_REPLY_SCROLLS_THE_TARGET_ABOVE_THE_COMPOSER_V1: where the
+    // composer starts, in the screen's list coordinates (-1 = not measured).
+    var replyBoxTopInRootPx by remember { mutableIntStateOf(0) }
+    var composerTopInRootPx by remember { mutableIntStateOf(-1) }
+    val replyTargetCommentId = activeCommentDraft?.target?.parentCommentId
+        ?.takeIf { activeCommentComposerVisible }
+    val replyTargetMarginPx = with(LocalDensity.current) { 8.dp.roundToPx() }
     val commentControlsIndex = if (addCommentVisible) 3 else 2
     // ISSUE28_TOP_LEVEL_COMMENT_JUMP_V1: see TopLevelCommentJump.kt. A jump is
     // the reader's own scroll, so it releases a focused-comment anchor the way
@@ -2612,6 +2630,51 @@ fun PostScreen(
             )
         }
     }
+    // REPLYCONTEXT01_REPLY_SCROLLS_THE_TARGET_ABOVE_THE_COMPOSER_V1: the composer
+    // covers the bottom of the list, so the comment being answered is brought
+    // fully into view above it (the keyboard moves the composer, so this
+    // follows its settled position, twice at most).
+    LaunchedEffect(replyTargetCommentId, post.id) {
+        val targetId = replyTargetCommentId
+        if (targetId == null) {
+            composerTopInRootPx = -1
+            return@LaunchedEffect
+        }
+        var settled = 0
+        snapshotFlow { composerTopInRootPx }
+            .filter { top -> top >= 0 }
+            .distinctUntilChanged()
+            .collectLatest {
+                delay(250)
+                if (settled >= 2) return@collectLatest
+                settled += 1
+                val rows = latestCommentRows
+                val index = commentViewportLazyListIndex(
+                    rows = rows,
+                    rowKey = "comment:$targetId",
+                    addCommentVisible = addCommentVisible,
+                    liveStatusVisible = latestLiveStatusVisible,
+                )
+                if (index < 0) return@collectLatest
+                var info = listState.layoutInfo.visibleItemsInfo
+                    .firstOrNull { item -> item.key == "comment:$targetId" }
+                if (info == null) {
+                    listState.scrollToItem(index)
+                    withFrameNanos { }
+                    info = listState.layoutInfo.visibleItemsInfo
+                        .firstOrNull { item -> item.key == "comment:$targetId" }
+                }
+                val target = info ?: return@collectLatest
+                val delta = replyTargetScrollDeltaPx(
+                    itemTopPx = target.offset,
+                    itemSizePx = target.size,
+                    viewportStartPx = listState.layoutInfo.viewportStartOffset,
+                    availableBottomPx = composerTopInRootPx - replyBoxTopInRootPx,
+                    marginPx = replyTargetMarginPx,
+                )
+                if (delta != 0) listState.animateScrollBy(delta.toFloat())
+            }
+    }
     val topLevelCommentJumpVisible = state.topLevelCommentJumpButton &&
         !focusedBootstrapGate &&
         !activeCommentComposerVisible &&
@@ -2746,7 +2809,11 @@ fun PostScreen(
     ) {
         RouteTopBar(title = "Post", scrollBehavior = routeTopBarScroll, onBack = onBack)
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .onGloballyPositioned { coordinates ->
+                    replyBoxTopInRootPx = coordinates.positionInRoot().y.toInt()
+                },
         ) {
             RefreshableLazyColumn(
                 state = listState,
@@ -2821,6 +2888,12 @@ fun PostScreen(
                         },
                         onManagePost = {
                             onResetPostManageState()
+                            managingAsModerator = false
+                            managingPost = true
+                        },
+                        onModeratePost = {
+                            onResetPostManageState()
+                            managingAsModerator = true
                             managingPost = true
                         },
                         onDeletePost = {
@@ -3055,6 +3128,7 @@ fun PostScreen(
                             comment = row.comment,
                             state = state,
                             focusedCommentId = focusedCommentId,
+                            replyTargetCommentId = replyTargetCommentId,
                             focusedLandingActive = focusedAnchorOwned,
                             focusedArrivalPulseGeneration = focusedArrivalPulseGeneration,
                             newCommentIds = newIds,
@@ -3162,7 +3236,11 @@ fun PostScreen(
                         mentionSearchState = mentionSearchState,
                         onSearchMentions = onSearchMentions,
                         onClose = state::closeCommentComposer,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned { coordinates ->
+                                composerTopInRootPx = coordinates.positionInRoot().y.toInt()
+                            },
                     )
                 } else {
                     CommentComposerLauncher(
@@ -3405,8 +3483,10 @@ private fun CommentRow(
     onDelete: (Comment) -> Unit,
     findHighlight: MarkdownHighlight? = null,
     collapsed: Boolean = comment.id in state.collapsedCommentIds,
+    replyTargetCommentId: String? = null,
 ) {
     val focused = comment.id == focusedCommentId
+    val replyTarget = comment.id == replyTargetCommentId
     val isNew = comment.id in newCommentIds
     val newReplies = newDescendantCount(comment, newCommentIds)
     val focusedPulse = remember(comment.id) { Animatable(0f) }
@@ -3554,6 +3634,26 @@ private fun CommentRow(
                         val railIds = railVisual?.railIds.orEmpty()
                         val railCount = railAccents.size
                         val layoutRailCount = railVisual?.layoutRailCount ?: railCount
+                        // REPLYCONTEXT03_RAIL_STARTS_IN_THE_PARENT_V1: the lines the next
+                        // row (a direct reply) starts leave this comment from its middle.
+                        val railFromParent = state.commentRailFromParent
+                        railVisual?.startsInNextRowRailIndices.orEmpty()
+                            .takeIf { railFromParent }.orEmpty().forEach { nextIndex ->
+                            val x = commentBranchRailPositionDp(
+                                branchRailIndex = nextIndex,
+                                branchRailCount = layoutRailCount,
+                            ).dp.toPx() + threadShift
+                            drawLine(
+                                color = if (threadColours == CommentThreadColours.OFF) {
+                                    railColor(accent, 0.45f)
+                                } else {
+                                    threadLaneColor(nextIndex)
+                                },
+                                start = Offset(x, size.height / 2f),
+                                end = Offset(x, size.height),
+                                strokeWidth = if (threadColours == CommentThreadColours.OFF) 1.5.dp.toPx() else THREAD_LINE_DP.dp.toPx(),
+                            )
+                        }
                         if (railVisual != null && railCount > 0 && layoutRailCount >= railCount) {
                             val connectorY = 22.dp.toPx().coerceAtMost(size.height)
                             val isolatedStubHalfHeight = 4.dp.toPx()
@@ -3566,7 +3666,15 @@ private fun CommentRow(
                                 val continuesFromPrevious =
                                     railId in railVisual.continuesFromPreviousRailIds
                                 val continuesToNext = railId in railVisual.continuesToNextRailIds
-                                var lineStartY = if (continuesFromPrevious) 0f else connectorY
+                                // REPLYCONTEXT03_RAIL_STARTS_IN_THE_PARENT_V1: the parent drew the start.
+                                var lineStartY = if (
+                                    continuesFromPrevious ||
+                                        (railFromParent && railId in railVisual.startedByPreviousRowRailIds)
+                                ) {
+                                    0f
+                                } else {
+                                    connectorY
+                                }
                                 var lineEndY = if (continuesToNext) size.height else connectorY
                                 if (lineStartY == lineEndY) {
                                     lineStartY = (connectorY - isolatedStubHalfHeight).coerceAtLeast(0f)
@@ -3738,15 +3846,18 @@ private fun CommentRow(
             }
             .padding(
                 start = when (state.commentHierarchyStyle) {
-                    CommentHierarchyStyle.GUIDE_LINES ->
-                        threadVisual?.let { visual ->
+                    CommentHierarchyStyle.GUIDE_LINES -> {
+                        val gutter = threadVisual?.let { visual ->
                             commentBranchRailGutterDp(
                                 branchRailCount = visual.branchRailCount,
                                 layoutRailCount = visual.layoutRailCount,
                             )
-                        }?.dp?.let { gutter ->
-                            if (threadColours != CommentThreadColours.OFF) gutter + THREAD_RAIL_SHIFT_DP.dp else gutter
+                        }?.dp?.let { rails ->
+                            if (threadColours != CommentThreadColours.OFF) rails + THREAD_RAIL_SHIFT_DP.dp else rails
                         } ?: 0.dp
+                        // REPLYCONTEXT02_REPLIES_INDENT_WITH_DEPTH_V1
+                        gutter + commentDepthIndentDp(comment.depth, state.commentIndentSize.stepDp).dp
+                    }
                     CommentHierarchyStyle.PARENT_CONNECTORS ->
                         parentConnectorVisual?.gutterDp?.dp ?: 0.dp
                 },
@@ -3766,7 +3877,7 @@ private fun CommentRow(
                             cornerRadius = CornerRadius(edgeWidth / 2f, edgeWidth / 2f),
                         )
                     }
-                    if (focused) {
+                    if (focused || replyTarget) {
                         val radius = 10.dp.toPx()
                         drawRoundRect(
                             color = focusedPulseColor.copy(
@@ -3905,7 +4016,11 @@ private fun CommentRow(
             }
         }
         if (
-            commentViewportShowsReplyContext(comment.depth) &&
+            when (state.commentHierarchyStyle) {
+                CommentHierarchyStyle.GUIDE_LINES ->
+                    commentDepthShowsReplyContext(comment.depth, state.commentIndentSize.stepDp)
+                CommentHierarchyStyle.PARENT_CONNECTORS -> commentViewportShowsReplyContext(comment.depth)
+            } &&
             !threadVisual?.parentAuthor.isNullOrBlank()
         ) {
             Text(
@@ -4003,7 +4118,6 @@ private fun CommentRow(
                         notices.noticeCopied("Comment") // ISSUE222_NO_TOASTS_V1
                     },
                     onShare = { shareCommentLink(context, post, comment.id, notices) },
-                    onCollapse = { onToggleComment(comment.id) },
                     showSaveAction = state.activeAccountIsAuthenticated,
                     saved = state.effectiveCommentSaved(comment),
                     saveEnabled = state.commentSaveControlEnabled(comment),
@@ -4273,7 +4387,6 @@ private fun CommentActionRow(
     onReply: () -> Unit,
     onCopy: () -> Unit,
     onShare: () -> Unit,
-    onCollapse: () -> Unit,
     showSaveAction: Boolean,
     saved: Boolean,
     saveEnabled: Boolean,
@@ -4308,6 +4421,27 @@ private fun CommentActionRow(
         )
     }
     var moreMenuExpanded by remember { mutableStateOf(false) }
+    var ownCommentSheetVisible by remember { mutableStateOf(false) }
+    if (ownCommentSheetVisible) {
+        io.github.brealorg.subshell.ui.components.ItemActionsSheet(
+            title = "Your comment",
+            groups = listOf(
+                listOfNotNull(
+                    io.github.brealorg.subshell.ui.components.SheetAction("Edit comment", Symbols.Edit) {
+                        onEdit()
+                    }.takeIf { canEdit },
+                ),
+                listOfNotNull(
+                    io.github.brealorg.subshell.ui.components.SheetAction(
+                        "Delete comment",
+                        Symbols.Delete,
+                        destructive = true,
+                    ) { onDelete() }.takeIf { canDelete },
+                ),
+            ),
+            onDismiss = { ownCommentSheetVisible = false },
+        )
+    }
     val more: @Composable () -> Unit = {
         Box {
             // A11Y01A11_COMMENT_OPTIONS_TARGET_V1
@@ -4325,9 +4459,11 @@ private fun CommentActionRow(
                 expanded = moreMenuExpanded,
                 onDismissRequest = { moreMenuExpanded = false },
             ) {
-                if (canEdit) {
+                // ISSUE295_YOUR_COMMENT_ACTIONS_IN_ONE_SHEET_V1 (owner: the same as a
+                // post): Edit and Delete are one entry opening a sheet.
+                if (canEdit || canDelete) {
                     DropdownMenuItem(
-                        text = { Text("Edit comment") },
+                        text = { Text("Your comment…") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Symbols.Edit,
@@ -4336,28 +4472,7 @@ private fun CommentActionRow(
                         },
                         onClick = {
                             moreMenuExpanded = false
-                            onEdit()
-                        },
-                    )
-                }
-                if (canDelete) {
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                "Delete comment",
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Symbols.Delete,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
-                            )
-                        },
-                        onClick = {
-                            moreMenuExpanded = false
-                            onDelete()
+                            ownCommentSheetVisible = true
                         },
                     )
                 }
@@ -4389,13 +4504,9 @@ private fun CommentActionRow(
                         },
                     )
                 }
-                // MODERATION02A2_COMMENT_REPORT_REOPEN_OUTSIDE_QUEUE_V1
-                ModeratorReportMenuItem(
-                    target = moderatorReportTarget,
-                    onDismissMenu = { moreMenuExpanded = false },
-                )
-                // MODERATION02A3_COMMENT_CONTENT_CONTROLS_REOPEN_V1
-                ModeratorContentControlsMenuItem(
+                // ISSUE295_ONE_MODERATE_ENTRY_OPENS_A_SHEET_V1: reports, approve,
+                // remove, spam, lock and distinguish are in the sheet it opens.
+                io.github.brealorg.subshell.ui.components.ModeratorMenuItem(
                     target = moderatorReportTarget,
                     onDismissMenu = { moreMenuExpanded = false },
                 )
@@ -4441,20 +4552,10 @@ private fun CommentActionRow(
                         onCopy()
                     },
                 )
-                // COMMENTSAVE01A31_COMMENT_OVERFLOW_ICON_SYSTEM_V1
-                DropdownMenuItem(
-                    text = { Text("Collapse thread") },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Symbols.ExpandLess,
-                            contentDescription = null,
-                        )
-                    },
-                    onClick = {
-                        moreMenuExpanded = false
-                        onCollapse()
-                    },
-                )
+                // COMMENTSAVE01A31_COMMENT_OVERFLOW_ICON_SYSTEM_V1: every entry has a
+                // leading icon. ISSUE295_MENU_OFFERS_ONLY_WHAT_THE_CARD_DOES_NOT_V1:
+                // "Collapse thread" is gone; a tap on the comment (or its header,
+                // by the setting) already collapses it.
             }
         }
     }

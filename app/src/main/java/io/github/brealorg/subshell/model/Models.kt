@@ -246,6 +246,10 @@ data class Post(
     val authorFlairRichText: List<FlairRichTextSegment> = emptyList(),
     // ISSUE44_POST_FLAIR_RICHTEXT_V1: Reddit's link_flair_richtext (emoji + text).
     val flairRichText: List<FlairRichTextSegment> = emptyList(),
+    // ISSUE295_REMOVED_POST_IS_MARKED_V1 (#295 part 3): removed by a moderator,
+    // AutoModerator or Reddit (not deleted by its author); Reddit tells only
+    // moderators, and only they see the mark.
+    val removed: Boolean = false,
 )
 
 @Immutable

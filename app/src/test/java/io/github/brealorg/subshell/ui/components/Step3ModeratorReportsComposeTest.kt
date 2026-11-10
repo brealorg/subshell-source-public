@@ -1,6 +1,5 @@
 package io.github.brealorg.subshell.ui.components
 
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
@@ -12,6 +11,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import io.github.brealorg.subshell.data.account.ModeratorReportConfirmation
 import io.github.brealorg.subshell.data.account.ModeratorReportTarget
@@ -179,30 +179,37 @@ class Step3ModeratorReportsComposeTest {
     }
 
     @Test
-    fun theRowButtonAndTheOverflowItemOpenTheirOwnItem() {
+    // ISSUE295_ONE_MODERATE_ENTRY_OPENS_A_SHEET_V1: the ⋮ entry moved into the
+    // moderator sheet ("Reports…"); Issue295ModActionsInMenuComposeTest checks it.
+    fun theQueueRowsSheetOpensItsOwnItem() {
         val entries = ModeratorReportsEntryPoints(
             hasModeratorAccess = true,
             canInspect = { it == "subshell" },
             open = { opened += it },
         )
-        val comment = ModeratorReportTarget("t1_def", "subshell")
         composeRule.setContent {
             SubshellTheme {
                 CompositionLocalProvider(LocalModeratorReports provides entries) {
-                    ModeratorReportsButton(item())
-                    DropdownMenu(expanded = true, onDismissRequest = {}) {
-                        ModeratorReportMenuItem(comment, onDismissMenu = {})
-                        ModeratorReportMenuItem(ModeratorReportTarget("t3_other", "elsewhere"), onDismissMenu = {})
+                    ModeratorQuickActionsHarness(
+                        accountStableId = "reddit:owner",
+                        actionState = io.github.brealorg.subshell.data.account.RedditModeratorActionUiState(),
+                        onModerate = {},
+                        notices = null,
+                    ) {
+                        ModeratorQueueItemActions(item(), inProgress = false)
                     }
                 }
             }
         }
         composeRule.waitForIdle()
 
-        assertEquals(1, count("Moderator reports"))
-        click("View reports")
-        click("Moderator reports")
+        composeRule.onNode(
+            androidx.compose.ui.test.hasContentDescription("More moderator actions") and
+                androidx.compose.ui.test.hasClickAction(),
+        ).performClick()
+        composeRule.waitForIdle()
+        click("Reports…")
 
-        assertEquals(listOf<ModeratorReportTarget?>(target, comment), opened)
+        assertEquals(listOf(target), opened.toList())
     }
 }

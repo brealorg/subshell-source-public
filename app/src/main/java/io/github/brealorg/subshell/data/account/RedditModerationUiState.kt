@@ -11,6 +11,18 @@ enum class RedditModerationUiFailureKind {
     PROTOCOL,
 }
 
+/**
+ * ISSUE295_REMOVED_CONTENT_LISTS_V1 (#295 part 3): the moderator lists Mod tools
+ * shows for one community. [path] is Reddit's /r/<name>/about/<path> listing;
+ * "spam" holds what Reddit's filters and moderators removed.
+ */
+enum class RedditModeratorQueueList(val label: String, val path: String) {
+    QUEUE("Queue", "modqueue"),
+    REMOVED("Removed", "spam"),
+    EDITED("Edited", "edited"),
+    UNMODERATED("Unmoderated", "unmoderated"),
+}
+
 enum class RedditModeratorQueueKind {
     POST,
     COMMENT,
@@ -98,6 +110,8 @@ data class RedditModerationUiState(
     val queueFailureDetails: FailureDetails? = null,
     val queueFailureHttpStatusCode: Int? = null,
     val contentRevision: Long = 0L,
+    // ISSUE295_REMOVED_CONTENT_LISTS_V1: which list the queue fields hold.
+    val queueList: RedditModeratorQueueList = RedditModeratorQueueList.QUEUE,
 ) {
     init {
         require(accountStableId == null || accountStableId.isNotBlank())

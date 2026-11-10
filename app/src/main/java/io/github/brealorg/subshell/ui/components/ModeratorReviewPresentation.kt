@@ -32,6 +32,9 @@ internal fun ModeratorQueueItemSummary(
     item: RedditModeratorQueueItem,
     inProgress: Boolean,
     modifier: Modifier = Modifier,
+    // ISSUE295_REMOVED_CONTENT_LISTS_V1: Removed, Edited and Unmoderated are not
+    // about reports; their cards say nothing about reports unless there are some.
+    showsReportCount: Boolean = true,
 ) {
     Row(
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
@@ -62,7 +65,9 @@ internal fun ModeratorQueueItemSummary(
                 InlineProgressIndicator()
             }
             ModeratorMetadataPill(if (item.kind == RedditModeratorQueueKind.POST) "Post" else "Comment")
-            ModeratorMetadataPill(moderatorReportCountLabel(item), emphasized = true)
+            if (showsReportCount || (item.reportDetails.totalCount ?: 0) > 0) {
+                ModeratorMetadataPill(moderatorReportCountLabel(item), emphasized = true)
+            }
             if (item.reportDetails.ignored == true) ModeratorMetadataPill("Reports ignored")
         }
     }

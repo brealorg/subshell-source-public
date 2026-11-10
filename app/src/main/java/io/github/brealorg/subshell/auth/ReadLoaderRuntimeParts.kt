@@ -29,6 +29,7 @@ import io.github.brealorg.subshell.data.auth.reddit.RedditOAuth
 import io.github.brealorg.subshell.data.auth.reddit.RedditOAuthRuntimeSelection
 import io.github.brealorg.subshell.data.auth.reddit.RedditSavedHistoryLoader
 import io.github.brealorg.subshell.data.auth.reddit.RedditSubscriptionsLoader
+import io.github.brealorg.subshell.data.cache.CachePayloadSeal
 import io.github.brealorg.subshell.data.cache.RedditSavedHistoryCacheStore
 import io.github.brealorg.subshell.data.cache.RoomSubshellCacheStore
 import io.github.brealorg.subshell.data.network.NetworkEndpoint
@@ -115,6 +116,7 @@ internal fun readLoaderRuntimeParts(
                             appContext.noBackupFilesDir,
                             "reddit-saved-history-v1",
                         ),
+                        seal = CachePayloadSeal.production(),
                     ),
                     capability = requireNotNull(profileHistoryCapability),
                 )
