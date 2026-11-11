@@ -79,7 +79,7 @@ class Issue65PostActionsOffMainComposeTest {
         assertEquals(0, preferences.commits)
         val readKey = accountPostActionsPreferenceKey(launched.activeAccountUsername, ACCOUNT_ACTION_FIELD_READ)
         // The read-set is stored sealed; read it back through the same layer the app uses.
-        val opened: SharedPreferences = SealedKeysPreferences(preferences, CachePayloadSeal.production)
+        val opened: SharedPreferences = SealedKeysPreferences(preferences, { CachePayloadSeal.production(application) })
         assertTrue("issue65" in opened.getStringSet(readKey, emptySet()).orEmpty())
     }
 

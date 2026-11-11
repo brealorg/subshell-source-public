@@ -8,6 +8,7 @@ import io.github.brealorg.subshell.data.account.AccountSessionSource
 import io.github.brealorg.subshell.data.isAuthenticatedAccountScoped
 import io.github.brealorg.subshell.data.scopedToAccount
 import io.github.brealorg.subshell.data.network.NetworkPage
+import io.github.brealorg.subshell.BuildConfig
 import io.github.brealorg.subshell.model.Comment
 import io.github.brealorg.subshell.model.Community
 import io.github.brealorg.subshell.model.CommunityDiscoveryItem
@@ -17,7 +18,6 @@ import io.github.brealorg.subshell.model.ProfileCommentFixture
 import io.github.brealorg.subshell.model.UserFixture
 import java.io.Closeable
 import java.util.concurrent.Callable
-import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.Flow
@@ -135,10 +135,30 @@ internal class RoomSubshellCacheStore(
     private val maxProfileCommentLists: Int = DEFAULT_MAX_PROFILE_COMMENT_LISTS,
     private val transactionObserver: CacheWriteTransactionObserver =
         NoOpCacheWriteTransactionObserver,
+    // PRIVATECACHE04: a single seal call that takes longer than this ends the sweep for this process.
+    private val stuckSealOpMs: Long = DEFAULT_STUCK_SEAL_OP_MS,
+    // PRIVATECACHE05: how long after the store opens the sweep waits before its first step, and the
+    // pause between steps; a step is also skipped while other cache calls are queued.
+    private val legacySweepDelayMs: Long = DEFAULT_LEGACY_SWEEP_DELAY_MS,
+    private val legacySweepGapMs: Long = DEFAULT_LEGACY_SWEEP_GAP_MS,
 ) : Closeable, AccountCacheRemover, DeletedPostCacheRemover {
     private val dao = database.cacheDao()
-    private val executor: ExecutorService = Executors.newSingleThreadExecutor { runnable ->
+    private val executor = java.util.concurrent.ThreadPoolExecutor(
+        1,
+        1,
+        0L,
+        TimeUnit.MILLISECONDS,
+        java.util.concurrent.LinkedBlockingQueue(),
+    ) { runnable ->
         Thread(runnable, "subshell-data03-room").apply {
+            isDaemon = true
+        }
+    }
+
+    // PRIVATECACHE05_THE_SWEEP_WAITS_FOR_AN_IDLE_CACHE_V1: a thread that only counts down to the next
+    // sweep step; the step itself runs on the cache thread.
+    private val sweepTimer = Executors.newSingleThreadScheduledExecutor { runnable ->
+        Thread(runnable, "subshell-data03-sweep").apply {
             isDaemon = true
         }
     }
@@ -146,11 +166,76 @@ internal class RoomSubshellCacheStore(
     init {
         require(maxQueryCount > 0) { "Max query count must be positive" }
         require(freshForMs >= 0L) { "Cache freshness window cannot be negative" }
+    }
 
-        // PRIVATECACHE01: seal what an older build left in plain text. Best effort and off the
-        // caller's thread; a failure leaves the rows as they are and costs nothing but time.
+    @Volatile
+    private var legacySweepStopped = false
+
+    // PRIVATECACHE04_LEGACY_ROWS_ARE_SEALED_IN_SMALL_STEPS_V1: one step is one task on the cache
+    // thread, so a read queued meanwhile waits for at most one step, not for every row. The next step
+    // is queued only after this one is done and only while the last one made progress.
+    // Only touched on the cache thread: the totals of the sweep for the timing line.
+    private var sweepStartedNanos = 0L
+    private var sweepRows = 0
+    private var sweepSteps = 0
+
+    // PRIVATECACHE01 / PRIVATECACHE04 / PRIVATECACHE05: seal what an older build left in plain text, a few
+    // rows at a time and only while the cache is idle (every Keystore call can be slow on some phones,
+    // and the first start after an update has the most rows to do). Declared last, so the fields the
+    // first step uses exist before a timer can fire.
+    init {
         if (database.payloadSeal.encrypts) {
-            executor.execute { runCatching { sealLegacyPayloads() } }
+            scheduleLegacySweepStep(legacySweepDelayMs)
+        }
+    }
+
+    // PRIVATECACHE05_THE_SWEEP_WAITS_FOR_AN_IDLE_CACHE_V1 (#296): measured on a phone over real data, a
+    // sweep that starts at once and runs in steps still took the cache thread from the feed's many
+    // small cache calls (the feed showed posts four seconds later with a normal Keystore, and
+    // forty-eight seconds later with one that takes 100 ms per call). So the first step waits
+    // [legacySweepDelayMs], and a step runs only when no other cache call is queued; otherwise it
+    // tries again a little later. The plain rows stay readable meanwhile.
+    private fun scheduleLegacySweepStep(afterMs: Long) {
+        try {
+            sweepTimer.schedule(
+                {
+                    try {
+                        executor.execute { runLegacySweepStep() }
+                    } catch (_: java.util.concurrent.RejectedExecutionException) {
+                        // The store was closed: the next process picks the rest up.
+                    }
+                },
+                afterMs,
+                TimeUnit.MILLISECONDS,
+            )
+        } catch (_: java.util.concurrent.RejectedExecutionException) {
+            // The store was closed.
+        }
+    }
+
+    private fun runLegacySweepStep() {
+        if (legacySweepStopped) return
+        if (executor.queue.isNotEmpty()) {
+            scheduleLegacySweepStep(SWEEP_BUSY_RETRY_MS)
+            return
+        }
+        if (sweepSteps == 0) sweepStartedNanos = System.nanoTime()
+        val sealed = try {
+            sealLegacyStep(SWEEP_STEP_ROWS, SWEEP_STEP_BUDGET_MS)
+        } catch (_: RuntimeException) {
+            0
+        }
+        sweepRows += sealed
+        sweepSteps += 1
+        if (sealed > 0 && !legacySweepStopped) {
+            scheduleLegacySweepStep(legacySweepGapMs)
+        } else if (BuildConfig.DEBUG && (sweepRows > 0 || legacySweepStopped)) {
+            android.util.Log.i(
+                "SubshellStartup",
+                "cache sweep: $sweepRows rows sealed in $sweepSteps steps, " +
+                    "${(System.nanoTime() - sweepStartedNanos) / 1_000_000} ms" +
+                    if (legacySweepStopped) " (stopped: a seal call was too slow)" else "",
+            )
         }
     }
 
@@ -433,26 +518,59 @@ internal class RoomSubshellCacheStore(
      * starts. A row that cannot be read as it is stays as it is (it is a cache miss and the next
      * network write replaces it); nothing is ever sealed from a guess.
      */
+    /** Seals every plain row now (tests, and callers that want it done in one go). */
     fun sealLegacyPayloads(): Int = databaseCall {
+        var total = 0
+        while (true) {
+            val sealed = sealLegacyStep(Int.MAX_VALUE, Long.MAX_VALUE)
+            if (sealed == 0) break
+            total += sealed
+        }
+        total
+    }
+
+    /**
+     * One bounded piece of the sweep: at most [maxRows] rows and, after the first, no new row once
+     * [budgetMs] has passed. Returns how many rows it sealed (0 = nothing more to do or nothing
+     * that could be sealed). Runs in one transaction on the cache thread.
+     */
+    private fun sealLegacyStep(maxRows: Int, budgetMs: Long): Int = databaseCall {
         val seal = database.payloadSeal
         if (!seal.encrypts) return@databaseCall 0
+        val started = System.nanoTime()
+        val budgetNanos = if (budgetMs == Long.MAX_VALUE) Long.MAX_VALUE else budgetMs * 1_000_000L
+        var left = maxRows
         database.runInTransaction<Int> {
-            sealRows(
-                dao.unsealedInbox(), seal, CachePayloadSeal.PLACE_INBOX,
-                { it.payload }, { row, payload -> row.copy(payload = payload) }, dao::upsertInbox,
-            ) + sealRows(
-                dao.unsealedLiveInboxEntries(), seal, CachePayloadSeal.PLACE_INBOX,
-                { it.payload }, { row, payload -> row.copy(payload = payload) }, dao::upsertLiveInboxEntries,
-            ) + sealRows(
-                dao.unsealedSubscriptions(), seal, CachePayloadSeal.PLACE_SUBSCRIPTION,
-                { it.payload }, { row, payload -> row.copy(payload = payload) }, dao::upsertSubscriptions,
-            ) + sealRows(
-                dao.unsealedScopedPosts(), seal, CachePayloadSeal.PLACE_POST_SCOPED,
-                { it.payload }, { row, payload -> row.copy(payload = payload) }, dao::upsertPosts,
-            )
+            var total = 0
+            fun <R> table(
+                fetch: (Int) -> List<R>,
+                place: String,
+                payloadOf: (R) -> String,
+                withPayload: (R, String) -> R,
+                write: (List<R>) -> Unit,
+            ) {
+                if (left <= 0 || legacySweepStopped) return
+                if (total > 0 && System.nanoTime() - started >= budgetNanos) return
+                val sealed = sealRows(fetch(left), seal, place, payloadOf, withPayload, write, started, budgetNanos, total > 0)
+                total += sealed
+                left -= sealed
+            }
+            val prefix = seal.currentPrefix
+            table({ limit -> dao.unsealedInbox(prefix, limit) }, CachePayloadSeal.PLACE_INBOX, { it.payload }, { row, payload -> row.copy(payload = payload) }, dao::upsertInbox)
+            table({ limit -> dao.unsealedLiveInboxEntries(prefix, limit) }, CachePayloadSeal.PLACE_INBOX, { it.payload }, { row, payload -> row.copy(payload = payload) }, dao::upsertLiveInboxEntries)
+            table({ limit -> dao.unsealedSubscriptions(prefix, limit) }, CachePayloadSeal.PLACE_SUBSCRIPTION, { it.payload }, { row, payload -> row.copy(payload = payload) }, dao::upsertSubscriptions)
+            table({ limit -> dao.unsealedScopedPosts(prefix, limit) }, CachePayloadSeal.PLACE_POST_SCOPED, { it.payload }, { row, payload -> row.copy(payload = payload) }, dao::upsertPosts)
+            total
         }
     }
 
+    /**
+     * Seals [rows] with the current seal. A row is plain text (rc.2) or an e1 value (1.0.0): it is
+     * opened first (plain passes through; e1 costs a Keystore call) and sealed again. A row that is
+     * definitely unreadable (the key is gone, or the value is damaged) is a cache miss anyway and is
+     * marked "could not be sealed" so it leaves the sweep's selection; a failure that may only be a bad
+     * moment of the Keystore marks nothing and ends the sweep for this process.
+     */
     private fun <R> sealRows(
         rows: List<R>,
         seal: CachePayloadSeal,
@@ -460,13 +578,32 @@ internal class RoomSubshellCacheStore(
         payloadOf: (R) -> String,
         withPayload: (R, String) -> R,
         write: (List<R>) -> Unit,
+        stepStartedNanos: Long,
+        budgetNanos: Long,
+        alreadySealedInStep: Boolean,
     ): Int {
-        val sealed = rows
-            .filterNot { payloadOf(it).startsWith(CachePayloadSeal.UNAVAILABLE_PREFIX) }
-            .map { row -> withPayload(row, seal.seal(payloadOf(row), place)) }
-            .filterNot { payloadOf(it).startsWith(CachePayloadSeal.UNAVAILABLE_PREFIX) }
-        if (sealed.isNotEmpty()) write(sealed)
-        return sealed.size
+        val written = ArrayList<R>()
+        for (row in rows) {
+            if ((alreadySealedInStep || written.isNotEmpty()) && System.nanoTime() - stepStartedNanos >= budgetNanos) break
+            val opStarted = System.nanoTime()
+            val plain = try {
+                seal.open(payloadOf(row), place)
+            } catch (error: RuntimeException) {
+                if (error.isDefinitelyUnreadable()) {
+                    written += withPayload(row, CachePayloadSeal.UNAVAILABLE_PREFIX)
+                } else {
+                    legacySweepStopped = true
+                }
+                if (legacySweepStopped) break
+                continue
+            }
+            val stored = seal.seal(plain, place)
+            if (System.nanoTime() - opStarted >= stuckSealOpMs * 1_000_000L) legacySweepStopped = true
+            if (!stored.startsWith(CachePayloadSeal.UNAVAILABLE_PREFIX)) written += withPayload(row, stored)
+            if (legacySweepStopped) break
+        }
+        if (written.isNotEmpty()) write(written)
+        return written.size
     }
 
     // CACHE06_UNREADABLE_ROW_IS_A_CACHE_MISS_V1 (#204): the CACHE02 rule for
@@ -1617,6 +1754,7 @@ internal class RoomSubshellCacheStore(
     }
 
     override fun close() {
+        sweepTimer.shutdownNow()
         executor.shutdown()
         executor.awaitTermination(5, TimeUnit.SECONDS)
         if (ownsDatabase) {
@@ -1656,6 +1794,15 @@ internal fun cachedPostIdOfRowKey(rowKey: String): String =
     rowKey.substringAfterLast(CACHED_POST_ROW_SEPARATOR)
 
 private const val CACHED_POST_ROW_SEPARATOR = "|post|"
+
+// PRIVATECACHE04: the sweep seals at most this many rows per step and stops adding rows to a step
+// after this long; one seal call slower than DEFAULT_STUCK_SEAL_OP_MS ends the sweep.
+private const val SWEEP_STEP_ROWS = 25
+private const val SWEEP_STEP_BUDGET_MS = 250L
+internal const val DEFAULT_STUCK_SEAL_OP_MS = 3_000L
+internal const val DEFAULT_LEGACY_SWEEP_DELAY_MS = 15_000L
+internal const val DEFAULT_LEGACY_SWEEP_GAP_MS = 750L
+private const val SWEEP_BUSY_RETRY_MS = 1_000L
 
 // MED4B_ONE_RUNTIME_CACHE_STORE_PER_PROCESS_V1 (OCB-578/619): every
 // AuthApplicationRuntime (the UI's and each inbox worker run) opened its own

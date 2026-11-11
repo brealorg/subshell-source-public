@@ -1,0 +1,45 @@
+{
+  "id": "v101",
+  "release": {
+    "versionCode": 260,
+    "versionName": "1.0.1",
+    "date": "2026-11-11",
+    "headline": "Subshell 1.0.1: fixes the app staying blank and \"not responding\" on the first start after updating from rc.2",
+    "highlights": [
+      "Fixed: on some phones the app showed a blank window and then \"not responding\" on the first start after updating from rc.2. Starting no longer waits for encryption.",
+      "Data older versions stored as plain text is now encrypted in the background, and only while the app is not busy.",
+      "Feeds and the start stay fast on phones with a slow Android Keystore, and the app no longer freezes if the Keystore stops answering.",
+      "Diagnostics now keep where the app was stuck when Android reports it as not responding, so problems like this are easier to find.",
+      "If something does not work for you, tell us on r/subshell or GitHub."
+    ],
+    "notes": [
+      "Why it happened: after the update, the app had to encrypt everything older versions had stored as plain text before it could show the first screen. On some phones, where the secure key store is slow, that took so long that Android showed \"not responding\".",
+      "What changed: the first screen now waits at most two seconds for encryption. The rest happens in the background, in small steps, and only when the app is idle.",
+      "Also fixed: on a phone with a very slow key store, feed pages no longer load slowly. Private data is now opened with a key kept in memory, and the app does not freeze if the key store stops answering.",
+      "Thanks to Dr-Khal for the detailed report on GitHub (#296)."
+    ],
+    "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v1.0.1"
+  },
+  "below": [
+    {
+      "versionCode": 259,
+      "versionName": "1.0.0",
+      "date": "2026-11-10"
+    },
+    {
+      "versionCode": 258,
+      "versionName": "1.0.0-rc.2",
+      "date": "2026-11-07"
+    },
+    {
+      "versionCode": 257,
+      "versionName": "1.0.0-rc",
+      "date": "2026-11-06"
+    },
+    {
+      "versionCode": 256,
+      "versionName": "0.92-beta",
+      "date": "2026-11-05"
+    }
+  ]
+}

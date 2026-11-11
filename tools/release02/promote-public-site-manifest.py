@@ -331,10 +331,22 @@ def validate_changelog_advisory(advisory, version_code: int) -> None:
         fail("CHANGELOG_ADVISORY_VERSIONS_INVALID")
 
 
+def version_present(text: str, version: str) -> bool:
+    """RELEASETOOL02G_WHOLE_VERSION_MATCH_V1: [version] as a whole version, not as the start of another.
+
+    "1.0.0" is inside "1.0.0-rc.2", which the copy must name until it is replaced, so a
+    plain substring test made the first stable release after a release candidate impossible.
+    A version ends where a letter, digit, "-", "+" or a further ".x" would continue it, and
+    begins after anything but a digit or a dot (a "v" before it, as in a tag, still counts).
+    """
+    pattern = r"(?<![0-9.])" + re.escape(version) + r"(?![0-9A-Za-z_+-]|\.[0-9A-Za-z])"
+    return re.search(pattern, text) is not None
+
+
 def rewrite_public_copy(text: str, previous: str, current: str) -> str:
     if previous == current:
         fail("PUBLIC_COPY_PREVIOUS_EQUALS_CURRENT")
-    if current in text:
+    if version_present(text, current):
         fail("PUBLIC_COPY_CURRENT_VERSION_ALREADY_PRESENT_AT_BASE")
     count = text.count(previous)
     if count <= 0:

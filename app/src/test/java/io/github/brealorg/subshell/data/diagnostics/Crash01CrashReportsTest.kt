@@ -151,6 +151,66 @@ class Crash01CrashReportsTest {
     }
 
     @Test
+    fun anAnrTraceKeepsOnlyTheMainThreadsFramesAsNamesAndLines() {
+        val trace = """
+            ----- pid 123 at 2026-11-11 09:03:00 -----
+            Cmd line: io.github.brealorg.subshell
+
+            "Signal Catcher" prio=10 tid=2 Runnable
+              at java.lang.Thread.sleep(Thread.java:450)
+
+            "main" prio=5 tid=1 Blocked
+              | group="main" sCount=1 secret user text
+              at android.security.keystore2.KeyStoreCryptoOperationChunkedStreamer.update(KeyStoreCryptoOperationChunkedStreamer.java:100)
+              - waiting to lock <0x0abc> (a java.lang.Object) held by thread 7
+              at io.github.brealorg.subshell.data.privateprefs.SealedKeysPreferences${'$'}SealingEditor.putSealed(SealedKeysPreferences.kt:210)
+              at io.github.brealorg.subshell.data.drafts.ComposerDraftStore.save(ComposerDraftStore.kt:53)
+              at android.os.MessageQueue.nativePollOnce(Native Method)
+
+            "other" prio=5 tid=9 Native
+              at io.github.brealorg.subshell.NotMain.run(NotMain.kt:1)
+        """.trimIndent()
+
+        val frames = mainThreadFramesOf(trace.reader().buffered())!!
+
+        assertEquals(
+            "android.security.keystore2.KeyStoreCryptoOperationChunkedStreamer.update:100",
+            frames.topFrame,
+        )
+        assertEquals(
+            listOf(
+                "data.privateprefs.SealedKeysPreferences${'$'}SealingEditor.putSealed:210",
+                "data.drafts.ComposerDraftStore.save:53",
+            ),
+            frames.appFrames,
+        )
+        assertEquals(null, mainThreadFramesOf("no threads here".reader().buffered()))
+    }
+
+    @Test
+    fun anAnrRecordNamesThisVersionOnlyWhenItWasInstalledAtTheTime() {
+        val activityManager = context.getSystemService(ActivityManager::class.java)
+        val store = CrashRecordStore(context)
+        val info = context.packageManager.getPackageInfo(context.packageName, 0)
+        info.lastUpdateTime = 1_000_000L
+        shadowOf(context.packageManager).installPackage(info)
+        shadowOf(activityManager).addApplicationExitInfo(exit(ApplicationExitInfo.REASON_ANR, 1L))
+        recordProcessExitReasons(context, store)
+
+        shadowOf(activityManager).addApplicationExitInfo(exit(ApplicationExitInfo.REASON_ANR, 999_999L))
+        shadowOf(activityManager).addApplicationExitInfo(exit(ApplicationExitInfo.REASON_ANR, 1_000_010L))
+        recordProcessExitReasons(context, store)
+
+        assertEquals(
+            mapOf(
+                999_999L to null,
+                1_000_010L to io.github.brealorg.subshell.BuildConfig.VERSION_CODE.toLong(),
+            ),
+            store.records().associate { it.timestampEpochMs to it.appVersionCode },
+        )
+    }
+
+    @Test
     fun theNextStartWritesTheCrashIntoTheHistoryOnce() {
         CrashRecordStore(context).record(CrashRecord(CrashKind.CRASH, 5_000L, appVersionCode = 246L))
 

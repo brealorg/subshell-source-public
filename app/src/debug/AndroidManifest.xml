@@ -26,6 +26,10 @@
             </intent-filter>
         </activity>
         <provider
+            android:name="io.github.brealorg.subshell.debugkeystore.SlowSealProvider"
+            android:authorities="${applicationId}.slow-seal"
+            android:exported="false" />
+        <provider
             android:name="io.github.brealorg.subshell.debuglog.LaneLogProvider"
             android:authorities="${applicationId}.lane-log"
             android:exported="false" />

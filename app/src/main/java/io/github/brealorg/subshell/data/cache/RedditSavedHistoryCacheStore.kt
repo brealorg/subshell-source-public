@@ -58,7 +58,7 @@ internal class RedditSavedHistoryCacheStore(
                     ?.trim()
                     ?.takeIf(String::isNotEmpty),
             ).also { snapshot ->
-                if (seal.encrypts && !stored.startsWith(CachePayloadSeal.SEALED_PREFIX)) {
+                if (seal.encrypts && !stored.startsWith(seal.currentPrefix)) {
                     runCatching { write(queryKey, snapshot) }
                 }
             }

@@ -177,6 +177,30 @@ expect_error(
     "CURRENT_VERSION_ALREADY_PRESENT",
 )
 
+# RELEASETOOL02G_WHOLE_VERSION_MATCH_V1: the first stable release after a release candidate.
+# "1.0.0" is a prefix of "1.0.0-rc.2", which the copy names until it is replaced.
+after_rc = module.rewrite_public_copy(
+    "Download 1.0.0-rc.2 (tag v1.0.0-rc.2, release/download/v1.0.0-rc.2/Subshell-1.0.0-rc.2.apk)\n",
+    "1.0.0-rc.2",
+    "1.0.0",
+)
+assert after_rc == "Download 1.0.0 (tag v1.0.0, release/download/v1.0.0/Subshell-1.0.0.apk)\n", after_rc
+assert "rc" not in after_rc
+for already_named in (
+    "now 1.0.0",
+    "now 1.0.0.",
+    "tag/v1.0.0",
+    "(1.0.0)",
+    "1.0.0, then 1.0.0-rc.2",
+):
+    expect_error(
+        lambda text=already_named: module.rewrite_public_copy(text, "1.0.0-rc.2", "1.0.0"),
+        "CURRENT_VERSION_ALREADY_PRESENT",
+    )
+for other_version in ("1.0.0-rc.2", "1.0.0-rc.20", "1.0.01", "11.0.0", "0.1.0.0", "1.0.0.1", "1.0.0+build"):
+    assert not module.version_present(other_version, "1.0.0"), other_version
+print("PASS=RELEASETOOL02G_WHOLE_VERSION_MATCH")
+
 # RELEASE48_RELEASES_ARE_NOT_PRERELEASES_V1
 prerelease_payload = dict(payload)
 prerelease_payload["prerelease"] = True

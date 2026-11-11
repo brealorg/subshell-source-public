@@ -317,8 +317,8 @@ internal interface SubshellCacheDao {
     fun upsertPosts(posts: List<CachedPostEntity>)
 
     // PRIVATECACHE03: account-scoped rows ("<scope>|post|<id>") an older build wrote in plain text.
-    @Query("SELECT * FROM cached_posts WHERE post_id LIKE '%|post|%' AND payload NOT LIKE 'e1:%'")
-    fun unsealedScopedPosts(): List<CachedPostEntity>
+    @Query("SELECT * FROM cached_posts WHERE post_id LIKE '%|post|%' AND payload NOT LIKE :prefix || '%' AND payload NOT LIKE 'e0:%' LIMIT :limit")
+    fun unsealedScopedPosts(prefix: String, limit: Int): List<CachedPostEntity>
 
     @Upsert
     fun upsertQuery(query: CachedQueryEntity)
@@ -403,9 +403,9 @@ internal interface SubshellCacheDao {
     @Upsert
     fun upsertSubscriptions(values: List<CachedSubscriptionEntity>)
 
-    // PRIVATECACHE01: rows without the sealed prefix (written by an older build).
-    @Query("SELECT * FROM cached_subscriptions WHERE payload NOT LIKE 'e1:%'")
-    fun unsealedSubscriptions(): List<CachedSubscriptionEntity>
+    // PRIVATECACHE01 / PRIVATECACHE06: rows without the current seal's prefix (plain text from rc.2, e1 from 1.0.0).
+    @Query("SELECT * FROM cached_subscriptions WHERE payload NOT LIKE :prefix || '%' AND payload NOT LIKE 'e0:%' LIMIT :limit")
+    fun unsealedSubscriptions(prefix: String, limit: Int): List<CachedSubscriptionEntity>
 
     @Query("DELETE FROM cached_subscriptions WHERE account_stable_id = :accountStableId")
     fun deleteSubscriptions(accountStableId: String)
@@ -515,8 +515,8 @@ internal interface SubshellCacheDao {
     @Upsert
     fun upsertInbox(values: List<CachedInboxEntity>)
 
-    @Query("SELECT * FROM cached_inbox WHERE payload NOT LIKE 'e1:%'")
-    fun unsealedInbox(): List<CachedInboxEntity>
+    @Query("SELECT * FROM cached_inbox WHERE payload NOT LIKE :prefix || '%' AND payload NOT LIKE 'e0:%' LIMIT :limit")
+    fun unsealedInbox(prefix: String, limit: Int): List<CachedInboxEntity>
 
     @Query("SELECT * FROM cached_inbox ORDER BY item_id LIMIT :limit OFFSET :offset")
     fun inbox(offset: Int, limit: Int): List<CachedInboxEntity>
@@ -555,8 +555,8 @@ internal interface SubshellCacheDao {
     @Upsert
     fun upsertLiveInboxEntries(values: List<CachedLiveInboxEntryEntity>)
 
-    @Query("SELECT * FROM cached_live_inbox_entries WHERE payload NOT LIKE 'e1:%'")
-    fun unsealedLiveInboxEntries(): List<CachedLiveInboxEntryEntity>
+    @Query("SELECT * FROM cached_live_inbox_entries WHERE payload NOT LIKE :prefix || '%' AND payload NOT LIKE 'e0:%' LIMIT :limit")
+    fun unsealedLiveInboxEntries(prefix: String, limit: Int): List<CachedLiveInboxEntryEntity>
 
     @Upsert
     fun upsertLiveInboxSeen(value: CachedLiveInboxSeenEntity)
@@ -881,7 +881,7 @@ internal abstract class SubshellCacheDatabase : RoomDatabase() {
             return synchronized(this) {
                 shared?.takeIf { (owner, _) -> owner === appContext }?.second
                     ?: open(appContext).also { created ->
-                        created.payloadSeal = CachePayloadSeal.production()
+                        created.payloadSeal = CachePayloadSeal.production(appContext)
                         shared = appContext to created
                     }
             }

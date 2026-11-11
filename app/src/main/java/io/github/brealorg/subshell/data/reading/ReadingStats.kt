@@ -284,7 +284,7 @@ internal object ReadingStats {
             store ?: context.applicationContext.let { appContext ->
                 ReadingStatsStore(
                     directoryOf = { File(appContext.noBackupFilesDir, "reading") },
-                    sealOf = { CachePayloadSeal.production() },
+                    sealOf = { CachePayloadSeal.production(appContext) },
                 )
             }.also { store = it }
         }

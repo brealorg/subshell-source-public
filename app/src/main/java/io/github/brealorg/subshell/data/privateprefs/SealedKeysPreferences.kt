@@ -42,12 +42,14 @@ internal class SealedKeysPreferences(
     }
 
     /** Opens every sealed value once, so the first reads on the main thread find them in memory. */
-    fun warm() {
+    fun warm(): Int {
+        var count = 0
         delegate.all.forEach { (key, value) ->
-            if (isSealedKey(key) && value is String && value.startsWith(CachePayloadSeal.SEALED_PREFIX)) {
-                openedOrNull(key, value)
+            if (isSealedKey(key) && value is String && CachePayloadSeal.isSealed(value)) {
+                if (openedOrNull(key, value) != null) count += 1
             }
         }
+        return count
     }
 
     /**
@@ -63,7 +65,7 @@ internal class SealedKeysPreferences(
             when {
                 key.startsWith(UNREADABLE_KEY_PREFIX) -> kept += 1
                 !isSealedKey(key) || value !is String -> Unit
-                value.startsWith(CachePayloadSeal.SEALED_PREFIX) ->
+                CachePayloadSeal.isSealed(value) ->
                     if (openedOrNull(key, value) != null) opens += 1 else cannotOpen += 1
                 value.startsWith(CachePayloadSeal.UNAVAILABLE_PREFIX) -> cannotOpen += 1
             }
@@ -71,7 +73,10 @@ internal class SealedKeysPreferences(
         return PrivateDataStatus(opens, cannotOpen, kept)
     }
 
-    /** Seals the values an older build stored in plain text. Returns how many. */
+    /**
+     * Seals what an older build stored: plain text (rc.2) and e1 values (1.0.0, one Keystore call each)
+     * become the current kind. A value that cannot be opened is left as it is. Returns how many.
+     */
     fun sealLegacyValues(): Int {
         if (!seal.encrypts) return 0
         val editor = delegate.edit()
@@ -80,8 +85,10 @@ internal class SealedKeysPreferences(
             if (!isSealedKey(key)) return@forEach
             val plain = when {
                 value is Set<*> -> SET_MARKER + value.filterIsInstance<String>().sorted().joinToString("\n")
-                value is String && !value.startsWith(CachePayloadSeal.SEALED_PREFIX) &&
-                    !value.startsWith(CachePayloadSeal.UNAVAILABLE_PREFIX) -> TEXT_MARKER + value
+                value is String && value.startsWith(CachePayloadSeal.UNAVAILABLE_PREFIX) -> return@forEach
+                value is String && CachePayloadSeal.isSealed(value) ->
+                    if (value.startsWith(seal.currentPrefix)) return@forEach else openedOrNull(key, value) ?: return@forEach
+                value is String -> TEXT_MARKER + value
                 else -> return@forEach
             }
             val stored = seal.seal(plain, placeOf(key))
@@ -158,7 +165,7 @@ internal class SealedKeysPreferences(
 
     /** The value as the caller wants it: a [String] or a [Set] of strings; null when it cannot be opened. */
     private fun readable(key: String, stored: String): Any? {
-        if (!stored.startsWith(CachePayloadSeal.SEALED_PREFIX)) return stored
+        if (!CachePayloadSeal.isSealed(stored)) return stored
         val plain = openedOrNull(key, stored) ?: return null
         return when {
             plain.startsWith(TEXT_MARKER) -> plain.substring(TEXT_MARKER.length)
@@ -249,7 +256,7 @@ internal class SealedKeysPreferences(
         /** The first write over a sealed value that cannot be opened keeps it, so it is not lost. */
         private fun keepWhatCannotBeOpened(key: String) {
             val current = storedString(key) ?: return
-            if (!current.startsWith(CachePayloadSeal.SEALED_PREFIX) || openedOrNull(key, current) != null) return
+            if (!CachePayloadSeal.isSealed(current) || openedOrNull(key, current) != null) return
             val keptKey = UNREADABLE_KEY_PREFIX + key
             if (!delegate.contains(keptKey)) inner.putString(keptKey, current)
         }
@@ -291,7 +298,7 @@ internal class SealedKeysPreferences(
                 shared.getOrPut(appContext to name) {
                     SealedKeysPreferences(
                         delegate = appContext.getSharedPreferences(name, Context.MODE_PRIVATE),
-                        sealOf = { CachePayloadSeal.production() },
+                        sealOf = { CachePayloadSeal.production(appContext) },
                         isSealedKey = requireNotNull(SEALED_KEYS_BY_FILE[name]) { "No sealed keys for $name" },
                     )
                 }

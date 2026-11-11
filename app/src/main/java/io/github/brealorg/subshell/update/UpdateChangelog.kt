@@ -20,6 +20,14 @@ internal const val UPDATE01_MAX_CHANGELOG_RELEASES = 50
 internal const val UPDATE01_MAX_CHANGELOG_HIGHLIGHTS = 12
 internal const val UPDATE01_MAX_CHANGELOG_TEXT = 240
 
+// RELNOTES02_BUNDLED_NOTES_ARE_LONGER_THAN_HIGHLIGHTS_V1: the 12 x 240 limits
+// above protect older clients that read the update manifest. The bundled
+// changelog is the APK's own asset and no older client reads it, so a release
+// may also carry `notes`: paragraphs shown under the highlights in What's new.
+// The update dialog and the manifest keep only the short highlights.
+internal const val UPDATE01_MAX_CHANGELOG_NOTE_PARAGRAPHS = 24
+internal const val UPDATE01_MAX_CHANGELOG_NOTE_CHARS = 1_200
+
 @Serializable
 internal data class UpdateChangelogDocument(
     val schemaVersion: Int,
@@ -33,6 +41,7 @@ internal data class UpdateChangelogRelease(
     val date: String,
     val headline: String,
     val highlights: List<String> = emptyList(),
+    val notes: List<String> = emptyList(),
     val releaseUrl: String? = null,
 )
 
@@ -97,11 +106,23 @@ internal fun normalizeUpdateChangelog(
                 .take(UPDATE01_MAX_CHANGELOG_HIGHLIGHTS)
                 .toList()
 
+            val notes = release.notes
+                .asSequence()
+                .map(String::trim)
+                .filter(String::isNotEmpty)
+                .filter { value ->
+                    value.length <= UPDATE01_MAX_CHANGELOG_NOTE_CHARS &&
+                        '\u0000' !in value
+                }
+                .take(UPDATE01_MAX_CHANGELOG_NOTE_PARAGRAPHS)
+                .toList()
+
             release.copy(
                 versionName = versionName,
                 date = date,
                 headline = headline,
                 highlights = highlights,
+                notes = notes,
                 releaseUrl = releaseUrl,
             )
         }

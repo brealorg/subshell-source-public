@@ -1,8 +1,10 @@
 package io.github.brealorg.subshell.ui.app
 
 import android.content.Context
+import io.github.brealorg.subshell.BuildConfig
 import io.github.brealorg.subshell.backup.processSettingsBackupRepository
 import io.github.brealorg.subshell.data.privateprefs.SealedKeysPreferences
+import io.github.brealorg.subshell.data.privateprefs.SealedStartup
 import io.github.brealorg.subshell.inbox.NotificationLaunchKey
 import io.github.brealorg.subshell.shortcuts.LAUNCHER_SHORTCUTS_PREFERENCES
 import io.github.brealorg.subshell.ui.RedditExternalPollHandoffStore
@@ -33,6 +35,7 @@ internal object StartupPreferences {
 
     fun start(context: Context): Deferred<Unit> = synchronized(this) {
         loading ?: scope.async {
+            val startedAt = System.nanoTime()
             val application = context.applicationContext
             listOf(
                 SUBSHELL_PREFERENCES,
@@ -44,15 +47,19 @@ internal object StartupPreferences {
             ).forEach { name ->
                 runCatching { application.getSharedPreferences(name, Context.MODE_PRIVATE).all }
             }
-            // PRIVATEPREFS01: seal what an older build left in plain text and open the sealed values
-            // once, so the first reads on Main (hidden communities, notes, drafts) find them in memory.
+            // PRIVATEPREFS01 / PRIVATEPREFS05_START_DOES_NOT_WAIT_FOR_THE_KEYSTORE_V1: open the sealed
+            // values (waiting at most two seconds) so the first reads on Main find them in memory; the
+            // plain values an older build left are sealed afterwards, in the background.
             runCatching {
-                SealedKeysPreferences.allInstances(application).forEach { preferences ->
-                    preferences.sealLegacyValues()
-                    preferences.warm()
-                }
+                SealedStartup.openThenSealInBackground(SealedKeysPreferences.allInstances(application), scope)
             }
             runCatching { processSettingsBackupRepository(application) }
+            if (BuildConfig.DEBUG) {
+                android.util.Log.i(
+                    SealedStartup.LOG_TAG,
+                    "start-up preferences ready after ${(System.nanoTime() - startedAt) / 1_000_000} ms",
+                )
+            }
             Unit
         }.also { loading = it }
     }

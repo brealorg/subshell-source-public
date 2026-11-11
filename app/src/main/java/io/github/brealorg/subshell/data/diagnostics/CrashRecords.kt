@@ -214,7 +214,24 @@ internal fun recordProcessExitReasons(context: Context, store: CrashRecordStore)
                     else -> null
                 }
                 if (kind != null) {
-                    store.record(CrashRecord(kind = kind, timestampEpochMs = exit.timestamp, appVersionCode = null))
+                    // ANR01_ANR_RECORD_KEEPS_MAIN_THREAD_FRAMES_V1: Android's own dump of the stopped
+                    // process says where the main thread stood; names and lines only, never text.
+                    val frames = if (kind == CrashKind.NOT_RESPONDING) {
+                        runCatching {
+                            exit.traceInputStream?.bufferedReader(Charsets.UTF_8)?.use(::mainThreadFramesOf)
+                        }.getOrNull()
+                    } else {
+                        null
+                    }
+                    store.record(
+                        CrashRecord(
+                            kind = kind,
+                            timestampEpochMs = exit.timestamp,
+                            appVersionCode = versionRunningAt(context, exit.timestamp),
+                            topFrame = frames?.topFrame,
+                            appFrames = frames?.appFrames.orEmpty(),
+                        ),
+                    )
                 }
             }
     }
@@ -222,6 +239,52 @@ internal fun recordProcessExitReasons(context: Context, store: CrashRecordStore)
         preferences.edit().putLong(EXIT_REASONS_SEEN_UNTIL_KEY, newest).apply()
     }
 }
+
+/** The main thread's top frame and first app frames from an ANR trace. */
+internal data class MainThreadFrames(val topFrame: String?, val appFrames: List<String>)
+
+private val TRACE_FRAME = Regex("""^\s+at (\S+)\((.*)\)\s*$""")
+private const val MAX_TRACE_LINES = 20_000
+
+/**
+ * Reads [reader] (Android's ANR trace, one text dump of every thread) up to the end of the
+ * `"main"` thread block and keeps its frames as class.method:line tokens. Lock lines, thread
+ * names and everything else are dropped. Null when there is no main thread block.
+ */
+internal fun mainThreadFramesOf(reader: java.io.BufferedReader): MainThreadFrames? {
+    var inMain = false
+    var seen = false
+    val frames = mutableListOf<String>()
+    var count = 0
+    while (count++ < MAX_TRACE_LINES) {
+        val line = reader.readLine() ?: break
+        if (!inMain) {
+            if (line.startsWith("\"main\" ")) {
+                inMain = true
+                seen = true
+            }
+            continue
+        }
+        if (line.isBlank() || line.startsWith("\"")) break
+        val match = TRACE_FRAME.matchEntire(line) ?: continue
+        val lineNo = match.groupValues[2].substringAfterLast(':', "").toIntOrNull() ?: -2
+        safeCrashToken("${match.groupValues[1]}:$lineNo")?.let(frames::add)
+    }
+    if (!seen) return null
+    return MainThreadFrames(
+        topFrame = frames.firstOrNull(),
+        appFrames = frames.filter { it.startsWith(APP_PACKAGE_PREFIX) }
+            .map { it.removePrefix(APP_PACKAGE_PREFIX) }
+            .distinct()
+            .take(MAX_CRASH_APP_FRAMES),
+    )
+}
+
+/** This build's version code when it was already installed at [exitEpochMs], else null. */
+private fun versionRunningAt(context: Context, exitEpochMs: Long): Long? = runCatching {
+    val installedAt = context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime
+    BuildConfig.VERSION_CODE.toLong().takeIf { it > 0L && exitEpochMs >= installedAt }
+}.getOrNull()
 
 internal const val MAX_CRASH_RECORDS = 10
 internal const val MAX_CRASH_APP_FRAMES = 8

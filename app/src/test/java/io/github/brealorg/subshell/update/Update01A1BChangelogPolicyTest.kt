@@ -31,6 +31,30 @@ class Update01A1BChangelogPolicyTest {
     }
 
     @Test
+    fun bundledNotesAreTrimmedBoundedAndOptional() {
+        val normalized = normalizeUpdateChangelog(
+            UpdateChangelogDocument(
+                schemaVersion = 1,
+                releases = listOf(
+                    release(235, "0.77.0-beta.1"),
+                    release(
+                        236,
+                        "0.77.0-beta.2",
+                        notes = listOf(" First ", "", "x".repeat(UPDATE01_MAX_CHANGELOG_NOTE_CHARS + 1)) +
+                            List(40) { index -> "Paragraph $index" },
+                    ),
+                ),
+            ),
+        )
+
+        val withNotes = normalized!!.releases.first()
+        assertEquals("First", withNotes.notes.first())
+        assertEquals(UPDATE01_MAX_CHANGELOG_NOTE_PARAGRAPHS, withNotes.notes.size)
+        assertTrue(withNotes.notes.none { it.length > UPDATE01_MAX_CHANGELOG_NOTE_CHARS })
+        assertTrue(normalized.releases.last().notes.isEmpty())
+    }
+
+    @Test
     fun unsupportedSchemaAndUntrustedReleaseUrlFailClosed() {
         assertNull(
             normalizeUpdateChangelog(
@@ -98,6 +122,7 @@ class Update01A1BChangelogPolicyTest {
         versionCode: Int,
         versionName: String,
         highlights: List<String> = listOf("One"),
+        notes: List<String> = emptyList(),
         releaseUrl: String =
             "https://github.com/brealorg/subshell/releases/tag/v$versionName",
     ) = UpdateChangelogRelease(
@@ -106,6 +131,7 @@ class Update01A1BChangelogPolicyTest {
         date = "2026-09-06",
         headline = "Release",
         highlights = highlights,
+        notes = notes,
         releaseUrl = releaseUrl,
     )
 }

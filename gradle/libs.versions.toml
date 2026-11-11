@@ -1,14 +1,14 @@
 [versions]
-agp = "9.4.1"
+agp = "9.5.1"
 kotlin = "2.4.21"
 activityCompose = "1.13.0"
-# LIFECYCLECOLLECT01: collectAsStateWithLifecycle; 2.10.0 is the lifecycle version material3 1.5 already resolves.
-lifecycleRuntimeCompose = "2.10.0"
+# LIFECYCLECOLLECT01: collectAsStateWithLifecycle.
+lifecycleRuntimeCompose = "2.11.0"
 fragment = "1.9.1"
 coreKtx = "1.19.1"
 composeBom = "2026.09.00"
 # #232 (owner, 2026-10-16): material3 1.5 for the M3 Expressive toolbar; the BOM still gives 1.4.0.
-material3 = "1.5.0-beta01"
+material3 = "1.5.0-rc01"
 media3 = "1.11.1"
 # VIDEO11: already on the runtime classpath through material3-adaptive; tabletop posture needs it at compile time.
 androidxWindow = "1.5.1"
@@ -21,18 +21,18 @@ workManager = "2.12.0"
 # #267 (owner, 2026-10-31): Google's widget toolkit for the Inbox and Posts widgets.
 glance = "1.2.0"
 room = "2.8.5"
-ksp = "2.3.12"
-okhttp = "5.5.0"
-kotlinxSerialization = "1.11.0"
+ksp = "2.3.13"
+okhttp = "5.5.1"
+kotlinxSerialization = "1.12.0"
 kotlinxCoroutines = "1.11.0"
 benchmark = "1.5.0"
-uiautomator = "2.4.0"
+uiautomator = "2.4.1"
 # PERF01 (owner 2026-10-16): baseline profile installed on sideloaded APKs,
 # and LeakCanary in debug builds only.
 profileinstaller = "1.4.1"
 leakcanary = "2.14"
 # Robolectric: the newest release at fetch time; bump if resolution says it does not exist.
-robolectric = "4.16"
+robolectric = "4.17"
 
 [libraries]
 androidx-biometric = { module = "androidx.biometric:biometric", version = "1.1.0" }

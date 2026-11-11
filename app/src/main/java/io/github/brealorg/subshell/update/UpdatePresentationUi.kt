@@ -444,9 +444,18 @@ internal fun WhatsNewDialog(
                     release.headline,
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                release.highlights.take(5).forEach { highlight ->
+                // RELNOTES02_BUNDLED_NOTES_ARE_LONGER_THAN_HIGHLIGHTS_V1: the
+                // dialog shows the whole entry, every highlight and the notes;
+                // it scrolls, so nothing is cut at five.
+                release.highlights.forEach { highlight ->
                     Text(
                         "• $highlight",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                release.notes.forEach { paragraph ->
+                    Text(
+                        paragraph,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
@@ -554,6 +563,15 @@ internal fun UpdateChangelogReleaseItem(
                 release.highlights.forEach { highlight ->
                     Text(
                         "• $highlight",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+            if (release.notes.isNotEmpty()) {
+                HorizontalDivider()
+                release.notes.forEach { paragraph ->
+                    Text(
+                        paragraph,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }

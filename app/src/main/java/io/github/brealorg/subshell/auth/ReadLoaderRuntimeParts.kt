@@ -116,7 +116,7 @@ internal fun readLoaderRuntimeParts(
                             appContext.noBackupFilesDir,
                             "reddit-saved-history-v1",
                         ),
-                        seal = CachePayloadSeal.production(),
+                        seal = CachePayloadSeal.production(appContext),
                     ),
                     capability = requireNotNull(profileHistoryCapability),
                 )

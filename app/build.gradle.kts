@@ -957,6 +957,10 @@ android {
         unitTests {
             // Robolectric needs the merged resources and manifest on the JVM.
             isIncludeAndroidResources = true
+            // ROBOLECTRIC417_JDK_INTERNAL_ACCESS_V1: Robolectric 4.17's file descriptor
+            // interceptor reaches jdk.internal.access.SharedSecrets by reflection, which
+            // JDK 21 refuses unless java.base exports it to the test JVM.
+            all { test -> test.jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED") }
         }
     }
 

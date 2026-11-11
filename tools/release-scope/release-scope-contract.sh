@@ -65,6 +65,11 @@ for release in releases:
     for index, item in enumerate(release["highlights"]):
         limit = 180 if index < 6 else 240
         assert item == item.strip() and 0 < len(item) <= limit, (release["versionName"], item)
+    # RELNOTES02: bundled-only notes, bounded like UpdateChangelog.kt.
+    notes = release.get("notes", [])
+    assert len(notes) <= 24, release["versionName"]
+    for item in notes:
+        assert item == item.strip() and 0 < len(item) <= 1200, (release["versionName"], item)
 if not spec.get("advisory", False):
     assert "advisory" not in entry
 PY

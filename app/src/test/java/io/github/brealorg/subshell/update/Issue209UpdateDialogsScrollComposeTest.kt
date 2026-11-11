@@ -46,18 +46,21 @@ class Issue209UpdateDialogsScrollComposeTest {
     }
 
     @Test
-    fun whatsNewScrollsToItsFifthHighlight() {
+    fun whatsNewScrollsToItsLastHighlightAndNotes() {
         val release = UpdateChangelogRelease(
             versionCode = 300,
             versionName = "0.80.0-beta.1",
             date = "2026-10-08",
             headline = "A release with a lot to say",
             highlights = highlights,
+            notes = listOf("Notes paragraph one", "Notes paragraph last"),
         )
         composeRule.setContent {
             SubshellTheme { WhatsNewDialog(release, onDismiss = {}, onViewChangelog = {}) }
         }
 
         composeRule.onNodeWithText("Highlight 5", substring = true).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Highlight 6", substring = true).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Notes paragraph last").performScrollTo().assertIsDisplayed()
     }
 }

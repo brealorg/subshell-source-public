@@ -36,8 +36,14 @@ class PrivateCache01SealedRowsTest {
 
     private fun store(seal: CachePayloadSeal): RoomSubshellCacheStore {
         database.payloadSeal = seal
-        return RoomSubshellCacheStore(database, clock = MutableCacheClock(1_000L), ownsDatabase = false)
-            .also(stores::add)
+        // No waiting before the sweep: these tests look at what it does, not when (PrivateCache05 does).
+        return RoomSubshellCacheStore(
+            database,
+            clock = MutableCacheClock(1_000L),
+            ownsDatabase = false,
+            legacySweepDelayMs = 0L,
+            legacySweepGapMs = 0L,
+        ).also(stores::add)
     }
 
     @After
