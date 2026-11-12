@@ -80,6 +80,11 @@ enum class FullscreenCaptionMode(val label: String) {
 enum class CommentCollapseMode(val label: String) {
     HEADER("Header"),
     COMMENT("Comment"),
+    // DEFAULTS102_COLLAPSE_BOTH_V1 (owner 2026-11-11): both targets collapse.
+    BOTH("Header and comment");
+
+    val collapsesFromHeader: Boolean get() = this == HEADER || this == BOTH
+    val collapsesFromComment: Boolean get() = this == COMMENT || this == BOTH
 }
 
 enum class CommentHierarchyStyle(val label: String) {
@@ -179,18 +184,23 @@ data class SubshellSettings(
     val voteControlMode: VoteControlMode = VoteControlMode.COMFORTABLE,
     val codeFont: CodeFont = CodeFont.JETBRAINS_MONO,
     val interactionSide: InteractionSide = InteractionSide.RIGHT,
-    val drawerSidePreference: DrawerSidePreference = DrawerSidePreference.FOLLOW,
+    // DEFAULTS102_OWNER_SETTINGS_BECOME_DEFAULTS_V1 (owner 2026-11-11): the owner set a
+    // clean install the way they want it and those values became the defaults.
+    val drawerSidePreference: DrawerSidePreference = DrawerSidePreference.RIGHT,
     val commentActionPreference: CommentActionPreference = CommentActionPreference.FOLLOW,
-    val commentTimeFormat: CommentTimeFormat = CommentTimeFormat.RELATIVE,
-    val commentCollapseMode: CommentCollapseMode = CommentCollapseMode.HEADER,
-    val commentHierarchyStyle: CommentHierarchyStyle = CommentHierarchyStyle.GUIDE_LINES,
+    val commentTimeFormat: CommentTimeFormat = CommentTimeFormat.LOCAL_24_HOUR,
+    val commentCollapseMode: CommentCollapseMode = CommentCollapseMode.COMMENT,
+    val commentHierarchyStyle: CommentHierarchyStyle = CommentHierarchyStyle.PARENT_CONNECTORS,
     val commentThreadColours: CommentThreadColours = CommentThreadColours.OFF,
     val commentIndentSize: CommentIndentSize = CommentIndentSize.NORMAL,
     // REPLYCONTEXT04_RAIL_FROM_PARENT_IS_A_SETTING_V1: on = the line a reply starts leaves the answered comment's middle.
     val commentRailFromParent: Boolean = true,
+    // CLEANURL02_CLEAN_LINKS_SETTING_V1 (owner 2026-11-11): on by default; known tracking
+    // parameters are removed from links that are opened, copied or shared.
+    val cleanLinks: Boolean = true,
     // ISSUE293_LANGUAGE_FILTER_V1: empty = off (every language shown).
     val shownLanguages: Set<String> = emptySet(),
-    val swipeActionsEnabled: Boolean = false,
+    val swipeActionsEnabled: Boolean = true,
     val postSwipeLeftAction: PostSwipeAction = PostSwipeAction.UPVOTE,
     val postSwipeRightAction: PostSwipeAction = PostSwipeAction.DOWNVOTE,
     val commentSwipeLeftAction: CommentSwipeAction = CommentSwipeAction.UPVOTE,
@@ -208,11 +218,11 @@ data class SubshellSettings(
     val notifyPrivateMessages: Boolean = true,
     val notifyRedditNotices: Boolean = true,
     val notifyModmail: Boolean = true,
-    val showNsfwPosts: Boolean = false,
+    val showNsfwPosts: Boolean = true,
     val sensitiveMediaPreviewMode: SensitiveMediaPreviewMode = SensitiveMediaPreviewMode.BLUR_AND_PRELOAD,
     // NSFWMEDIA01_SHOW_NSFW_MEDIA_SETTING_V1 (owner): off by default, backed up
     // under its own key so older builds restore the rest of the backup.
-    val showNsfwMedia: Boolean = false,
+    val showNsfwMedia: Boolean = true,
     // ISSUE239_NEW_COMMENTS_IN_A_WATCHED_COMMUNITY_V1 (owner 2026-10-29): off by
     // default; watched communities also notify about new comments.
     val notifyNewComments: Boolean = false,
@@ -229,13 +239,13 @@ data class SubshellSettings(
     val listingTimePeriod: RedditListingTimePeriod = RedditListingTimePeriod.ALL,
     val drawerCommunitiesMode: DrawerCommunitiesMode = DrawerCommunitiesMode.COLLAPSIBLE,
     val drawerRecentCommunities: Boolean = false,
-    val backTwiceToExit: Boolean = false,
-    // CONTENTFILTER04_FILTERED_SUMMARY_V1: optional, off by default.
-    val filteredPostsSummary: Boolean = false,
-    // ISSUE206_SAVED_SEARCHES_V1: off by default (new optional UI).
-    val savedSearchesEnabled: Boolean = false,
-    // ISSUE205_PASSIVE_SCROLL_POSITION_INDICATOR_V1: off by default.
-    val scrollPositionIndicator: Boolean = false,
+    val backTwiceToExit: Boolean = true,
+    // CONTENTFILTER04_FILTERED_SUMMARY_V1: on by default since DEFAULTS102.
+    val filteredPostsSummary: Boolean = true,
+    // ISSUE206_SAVED_SEARCHES_V1: on by default since DEFAULTS102.
+    val savedSearchesEnabled: Boolean = true,
+    // ISSUE205_PASSIVE_SCROLL_POSITION_INDICATOR_V1: on by default since DEFAULTS102.
+    val scrollPositionIndicator: Boolean = true,
     // ISSUE211_RANDOM_NSFW_COMMUNITY_V1: off by default; only while NSFW is shown.
     val randomNsfwCommunityPlacement: RandomNsfwCommunityPlacement = RandomNsfwCommunityPlacement.OFF,
     // ISSUE230_PINNED_POSTS_FIRST_V1: backed up like the other display settings.
@@ -261,18 +271,18 @@ data class SubshellSettings(
     val startVideosMuted: Boolean = true,
     val loopVideos: Boolean = false,
     val wifiVideoQuality: VideoQuality = VideoQuality.HIGH,
-    val mobileVideoQuality: VideoQuality = VideoQuality.MEDIUM,
+    val mobileVideoQuality: VideoQuality = VideoQuality.HIGH,
     val videoTimelineSize: VideoTimelineSize = VideoTimelineSize.STANDARD,
     val playbackOptionsPlacement: PlaybackOptionsPlacement = PlaybackOptionsPlacement.POST_AND_FULLSCREEN,
     val videoSubtitleDefault: VideoSubtitleDefault = VideoSubtitleDefault.WHEN_MARKED,
     val videoAudioDefault: VideoAudioDefault = VideoAudioDefault.VIDEO_DEFAULT,
     val videoSpeedControls: Boolean = false,
-    val videoDoubleTapSeek: Boolean = false,
-    val videoHoldForDoubleSpeed: Boolean = false,
-    // ISSUE231_PINCH_TO_ZOOM_VIDEOS_V1 (owner): off by default, backed up.
-    val videoPinchToZoom: Boolean = false,
+    val videoDoubleTapSeek: Boolean = true,
+    val videoHoldForDoubleSpeed: Boolean = true,
+    // ISSUE231_PINCH_TO_ZOOM_VIDEOS_V1 (owner): on by default since DEFAULTS102, backed up.
+    val videoPinchToZoom: Boolean = true,
     val videoPictureInPicture: Boolean = false,
-    val videoRotateFullscreen: Boolean = false,
+    val videoRotateFullscreen: Boolean = true,
     val videoTechnicalDetails: Boolean = false,
     val landscapeVideoGesturesEnabled: Boolean = true,
     val landscapeBrightnessGestureEnabled: Boolean = true,
@@ -297,6 +307,7 @@ data class SubshellSettings(
         COMMENT_THREAD_COLOURS to commentThreadColours.name,
         COMMENT_INDENT_SIZE to commentIndentSize.name,
         COMMENT_RAIL_FROM_PARENT to commentRailFromParent.toString(),
+        CLEAN_LINKS to cleanLinks.toString(),
         SHOWN_LANGUAGES to encodeShownLanguages(shownLanguages),
         SWIPE_ACTIONS_ENABLED to swipeActionsEnabled.toString(),
         POST_SWIPE_LEFT_ACTION to postSwipeLeftAction.name,
@@ -388,6 +399,7 @@ data class SubshellSettings(
         const val COMMENT_THREAD_COLOURS = "comment_thread_colours"
         const val COMMENT_INDENT_SIZE = "comment_indent_size"
         const val COMMENT_RAIL_FROM_PARENT = "comment_rail_from_parent"
+        const val CLEAN_LINKS = "clean_links"
         const val SHOWN_LANGUAGES = "shown_languages"
         const val SWIPE_ACTIONS_ENABLED = "swipe_actions_enabled"
         const val POST_SWIPE_LEFT_ACTION = "post_swipe_left_action"
@@ -496,6 +508,7 @@ data class SubshellSettings(
             COMMENT_THREAD_COLOURS,
             COMMENT_INDENT_SIZE,
             COMMENT_RAIL_FROM_PARENT,
+            CLEAN_LINKS,
             SHOWN_LANGUAGES,
             SWIPE_ACTIONS_ENABLED,
             POST_SWIPE_LEFT_ACTION,
@@ -653,7 +666,13 @@ data class SubshellSettings(
                     key = DRAWER_SIDE_PREFERENCE,
                     rawValues = values,
                     entries = DrawerSidePreference.entries,
-                    fallback = DrawerSidePreference.FOLLOW,
+                    // A backup from the legacy comment-placement era keeps following the side;
+                    // anything newer without the key gets the default.
+                    fallback = if (legacyCommentActionPlacement != null) {
+                        DrawerSidePreference.FOLLOW
+                    } else {
+                        DrawerSidePreference.RIGHT
+                    },
                 ),
                 commentActionPreference = enumValueOrFallback(
                     key = COMMENT_ACTION_PREFERENCE,
@@ -687,6 +706,7 @@ data class SubshellSettings(
                     CommentIndentSize.entries,
                 ),
                 commentRailFromParent = booleanValue(COMMENT_RAIL_FROM_PARENT, compatibleValues),
+                cleanLinks = booleanValue(CLEAN_LINKS, compatibleValues),
                 shownLanguages = decodeShownLanguages(compatibleValues[SHOWN_LANGUAGES]),
                 swipeActionsEnabled = booleanValue(SWIPE_ACTIONS_ENABLED, compatibleValues),
                 postSwipeLeftAction = enumValue(
@@ -842,7 +862,7 @@ data class SubshellSettings(
                     key = VIDEO_QUALITY_MOBILE,
                     rawValues = values,
                     legacyValue = legacyVideoQuality,
-                    fallback = VideoQuality.MEDIUM,
+                    fallback = VideoQuality.HIGH,
                 ),
                 videoTimelineSize = enumValue(
                     VIDEO_TIMELINE_SIZE,

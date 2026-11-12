@@ -42,7 +42,7 @@ class SettingsAudit01Test {
         val defaults = SubshellSettings()
         assertEquals(ThemeMode.SYSTEM, defaults.themeMode)
         assertTrue(defaults.showUnreadMarker)
-        assertFalse(defaults.swipeActionsEnabled)
+        assertTrue(defaults.swipeActionsEnabled) // DEFAULTS102
         assertEquals(PostSwipeAction.UPVOTE, defaults.postSwipeLeftAction)
         assertEquals(PostSwipeAction.DOWNVOTE, defaults.postSwipeRightAction)
         assertEquals(CommentSwipeAction.UPVOTE, defaults.commentSwipeLeftAction)

@@ -49,7 +49,7 @@ class Issue270BackupScreenComposeTest {
         val repository = SettingsBackupRepository(application, appVersion = "test")
         repository.saveCurrent(name = "Trip setup", settings = SubshellSettings())
         repository.setAutomaticHistoryEnabled(true)
-        repository.recordSettingsChange(settings = SubshellSettings(showNsfwMedia = true))
+        repository.recordSettingsChange(settings = SubshellSettings(showNsfwMedia = false))
         composeRule.setContent {
             SubshellTheme {
                 CompositionLocalProvider(LocalViewportErrorHostState provides tray) {

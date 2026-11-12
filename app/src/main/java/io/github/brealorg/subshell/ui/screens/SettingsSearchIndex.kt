@@ -81,6 +81,7 @@ internal val settingsSearchEntries: List<SettingsSearchEntry> = listOf(
 
     setting("sensitive-media-previews", "Media & links", "sensitive media previews NSFW spoiler blur preload load on tap hide preview"),
     setting("show-nsfw-media", "Media & links", "show NSFW media without blur unblur uncovered images videos GIFs autoplay"),
+    setting("clean-links", "Media & links", "clean links tracking parameters utm fbclid remove tracking short long url privacy"),
     setting("reddit-link-handling", "Media & links", "Open Reddit links reddit links open links browser default Android app links supported domains"),
     setting("media-autoplay", "Media & links", "autoplay videos GIFs one visible media item"),
     setting("media-muted", "Media & links", "start videos muted volume audio sound"),
@@ -128,7 +129,7 @@ internal val settingsSearchEntries: List<SettingsSearchEntry> = listOf(
     setting("use-suggested-comment-sort", "Comments", "suggested comment sort Reddit default sorting"),
     setting("comment-actions", "Comments", "comment actions placement follow balanced left right interaction side"),
     setting("comment-time-format", "Comments", "comment time relative local timestamp 24-hour 12-hour am pm"),
-    setting("comment-collapse-mode", "Comments", "collapse comments tap header comment hide replies thread fold"),
+    setting("comment-collapse-mode", "Comments", "collapse comments tap header comment both hide replies thread fold"),
     // ISSUE284_POST_TEXT_COLLAPSES_LIKE_A_COMMENT_V1
     setting("collapsible-post-text", "Comments", "collapse post text self text body title hide fold long"),
 

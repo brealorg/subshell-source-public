@@ -68,12 +68,12 @@ class NsfwMedia01ShowNsfwMediaTest {
     }
 
     @Test
-    fun theSettingTravelsInABackupAndAnOlderBackupLeavesItOff() {
+    fun theSettingTravelsInABackupAndAnOlderBackupGetsTheDefault() {
         val stored = SubshellSettings(showNsfwMedia = true).toStorageMap()
         assertEquals("true", stored[SubshellSettings.SHOW_NSFW_MEDIA])
         assertTrue(SubshellSettings.fromStorageMap(stored).showNsfwMedia)
         val older = stored - SubshellSettings.SHOW_NSFW_MEDIA
-        assertFalse(SubshellSettings.fromStorageMap(older).showNsfwMedia)
+        assertTrue(SubshellSettings.fromStorageMap(older).showNsfwMedia) // DEFAULTS102: default is on
         // The preview mode keeps its own key and values, so builds without
         // this setting still read the rest of a backup.
         assertEquals(

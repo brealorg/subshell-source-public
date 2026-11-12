@@ -514,6 +514,7 @@ fun SubshellApp(
         coordinator = videoPlaybackCoordinator,
     ) {
         CompositionLocalProvider(
+            io.github.brealorg.subshell.ui.components.LocalCleanLinks provides state.cleanLinks,
             LocalModeratorToolsNavigation provides moderatorToolsNavigation,
             LocalModeratorToolsWorkspaceContent provides moderatorToolsWorkspaceContent,
             LocalModeratorReports provides moderatorReportsEntries,

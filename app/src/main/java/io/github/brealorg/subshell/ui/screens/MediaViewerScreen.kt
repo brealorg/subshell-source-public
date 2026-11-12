@@ -254,7 +254,8 @@ fun MediaViewerScreen(
             supportingText = if (post.kind == PostKind.GALLERY) {
                 "${state.selectedMediaIndex + 1} / ${post.gallery.size}"
             } else {
-                post.mediaLabel
+                // LINKLABEL01: a link's label is its whole address; show it short.
+                io.github.brealorg.subshell.model.UrlCleaner.cardLabel(post.mediaLabel)
             },
             onBack = onBack,
             modifier = Modifier.align(Alignment.TopCenter),

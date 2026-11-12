@@ -308,4 +308,71 @@ class LowUi8cComposeTest {
 
         assertEquals(listOf("keep:focus238"), refreshes)
     }
+
+    /**
+     * AUDIT298B_DELETING_THE_LINKED_REPLY_KEEPS_ITS_PARENT_V1 (owner's Pixel
+     * 2026-11-12): deleting the linked comment itself kept nothing and the list
+     * landed elsewhere; a deleted linked reply keeps its parent's line.
+     */
+    @Test
+    fun deletingTheLinkedReplyKeepsItsParent() {
+        ensureWorkManagerInitialized(context)
+        val state = signedIn()
+        val post = SampleData.posts.first().copy(id = "t3_p239", comments = 2)
+        val mine = Comment(
+            id = "t1_mine239", author = "me_user", age = "1h", body = "Body mine", score = 1,
+            depth = 1, accent = 0xFF336699, parentId = "t1_parent239",
+        )
+        val parent = Comment(
+            id = "t1_parent239", author = "someone", age = "1h", body = "Body parent", score = 1,
+            depth = 0, accent = 0xFF336699, children = listOf(mine),
+        )
+        val comments = RedditCommentsUiState(
+            accountStableId = account.stableId,
+            postId = post.id,
+            comments = listOf(parent),
+            fullDiscussionLoaded = true,
+            contentRevision = 1L,
+        )
+        var deleteState by mutableStateOf(CommentDeleteUiState())
+        val refreshes = mutableListOf<String>()
+        val coordinator = testVideoPlaybackCoordinator(context)
+        composeRule.setContent {
+            CompositionLocalProvider(LocalVideoPlaybackCoordinator provides coordinator) {
+                PostScreen(
+                    post = post,
+                    state = state,
+                    onBack = {},
+                    routeFocusedCommentId = "t1_mine239",
+                    redditCommentsState = comments,
+                    commentDeleteState = deleteState,
+                    onRetryRedditComments = { _, _, _ -> refreshes += "plain" },
+                    onRefreshRedditCommentsPreservingFocusedTarget = { _, _, _, target -> refreshes += "keep:$target" },
+                )
+            }
+        }
+        composeRule.mainClock.advanceTimeBy(5_000)
+        composeRule.waitForIdle()
+        val options = composeRule.onAllNodesWithContentDescription("Comment options")
+        options[options.fetchSemanticsNodes().size - 1].performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Your comment…").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Delete comment").performClick()
+        composeRule.waitForIdle()
+        refreshes.clear()
+
+        composeRule.runOnIdle {
+            deleteState = CommentDeleteUiState(
+                phase = CommentDeletePhase.SUCCEEDED,
+                accountStableId = account.stableId,
+                postId = post.id,
+                commentFullname = "t1_mine239",
+                completionRevision = 1L,
+            )
+        }
+        composeRule.waitForIdle()
+
+        assertEquals(listOf("keep:t1_parent239"), refreshes)
+    }
 }

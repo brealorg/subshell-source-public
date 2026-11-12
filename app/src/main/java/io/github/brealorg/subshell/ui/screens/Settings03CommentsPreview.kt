@@ -100,7 +100,7 @@ internal fun CommentsSettingsPreview(
     val headerDemoColor by animateColorAsState(
         targetValue = if (
             collapseTargetDemoActive &&
-            collapseMode == CommentCollapseMode.HEADER
+            collapseMode.collapsesFromHeader
         ) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
         } else {
@@ -113,7 +113,7 @@ internal fun CommentsSettingsPreview(
     val bodyDemoColor by animateColorAsState(
         targetValue = if (
             collapseTargetDemoActive &&
-            collapseMode == CommentCollapseMode.COMMENT
+            collapseMode.collapsesFromComment
         ) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
         } else {
@@ -302,7 +302,7 @@ private fun PreviewReplyComment(
                 },
             )
             .then(
-                if (collapseMode == CommentCollapseMode.COMMENT) {
+                if (collapseMode.collapsesFromComment) {
                     Modifier.clickable(onClick = onToggle)
                 } else {
                     Modifier
@@ -334,7 +334,7 @@ private fun PreviewReplyComment(
                     MaterialTheme.shapes.small,
                 )
                 .then(
-                    if (collapseMode == CommentCollapseMode.HEADER) {
+                    if (collapseMode.collapsesFromHeader) {
                         Modifier.clickable(onClick = onToggle)
                     } else {
                         Modifier

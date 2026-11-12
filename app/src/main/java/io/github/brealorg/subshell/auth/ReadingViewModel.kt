@@ -297,6 +297,30 @@ internal class ReadingViewModel internal constructor(
     ): Boolean =
         commentThreadCoordinator.loadMoreRedditComments(accountStableId, postId, sort, moreNodeId)
 
+    // AUDIT298C_SMALL_NODES_LOAD_TOGETHER_V1
+    fun loadMoreRedditCommentsTogether(
+        accountStableId: String,
+        postId: String,
+        sort: RedditCommentSort,
+        moreNodeIds: List<String>,
+    ): Boolean =
+        moreNodeIds.isNotEmpty() && commentThreadCoordinator.loadMoreRedditComments(
+            accountStableId,
+            postId,
+            sort,
+            moreNodeIds.first(),
+            alsoNodeIds = moreNodeIds.drop(1),
+        )
+
+    // ISSUE298_MORE_LOADS_FROM_THE_END_THE_READER_COMES_FROM_V1
+    fun loadMoreRedditCommentsFromEnd(
+        accountStableId: String,
+        postId: String,
+        sort: RedditCommentSort,
+        moreNodeId: String,
+    ): Boolean =
+        commentThreadCoordinator.loadMoreRedditComments(accountStableId, postId, sort, moreNodeId, fromEnd = true)
+
     val commentWriteUiState: StateFlow<CommentWriteUiState> =
         commentWriteCoordinator.uiState
 

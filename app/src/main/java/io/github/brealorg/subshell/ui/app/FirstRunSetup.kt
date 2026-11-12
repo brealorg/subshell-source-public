@@ -1,7 +1,5 @@
 package io.github.brealorg.subshell.ui.app
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -55,7 +53,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -63,7 +60,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import io.github.brealorg.subshell.backup.SettingsBackupRepository
 import io.github.brealorg.subshell.ui.InteractionSide
 import io.github.brealorg.subshell.ui.PostLayout
@@ -84,14 +80,16 @@ import kotlinx.coroutines.withContext
 /**
  * ISSUE271_ONE_SETUP_FLOW_AFTER_SIGN_IN_V1 (owner 2026-10-28): after the first
  * sign-in, one full-screen flow asks for the choices that matter — hand,
- * look, content and video, notifications, Reddit links, backups — instead of
- * the Android notification question, the link screen, the side dialog and the
- * backup dialog interrupting one after another. Every page can be skipped and
+ * look, content and video, Reddit links, backups — instead of the link
+ * screen, the side dialog and the backup dialog interrupting one after
+ * another. DEFAULTS102_NO_NOTIFICATION_PAGE_V1 (owner 2026-11-11): there is
+ * no notification page; inbox notifications are on by default and Android's
+ * own question comes once when the flow ends (InboxNotificationPermissionEffect). Every page can be skipped and
  * says where to change it later. It runs while the interaction side has never
  * been chosen (a fresh install); Skip or Done confirms the side, so it never
  * returns and existing installs never see it.
  */
-internal enum class FirstRunSetupPage { HAND, LOOK, CONTENT, NOTIFICATIONS, LINKS, BACKUPS, DONE }
+internal enum class FirstRunSetupPage { HAND, LOOK, CONTENT, LINKS, BACKUPS, DONE }
 
 /** The link page only where Android lets subshell open Reddit links and it does not yet. */
 internal fun firstRunSetupPages(linkHandlingState: RedditLinkHandlingState): List<FirstRunSetupPage> =
@@ -108,8 +106,6 @@ internal fun FirstRunSetupScreen(
     onOpenRedditLinkSettings: () -> Unit,
     onDismissRedditLinkPrompt: () -> Unit,
     modifier: Modifier = Modifier,
-    // Replaces Android's permission question in tests.
-    onRequestNotificationPermission: (((Boolean) -> Unit) -> Unit)? = null,
 ) {
     val pages = firstRunSetupPages(linkHandlingState)
     var pageName by rememberSaveable { mutableStateOf(FirstRunSetupPage.HAND.name) }
@@ -168,11 +164,6 @@ internal fun FirstRunSetupScreen(
                     FirstRunSetupPage.HAND -> HandPage(state)
                     FirstRunSetupPage.LOOK -> LookPage(state)
                     FirstRunSetupPage.CONTENT -> ContentPage(state)
-                    FirstRunSetupPage.NOTIFICATIONS -> NotificationsPage(
-                        state = state,
-                        onRequestPermission = onRequestNotificationPermission,
-                        onDone = ::next,
-                    )
                     FirstRunSetupPage.LINKS -> LinksPage(
                         linkHandlingState = linkHandlingState,
                         onOpenSettings = onOpenRedditLinkSettings,
@@ -226,7 +217,7 @@ internal fun FirstRunSetupScreen(
                 Spacer(Modifier.weight(1f))
                 when (page) {
                     // These pages move on with their own answer.
-                    FirstRunSetupPage.NOTIFICATIONS, FirstRunSetupPage.LINKS -> Unit
+                    FirstRunSetupPage.LINKS -> Unit
                     FirstRunSetupPage.DONE -> Button(onClick = ::finish) { Text("Start using subshell") }
                     else -> Button(onClick = ::next) { Text("Next") }
                 }
@@ -602,68 +593,6 @@ private fun ContentPage(state: SubshellState) {
         description = "Tap the sound button to hear them",
         checked = state.startVideosMuted,
         onCheckedChange = state::updateStartVideosMuted,
-    )
-}
-
-@Composable
-private fun NotificationsPage(
-    state: SubshellState,
-    onRequestPermission: (((Boolean) -> Unit) -> Unit)?,
-    onDone: () -> Unit,
-) {
-    val context = LocalContext.current
-    // The answer turns them off on a refusal, as the Settings switch does.
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (!granted) state.updateInboxNotificationsEnabled(false)
-        onDone()
-    }
-    PageTitle("Get notified?")
-    PageText("subshell checks your Reddit inbox about every 15 minutes and tells you when there is something new.")
-    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
-        Column(Modifier.padding(vertical = 4.dp)) {
-            NotificationKind(Symbols.Reply, "Replies", "to your posts and comments")
-            NotificationKind(Symbols.Mail, "Messages and chats", "you can answer from the notification")
-            NotificationKind(Symbols.AlternateEmail, "Mentions", "when someone writes your u/name")
-        }
-    }
-    Text(
-        "After you tap Turn on, Android asks you to allow notifications. Each kind can be switched off later.",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-        TextButton(
-            onClick = {
-                state.updateInboxNotificationsEnabled(false)
-                onDone()
-            },
-        ) { Text("Not now") }
-        Button(
-            onClick = {
-                state.updateInboxNotificationsEnabled(true)
-                val needsPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-                    PackageManager.PERMISSION_GRANTED
-                when {
-                    !needsPermission -> onDone()
-                    onRequestPermission != null -> onRequestPermission { granted ->
-                        if (!granted) state.updateInboxNotificationsEnabled(false)
-                        onDone()
-                    }
-                    else -> launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
-            },
-        ) { Text("Turn on") }
-    }
-}
-
-@Composable
-private fun NotificationKind(icon: ImageVector, title: String, description: String) {
-    ListItem(
-        content = { Text(title) },
-        supportingContent = { Text(description) },
-        leadingContent = { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
     )
 }
 

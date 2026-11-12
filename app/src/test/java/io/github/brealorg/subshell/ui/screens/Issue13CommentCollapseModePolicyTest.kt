@@ -11,10 +11,10 @@ import org.junit.Test
 
 class Issue13CommentCollapseModePolicyTest {
     @Test
-    fun headerIsBackwardCompatibleDefaultAndEveryModeRoundTrips() {
-        assertEquals(CommentCollapseMode.HEADER, SubshellSettings().commentCollapseMode)
+    fun commentIsTheDefaultAndEveryModeRoundTrips() {
+        assertEquals(CommentCollapseMode.COMMENT, SubshellSettings().commentCollapseMode)
         assertEquals(
-            listOf("Header", "Comment"),
+            listOf("Header", "Comment", "Header and comment"),
             CommentCollapseMode.entries.map(CommentCollapseMode::label),
         )
 
@@ -29,9 +29,19 @@ class Issue13CommentCollapseModePolicyTest {
         val legacyWithoutMode =
             SubshellSettings().toStorageMap() - SubshellSettings.COMMENT_COLLAPSE_MODE
         assertEquals(
-            CommentCollapseMode.HEADER,
+            CommentCollapseMode.COMMENT,
             SubshellSettings.fromStorageMap(legacyWithoutMode).commentCollapseMode,
         )
+    }
+
+    @Test
+    fun bothCollapsesFromTheHeaderAndFromTheComment() {
+        assertTrue(CommentCollapseMode.BOTH.collapsesFromHeader)
+        assertTrue(CommentCollapseMode.BOTH.collapsesFromComment)
+        assertTrue(CommentCollapseMode.HEADER.collapsesFromHeader)
+        assertTrue(!CommentCollapseMode.HEADER.collapsesFromComment)
+        assertTrue(!CommentCollapseMode.COMMENT.collapsesFromHeader)
+        assertTrue(CommentCollapseMode.COMMENT.collapsesFromComment)
     }
 
     @Test
@@ -54,8 +64,8 @@ class Issue13CommentCollapseModePolicyTest {
     fun postScreenKeepsHeaderAndBodyTargetsModeGated() {
         val source = source("ui/screens/PostScreen.kt")
 
-        assertTrue(source.contains("state.commentCollapseMode == CommentCollapseMode.HEADER"))
-        assertTrue(source.contains("state.commentCollapseMode == CommentCollapseMode.COMMENT"))
+        assertTrue(source.contains("state.commentCollapseMode.collapsesFromHeader"))
+        assertTrue(source.contains("state.commentCollapseMode.collapsesFromComment"))
         assertTrue(source.contains("Modifier.clickable { onToggleComment(comment.id) }"))
         // ISSUE295_MENU_OFFERS_ONLY_WHAT_THE_CARD_DOES_NOT_V1: the comment menu's
         // "Collapse thread" (onCollapse) is gone; the header's collapse button and
@@ -79,8 +89,8 @@ class Issue13CommentCollapseModePolicyTest {
 
         assertTrue(preview.contains("collapseMode: CommentCollapseMode"))
         assertTrue(preview.contains("var replyCollapsed by rememberSaveable"))
-        assertTrue(preview.contains("collapseMode == CommentCollapseMode.HEADER"))
-        assertTrue(preview.contains("collapseMode == CommentCollapseMode.COMMENT"))
+        assertTrue(preview.contains("collapseMode.collapsesFromHeader"))
+        assertTrue(preview.contains("collapseMode.collapsesFromComment"))
         assertTrue(preview.contains("\"Comment collapsed\""))
         assertTrue(preview.contains("LaunchedEffect(collapseMode)"))
         assertTrue(preview.contains("collapseTargetDemoActive"))

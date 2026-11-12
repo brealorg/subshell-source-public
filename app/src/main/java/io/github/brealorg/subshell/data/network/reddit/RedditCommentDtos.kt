@@ -9,6 +9,7 @@ import io.github.brealorg.subshell.model.Comment
 import io.github.brealorg.subshell.model.ResolvedRedditMedia
 import io.github.brealorg.subshell.model.annotateRedditMedia
 import io.github.brealorg.subshell.model.isContinueThreadNode
+import io.github.brealorg.subshell.model.isMoreRepliesNode
 import io.github.brealorg.subshell.model.continueThreadNode
 import io.github.brealorg.subshell.model.parseRedditMediaPlaceholders
 import io.github.brealorg.subshell.model.redditSourceMarkdown
@@ -444,14 +445,17 @@ internal fun mergeContinuedThread(
         )
     }
     val replies = root.children.map(::rebased)
+    // AUDIT298A_NO_COMMENT_IS_ASKED_FOR_TWICE_V1: a reply already in the thread
+    // (the reader's own, posted under the comment) is not added again.
+    val placement = placeExpandedComments(current, node, replies)
     var replaced = false
     fun replace(nodes: List<Comment>): List<Comment> = buildList {
         nodes.forEach { candidate ->
-            if (candidate.id == continueNodeId) {
+            if (!replaced && candidate.id == continueNodeId) {
                 replaced = true
-                addAll(replies)
+                addAll(placement.atNode)
             } else {
-                add(candidate.copy(children = replace(candidate.children)))
+                add(candidate.copy(children = replace(candidate.children) + placement.underParent(candidate)))
             }
         }
     }
@@ -468,12 +472,19 @@ internal fun mergeExpandedComments(
     require(moreNodeId.isNotBlank()) { "More-comment node ID cannot be blank" }
     require(requestedChildCount > 0) { "More-comment request must contain child IDs" }
     var replaced = false
+    val node = current.findComment(moreNodeId)
+    // AUDIT298A_NO_COMMENT_IS_ASKED_FOR_TWICE_V1 / ..._ORPHANS_FIND_THEIR_PARENT_V1:
+    // what is already in the thread is not added again, and a comment whose
+    // parent is elsewhere in the thread goes under it (a batch can cut a
+    // parent from its child); the rest go at the node's place, at its depth.
+    val placement = node?.let { placeExpandedComments(current, it, expanded) }
+    val atNode = placement?.atNode ?: expanded
 
     fun replace(nodes: List<Comment>): List<Comment> = buildList {
         nodes.forEach { node ->
             if (node.id == moreNodeId && node.moreChildIds.isNotEmpty()) {
                 replaced = true
-                addAll(expanded)
+                addAll(atNode)
                 val remainingChildIds = node.moreChildIds.drop(requestedChildCount)
                 val remainingCount = (node.moreCount - requestedChildCount)
                     .coerceAtLeast(remainingChildIds.size)
@@ -486,11 +497,182 @@ internal fun mergeExpandedComments(
                     )
                 }
             } else {
-                add(node.copy(children = replace(node.children)))
+                add(node.copy(children = replace(node.children) + placement.underParent(node)))
             }
         }
     }
 
+    val merged = replace(current)
+    require(replaced) { "Requested more-comment node is not present in cache" }
+    return merged
+}
+
+/**
+ * AUDIT298A_ORPHANS_FIND_THEIR_PARENT_V1 (audit 2026-11-12): where the comments
+ * of a more node's answer go. Comments already in [current] are left out (their
+ * new replies go under the copy in the thread); a comment whose parent is in
+ * the thread goes under that parent; everything else at the node's place,
+ * re-based to the node's depth (Reddit's depth is clamped; a node inside a
+ * continued thread sits deeper).
+ */
+internal class ExpandedPlacement(
+    val atNode: List<Comment>,
+    private val byParent: Map<String, List<Comment>>,
+) {
+    fun underParent(parent: Comment): List<Comment> {
+        val children = byParent[parent.id.trim().removePrefix("t1_")].orEmpty()
+        return children.map { child -> child.atDepth(parent.depth + 1) }
+    }
+}
+
+internal fun ExpandedPlacement?.underParent(parent: Comment): List<Comment> =
+    this?.underParent(parent).orEmpty()
+
+/** The comment at [depth], its replies shifted with it (Reddit's depth is clamped). */
+internal fun Comment.atDepth(depth: Int): Comment {
+    val shift = depth - this.depth
+    if (shift == 0) return this
+    fun shifted(comment: Comment): Comment {
+        val newDepth = (comment.depth + shift).coerceAtLeast(0)
+        return comment.copy(
+            depth = newDepth,
+            accent = redditCommentAccent(newDepth),
+            children = comment.children.map(::shifted),
+        )
+    }
+    return shifted(this)
+}
+
+internal fun placeExpandedComments(
+    current: List<Comment>,
+    node: Comment,
+    expanded: List<Comment>,
+): ExpandedPlacement {
+    fun bare(id: String) = id.trim().removePrefix("t1_")
+    val inThread = HashSet<String>()
+    fun collect(comment: Comment) {
+        if (comment.id != node.id) inThread += bare(comment.id)
+        comment.children.forEach(::collect)
+    }
+    current.forEach(::collect)
+    val threadBeforeAnswer = HashSet(inThread)
+    val byParent = linkedMapOf<String, MutableList<Comment>>()
+    fun prune(comment: Comment): Comment? {
+        if (bare(comment.id) in inThread) {
+            // Already shown: only its replies that are new go under that copy.
+            comment.children.mapNotNull(::prune).forEach { child ->
+                byParent.getOrPut(bare(comment.id)) { mutableListOf() } += child
+            }
+            return null
+        }
+        inThread += bare(comment.id)
+        return comment.copy(children = comment.children.mapNotNull(::prune))
+    }
+    val siblingParent = node.parentId?.let(::bare)
+    val atNode = mutableListOf<Comment>()
+    expanded.forEach { root ->
+        val parent = root.parentId?.let(::bare)
+        val inThreadParent = parent != null && parent != siblingParent && parent in threadBeforeAnswer
+        val kept = prune(root) ?: return@forEach
+        if (inThreadParent) {
+            byParent.getOrPut(parent) { mutableListOf() } += kept
+        } else {
+            atNode += kept.atDepth(node.depth)
+        }
+    }
+    return ExpandedPlacement(atNode = atNode, byParent = byParent)
+}
+
+/**
+ * ISSUE298_MORE_LOADS_FROM_THE_END_THE_READER_COMES_FROM_V1 (#298): a reader
+ * who reaches a more node from below (a reply opened from the Inbox sits after
+ * a top-level node of hundreds) gets its last comments first, placed between
+ * the node and the rows below it, so the node moves up, out of the way, and
+ * loads again only when the reader reaches it. Loading its first comments from
+ * below put them on the far side of the node, which stayed next to the reader
+ * and loaded again at once (a hundred loads in a few seconds on the Pixel).
+ *
+ * [requestedIds] are the ids asked for (the end of the node's list, ids
+ * already in the thread left out). A node's list also names descendants of
+ * its comments, so an answer can hold comments whose parent is not in it:
+ * - parent elsewhere in the thread: attached under that parent;
+ * - parent still in the node's list: kept in the list right after the parent,
+ *   so they come with it later, not orphaned now;
+ * - otherwise: placed with the node's own comments (what a first-comments
+ *   load does).
+ * A requested id that did not come back (deleted) leaves the list; ids that
+ * are already in the thread leave it too.
+ */
+internal fun mergeExpandedCommentsFromEnd(
+    current: List<Comment>,
+    moreNodeId: String,
+    expanded: List<Comment>,
+    requestedIds: List<String>,
+    // AUDIT298A_FROM_THE_END_ALWAYS_MOVES_ON_V1: false places comments whose
+    // parent is still listed at the node too, so a load always takes ids off.
+    waitForListedParents: Boolean = true,
+): List<Comment> {
+    require(moreNodeId.isNotBlank()) { "More-comment node ID cannot be blank" }
+    fun bare(id: String) = id.trim().removePrefix("t1_")
+    val node = current.findComment(moreNodeId)?.takeIf { it.moreChildIds.isNotEmpty() }
+        ?: throw IllegalArgumentException("Requested more-comment node is not present in cache")
+    val inThread = mutableSetOf<String>()
+    // Real comment ids only: a more or continue row inside an answer is not
+    // an id Reddit can be asked for (it failed the request on every try).
+    fun collect(comment: Comment, into: MutableSet<String>) {
+        if (!comment.isMoreRepliesNode) into += bare(comment.id)
+        comment.children.forEach { child -> collect(child, into) }
+    }
+    current.forEach { comment -> collect(comment, inThread) }
+    val listed = node.moreChildIds.map(::bare).toSet()
+    val siblingParent = node.parentId?.let(::bare)
+
+    val keepAfter = linkedMapOf<String, MutableList<String>>()
+    val placed = mutableListOf<Comment>()
+    val returned = mutableSetOf<String>()
+    expanded.forEach { root ->
+        val parent = root.parentId?.let(::bare)
+        if (waitForListedParents && parent != null && parent != siblingParent && parent !in inThread && parent in listed) {
+            val ids = mutableSetOf<String>().also { ids -> collect(root, ids) }
+            keepAfter.getOrPut(parent) { mutableListOf() } += ids
+        } else {
+            placed += root
+            collect(root, returned)
+        }
+    }
+    // AUDIT298A_NO_COMMENT_IS_ASKED_FOR_TWICE_V1 / ..._ORPHANS_FIND_THEIR_PARENT_V1:
+    // the same placement as from the start (no duplicates, parents in the thread).
+    val placement = placeExpandedComments(current, node, placed)
+    val kept = keepAfter.values.flatten().toSet()
+    val consumed = (requestedIds.map(::bare).toSet() + returned + inThread) - kept
+    val remaining = buildList {
+        node.moreChildIds.forEach { id ->
+            val plain = bare(id)
+            if (plain !in consumed && plain !in kept) add(id)
+            keepAfter[plain]?.let { ids -> addAll(ids.filter { it !in this }) }
+        }
+    }.distinct()
+    val consumedCount = node.moreChildIds.size - remaining.size
+
+    var replaced = false
+    fun replace(nodes: List<Comment>): List<Comment> = buildList {
+        nodes.forEach { candidate ->
+            if (candidate.id == moreNodeId && candidate.moreChildIds.isNotEmpty()) {
+                replaced = true
+                if (remaining.isNotEmpty()) {
+                    add(
+                        candidate.copy(
+                            moreChildIds = remaining,
+                            moreCount = (candidate.moreCount - consumedCount).coerceAtLeast(remaining.size),
+                        ),
+                    )
+                }
+                addAll(placement.atNode)
+            } else {
+                add(candidate.copy(children = replace(candidate.children) + placement.underParent(candidate)))
+            }
+        }
+    }
     val merged = replace(current)
     require(replaced) { "Requested more-comment node is not present in cache" }
     return merged
@@ -648,4 +830,24 @@ internal fun JsonElement?.marksRemoval(): Boolean = when (this) {
     null, JsonNull -> false
     is JsonPrimitive -> booleanOrNull ?: contentOrNull?.isNotBlank() ?: false
     else -> true
+}
+
+/**
+ * AUDIT298A_FROM_THE_END_ALWAYS_MOVES_ON_V1: the window that starts at the
+ * earliest listed parent of an answer whose comments all wait for a listed
+ * parent. Null when no returned comment names a listed parent.
+ */
+internal fun moreNodeWindowFromListedParents(
+    node: Comment,
+    expanded: List<Comment>,
+    isInThread: (String) -> Boolean,
+    batchSize: Int,
+): List<String>? {
+    fun bare(id: String) = id.trim().removePrefix("t1_")
+    val index = node.moreChildIds.withIndex().associate { (i, id) -> bare(id) to i }
+    val start = expanded
+        .mapNotNull { root -> root.parentId?.let(::bare)?.let(index::get) }
+        .minOrNull()
+        ?: return null
+    return node.moreChildIds.drop(start).filterNot(isInThread).take(batchSize).takeIf { it.isNotEmpty() }
 }

@@ -2016,10 +2016,12 @@ private fun LinkPanel(post: Post) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = post.mediaLabel,
+                text = io.github.brealorg.subshell.model.UrlCleaner.cardLabel(post.mediaLabel),
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
             Icon(Symbols.KeyboardArrowDown, contentDescription = null)
         }

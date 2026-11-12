@@ -804,6 +804,10 @@ class MainActivity : FragmentActivity(), LegacyStorageWritePermissionRequester {
                             readingViewModel::loadFocusedRedditComment,
                         onLoadMoreRedditComments =
                             readingViewModel::loadMoreRedditComments,
+                        onLoadMoreRedditCommentsFromEnd =
+                            readingViewModel::loadMoreRedditCommentsFromEnd,
+                        onLoadMoreRedditCommentsTogether =
+                            readingViewModel::loadMoreRedditCommentsTogether,
                     ),
                     redditUserFlairState = redditUserFlairState,
                     onLoadRedditUserFlair = postComposerViewModel::loadUserFlair,

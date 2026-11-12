@@ -15,10 +15,11 @@ import org.junit.Test
 
 class Issue16SwipeActionsPolicyTest {
     @Test
-    fun swipeActionsAreBackwardCompatibleOffWithUsefulMappingsReady() {
+    fun swipeActionsAreOnByDefaultWithUsefulMappingsReady() {
         val settings = SubshellSettings()
 
-        assertFalse(settings.swipeActionsEnabled)
+        // DEFAULTS102_OWNER_SETTINGS_BECOME_DEFAULTS_V1 (owner 2026-11-11): on by default.
+        assertTrue(settings.swipeActionsEnabled)
         // Settings audit (owner 2026-10-13, SETTINGSAUDIT01_DEFAULTS_V1): swipe left
         // upvotes, swipe right downvotes, for posts and comments.
         assertEquals(PostSwipeAction.UPVOTE, settings.postSwipeLeftAction)
@@ -89,7 +90,7 @@ class Issue16SwipeActionsPolicyTest {
             SubshellSettings.COMMENT_SWIPE_RIGHT_ACTION,
         )
         val restoredLegacy = SubshellSettings.fromStorageMap(legacy)
-        assertFalse(restoredLegacy.swipeActionsEnabled)
+        assertTrue(restoredLegacy.swipeActionsEnabled) // a backup without the key gets the default (on)
         assertEquals(PostSwipeAction.UPVOTE, restoredLegacy.postSwipeLeftAction)
         assertEquals(PostSwipeAction.DOWNVOTE, restoredLegacy.postSwipeRightAction)
     }

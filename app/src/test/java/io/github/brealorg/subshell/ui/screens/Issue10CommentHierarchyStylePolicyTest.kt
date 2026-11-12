@@ -12,9 +12,10 @@ import org.junit.Test
 
 class Issue10CommentHierarchyStylePolicyTest {
     @Test
-    fun guideLinesRemainTheBackwardCompatibleDefault() {
+    fun parentConnectorsAreTheDefault() {
         assertEquals(
-            CommentHierarchyStyle.GUIDE_LINES,
+            // DEFAULTS102_OWNER_SETTINGS_BECOME_DEFAULTS_V1 (owner 2026-11-11)
+            CommentHierarchyStyle.PARENT_CONNECTORS,
             SubshellSettings().commentHierarchyStyle,
         )
 
@@ -42,7 +43,7 @@ class Issue10CommentHierarchyStylePolicyTest {
                 SubshellSettings.COMMENT_HIERARCHY_STYLE
 
         assertEquals(
-            CommentHierarchyStyle.GUIDE_LINES,
+            CommentHierarchyStyle.PARENT_CONNECTORS,
             SubshellSettings.fromStorageMap(
                 legacy,
             ).commentHierarchyStyle,

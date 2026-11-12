@@ -34,4 +34,22 @@ data class CommentLoadingEntryPoints(
         RedditCommentSort,
         String,
     ) -> Boolean = { _, _, _, _ -> false },
+    // AUDIT298C_SMALL_NODES_LOAD_TOGETHER_V1: null = one node per round.
+    val onLoadMoreRedditCommentsTogether: (
+        (
+            String,
+            String,
+            RedditCommentSort,
+            List<String>,
+        ) -> Boolean
+    )? = null,
+    // ISSUE298_MORE_LOADS_FROM_THE_END_THE_READER_COMES_FROM_V1: null = only from the start.
+    val onLoadMoreRedditCommentsFromEnd: (
+        (
+            String,
+            String,
+            RedditCommentSort,
+            String,
+        ) -> Boolean
+    )? = null,
 )

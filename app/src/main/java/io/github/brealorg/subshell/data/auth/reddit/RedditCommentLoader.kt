@@ -10,6 +10,7 @@ import io.github.brealorg.subshell.data.auth.AuthenticatedRedditCommentFailureKi
 import io.github.brealorg.subshell.data.auth.AuthenticatedRedditCommentLoader
 import io.github.brealorg.subshell.data.auth.AuthenticatedRedditFocusedCommentContinuityLoader
 import io.github.brealorg.subshell.data.auth.AuthenticatedRedditCommentSnapshotLoader
+import io.github.brealorg.subshell.data.auth.AuthenticatedRedditCommentFromEndLoader
 import io.github.brealorg.subshell.data.auth.AuthenticatedRedditCommentResult
 import io.github.brealorg.subshell.data.auth.AuthSessionResult
 import io.github.brealorg.subshell.data.COMMENTS02_MORE_BATCH_SIZE
@@ -39,6 +40,9 @@ import io.github.brealorg.subshell.data.network.reddit.readRedditAccountRecentCo
 import io.github.brealorg.subshell.data.network.reddit.readRedditCommentResolvedBody
 import io.github.brealorg.subshell.data.network.reddit.findComment
 import io.github.brealorg.subshell.data.network.reddit.mergeMoreChildrenPage
+import io.github.brealorg.subshell.data.network.reddit.mergeExpandedCommentsFromEnd
+import io.github.brealorg.subshell.data.network.reddit.mergeExpandedComments
+import io.github.brealorg.subshell.data.network.reddit.moreNodeWindowFromListedParents
 import io.github.brealorg.subshell.data.network.reddit.normalizeRedditCommentParentFullname
 import io.github.brealorg.subshell.model.Comment
 import kotlin.coroutines.cancellation.CancellationException
@@ -68,6 +72,7 @@ internal class RedditCommentLoader(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : AuthenticatedRedditCommentLoader,
     AuthenticatedRedditCommentSnapshotLoader,
+    AuthenticatedRedditCommentFromEndLoader,
     AuthenticatedRedditFocusedCommentContinuityLoader {
     private val loadMutex = Mutex()
 
@@ -268,6 +273,7 @@ internal class RedditCommentLoader(
                             current = fullThreadComments,
                             focused = result.value.comments,
                             preferFocusedFields = true,
+                            focusedCommentId = focusedCommentId,
                         ),
                         fromCache = false,
                         suggestedSort = result.value.suggestedSort,
@@ -366,6 +372,7 @@ internal class RedditCommentLoader(
             mergeFocusedCommentContext(
                 current = canonical.comments,
                 focused = preservedFocusedContext,
+                focusedCommentId = targetId,
             )
         }
 
@@ -391,6 +398,7 @@ internal class RedditCommentLoader(
                     mergedComments = mergeFocusedCommentContext(
                         current = canonical.comments,
                         focused = networkFocusedContext,
+                        focusedCommentId = targetId,
                     )
                     repairAuthorFullnames = focused.authorFullnames
                     continuitySource = "focused_network"
@@ -543,12 +551,29 @@ internal class RedditCommentLoader(
         currentComments = currentComments,
     )
 
+    // ISSUE298_MORE_LOADS_FROM_THE_END_THE_READER_COMES_FROM_V1 (#298)
+    override suspend fun loadMoreFromSnapshotFromEnd(
+        accountStableId: String,
+        postId: String,
+        sort: RedditCommentSort,
+        moreNodeId: String,
+        currentComments: List<Comment>,
+    ): AuthenticatedRedditCommentResult = loadMoreInternal(
+        accountStableId = accountStableId,
+        postId = postId,
+        sort = sort,
+        moreNodeId = moreNodeId,
+        currentComments = currentComments,
+        fromEnd = true,
+    )
+
     private suspend fun loadMoreInternal(
         accountStableId: String,
         postId: String,
         sort: RedditCommentSort,
         moreNodeId: String,
         currentComments: List<Comment>?,
+        fromEnd: Boolean = false,
     ): AuthenticatedRedditCommentResult = withContext(ioDispatcher) {
         val report = MoreRepliesFailureReport()
         loadMutex.withLock {
@@ -588,13 +613,63 @@ internal class RedditCommentLoader(
                         fromCache = false,
                     )
                 }
-            val childIds = moreNode.moreChildIds.take(COMMENTS02_MORE_BATCH_SIZE)
+            // ISSUE298_MORE_LOADS_FROM_THE_END_THE_READER_COMES_FROM_V1: from the
+            // end, ids already in the thread (the reader's own grafted comment
+            // is often the last one listed) are not asked for again.
+            // AUDIT298A_CONTINUE_NODES_LOAD_FROM_EITHER_SIDE_V1: a continue node
+            // has no listed ids; it always reads its thread (it failed from below).
+            val fromEndMode = fromEnd && !moreNode.isContinueThreadNode
+            val threadIds = mutableSetOf<String>().also { ids -> mergeBaseComments.forEach { it.collectCommentIds(ids) } }
+            fun inThread(id: String) = "t1_" + id.trim().removePrefix("t1_") in threadIds
+            // AUDIT298A_NO_COMMENT_IS_ASKED_FOR_TWICE_V1 (audit 2026-11-12): from the
+            // start too, ids already in the thread are walked past (they came with
+            // an earlier subtree, or the focused path); asked for again they were
+            // added a second time. The walked ids count as requested.
+            var headWalked = 0
+            val headIds = mutableListOf<String>()
+            for (id in moreNode.moreChildIds) {
+                if (headIds.size == COMMENTS02_MORE_BATCH_SIZE) break
+                headWalked += 1
+                if (!inThread(id)) headIds += id
+            }
+            val childIds: List<String> = if (fromEndMode) {
+                moreNode.moreChildIds
+                    .filterNot(::inThread)
+                    .takeLast(COMMENTS02_MORE_BATCH_SIZE)
+            } else {
+                headIds
+            }
+            if (!moreNode.isContinueThreadNode && childIds.isEmpty()) {
+                // Everything the node names (or the next batch of it) is already in the thread.
+                val done = try {
+                    if (fromEndMode) {
+                        mergeExpandedCommentsFromEnd(
+                            current = mergeBaseComments,
+                            moreNodeId = moreNodeId,
+                            expanded = emptyList(),
+                            requestedIds = emptyList(),
+                        )
+                    } else {
+                        mergeExpandedComments(
+                            current = mergeBaseComments,
+                            moreNodeId = moreNodeId,
+                            expanded = emptyList(),
+                            requestedChildCount = headWalked,
+                        )
+                    }.also { merged -> cacheStore.cacheComments(postId = cacheKey, values = merged) }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    return@withLock failed(AuthenticatedRedditCommentFailureKind.STORAGE, retryable = true)
+                }
+                return@withLock AuthenticatedRedditCommentResult.Loaded(comments = done, fromCache = false)
+            }
             report.describe(moreNode, mergeBaseComments, requested = childIds.size)
             moreProtocolDebugLog(
                 postId,
                 moreNodeId,
                 "request childIds=${childIds.size} of ${moreNode.moreChildIds.size} count=${moreNode.moreCount} " +
-                    "continue=${moreNode.isContinueThreadNode}",
+                    "continue=${moreNode.isContinueThreadNode} fromEnd=$fromEndMode",
             )
 
             val session = when (val tokenResult = accountCoordinator.ensureConfiguredAccessTokenForAccount(accountStableId)) {
@@ -649,10 +724,13 @@ internal class RedditCommentLoader(
             // not read again and added a second time. The leading ids walked
             // past count as requested, so the node drops them.
             val loadedIds = mutableSetOf<String>().also { ids -> mergeBaseComments.forEach { it.collectCommentIds(ids) } }
+            // From the start this walks the node's list from its first id (the
+            // walked count is what the node drops); from the end, the window.
+            val byFocusSource = if (fromEndMode) childIds else moreNode.moreChildIds
             suspend fun byFocus(): Pair<NetworkResult<RedditMoreChildrenPage>?, Int> {
                 val focusedIds = mutableListOf<String>()
                 var walked = 0
-                for (childId in childIds) {
+                for (childId in byFocusSource) {
                     if (focusedIds.size == MORE_REPLIES_BY_FOCUS_BATCH_SIZE) break
                     walked += 1
                     if ("t1_" + childId.trim().removePrefix("t1_") !in loadedIds) focusedIds += childId
@@ -683,7 +761,7 @@ internal class RedditCommentLoader(
                     moreProtocolDebugLog(postId, moreNodeId, "morechildren_403 reading by focus")
                     byFocus()
                 } else {
-                    direct to childIds.size
+                    direct to (if (fromEndMode) childIds.size else headWalked)
                 }
             }
             // Every id walked past was already in the thread: the node is done.
@@ -698,12 +776,72 @@ internal class RedditCommentLoader(
             )
             when (result) {
                 is NetworkResult.Success -> try {
-                    val merged = mergeMoreChildrenPage(
-                        current = mergeBaseComments,
-                        moreNodeId = moreNodeId,
-                        page = result.value,
-                        requestedChildCount = requestedChildCount,
-                    ) ?: run {
+                    val merged = (
+                        if (fromEndMode) {
+                            if (result.value.rejectedByReddit) {
+                                null
+                            } else {
+                                var window = byFocusSource.take(requestedChildCount)
+                                var expanded = result.value.comments
+                                var fromEndMerged = mergeExpandedCommentsFromEnd(
+                                    current = mergeBaseComments,
+                                    moreNodeId = moreNodeId,
+                                    expanded = expanded,
+                                    requestedIds = window,
+                                )
+                                // AUDIT298A_FROM_THE_END_ALWAYS_MOVES_ON_V1: when every comment
+                                // that came back waits for a parent still listed (the window
+                                // fell inside one subtree), the window moves back to that
+                                // parent; the node never answers "nothing done" for ever.
+                                var rounds = 0
+                                while (
+                                    rounds < FROM_END_PARENT_ROUNDS &&
+                                    // Nothing taken off the list (kept comments may only have moved).
+                                    fromEndMerged.findComment(moreNodeId)?.moreChildIds?.toSet() == moreNode.moreChildIds.toSet() &&
+                                    refusalKey !in moreChildrenRefusedFor
+                                ) {
+                                    val parentWindow = moreNodeWindowFromListedParents(
+                                        node = moreNode,
+                                        expanded = expanded,
+                                        isInThread = ::inThread,
+                                        batchSize = COMMENTS02_MORE_BATCH_SIZE,
+                                    ) ?: break
+                                    if (parentWindow == window) break
+                                    rounds += 1
+                                    moreProtocolDebugLog(postId, moreNodeId, "from_end_parent_round=$rounds ids=${parentWindow.size}")
+                                    val again = dataSource.moreChildren(postId = postId, childIds = parentWindow, sort = sort)
+                                    if (again !is NetworkResult.Success || again.value.rejectedByReddit) break
+                                    window = parentWindow
+                                    expanded = again.value.comments
+                                    fromEndMerged = mergeExpandedCommentsFromEnd(
+                                        current = mergeBaseComments,
+                                        moreNodeId = moreNodeId,
+                                        expanded = expanded,
+                                        requestedIds = window,
+                                    )
+                                }
+                                if (fromEndMerged.findComment(moreNodeId)?.moreChildIds?.toSet() == moreNode.moreChildIds.toSet()) {
+                                    // Still nothing taken: take what came, as a load from the start would.
+                                    moreProtocolDebugLog(postId, moreNodeId, "from_end_no_progress placing_at_node")
+                                    fromEndMerged = mergeExpandedCommentsFromEnd(
+                                        current = mergeBaseComments,
+                                        moreNodeId = moreNodeId,
+                                        expanded = expanded,
+                                        requestedIds = window,
+                                        waitForListedParents = false,
+                                    )
+                                }
+                                fromEndMerged
+                            }
+                        } else {
+                            mergeMoreChildrenPage(
+                                current = mergeBaseComments,
+                                moreNodeId = moreNodeId,
+                                page = result.value,
+                                requestedChildCount = requestedChildCount,
+                            )
+                        }
+                        ) ?: run {
                         moreProtocolDebugLog(
                             postId,
                             moreNodeId,
@@ -1142,6 +1280,8 @@ internal const val MORE_REPLIES_BY_FOCUS_BATCH_SIZE = 5
  * Account|Client ID pairs Reddit answered /api/morechildren with its block page
  * in this process (#281, #35); not persisted.
  */
+private const val FROM_END_PARENT_ROUNDS = 5
+
 internal val moreChildrenRefusedFor: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
 private fun Comment.collectCommentIds(into: MutableSet<String>) {

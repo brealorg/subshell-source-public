@@ -2674,6 +2674,16 @@ fun SettingsScreen(
                         )
                     }
                 }
+                // CLEANURL02_CLEAN_LINKS_SETTING_V1
+                if (searchResult.isItemVisible("clean-links")) item("clean-links") {
+                    ToggleRow(
+                        icon = Symbols.Link,
+                        title = "Clean links",
+                        description = "Remove tracking parameters (utm_, fbclid and similar) from links you open, copy or share",
+                        checked = state.cleanLinks,
+                        onCheckedChange = state::updateCleanLinks,
+                    )
+                }
 
                 if (
                     searchResult.isItemVisible("media-cache") ||

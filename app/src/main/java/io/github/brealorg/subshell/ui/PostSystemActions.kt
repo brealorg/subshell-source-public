@@ -47,9 +47,11 @@ internal fun canonicalRedditCommentUrl(post: Post, commentId: String): String {
     return redditWebUrl(commentPath)
 }
 
-internal fun externalPostUrl(post: Post): String? = post.externalUrl
+internal fun externalPostUrl(post: Post, cleanLinks: Boolean = false): String? = post.externalUrl
     ?.trim()
     ?.takeIf(String::isNotBlank)
+    // CLEANURL02_CLEAN_LINKS_SETTING_V1: the post keeps the original address; only what is opened is cleaned.
+    ?.let { url -> if (cleanLinks) io.github.brealorg.subshell.model.UrlCleaner.clean(url) else url }
     ?.takeIf { url -> webSchemeOrNull(url) != null }
 
 private fun webSchemeOrNull(value: String): String? = runCatching {

@@ -140,7 +140,11 @@ class Issue269TopLevelJumpComposeTest {
         composeRule.mainClock.advanceTimeBy(2_000)
         composeRule.waitForIdle()
 
-        assertEquals("the hidden row is not loaded by the jump", emptyList<String>(), loadMoreRequests)
+        // AUDIT298C_EVERY_SCROLL_ARMS_THE_PREFETCH_V1 (2026-11-12): a jump arms
+        // the prefetch, so the row above Y (under the header) now loads ahead
+        // of the reader, by design (AUDIT298B_PREFETCH_ABOVE_..._V1). What #269
+        // was about still holds: its replies go in above Y, and Y stays put.
+        assertEquals(listOf("more_m269"), loadMoreRequests)
         val y = composeRule.onNodeWithText("Comment c269y")
         y.assertIsDisplayed()
         val yTop = y.getBoundsInRoot().top

@@ -32,9 +32,11 @@ import org.robolectric.annotation.Config
 
 /**
  * ISSUE271_ONE_SETUP_FLOW_AFTER_SIGN_IN_V1 (owner 2026-10-28): after the first
- * sign-in one flow asks hand, look, content and video, notifications, Reddit
- * links and backups; Skip or Done confirms the side and answers the link and
- * backup questions, so nothing else pops up over Home afterwards.
+ * sign-in one flow asks hand, look, content and video, Reddit links and
+ * backups; Skip or Done confirms the side and answers the link and backup
+ * questions, so nothing else pops up over Home afterwards. There is no
+ * notification page (DEFAULTS102_NO_NOTIFICATION_PAGE_V1): Android's question
+ * comes once when the flow ends, from InboxNotificationPermissionEffect.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36], qualifiers = "w411dp-h891dp")
@@ -57,7 +59,6 @@ class Issue271FirstRunSetupComposeTest {
     private fun show(
         state: SubshellState,
         links: RedditLinkHandlingState = RedditLinkHandlingState(),
-        grantNotifications: Boolean = false,
     ) {
         composeRule.setContent {
             SubshellTheme {
@@ -67,10 +68,6 @@ class Issue271FirstRunSetupComposeTest {
                     linkHandlingState = links,
                     onOpenRedditLinkSettings = {},
                     onDismissRedditLinkPrompt = { linkPromptDismissed += 1 },
-                    onRequestNotificationPermission = { answer ->
-                        permissionAsks += 1
-                        answer(grantNotifications)
-                    },
                 )
             }
         }
@@ -105,10 +102,8 @@ class Issue271FirstRunSetupComposeTest {
         tap("Show NSFW posts")
         assertTrue(state.showNsfwPosts)
         tap("Next")
-        // A refusal in Android's question leaves them off; links are skipped here.
-        tap("Turn on")
-        assertEquals(1, permissionAsks)
-        assertFalse(state.inboxNotificationsEnabled)
+        // No notification page; links are skipped here.
+        assertFalse(shows("Get notified?"))
         assertTrue(shows("Keep your setup safe"))
         tap("Hidden communities")
         assertTrue(repository.hiddenCommunitiesBackupEnabled())
@@ -133,7 +128,6 @@ class Issue271FirstRunSetupComposeTest {
         assertEquals(InteractionSide.RIGHT, state.interactionSide)
         assertFalse(repository.shouldShowFolderOnboarding())
         assertEquals(1, linkPromptDismissed)
-        assertEquals("Android is asked later, as before", 0, permissionAsks)
     }
 
     @Test
@@ -141,8 +135,6 @@ class Issue271FirstRunSetupComposeTest {
         val state = SubshellState()
         show(state, links = RedditLinkHandlingState(supported = true, status = RedditLinkHandlingStatus.DISABLED))
         repeat(3) { tap("Next") }
-        tap("Not now")
-        assertFalse(state.inboxNotificationsEnabled)
         assertTrue(shows("Open Reddit links here?"))
         tap("Not now")
         assertTrue(shows("Keep your setup safe"))
@@ -152,7 +144,6 @@ class Issue271FirstRunSetupComposeTest {
                 FirstRunSetupPage.HAND,
                 FirstRunSetupPage.LOOK,
                 FirstRunSetupPage.CONTENT,
-                FirstRunSetupPage.NOTIFICATIONS,
                 FirstRunSetupPage.BACKUPS,
                 FirstRunSetupPage.DONE,
             ),

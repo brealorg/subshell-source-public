@@ -418,14 +418,16 @@ internal fun PostThumbnail(post: Post, state: SubshellState, modifier: Modifier 
     val mode = state.sensitiveMediaPreviewMode
     val hidden = sensitive && !revealed && mode == SensitiveMediaPreviewMode.HIDE_PREVIEW
     val coverOnly = sensitive && !revealed && mode == SensitiveMediaPreviewMode.LOAD_ON_TAP
-    val label = post.mediaLabel.ifBlank { post.title }
+    // LINKLABEL01_TALKBACK_READS_THE_DOMAIN_NOT_THE_ADDRESS_V1
+    val label = postMediaDescription(post)
     val uriHandler = LocalUriHandler.current
+    val cleanLinks = LocalCleanLinks.current
     // A tap on a still opens what Large's media opens; a post kind without
     // its own media viewer leaves the tap to the row (it opens the post).
     val onClick: (() -> Unit)? = when {
         hidden -> ({ state.openMedia(post) })
         sensitive && !revealed -> ({ state.revealMedia(post) })
-        post.kind == PostKind.LINK -> externalPostUrl(post)?.let { url -> fun() { runCatching { uriHandler.openUri(url) } } }
+        post.kind == PostKind.LINK -> externalPostUrl(post, cleanLinks)?.let { url -> fun() { runCatching { uriHandler.openUri(url) } } }
         post.kind in MediaViewerKinds -> ({ state.openMedia(post) })
         else -> null
     }

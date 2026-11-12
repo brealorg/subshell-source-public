@@ -70,6 +70,7 @@ internal class SettingsState(
     initialCommentThreadColours: CommentThreadColours,
     initialCommentIndentSize: CommentIndentSize,
     initialCommentRailFromParent: Boolean,
+    initialCleanLinks: Boolean,
     initialShownLanguages: Set<String>,
     initialSwipeActionsEnabled: Boolean,
     initialPostSwipeLeftAction: PostSwipeAction,
@@ -165,6 +166,7 @@ internal class SettingsState(
     var commentThreadColours by mutableStateOf(initialCommentThreadColours)
     var commentIndentSize by mutableStateOf(initialCommentIndentSize)
     var commentRailFromParent by mutableStateOf(initialCommentRailFromParent)
+    var cleanLinks by mutableStateOf(initialCleanLinks)
     var shownLanguages by mutableStateOf(initialShownLanguages)
         internal set
     var swipeActionsEnabled by mutableStateOf(initialSwipeActionsEnabled)
@@ -337,6 +339,11 @@ internal class SettingsState(
     fun updateCommentThreadColours(colours: CommentThreadColours) {
         commentThreadColours = colours
         persistPreference(SubshellSettings.COMMENT_THREAD_COLOURS, colours.name)
+    }
+
+    fun updateCleanLinks(enabled: Boolean) {
+        cleanLinks = enabled
+        persistPreference(SubshellSettings.CLEAN_LINKS, enabled.toString())
     }
 
     fun updateCommentRailFromParent(enabled: Boolean) {

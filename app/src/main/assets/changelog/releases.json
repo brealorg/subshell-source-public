@@ -2,6 +2,28 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "versionCode": 261,
+      "versionName": "1.0.2",
+      "date": "2026-11-12",
+      "headline": "Subshell 1.0.2: steadier comment threads, cleaner links and new defaults",
+      "highlights": [
+        "Comment threads no longer jump while replies load. The comment you are reading stays where it is, also when you scroll up from an Inbox reply.",
+        "A thread opens where you left it, also after Android has closed the app in the background.",
+        "Replies load sooner and in fewer steps, and the loading row no longer flashes on screen.",
+        "Clean links: tracking parameters (utm_, fbclid and many more) are removed when you open a link. On by default; turn it off in Settings > Media & links.",
+        "Long links are shown short, in text and on link cards.",
+        "Long press a link to share it, copy it, open it in your browser, or copy the original address.",
+        "New defaults for settings you have never changed, among them the drawer on the right, 24-hour time, NSFW posts and media shown, and high video quality on mobile data. Settings you chose yourself stay as they are.",
+        "TalkBack reads a link post's picture by its site name instead of the whole address.",
+        "If something does not work for you, tell us on r/subshell or GitHub."
+      ],
+      "notes": [
+        "Comment threads: when replies loaded above the comment you were reading, the list could be thrown far away. Every change to a thread now waits until your finger is off the screen and keeps the comment you are reading in place (#298).",
+        "New defaults: the new values only apply where you never changed the setting. Everything is in Settings, and a backup from an older version keeps your choices."
+      ],
+      "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v1.0.2"
+    },
+    {
       "versionCode": 260,
       "versionName": "1.0.1",
       "date": "2026-11-11",

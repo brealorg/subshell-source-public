@@ -88,6 +88,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
+import io.github.brealorg.subshell.model.UrlCleaner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import io.github.brealorg.subshell.R
@@ -380,8 +381,9 @@ fun PostMedia(
         mutableStateOf<MediaDownloadUiState?>(null)
     }
     val mediaErrorHost = LocalViewportErrorHostState.current
+    val cleanLinks = LocalCleanLinks.current
     val openExternalLink: () -> Unit = {
-        externalPostUrl(post)?.let { url ->
+        externalPostUrl(post, cleanLinks)?.let { url ->
             runCatching { uriHandler.openUri(url) }
                 .onFailure {
                     // ISSUE222_NO_TOASTS_V1
@@ -533,7 +535,7 @@ fun PostMedia(
                             Box(Modifier.fillMaxWidth()) {
                                 RemoteImage(
                                     uri = imageUri,
-                                    label = post.mediaLabel.ifBlank { post.title },
+                                    label = postMediaDescription(post),
                                     modifier = Modifier.combinedClickable(
                                         onClick = openExternalLink,
                                         onLongClick = showPostMediaActions,
@@ -1785,30 +1787,45 @@ fun InlineCommentMedia(media: InlineMedia, playing: Boolean, modifier: Modifier 
     }
 }
 
+/**
+ * LINKLABEL01_TALKBACK_READS_THE_DOMAIN_NOT_THE_ADDRESS_V1: a link post's
+ * `mediaLabel` is its whole address (2 000 characters on a tracked link), and
+ * the preview picture and the thumbnail used it as their description, so
+ * TalkBack read it out character by character. A link's picture is described
+ * as "Link preview, <domain>"; the card beside it names the short address.
+ */
+internal fun postMediaDescription(post: Post): String {
+    if (post.kind != PostKind.LINK) return post.mediaLabel.ifBlank { post.title }
+    val where = post.domain?.takeIf(String::isNotBlank)
+        ?: UrlCleaner.cardLabel(post.mediaLabel).takeIf(String::isNotBlank)
+        ?: return post.title
+    return "Link preview, $where"
+}
+
 @Composable
-private fun LinkPanel(
+internal fun LinkPanel(
     post: Post,
     onOpenLink: () -> Unit,
 ) {
-    Surface(
+    // LINKMENU01_LONG_PRESS_A_LINK_V1: a long press on the card opens the link menu.
+    val cleanLinks = LocalCleanLinks.current
+    var linkAction by remember(post.id) { mutableStateOf<LinkActionTarget?>(null) }
+    linkAction?.let { target -> LinkActionsSheet(target = target, onDismiss = { linkAction = null }) }
+    LinkCardSurface(
+        domain = post.domain ?: "External link",
+        address = UrlCleaner.cardLabel(post.mediaLabel),
+        iconDescription = "Open link preview",
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 4.dp)
-            .clickable(onClick = onOpenLink),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(post.domain ?: "External link", style = MaterialTheme.typography.labelLarge)
-                Text(post.mediaLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Icon(Symbols.OpenInNew, contentDescription = "Open link preview")
-        }
-    }
+            .combinedClickable(
+                onClick = onOpenLink,
+                onLongClickLabel = "Link actions",
+                onLongClick = {
+                    externalPostUrl(post)?.let { url -> linkAction = linkActionTarget(url, cleanLinks) }
+                },
+            ),
+    )
 }
 
 private fun issue2HttpsUriOrNull(raw: String): URI? {

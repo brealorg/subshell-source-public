@@ -15,7 +15,6 @@ import io.github.brealorg.subshell.ui.components.filteredPostsSummaryText
 import io.github.brealorg.subshell.ui.screens.CustomFeedBrowser
 import io.github.brealorg.subshell.ui.theme.SubshellTheme
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -45,8 +44,8 @@ class ContentFilter04SummaryTest {
     )
 
     @Test
-    fun theSettingIsOffByDefaultPortableAndPersisted() {
-        assertFalse(SubshellSettings().filteredPostsSummary)
+    fun theSettingIsOnByDefaultPortableAndPersisted() {
+        assertTrue(SubshellSettings().filteredPostsSummary) // DEFAULTS102: on by default
         assertTrue(SubshellSettings.FILTERED_POSTS_SUMMARY in SubshellSettings.storageKeys)
         assertTrue(
             SubshellSettings.fromStorageMap(SubshellSettings(filteredPostsSummary = true).toStorageMap())

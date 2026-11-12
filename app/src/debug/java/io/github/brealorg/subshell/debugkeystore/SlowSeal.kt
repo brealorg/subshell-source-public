@@ -17,6 +17,9 @@ import java.io.File
  */
 internal const val SLOW_SEAL_DELAY_FILE = "seal-delay-ms"
 
+/** SLOWMORE01: the file that slows every more load (same number rules, at most 5 000 ms). */
+internal const val SLOW_MORE_DELAY_FILE = "more-delay-ms"
+
 /** The word that makes every Keystore call hang for good (a Keystore that never answers). */
 internal const val HANG_FOREVER = "hang"
 
@@ -46,6 +49,14 @@ internal class DelayedSealCipher(private val inner: SealCipher, private val dela
 class SlowSealProvider : ContentProvider() {
     override fun onCreate(): Boolean {
         val appContext = context ?: return false
+        // SLOWMORE01_A_DEV_BUILD_CAN_HAVE_SLOW_MORE_LOADS_V1: each more load waits this long first.
+        val moreDelayMs = runCatching { parseSealDelayMs(File(appContext.filesDir, SLOW_MORE_DELAY_FILE).readText()) }
+            .getOrDefault(0L)
+            .takeIf { it != Long.MAX_VALUE } ?: 0L
+        if (moreDelayMs > 0) {
+            io.github.brealorg.subshell.auth.SlowMoreLoadsForDebug.delayMs = moreDelayMs
+            android.util.Log.i("SubshellStartup", "debug: every more load waits $moreDelayMs ms")
+        }
         val delayMs = runCatching { parseSealDelayMs(File(appContext.filesDir, SLOW_SEAL_DELAY_FILE).readText()) }
             .getOrDefault(0L)
         if (delayMs > 0) {

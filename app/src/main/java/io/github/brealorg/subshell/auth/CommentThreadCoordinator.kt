@@ -241,7 +241,8 @@ internal class CommentThreadCoordinator(
                     "finish post=$postId sort=${sort.apiValue} " +
                         "loading=${completed.loading} failure=${completed.failureKind} " +
                         "count=${completed.comments.size} " +
-                        "suggested=${completed.suggestedSort?.apiValue}",
+                        "suggested=${completed.suggestedSort?.apiValue} " +
+                        commentTreeStats(completed.comments),
                 )
             }
         }
@@ -347,8 +348,16 @@ internal class CommentThreadCoordinator(
         val focusedContext = focusedCommentContextForTarget(currentComments, targetId)
         val continuityLoader =
             loader as? AuthenticatedRedditFocusedCommentContinuityLoader
-        followStoredThread(loader, accountStableId, postId, sort)
+        // AUDIT298A_FOCUSED_REFRESH_DOES_NOT_SHOW_THE_STORED_THREAD_V1: the
+        // stored thread may not hold the linked comment; following it at once
+        // put that thread on screen (Room emits it immediately) and the
+        // landing reported the comment missing. The refresh stores the thread
+        // with the comment; the store is followed once that is done.
+        stopFollowingStoredThread()
         redditCommentJob?.cancel()
+        // AUDIT298A_LOCAL_WRITES_AND_REFRESHES_STOP_MORE_LOADS_V1: a more load
+        // answering after the refresh merged into the thread before it.
+        redditCommentMoreJob?.cancel()
         _redditCommentsUiState.value =
             _redditCommentsUiState.value
                 .beginSortLoad(accountStableId, postId, sort)
@@ -386,11 +395,13 @@ internal class CommentThreadCoordinator(
                 is AuthenticatedRedditCommentResult.Loaded ->
                     _redditCommentsUiState.value.copy(
                         comments = if (continuityLoader != null) {
+                            followStoredThread(loader, accountStableId, postId, sort)
                             refreshed.comments
                         } else {
                             mergeFocusedCommentContext(
                                 current = refreshed.comments,
                                 focused = focusedContext,
+                                focusedCommentId = targetId,
                             )
                         },
                         suggestedSort = retainRedditSuggestedCommentSort(
@@ -512,7 +523,8 @@ internal class CommentThreadCoordinator(
                     "finish post=$postId sort=${sort.apiValue} " +
                         "loading=${completed.loading} failure=${completed.failureKind} " +
                         "count=${completed.comments.size} " +
-                        "suggested=${completed.suggestedSort?.apiValue}",
+                        "suggested=${completed.suggestedSort?.apiValue} " +
+                        commentTreeStats(completed.comments),
                 )
             }
         }
@@ -526,6 +538,11 @@ internal class CommentThreadCoordinator(
         postId: String,
         sort: RedditCommentSort,
         moreNodeId: String,
+        // ISSUE298_MORE_LOADS_FROM_THE_END_THE_READER_COMES_FROM_V1
+        fromEnd: Boolean = false,
+        // AUDIT298C_SMALL_NODES_LOAD_TOGETHER_V1: more nodes loaded in the same
+        // round after [moreNodeId] (from their start), published once.
+        alsoNodeIds: List<String> = emptyList(),
     ): Boolean {
         val loader = commentLoader ?: return false
         val current = _redditCommentsUiState.value
@@ -546,12 +563,22 @@ internal class CommentThreadCoordinator(
         )
         authDebugLog(
             COMMENT_LOAD_LOG_TAG,
-            "more-start post=$postId sort=${sort.apiValue} node=$moreNodeId",
+            "more-start post=$postId sort=${sort.apiValue} node=$moreNodeId fromEnd=$fromEnd",
         )
         redditCommentMoreJob?.cancel()
         redditCommentMoreJob = scope.launch {
+            // SLOWMORE01: 0 except in a dev build that asks for it (src/debug).
+            if (SlowMoreLoadsForDebug.delayMs > 0) kotlinx.coroutines.delay(SlowMoreLoadsForDebug.delayMs)
             val result = try {
-                if (loader is io.github.brealorg.subshell.data.auth.AuthenticatedRedditCommentSnapshotLoader) {
+                if (fromEnd && loader is io.github.brealorg.subshell.data.auth.AuthenticatedRedditCommentFromEndLoader) {
+                    loader.loadMoreFromSnapshotFromEnd(
+                        accountStableId = accountStableId,
+                        postId = postId,
+                        sort = sort,
+                        moreNodeId = moreNodeId,
+                        currentComments = current.comments,
+                    )
+                } else if (loader is io.github.brealorg.subshell.data.auth.AuthenticatedRedditCommentSnapshotLoader) {
                     authDebugLog(
                         "SubshellCommentNav",
                         "phase=hydration_merge_base post=$postId node=$moreNodeId source=ui " +
@@ -583,10 +610,46 @@ internal class CommentThreadCoordinator(
             if (!_redditCommentsUiState.value.matches(accountStableId, postId, sort)) {
                 return@launch
             }
-            _redditCommentsUiState.value = when (result) {
+            // AUDIT298C_SMALL_NODES_LOAD_TOGETHER_V1: each further node merges
+            // into the answer before it; a failure there keeps what loaded.
+            var batched = result
+            var authorFullnames = (result as? AuthenticatedRedditCommentResult.Loaded)?.authorFullnames.orEmpty()
+            if (
+                result is AuthenticatedRedditCommentResult.Loaded &&
+                alsoNodeIds.isNotEmpty() &&
+                loader is io.github.brealorg.subshell.data.auth.AuthenticatedRedditCommentSnapshotLoader
+            ) {
+                for (nodeId in alsoNodeIds) {
+                    val base = (batched as AuthenticatedRedditCommentResult.Loaded).comments
+                    val next = try {
+                        loader.loadMoreFromSnapshot(
+                            accountStableId = accountStableId,
+                            postId = postId,
+                            sort = sort,
+                            moreNodeId = nodeId,
+                            currentComments = base,
+                        )
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        null
+                    }
+                    if (next !is AuthenticatedRedditCommentResult.Loaded) break
+                    authorFullnames = authorFullnames + next.authorFullnames
+                    batched = next
+                    authDebugLog(COMMENT_LOAD_LOG_TAG, "more-batch post=$postId node=$nodeId with=$moreNodeId")
+                }
+                if (!_redditCommentsUiState.value.matches(accountStableId, postId, sort)) {
+                    return@launch
+                }
+            }
+            val published = (batched as? AuthenticatedRedditCommentResult.Loaded)
+                ?.copy(authorFullnames = authorFullnames)
+                ?: batched
+            _redditCommentsUiState.value = when (published) {
                 is AuthenticatedRedditCommentResult.Loaded ->
                     _redditCommentsUiState.value.copy(
-                        comments = result.comments,
+                        comments = published.comments,
                         loadingMoreNodeId = null,
                         failedMoreNodeId = null,
                         failureKind = null,
@@ -594,7 +657,7 @@ internal class CommentThreadCoordinator(
                         failureDetails = null,
                         fromCache = false,
                         authorFullnames =
-                            _redditCommentsUiState.value.authorFullnames + result.authorFullnames,
+                            _redditCommentsUiState.value.authorFullnames + published.authorFullnames,
                         contentRevision =
                             _redditCommentsUiState.value.contentRevision + 1L,
                     )
@@ -602,9 +665,9 @@ internal class CommentThreadCoordinator(
                     _redditCommentsUiState.value.copy(
                         loadingMoreNodeId = null,
                         failedMoreNodeId = moreNodeId,
-                        failureKind = result.kind.toUiFailureKind(),
-                        failureRetryable = result.retryable,
-                        failureDetails = result.details,
+                        failureKind = published.kind.toUiFailureKind(),
+                        failureRetryable = published.retryable,
+                        failureDetails = published.details,
                     )
             }.also { completed ->
                 authDebugLog(
@@ -626,6 +689,19 @@ internal class CommentThreadCoordinator(
             redditCommentJob?.cancel()
             redditCommentJob = null
         }
+        // AUDIT298A_LOCAL_WRITES_AND_REFRESHES_STOP_MORE_LOADS_V1 (audit
+        // 2026-11-12): a more load merges into the thread as it was when it
+        // started; answering after a posted reply, an edit, a delete or a
+        // moderation, it put that older thread back on screen. The node stays
+        // and loads again; the write wins.
+        if (redditCommentMoreJob?.isActive == true) {
+            redditCommentMoreJob?.cancel()
+            redditCommentMoreJob = null
+            val current = _redditCommentsUiState.value
+            if (current.loadingMoreNodeId != null) {
+                _redditCommentsUiState.value = current.copy(loadingMoreNodeId = null)
+            }
+        }
     }
 
     fun applyEditedComment(request: CommentEditRequest) {
@@ -633,9 +709,10 @@ internal class CommentThreadCoordinator(
             stored.replaceEditedCommentBody(request.commentFullname, request.text.trim())
                 .let { (updated, changed) -> updated.takeIf { changed } }
         }
-        val current = _redditCommentsUiState.value
-        if (!current.matches(request.accountStableId, request.postId, request.sort)) return
+        if (!_redditCommentsUiState.value.matches(request.accountStableId, request.postId, request.sort)) return
+        // Read after the cancel: it clears loadingMoreNodeId.
         cancelLoadOverwrittenByLocalWrite()
+        val current = _redditCommentsUiState.value
         val replacement = current.comments.replaceEditedCommentBody(
             commentFullname = request.commentFullname,
             text = request.text.trim(),
@@ -655,8 +732,9 @@ internal class CommentThreadCoordinator(
     // comment in the open thread, Approve unmarks it; the next thread read
     // carries Reddit's own `removed` and replaces this.
     fun applyModeratedComment(accountStableId: String, commentFullname: String, removed: Boolean) {
+        if (_redditCommentsUiState.value.accountStableId != accountStableId) return
+        cancelLoadOverwrittenByLocalWrite()
         val current = _redditCommentsUiState.value
-        if (current.accountStableId != accountStableId) return
         current.postId?.let { postId ->
             updateStoredThread(accountStableId, postId) { stored ->
                 stored.markModeratedComment(commentFullname, removed)
@@ -735,9 +813,10 @@ internal class CommentThreadCoordinator(
             stored.replaceDeletedComment(request.commentFullname)
                 .let { (updated, changed) -> updated.takeIf { changed } }
         }
-        val current = _redditCommentsUiState.value
-        if (!current.matches(request.accountStableId, request.postId, request.sort)) return
+        if (!_redditCommentsUiState.value.matches(request.accountStableId, request.postId, request.sort)) return
+        // Read after the cancel: it clears loadingMoreNodeId.
         cancelLoadOverwrittenByLocalWrite()
+        val current = _redditCommentsUiState.value
         val replacement = current.comments.replaceDeletedComment(request.commentFullname)
         if (!replacement.second) return
         _redditCommentsUiState.value = current.copy(
@@ -808,9 +887,10 @@ internal class CommentThreadCoordinator(
         request: CommentWriteRequest,
         comments: List<io.github.brealorg.subshell.model.Comment>,
     ) {
-        val current = _redditCommentsUiState.value
-        if (!current.matches(request.accountStableId, request.postId, request.sort)) return
+        if (!_redditCommentsUiState.value.matches(request.accountStableId, request.postId, request.sort)) return
+        // Read after the cancel: it clears loadingMoreNodeId.
         cancelLoadOverwrittenByLocalWrite()
+        val current = _redditCommentsUiState.value
         _redditCommentsUiState.value = current.copy(
             comments = comments,
             loading = false,
@@ -839,4 +919,38 @@ private fun AuthenticatedRedditCommentFailureKind.toUiFailureKind():
         RedditCommentUiFailureKind.PROTOCOL
     AuthenticatedRedditCommentFailureKind.STORAGE ->
         RedditCommentUiFailureKind.STORAGE
+}
+
+/**
+ * SLOWMORE01_A_DEV_BUILD_CAN_HAVE_SLOW_MORE_LOADS_V1 (audit 2026-11-12): a
+ * more load takes about half a second, too short to post a reply while one
+ * runs on a phone. A dev build sets this from `files/more-delay-ms`
+ * (src/debug SlowSealProvider); release builds never change it.
+ */
+internal object SlowMoreLoadsForDebug {
+    @Volatile
+    var delayMs: Long = 0L
+}
+
+/** Debug log only (authDebugLog): how much of a thread is loaded and how much waits in more nodes. */
+internal fun commentTreeStats(comments: List<io.github.brealorg.subshell.model.Comment>): String {
+    var loaded = 0
+    var moreNodes = 0
+    var continueNodes = 0
+    var waitingIds = 0
+    var waitingCount = 0
+    fun walk(comment: io.github.brealorg.subshell.model.Comment) {
+        when {
+            comment.moreChildIds.isNotEmpty() -> {
+                moreNodes += 1
+                waitingIds += comment.moreChildIds.size
+                waitingCount += comment.moreCount
+            }
+            comment.id.startsWith("continue:") -> continueNodes += 1
+            else -> loaded += 1
+        }
+        comment.children.forEach(::walk)
+    }
+    comments.forEach(::walk)
+    return "tree loaded=$loaded more=$moreNodes continue=$continueNodes waitingIds=$waitingIds waitingCount=$waitingCount"
 }

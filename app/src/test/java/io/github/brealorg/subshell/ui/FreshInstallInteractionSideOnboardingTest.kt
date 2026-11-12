@@ -46,9 +46,9 @@ class FreshInstallInteractionSideOnboardingTest {
 
         val launched = requireNotNull(state)
         assertTrue(launched.commentActionOnboardingVisible)
-        // The migration ran: the drawer side is explicit and persisted …
+        // The drawer side is the default RIGHT (DEFAULTS102_OWNER_SETTINGS_BECOME_DEFAULTS_V1,
+        // owner 2026-11-11; it used to be FOLLOW and was written out as RIGHT) …
         assertEquals(DrawerSidePreference.RIGHT, launched.drawerSidePreference)
-        assertEquals("RIGHT", preferences.getString(SubshellSettings.DRAWER_SIDE_PREFERENCE, null))
         // … but the side itself is not, so the next launch still asks.
         assertFalse(preferences.contains(SubshellSettings.INTERACTION_SIDE))
         assertFalse(preferences.contains(SubshellSettings.LEGACY_COMMENT_ACTION_PLACEMENT))

@@ -23,7 +23,7 @@ class Settings02BRestorePreviewPolicyTest {
             dynamicColor = false,
             voteColorPalette = VoteColorPalette.RED_BLUE,
             voteControlMode = VoteControlMode.COMPACT,
-            showNsfwPosts = true,
+            showNsfwPosts = false, // DEFAULTS102: NSFW posts are on by default
         )
 
         assertEquals(5, settingsRestoreChangeCount(current, target))

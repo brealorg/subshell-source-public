@@ -350,6 +350,18 @@ internal interface AuthenticatedRedditCommentSnapshotLoader {
     ): AuthenticatedRedditCommentResult
 }
 
+// ISSUE298_MORE_LOADS_FROM_THE_END_THE_READER_COMES_FROM_V1 (#298): the last
+// comments of a more node, for a reader who reaches it from below.
+internal interface AuthenticatedRedditCommentFromEndLoader {
+    suspend fun loadMoreFromSnapshotFromEnd(
+        accountStableId: String,
+        postId: String,
+        sort: RedditCommentSort,
+        moreNodeId: String,
+        currentComments: List<Comment>,
+    ): AuthenticatedRedditCommentResult
+}
+
 internal interface AuthenticatedRedditFocusedCommentContinuityLoader {
     suspend fun synchronizePreservingFocusedTarget(
         accountStableId: String,

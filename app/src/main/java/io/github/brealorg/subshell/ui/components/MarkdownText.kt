@@ -22,6 +22,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
+import io.github.brealorg.subshell.model.UrlCleaner
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -62,6 +64,9 @@ import io.github.brealorg.subshell.model.normalizedMarkdownLinkUrl
 import io.github.brealorg.subshell.model.MARKDOWN_ESCAPABLE
 import io.github.brealorg.subshell.model.plainLinkTokenRanges
 
+/** CLEANURL02_CLEAN_LINKS_SETTING_V1: provided from the "Clean links" setting; on unless provided otherwise. */
+internal val LocalCleanLinks = staticCompositionLocalOf { true }
+
 internal sealed interface MarkdownBlock {
     data class Paragraph(val text: String) : MarkdownBlock
     data class Heading(
@@ -90,20 +95,26 @@ fun MarkdownText(
     val quoteBackground = MaterialTheme.colorScheme.surfaceContainerHigh
     val quoteBar = MaterialTheme.colorScheme.primary
     val codeFontFamily = LocalCodeFontFamily.current
+    val cleanLinks = LocalCleanLinks.current
     val blocks = promoteMarkdownHeadings(
         parseMarkdownBlocks(text),
     )
     var revealedSpoilers by remember(text) { mutableStateOf(emptySet<String>()) }
     val revealSpoiler: (String) -> Unit = { spoiler -> revealedSpoilers = revealedSpoilers + spoiler }
+    // LINKMENU01_LONG_PRESS_A_LINK_V1: one menu for every link of this text.
+    var linkAction by remember { mutableStateOf<LinkActionTarget?>(null) }
+    val onLinkLongPress: (String) -> Unit = { original -> linkActionTarget(original, cleanLinks)?.let { linkAction = it } }
+    linkAction?.let { target -> LinkActionsSheet(target = target, onDismiss = { linkAction = null }) }
 
     if (maxLines != Int.MAX_VALUE) {
-        Text(
+        LinkText(
+            onLinkLongPress = onLinkLongPress,
             text = markdownAnnotatedString(
                 source = markdownPreviewSource(blocks),
                 linkColor = linkColor,
                 codeBackground = codeBackground,
                 codeFontFamily = codeFontFamily,
-                            onLinkClick = onLinkClick,
+                            onLinkClick = onLinkClick, cleanLinks = cleanLinks,
                 highlight = highlight,
                 revealedSpoilers = revealedSpoilers,
                 onRevealSpoiler = revealSpoiler,
@@ -128,21 +139,23 @@ fun MarkdownText(
         ) {
             blocks.forEach { block ->
                 when (block) {
-                    is MarkdownBlock.Paragraph -> Text(
-                        text = markdownAnnotatedString(block.text, linkColor, codeBackground, codeFontFamily, onLinkClick = onLinkClick, highlight = highlight, revealedSpoilers = revealedSpoilers, onRevealSpoiler = revealSpoiler),
+                    is MarkdownBlock.Paragraph -> LinkText(
+                        onLinkLongPress = onLinkLongPress,
+                        text = markdownAnnotatedString(block.text, linkColor, codeBackground, codeFontFamily, onLinkClick = onLinkClick, cleanLinks = cleanLinks, highlight = highlight, revealedSpoilers = revealedSpoilers, onRevealSpoiler = revealSpoiler),
                         style = MaterialTheme.typography.bodyMedium,
                         color = color,
                         maxLines = maxLines,
                         overflow = overflow,
                         inlineContent = markdownEmoteInlineContent(block.text),
                     )
-                    is MarkdownBlock.Heading -> Text(
+                    is MarkdownBlock.Heading -> LinkText(
+                        onLinkLongPress = onLinkLongPress,
                         text = markdownAnnotatedString(
                             block.text,
                             linkColor,
                             codeBackground,
                             codeFontFamily,
-                                                onLinkClick = onLinkClick,
+                                                onLinkClick = onLinkClick, cleanLinks = cleanLinks,
                             highlight = highlight,
                             revealedSpoilers = revealedSpoilers,
                             onRevealSpoiler = revealSpoiler,
@@ -170,8 +183,9 @@ fun MarkdownText(
                         shape = MaterialTheme.shapes.extraSmall,
                         color = quoteBackground,
                     ) {
-                        Text(
-                            text = markdownAnnotatedString(block.text, linkColor, codeBackground, codeFontFamily, onLinkClick = onLinkClick, highlight = highlight, revealedSpoilers = revealedSpoilers, onRevealSpoiler = revealSpoiler),
+                        LinkText(
+                            onLinkLongPress = onLinkLongPress,
+                            text = markdownAnnotatedString(block.text, linkColor, codeBackground, codeFontFamily, onLinkClick = onLinkClick, cleanLinks = cleanLinks, highlight = highlight, revealedSpoilers = revealedSpoilers, onRevealSpoiler = revealSpoiler),
                             modifier = Modifier
                                 .drawBehind {
                                     drawRect(
@@ -206,9 +220,10 @@ fun MarkdownText(
                             else MaterialTheme.colorScheme.surfaceContainerHighest,
                         ) {
                             val spoilerText: @Composable () -> Unit = {
-                                Text(
+                                LinkText(
+                                    onLinkLongPress = onLinkLongPress,
                                     text = if (revealed) {
-                                        markdownAnnotatedString(block.text, linkColor, codeBackground, codeFontFamily, onLinkClick = onLinkClick)
+                                        markdownAnnotatedString(block.text, linkColor, codeBackground, codeFontFamily, onLinkClick = onLinkClick, cleanLinks = cleanLinks)
                                     } else {
                                         AnnotatedString("Spoiler · tap to reveal")
                                     },
@@ -377,6 +392,7 @@ private fun markdownAnnotatedString(
     highlight: MarkdownHighlight? = null,
     revealedSpoilers: Set<String> = emptySet(),
     onRevealSpoiler: ((String) -> Unit)? = null,
+    cleanLinks: Boolean = false,
 ): AnnotatedString {
     val rendered = markdownStyledAnnotatedString(
         source = source,
@@ -405,9 +421,10 @@ private fun markdownAnnotatedString(
         append(rendered)
 
         links.forEach { link ->
+            addStringAnnotation(LINK_ORIGINAL_TAG, link.url, link.start, link.end)
             addLink(
                 LinkAnnotation.Url(
-                    url = link.url,
+                    url = if (cleanLinks) UrlCleaner.clean(link.url) else link.url,
                     styles = linkStyles,
                     linkInteractionListener = onLinkClick?.let { handler ->
                         LinkInteractionListener { annotation ->
@@ -489,6 +506,7 @@ private fun AnnotatedString.Builder.appendMarkdownInline(
     codeBackground: Color,
     codeFontFamily: FontFamily,
     revealedSpoilers: Set<String>,
+    shortenBareUrls: Boolean = true,
 ) {
     fun appendInner(inner: String) = appendMarkdownInline(
         source = inner,
@@ -496,6 +514,7 @@ private fun AnnotatedString.Builder.appendMarkdownInline(
         codeBackground = codeBackground,
         codeFontFamily = codeFontFamily,
         revealedSpoilers = revealedSpoilers,
+        shortenBareUrls = shortenBareUrls,
     )
     val linkTokens = plainLinkTokenRanges(source)
     var index = 0
@@ -662,6 +681,32 @@ private fun AnnotatedString.Builder.appendMarkdownInline(
                     index += 1
                 }
             }
+            // CLEANURL03_LONG_LINKS_SHOW_SHORT_V1: a long bare link shows as
+            // host and path with an ellipsis; the link under it is the whole
+            // address (cleaned later, when the link is made tappable).
+            shortenBareUrls && linkTokens.any { range -> range.first == index } &&
+                shortBareUrlLabel(source, linkTokens.first { range -> range.first == index }) != null -> {
+                val range = linkTokens.first { token -> token.first == index }
+                val raw = source.substring(range.first, range.last + 1)
+                val uri = normalizedMarkdownLinkUrl(raw)!!
+                val labelStart = length
+                withStyle(
+                    SpanStyle(
+                        color = linkColor,
+                        textDecoration = TextDecoration.Underline,
+                    ),
+                ) {
+                    append(UrlCleaner.shortLabel(uri)!!)
+                }
+                addStringAnnotation(
+                    tag = MARKDOWN_LINK_TARGET_TAG,
+                    annotation = uri,
+                    start = labelStart,
+                    end = length,
+                )
+                if (raw.startsWith(uri)) append(raw.substring(uri.length))
+                index = range.last + 1
+            }
             source[index] == '[' -> {
                 val labelEnd = source.indexOf(']', startIndex = index + 1)
                 val urlStart = if (labelEnd >= 0 && source.getOrNull(labelEnd + 1) == '(') labelEnd + 2 else -1
@@ -678,7 +723,14 @@ private fun AnnotatedString.Builder.appendMarkdownInline(
                             textDecoration = TextDecoration.Underline,
                         ),
                     ) {
-                        appendInner(source.substring(index + 1, labelEnd))
+                        appendMarkdownInline(
+                            source = source.substring(index + 1, labelEnd),
+                            linkColor = linkColor,
+                            codeBackground = codeBackground,
+                            codeFontFamily = codeFontFamily,
+                            revealedSpoilers = revealedSpoilers,
+                            shortenBareUrls = false,
+                        )
                     }
                     addStringAnnotation(
                         tag = MARKDOWN_LINK_TARGET_TAG,
@@ -877,4 +929,11 @@ private fun markdownEmoteInlineContent(source: String): Map<String, InlineTextCo
             )
         }
     }
+}
+
+/** The short label for the bare link in [token] of [source], or null when it is not a long web link. */
+private fun shortBareUrlLabel(source: String, token: IntRange): String? {
+    val uri = normalizedMarkdownLinkUrl(source.substring(token.first, token.last + 1)) ?: return null
+    if (!uri.startsWith("http", ignoreCase = true)) return null
+    return UrlCleaner.shortLabel(uri)
 }

@@ -615,6 +615,10 @@ fun rememberSubshellState(
                 SubshellSettings.COMMENT_RAIL_FROM_PARENT,
                 DefaultSubshellSettings.commentRailFromParent,
             ),
+            initialCleanLinks = preferences.getBoolean(
+                SubshellSettings.CLEAN_LINKS,
+                DefaultSubshellSettings.cleanLinks,
+            ),
             initialShownLanguages = decodeShownLanguages(
                 preferences.getString(SubshellSettings.SHOWN_LANGUAGES, null),
             ),

@@ -168,6 +168,8 @@ internal fun PostRouteHost(
     val onRefreshRedditCommentsPreservingFocusedTarget = redditComments.onRefreshRedditCommentsPreservingFocusedTarget
     val onLoadFocusedRedditComment = redditComments.onLoadFocusedRedditComment
     val onLoadMoreRedditComments = redditComments.onLoadMoreRedditComments
+    val onLoadMoreRedditCommentsFromEnd = redditComments.onLoadMoreRedditCommentsFromEnd
+    val onLoadMoreRedditCommentsTogether = redditComments.onLoadMoreRedditCommentsTogether
     val commentWriteState = commentMutations.commentWriteState
     val onSubmitComment = commentMutations.onSubmitComment
     val onAuthorizeCommentWrite = commentMutations.onAuthorizeCommentWrite
@@ -278,6 +280,8 @@ internal fun PostRouteHost(
                         onLoadFocusedRedditComment =
                             onLoadFocusedRedditComment,
                         onLoadMoreRedditComments = onLoadMoreRedditComments,
+                        onLoadMoreRedditCommentsFromEnd = onLoadMoreRedditCommentsFromEnd,
+                        onLoadMoreRedditCommentsTogether = onLoadMoreRedditCommentsTogether,
                         onFocusedCommentLandingVerified = { verifiedCommentId ->
                             state.consumeInboxReadReceipt(
                                 postId = post.id,

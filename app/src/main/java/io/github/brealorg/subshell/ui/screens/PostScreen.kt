@@ -95,6 +95,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -143,7 +144,6 @@ import io.github.brealorg.subshell.model.Comment
 import io.github.brealorg.subshell.model.isMoreRepliesNode
 import io.github.brealorg.subshell.model.Post
 import io.github.brealorg.subshell.ui.CommentActionPlacement
-import io.github.brealorg.subshell.ui.CommentCollapseMode
 import io.github.brealorg.subshell.ui.CommentHierarchyStyle
 import io.github.brealorg.subshell.ui.CommentThreadColours
 import io.github.brealorg.subshell.ui.CommentTimeFormat
@@ -201,8 +201,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
@@ -385,6 +387,24 @@ fun PostScreen(
         RedditCommentSort,
         String,
     ) -> Boolean = { _, _, _, _ -> false },
+    // AUDIT298C_SMALL_NODES_LOAD_TOGETHER_V1: null = one node per round.
+    onLoadMoreRedditCommentsTogether: (
+        (
+            String,
+            String,
+            RedditCommentSort,
+            List<String>,
+        ) -> Boolean
+    )? = null,
+    // ISSUE298_MORE_LOADS_FROM_THE_END_THE_READER_COMES_FROM_V1: null = only from the start.
+    onLoadMoreRedditCommentsFromEnd: (
+        (
+            String,
+            String,
+            RedditCommentSort,
+            String,
+        ) -> Boolean
+    )? = null,
     onFocusedCommentLandingVerified: (String) -> Unit = {},
     commentWriteState: CommentWriteUiState = CommentWriteUiState(),
     onSubmitComment: (CommentWriteRequest) -> Unit = {},
@@ -564,8 +584,18 @@ fun PostScreen(
         scopeKey = "post-comments:${post.id}:$sort",
         presentation = degradedCommentsPresentation,
         failureDetails = redditCommentsState.failureDetails,
+        // AUDIT298C_BANNER_RETRY_KEEPS_THE_LINKED_COMMENT_V1: like pull to
+        // refresh and the status row, a thread opened from a comment link
+        // reloads with that comment; the plain thread need not hold it.
         onRetry = if (degradedCommentsPresentation != null) {
-            { onRetryRedditComments(accountStableId, post.id, sort) }
+            {
+                val linked = focusedCommentId
+                if (linked != null) {
+                    onRefreshRedditCommentsPreservingFocusedTarget(accountStableId, post.id, sort, linked)
+                } else {
+                    onRetryRedditComments(accountStableId, post.id, sort)
+                }
+            }
         } else {
             null
         },
@@ -723,6 +753,15 @@ fun PostScreen(
     ) {
         mutableIntStateOf(0)
     }
+    var focusedArrivalPulsePlayed by rememberSaveable(
+        post.id,
+        state.postVisitId,
+        accountStableId,
+        sort.name,
+        focusedCommentId,
+    ) {
+        mutableIntStateOf(0)
+    }
     var focusedOpeningIndicatorVisible by remember(
         post.id,
         state.postVisitId,
@@ -784,14 +823,24 @@ fun PostScreen(
         state.postVisitId,
         focusedCommentId,
         sort.name,
+        // AUDIT298C_THE_FENCE_BELONGS_TO_ITS_ACCOUNT_V1: a fence from another
+        // account held every later load back (its revision was ahead).
+        accountStableId,
     ) {
         mutableStateOf<CommentHydrationCommitFence?>(null)
     }
-    var hydrationMaterializedCommentIds by remember(
+
+    // AUDIT298C_RECREATION_DOES_NOT_LAND_AGAIN_V1: saved, so comments that
+    // loaded into the thread before a recreation are not "new" after it.
+    var hydrationMaterializedCommentIds by rememberSaveable(
         post.id,
         state.postVisitId,
         focusedCommentId,
         sort.name,
+        saver = listSaver(
+            save = { ids -> ids.value.toList() },
+            restore = { ids -> mutableStateOf(ids.toSet()) },
+        ),
     ) {
         mutableStateOf<Set<String>>(emptySet())
     }
@@ -829,6 +878,34 @@ fun PostScreen(
         }
     }
 
+    // AUDIT298C_EVERY_SCROLL_ARMS_THE_PREFETCH_V1 (audit 2026-11-12): only a
+    // finger drag armed the prefetch budget; a jump, Find, the next-comment
+    // button or an accessibility scroll moved the list without it, and the
+    // nodes it passed loaded on screen. The list resting at a new row arms it too.
+    LaunchedEffect(
+        post.id,
+        state.postVisitId,
+        focusedCommentId,
+        sort.name,
+    ) {
+        // The row the list rests on: a jump without animation toggles
+        // isScrollInProgress within one frame, so "scroll ended" was missed.
+        snapshotFlow { listState.firstVisibleItemIndex to listState.isScrollInProgress }
+            .filter { (_, scrolling) -> !scrolling }
+            .map { (firstVisible, _) -> firstVisible }
+            .distinctUntilChanged()
+            .drop(1)
+            .collect {
+                if (commentHydrationBudget < COMMENT_AUTO_HYDRATION_MAX_PER_USER_GESTURE) {
+                    commentHydrationBudget = COMMENT_AUTO_HYDRATION_MAX_PER_USER_GESTURE
+                    uiDebugLog(
+                        COMMENT_NAV_LOG_TAG,
+                        "phase=hydration_scroll_end_armed post=${post.id} budget=$commentHydrationBudget",
+                    )
+                }
+            }
+    }
+
     LaunchedEffect(
         post.id,
         state.postVisitId,
@@ -863,6 +940,45 @@ fun PostScreen(
         }
     }
 
+    // AUDIT298C_EVERY_TREE_CHANGE_HOLDS_THE_READING_ROW_V1: called in the same
+    // step that replaces the rows, so the request applies in the measure that
+    // shows them. While a comment link holds its comment (landing, or the
+    // hold after it until the reader scrolls) that hold owns the position.
+    fun holdReadingRow(
+        rowsBefore: List<CommentViewportRow>,
+        rowsAfter: List<CommentViewportRow>,
+        reason: String,
+    ) {
+        if (focusedCommentId != null && focusedLandingFailedReason == null && !focusedUserOwnsScroll) return
+        val layout = listState.layoutInfo
+        val header = layout.visibleItemsInfo.firstOrNull { item -> item.key == COMMENT_CONTROLS_ITEM_KEY }
+        val anchor = commentReadingAnchor(
+            visibleItems = layout.visibleItemsInfo.map { item ->
+                CommentViewportVisibleItem(
+                    key = item.key.toString(),
+                    lazyIndex = item.index,
+                    offsetPx = item.offset,
+                    sizePx = item.size,
+                )
+            },
+            oldRows = rowsBefore,
+            newRows = rowsAfter,
+            readingTopPx = commentReadingTopPx(
+                viewportStartOffset = layout.viewportStartOffset,
+                headerBottomPx = header?.let { it.offset + it.size },
+            ),
+            headerKey = COMMENT_CONTROLS_ITEM_KEY,
+        ) ?: return
+        val index = commentHydrationAnchorIndexAfter(anchor, rowsBefore, rowsAfter)
+        if (index < 0) return
+        listState.requestScrollToItem(index = index, scrollOffset = -anchor.offsetPx)
+        uiDebugLog(
+            COMMENT_NAV_LOG_TAG,
+            "phase=reading_row_held post=${post.id} reason=$reason anchor=${anchor.key} " +
+                "before=${anchor.lazyIndex} after=$index offset=${anchor.offsetPx}",
+        )
+    }
+
     LaunchedEffect(
         sortedComments,
         redditCommentsState.contentRevision,
@@ -876,6 +992,20 @@ fun PostScreen(
                 viewportSortedComments != sortedComments ||
                 viewportContentRevision != redditCommentsState.contentRevision
             ) {
+                // AUDIT298C_EVERY_TREE_CHANGE_HOLDS_THE_READING_ROW_V1: a tree
+                // change waits until the list is at rest (a fling is not cut
+                // short by rows moving under it) and then holds the row being
+                // read; a new state restarts this effect and waits again.
+                if (listState.isScrollInProgress) {
+                    uiDebugLog(
+                        COMMENT_NAV_LOG_TAG,
+                        "phase=tree_commit_waits_for_rest post=${post.id} " +
+                            "revision=${redditCommentsState.contentRevision}",
+                    )
+                    snapshotFlow { listState.isScrollInProgress }.first { scrolling -> !scrolling }
+                }
+                val rowsBefore = latestCommentRows
+                val rowsAfter = visibleCommentRows(sortedComments, collapsedCommentIds)
                 // LOWUI8_LANDING_LOADS_ARE_NOT_NEW_V1 (OCB-320): while a comment
                 // link lands, its own loads (target more nodes, the canonical
                 // tree) commit here without a fence; what they bring in is
@@ -893,6 +1023,7 @@ fun PostScreen(
                         hydrationMaterializedCommentIds = hydrationMaterializedCommentIds + landingIds
                     }
                 }
+                holdReadingRow(rowsBefore, rowsAfter, "tree_commit")
                 viewportSortedComments = sortedComments
                 viewportContentRevision = redditCommentsState.contentRevision
             }
@@ -908,6 +1039,7 @@ fun PostScreen(
                 "phase=hydration_commit_release post=${post.id} node=${fence.moreNodeId} " +
                     "reason=load_failed revision=${redditCommentsState.contentRevision}",
             )
+            holdReadingRow(latestCommentRows, visibleCommentRows(sortedComments, collapsedCommentIds), "load_failed")
             viewportSortedComments = sortedComments
             viewportContentRevision = redditCommentsState.contentRevision
             pendingHydrationCommit = null
@@ -974,10 +1106,58 @@ fun PostScreen(
                     focusedCommentId = focusedCommentId,
                 ) >= 0
                 val appliedRevision = redditCommentsState.contentRevision
+                // ISSUE298_ROWS_LOADING_ABOVE_THE_READER_STAY_ABOVE_V1 (#298): hold
+                // the row the reader came from, in the same frame as the new rows.
+                val rowsBefore = latestCommentRows
+                val rowsAfter = visibleCommentRows(
+                    comments = sortedComments,
+                    collapsedCommentIds = collapsedCommentIds,
+                )
+                val anchor = commentHydrationAnchor(
+                    visibleItems = listState.layoutInfo.let { layout ->
+                        layout.visibleItemsInfo.map { item ->
+                            CommentViewportVisibleItem(
+                                key = item.key.toString(),
+                                lazyIndex = item.index,
+                                offsetPx = item.offset,
+                                sizePx = (
+                                    minOf(item.offset + item.size, layout.viewportEndOffset) -
+                                        maxOf(item.offset, layout.viewportStartOffset)
+                                    ).coerceAtLeast(0),
+                            )
+                        }
+                    },
+                    oldRows = rowsBefore,
+                    newRows = rowsAfter,
+                    focusedKey = focusedCommentId?.let { id -> "comment:$id" },
+                    holdBelow = fence.reachedFromBelow,
+                )
                 viewportSortedComments = sortedComments
                 viewportContentRevision = appliedRevision
                 hydrationContinuityRevision = appliedRevision
                 pendingHydrationCommit = null
+                if (anchor != null) {
+                    val anchorIndex = commentHydrationAnchorIndexAfter(
+                        anchor = anchor,
+                        oldRows = rowsBefore,
+                        newRows = rowsAfter,
+                    )
+                    if (anchorIndex >= 0) {
+                        listState.requestScrollToItem(index = anchorIndex, scrollOffset = -anchor.offsetPx)
+                    }
+                    uiDebugLog(
+                        COMMENT_NAV_LOG_TAG,
+                        "phase=hydration_anchor_kept post=${post.id} node=${fence.moreNodeId} " +
+                            "anchor=${anchor.key} before=${anchor.lazyIndex} after=$anchorIndex " +
+                            "offset=${anchor.offsetPx}",
+                    )
+                } else {
+                    uiDebugLog(
+                        COMMENT_NAV_LOG_TAG,
+                        "phase=hydration_anchor_compose post=${post.id} node=${fence.moreNodeId} " +
+                            "rowsBefore=${rowsBefore.size} rowsAfter=${rowsAfter.size}",
+                    )
+                }
                 uiDebugLog(
                     COMMENT_NAV_LOG_TAG,
                     "phase=hydration_commit_applied post=${post.id} node=${fence.moreNodeId} " +
@@ -1039,7 +1219,13 @@ fun PostScreen(
             )
             return@LaunchedEffect
         }
-        focusedLandingVerifiedId = null
+        // AUDIT298C_RECREATION_DOES_NOT_LAND_AGAIN_V1: the verified landing is
+        // saved; after the activity is recreated (dark mode, font size) the
+        // effect runs again only to keep holding the comment: no second
+        // arrival pulse, no second read receipt.
+        val landingResumed =
+            focusedLandingVerifiedId == targetId && focusedLandingRetryGeneration == 0
+        if (!landingResumed) focusedLandingVerifiedId = null
         focusedLandingFailedReason = null
         focusedOpeningIndicatorVisible = false
 
@@ -1092,9 +1278,14 @@ fun PostScreen(
             var focusedAnchorFraction = FOCUSED_COMMENT_NORMAL_ANCHOR_FRACTION
             var focusedAnchorPolicyLocked = false
 
+            // AUDIT298C_RETRY_DOES_NOT_REUSE_THE_OLD_FAILURE_V1: `requestedFrom`
+            // is the state the screen showed when the request was made; until
+            // a newer one is drawn, its failure is not this request's answer
+            // (Retry after a failed landing failed again at once on it).
             suspend fun awaitStateAdvance(
                 previousRevision: Long,
                 timeoutMs: Long = FOCUSED_COMMENT_ACQUIRE_STEP_TIMEOUT_MS,
+                requestedFrom: RedditCommentsUiState? = null,
             ): Boolean = withTimeoutOrNull(timeoutMs) {
                 while (true) {
                     val current = latestRedditCommentsState
@@ -1110,6 +1301,7 @@ fun PostScreen(
                         contentRevision = current.contentRevision,
                         hasFailure = current.failureKind != null,
                         failedMoreNodeId = current.failedMoreNodeId,
+                        failureIsFresh = requestedFrom == null || current !== requestedFrom,
                     )
                     if (completed) {
                         return@withTimeoutOrNull targetPresent()
@@ -1258,7 +1450,7 @@ fun PostScreen(
                         sort,
                         targetId,
                     )
-                    awaitStateAdvance(beforeRevision)
+                    awaitStateAdvance(beforeRevision, requestedFrom = currentState)
                 }
 
                 val blockedMoreNodeIds = linkedSetOf<String>()
@@ -1318,7 +1510,7 @@ fun PostScreen(
                             blockedMoreNodeIds += moreNode.id
                             continue
                         }
-                        awaitStateAdvance(beforeRevision)
+                        awaitStateAdvance(beforeRevision, requestedFrom = currentState)
                         if (latestRedditCommentsState.failedMoreNodeId == moreNode.id) {
                             blockedMoreNodeIds += moreNode.id
                         }
@@ -1344,7 +1536,7 @@ fun PostScreen(
                             sort,
                             targetId,
                         )
-                        awaitStateAdvance(beforeRevision)
+                        awaitStateAdvance(beforeRevision, requestedFrom = currentState)
                         continue
                     }
                     break
@@ -1414,7 +1606,11 @@ fun PostScreen(
                         "index=$initialFocusedListIndex author=${targetComment?.author ?: "unknown"} " +
                         "bodyLength=${targetComment?.body?.length ?: -1}",
                 )
-                if (authenticated) {
+                // AUDIT298C_RECREATION_DOES_NOT_LAND_AGAIN_V1: after a
+                // recreation the thread on screen is already the canonical one
+                // with what loaded since; refreshing it again threw that away
+                // (the replies under the comment changed on the Pixel).
+                if (authenticated && !landingResumed) {
                     val beforeRefreshState = latestRedditCommentsState
                     val canonicalWasReady = beforeRefreshState.fullDiscussionLoaded
                     val beforeRefreshRevision = focusedCommentAcquireBaselineRevision(
@@ -1652,17 +1848,24 @@ fun PostScreen(
 
                 focusedLandingVerifiedId = targetId
                 focusedOpeningIndicatorVisible = false
-                focusedArrivalPulseGeneration += 1
-                uiDebugLog(
-                    COMMENT_NAV_LOG_TAG,
-                    "phase=landing_verified post=${post.id} target=$targetId " +
-                        "anchorFraction=$focusedAnchorFraction error=$lastErrorPx",
-                )
-                onFocusedCommentLandingVerified(targetId)
-                uiDebugLog(
-                    COMMENT_NAV_LOG_TAG,
-                    "phase=arrival_pulse post=${post.id} target=$targetId",
-                )
+                if (landingResumed) {
+                    uiDebugLog(
+                        COMMENT_NAV_LOG_TAG,
+                        "phase=landing_resumed post=${post.id} target=$targetId",
+                    )
+                } else {
+                    focusedArrivalPulseGeneration += 1
+                    uiDebugLog(
+                        COMMENT_NAV_LOG_TAG,
+                        "phase=landing_verified post=${post.id} target=$targetId " +
+                            "anchorFraction=$focusedAnchorFraction error=$lastErrorPx",
+                    )
+                    onFocusedCommentLandingVerified(targetId)
+                    uiDebugLog(
+                        COMMENT_NAV_LOG_TAG,
+                        "phase=arrival_pulse post=${post.id} target=$targetId",
+                    )
+                }
 
                 snapshotFlow {
                     val layout = listState.layoutInfo
@@ -1735,6 +1938,148 @@ fun PostScreen(
     val focusedAnchorOwned = focusedCommentId != null &&
         focusedLandingFailedReason == null &&
         !focusedUserOwnsScroll
+    // AUDIT298C_LANDING_SPACE_SHRINKS_OUT_OF_SIGHT_V1 (audit 2026-11-12): the
+    // space below a linked comment (60% of the screen, so a comment near the
+    // end can sit at its reading line) vanished on the first drag, and a
+    // reader at the end of the thread saw the list snap by up to 0.6 screen.
+    // While the link holds, the part of the space on screen is tracked; after
+    // that it is the space's height and only shrinks, as it leaves the screen.
+    var focusedLandingSpaceKeptPx by rememberSaveable(
+        post.id,
+        state.postVisitId,
+        focusedCommentId,
+        sort.name,
+    ) {
+        mutableIntStateOf(0)
+    }
+    // AUDIT298C_POSITION_IS_SAVED_BY_KEY_V1 (audit 2026-11-12): the saved
+    // position was a lazy index and offset only; restored after process death
+    // or on return to the post onto a thread that was still empty or had
+    // changed, it clamped or pointed at another comment. The row being read
+    // is saved by key with its offset, and once that key is in the rows again
+    // the list goes back to it (unless a comment link owns the position, or
+    // the reader scrolled first).
+    var savedReadingRowKey by rememberSaveable(post.id) { mutableStateOf<String?>(null) }
+    var savedReadingRowOffset by rememberSaveable(post.id) { mutableIntStateOf(0) }
+    var readingRowRestorePending by remember(post.id) { mutableStateOf(savedReadingRowKey != null) }
+    // The thread has arrived: rows shown and nothing for this post still loading.
+    val latestRowsSettled by rememberUpdatedState(
+        mainCommentRows.isNotEmpty() &&
+            (
+                !authenticated ||
+                    (liveStateMatches && !redditCommentsState.loading && redditCommentsState.loadingMoreNodeId == null)
+                ),
+    )
+    LaunchedEffect(post.id) {
+        snapshotFlow {
+            // An empty thread (a reload in progress) has no row to read: the
+            // last saved row is kept for when it is back.
+            if (readingRowRestorePending || listState.isScrollInProgress || latestCommentRows.isEmpty()) {
+                null
+            } else {
+                val layout = listState.layoutInfo
+                val header = layout.visibleItemsInfo.firstOrNull { item -> item.key == COMMENT_CONTROLS_ITEM_KEY }
+                commentReadingRowToSave(
+                    visibleItems = layout.visibleItemsInfo.map { item ->
+                        CommentViewportVisibleItem(item.key.toString(), item.index, item.offset, item.size)
+                    },
+                    readingTopPx = commentReadingTopPx(
+                        viewportStartOffset = layout.viewportStartOffset,
+                        headerBottomPx = header?.let { it.offset + it.size },
+                    ),
+                    headerKey = COMMENT_CONTROLS_ITEM_KEY,
+                )?.let { item -> item.key to item.offsetPx } ?: ("" to 0)
+            }
+        }.collect { saved ->
+            if (saved == null) return@collect
+            savedReadingRowKey = saved.first.takeIf { key -> key.isNotEmpty() }
+            savedReadingRowOffset = saved.second
+        }
+    }
+    LaunchedEffect(post.id, readingRowRestorePending) {
+        if (!readingRowRestorePending) return@LaunchedEffect
+        val key = savedReadingRowKey
+        if (key == null || focusedCommentId != null) {
+            readingRowRestorePending = false
+            return@LaunchedEffect
+        }
+        val outcome = withTimeoutOrNull(READING_ROW_RESTORE_WAIT_MS) {
+            snapshotFlow {
+                when {
+                    listState.isScrollInProgress -> "reader_scrolled"
+                    latestCommentRows.any { row -> row.key == key } -> "found"
+                    latestRowsSettled -> "gone"
+                    else -> null
+                }
+            }.first { result -> result != null }
+        } ?: "timeout"
+        if (outcome == "found") {
+            val index = commentViewportLazyListIndex(
+                rows = latestCommentRows,
+                rowKey = key,
+                addCommentVisible = addCommentVisible,
+                liveStatusVisible = latestLiveStatusVisible,
+            )
+            val shownAtIndex = listState.layoutInfo.visibleItemsInfo
+                .firstOrNull { item -> item.key == key }
+            if (index >= 0 && shownAtIndex?.offset != savedReadingRowOffset) {
+                listState.scrollToItem(index = index, scrollOffset = -savedReadingRowOffset)
+            }
+            // After a restart the images above are not loaded yet; when they
+            // grow, Compose holds the first visible row's top and the saved
+            // row moves down (600 px on the Pixel). The row is held at its
+            // place while the screen settles, until the reader scrolls.
+            var corrections = 0
+            withTimeoutOrNull(READING_ROW_SETTLE_MS) {
+                snapshotFlow {
+                    listState.isScrollInProgress to listState.layoutInfo.visibleItemsInfo
+                        .firstOrNull { item -> item.key == key }?.offset
+                }.first { (scrolling, offset) ->
+                    if (scrolling) return@first true
+                    if (offset != null && offset != savedReadingRowOffset) {
+                        val now = commentViewportLazyListIndex(
+                            rows = latestCommentRows,
+                            rowKey = key,
+                            addCommentVisible = addCommentVisible,
+                            liveStatusVisible = latestLiveStatusVisible,
+                        )
+                        if (now >= 0) {
+                            listState.requestScrollToItem(index = now, scrollOffset = -savedReadingRowOffset)
+                            corrections += 1
+                        }
+                    }
+                    false
+                }
+            }
+            uiDebugLog(
+                COMMENT_NAV_LOG_TAG,
+                "phase=reading_row_settled post=${post.id} key=$key corrections=$corrections",
+            )
+        }
+        uiDebugLog(
+            COMMENT_NAV_LOG_TAG,
+            "phase=reading_row_restore post=${post.id} key=$key offset=$savedReadingRowOffset outcome=$outcome",
+        )
+        readingRowRestorePending = false
+    }
+    val latestFocusedAnchorOwned by rememberUpdatedState(focusedAnchorOwned)
+    LaunchedEffect(post.id, state.postVisitId, focusedCommentId, sort) {
+        if (focusedCommentId == null) return@LaunchedEffect
+        snapshotFlow {
+            val layout = listState.layoutInfo
+            layout.visibleItemsInfo
+                .firstOrNull { item -> item.key == FOCUSED_COMMENT_LANDING_SPACE_KEY }
+                ?.let { item -> focusedLandingSpaceOnScreenPx(item.offset, item.size, layout.viewportEndOffset) }
+                ?: 0
+        }.collect { onScreen ->
+            val kept = focusedLandingSpaceToKeepPx(
+                anchorOwned = latestFocusedAnchorOwned,
+                keptPx = focusedLandingSpaceKeptPx,
+                onScreenPx = onScreen,
+            )
+            if (kept != focusedLandingSpaceKeptPx) focusedLandingSpaceKeptPx = kept
+        }
+    }
     val visitBaselineToken = rememberSaveable(
         post.id,
         state.postVisitId,
@@ -1804,10 +2149,22 @@ fun PostScreen(
                 "collapseCandidates=${siblingBranchesToCollapse.size} " +
                 "focusedProtected=${focusedProtectedPathIds.size}",
         )
+        // AUDIT298C_EVERY_TREE_CHANGE_HOLDS_THE_READING_ROW_V1: unfolding new
+        // comments and folding their siblings changes rows above the reader
+        // too; it waits for rest and holds the row being read.
+        if (listState.isScrollInProgress) {
+            snapshotFlow { listState.isScrollInProgress }.first { scrolling -> !scrolling }
+        }
+        val rowsBefore = latestCommentRows
         state.revealNewCommentPaths(
             ancestorIds = ancestorIds,
             siblingBranchIds = siblingBranchesToCollapse,
             manuallyCollapsedIds = manuallyCollapsedIds,
+        )
+        holdReadingRow(
+            rowsBefore,
+            visibleCommentRows(viewportSortedComments, state.collapsedCommentIds.toSet()),
+            "new_comment_reveal",
         )
     }
     LaunchedEffect(
@@ -1878,6 +2235,28 @@ fun PostScreen(
                 )
             }
             val layout = listState.layoutInfo
+            // ISSUE298_MORE_LOADS_FROM_THE_END_THE_READER_COMES_FROM_V1 (#298)
+            val reachedFromBelow = commentMoreNodeReachedFromBelow(
+                visibleItems = layout.visibleItemsInfo.map { item ->
+                    CommentViewportVisibleItem(
+                        key = item.key.toString(),
+                        lazyIndex = item.index,
+                        offsetPx = item.offset,
+                        sizePx = (
+                            minOf(item.offset + item.size, layout.viewportEndOffset) -
+                                maxOf(item.offset, layout.viewportStartOffset)
+                            ).coerceAtLeast(0),
+                    )
+                },
+                moreLazyIndex = commentViewportLazyListIndex(
+                    rows = latestCommentRows,
+                    rowKey = "more:${moreNode.id}",
+                    addCommentVisible = addCommentVisible,
+                    liveStatusVisible = latestLiveStatusVisible,
+                ),
+                focusedKey = focusedCommentId?.let { id -> "comment:$id" },
+            )
+            val fromEnd = reachedFromBelow && onLoadMoreRedditCommentsFromEnd != null
             if (pendingHydrationCommit == null) {
                 val moreKey = "more:${moreNode.id}"
                 val moreVisible = layout.visibleItemsInfo.any { item ->
@@ -1891,6 +2270,8 @@ fun PostScreen(
                     moreNodeId = moreNode.id,
                     sourceContentRevision = viewportContentRevision,
                     gestureGeneration = commentHydrationGestureGeneration,
+                    reachedFromBelow = reachedFromBelow,
+                    userInitiated = userInitiated,
                 )
                 uiDebugLog(
                     COMMENT_NAV_LOG_TAG,
@@ -1903,14 +2284,42 @@ fun PostScreen(
                 COMMENT_NAV_LOG_TAG,
                 "phase=inline_hydration_start post=${post.id} node=${moreNode.id} " +
                     "remaining=${moreNode.moreCount} automatic=${!userInitiated} " +
-                    "gesture=$commentHydrationGestureGeneration budget=$commentHydrationBudget",
+                    "gesture=$commentHydrationGestureGeneration budget=$commentHydrationBudget " +
+                    "fromEnd=$fromEnd",
             )
-            val started = onLoadMoreRedditComments(
-                accountStableId,
-                post.id,
-                sort,
-                moreNode.id,
-            )
+            // AUDIT298C_SMALL_NODES_LOAD_TOGETHER_V1: small nodes near it come along
+            // (from their start; not for a load from below or a Retry).
+            val together = if (!fromEnd && !userInitiated && onLoadMoreRedditCommentsTogether != null) {
+                commentSmallNodesNear(
+                    rows = latestCommentRows,
+                    visibleKeys = layout.visibleItemsInfo.mapTo(HashSet()) { item -> item.key.toString() },
+                    moreNodeId = moreNode.id,
+                    excludedIds = failedMoreNodeIds + listOfNotNull(redditCommentsState.failedMoreNodeId),
+                )
+            } else {
+                emptyList()
+            }
+            if (together.isNotEmpty()) {
+                uiDebugLog(
+                    COMMENT_NAV_LOG_TAG,
+                    "phase=hydration_together post=${post.id} node=${moreNode.id} with=${together.joinToString(",")}",
+                )
+            }
+            val started = when {
+                fromEnd ->
+                    onLoadMoreRedditCommentsFromEnd(accountStableId, post.id, sort, moreNode.id)
+                together.isNotEmpty() && onLoadMoreRedditCommentsTogether != null ->
+                    onLoadMoreRedditCommentsTogether(accountStableId, post.id, sort, listOf(moreNode.id) + together)
+                else -> onLoadMoreRedditComments(
+                    accountStableId,
+                    post.id,
+                    sort,
+                    moreNode.id,
+                )
+            }
+            // AUDIT298C_LOADING_ROW_STAYS_QUIET_V1: a node reached from below no
+            // longer grows into "Loading replies…", so nothing is held here (the
+            // request it used stopped a fling when Find started a load).
             // OCB581_REFUSED_LOAD_IS_NOT_AWAITED_V1: the fence set above waits
             // for an answer a refused load never sends; it would hold every
             // later hydration back.
@@ -2153,8 +2562,18 @@ fun PostScreen(
     // (as pull-to-refresh does) unless that comment is the one deleted.
     val refreshCommentsAfterWrite: (String?) -> Unit = { deletedCommentId ->
         val focusedId = focusedCommentId
-        if (focusedId != null && focusedId != deletedCommentId) {
-            onRefreshRedditCommentsPreservingFocusedTarget(accountStableId, post.id, sort, focusedId)
+        // AUDIT298B_DELETING_THE_LINKED_REPLY_KEEPS_ITS_PARENT_V1 (owner's Pixel
+        // 2026-11-12): deleting the linked comment reloaded the plain thread,
+        // which does not hold the line of parents down to it, and the list
+        // landed at an unrelated place with empty space below. A deleted reply
+        // keeps its parent's line instead; a deleted top-level comment has none.
+        val preserveId = when {
+            focusedId == null -> null
+            focusedId != deletedCommentId -> focusedId
+            else -> commentLinkParentToKeep(sortedComments, focusedId)
+        }
+        if (preserveId != null) {
+            onRefreshRedditCommentsPreservingFocusedTarget(accountStableId, post.id, sort, preserveId)
         } else {
             onRetryRedditComments(accountStableId, post.id, sort)
         }
@@ -2369,14 +2788,38 @@ fun PostScreen(
             }
         }
     }
-    val scrollCommentRowBelowHeader: suspend (Int) -> Unit = { listIndex ->
-        listState.animateScrollToItem(listIndex)
-        val landed = listState.layoutInfo.visibleItemsInfo
-        val header = landed.firstOrNull { item -> item.key == COMMENT_CONTROLS_ITEM_KEY }
-        val item = landed.firstOrNull { visible -> visible.index == listIndex }
-        if (header != null && item != null) {
-            val hidden = header.offset + header.size - item.offset
-            if (hidden > 0) listState.animateScrollBy(-hidden.toFloat())
+    // AUDIT298C_JUMPS_GO_TO_A_KEY_V1 (audit 2026-11-12): a jump, Find and the
+    // posted-comment scroll went to a lazy index; rows that loaded during the
+    // animation moved another row there. The row is looked up by key before
+    // and after the animation, and moved below the sticky header by key.
+    val scrollCommentRowBelowHeader: suspend (String) -> Unit = { rowKey ->
+        fun indexNow(): Int = commentViewportLazyListIndex(
+            rows = latestCommentRows,
+            rowKey = rowKey,
+            addCommentVisible = addCommentVisible,
+            liveStatusVisible = latestLiveStatusVisible,
+        )
+        val listIndex = indexNow()
+        if (listIndex >= 0) {
+            listState.animateScrollToItem(listIndex)
+            fun itemNow() = listState.layoutInfo.visibleItemsInfo.firstOrNull { visible -> visible.key == rowKey }
+            var item = itemNow()
+            val again = indexNow()
+            if (again >= 0 && (item == null || item.index != again)) {
+                uiDebugLog(
+                    COMMENT_NAV_LOG_TAG,
+                    "phase=jump_rows_moved post=${post.id} key=$rowKey before=$listIndex after=$again",
+                )
+                listState.scrollToItem(again)
+                withFrameNanos { }
+                item = itemNow()
+            }
+            val header = listState.layoutInfo.visibleItemsInfo
+                .firstOrNull { visible -> visible.key == COMMENT_CONTROLS_ITEM_KEY }
+            if (header != null && item != null) {
+                val hidden = header.offset + header.size - item.offset
+                if (hidden > 0) listState.animateScrollBy(-hidden.toFloat())
+            }
         }
     }
     // COMMENTJUMP01_THE_THREAD_SCROLLS_TO_A_POSTED_COMMENT_V1: once the comment
@@ -2399,7 +2842,7 @@ fun PostScreen(
         // The target is a key of this effect: dropping it first would cancel
         // the scroll it starts.
         try {
-            if (listIndex != null) scrollCommentRowBelowHeader(listIndex)
+            if (listIndex != null) scrollCommentRowBelowHeader("comment:${target.commentId}")
         } finally {
             state.consumePublishedComment(target)
         }
@@ -2416,13 +2859,8 @@ fun PostScreen(
         val target = topLevelCommentJumpTarget(mainCommentRows, position, direction)
         if (target != null) {
             releaseFocusedAnchorForReaderNavigation("top_level_jump")
-            val listIndex = commentViewportLazyListIndex(
-                rows = mainCommentRows,
-                rowKey = mainCommentRows[target].key,
-                addCommentVisible = addCommentVisible,
-                liveStatusVisible = liveStatusRowVisible,
-            )
-            postListScope.launch { scrollCommentRowBelowHeader(listIndex) }
+            val rowKey = mainCommentRows[target].key
+            postListScope.launch { scrollCommentRowBelowHeader(rowKey) }
         }
     }
     // ISSUE29_THREAD_FIND_V1: see ThreadFind.kt. The query is matched after a
@@ -2497,14 +2935,8 @@ fun PostScreen(
                         .first { index -> index >= 0 }
                 } ?: return@launch
                 // LOWUI1_THREAD_FIND_LOOKS_UP_BY_KEY_V1 (OCB-322): the rows may have
-                // changed since the index was found; look the row up again by key.
-                val lazyIndex = commentViewportLazyListIndex(
-                    rows = latestCommentRows,
-                    rowKey = rowKey,
-                    addCommentVisible = addCommentVisible,
-                    liveStatusVisible = latestLiveStatusVisible,
-                )
-                if (lazyIndex >= 0) scrollCommentRowBelowHeader(lazyIndex)
+                // changed since the index was found; the scroll looks the row up by key.
+                scrollCommentRowBelowHeader(rowKey)
             }
         }
     }
@@ -2665,10 +3097,18 @@ fun PostScreen(
                         .firstOrNull { item -> item.key == "comment:$targetId" }
                 }
                 val target = info ?: return@collectLatest
+                // AUDIT298C_REPLY_TARGET_NOT_UNDER_THE_HEADER_V1: the sort
+                // header sticks over the top of the list; the comment being
+                // answered is kept below it, not under it.
                 val delta = replyTargetScrollDeltaPx(
                     itemTopPx = target.offset,
                     itemSizePx = target.size,
-                    viewportStartPx = listState.layoutInfo.viewportStartOffset,
+                    viewportStartPx = commentReadingTopPx(
+                        viewportStartOffset = listState.layoutInfo.viewportStartOffset,
+                        headerBottomPx = listState.layoutInfo.visibleItemsInfo
+                            .firstOrNull { item -> item.key == COMMENT_CONTROLS_ITEM_KEY }
+                            ?.let { header -> header.offset + header.size },
+                    ),
                     availableBottomPx = composerTopInRootPx - replyBoxTopInRootPx,
                     marginPx = replyTargetMarginPx,
                 )
@@ -2734,7 +3174,14 @@ fun PostScreen(
         ) {
             return@LaunchedEffect
         }
+        // ISSUE298_MORE_LOADS_FROM_THE_END_THE_READER_COMES_FROM_V1: this run
+        // knows the rows it started with; once a commit replaces them (the
+        // held row's position lands in the next layout) it stands down until
+        // the effect restarts with the new rows. Reading the old screen saw a
+        // node that had just moved away and loaded it again.
+        val rowsSource = viewportSortedComments
         snapshotFlow {
+            if (viewportSortedComments !== rowsSource) return@snapshotFlow null
             val (firstVisible, lastVisible) = commentViewportVisibleRowLazyIndices(
                 listState.layoutInfo.visibleItemsInfo.map { item ->
                     VisibleLazyCommentItem(item.index, item.key.toString(), item.offset, item.size)
@@ -2758,6 +3205,7 @@ fun PostScreen(
                 scrollInProgress = listState.isScrollInProgress,
                 hydrationAnchorPending = hydrationAnchorPending,
                 blockedMoreNodeIds = failedMoreNodeIds,
+                focusedCommentId = focusedCommentId,
             )?.let { node -> node.id to true } ?: commentViewportAutoHydrationCandidate(
                 rows = mainCommentRows,
                 firstVisibleLazyIndex = firstVisible,
@@ -2782,7 +3230,9 @@ fun PostScreen(
             if (onScreen) {
                 uiDebugLog(
                     COMMENT_NAV_LOG_TAG,
-                    "phase=hydration_visible_node post=${post.id} node=${moreNode.id}",
+                    "phase=hydration_visible_node post=${post.id} node=${moreNode.id} " +
+                        "first=${listState.firstVisibleItemIndex} total=${listState.layoutInfo.totalItemsCount} " +
+                        "rows=${mainCommentRows.size}",
                 )
                 loadMore(moreNode, false)
                 return@collect
@@ -3131,6 +3581,10 @@ fun PostScreen(
                             replyTargetCommentId = replyTargetCommentId,
                             focusedLandingActive = focusedAnchorOwned,
                             focusedArrivalPulseGeneration = focusedArrivalPulseGeneration,
+                            focusedArrivalPulsePlayed = focusedArrivalPulsePlayed,
+                            onFocusedArrivalPulsePlayed = { generation ->
+                                focusedArrivalPulsePlayed = generation
+                            },
                             newCommentIds = newIds,
                             collapsed = row.comment.id in collapsedCommentIds,
                             threadVisual = branchRailVisualByCommentId[row.comment.id],
@@ -3175,6 +3629,7 @@ fun PostScreen(
                             fullDiscussionReady = redditCommentsState.fullDiscussionLoaded,
                             fullDiscussionLoading = redditCommentsState.fullDiscussionLoading,
                             onRetry = { comment -> loadMore(comment, true) },
+                            loadingFence = pendingHydrationCommit?.takeIf { fence -> fence.moreNodeId == row.comment.id },
                         )
                     }
                     val showDivider = when (row.kind) {
@@ -3203,8 +3658,15 @@ fun PostScreen(
                     }
                 }
                 if (focusedAnchorOwned) {
-                    item("focused-comment-landing-space") {
+                    item(FOCUSED_COMMENT_LANDING_SPACE_KEY) {
                         Spacer(Modifier.fillParentMaxHeight(0.60f))
+                    }
+                } else if (focusedLandingSpaceKeptPx > 0) {
+                    // AUDIT298C_LANDING_SPACE_SHRINKS_OUT_OF_SIGHT_V1: once the
+                    // reader scrolls, the space keeps the part on screen and
+                    // gives up only what has gone below the screen.
+                    item(FOCUSED_COMMENT_LANDING_SPACE_KEY) {
+                        Spacer(Modifier.height(with(LocalDensity.current) { focusedLandingSpaceKeptPx.toDp() }))
                     }
                 }
             }
@@ -3476,6 +3938,8 @@ private fun CommentRow(
     focusedArrivalPulseGeneration: Int,
     newCommentIds: Set<String>,
     threadVisual: CommentBranchRailVisual?,
+    focusedArrivalPulsePlayed: Int = 0,
+    onFocusedArrivalPulsePlayed: (Int) -> Unit = {},
     parentConnectorVisual: CommentParentConnectorVisual?,
     onToggleComment: (String) -> Unit,
     onReply: (Comment) -> Unit,
@@ -3546,8 +4010,11 @@ private fun CommentRow(
         }
     }
 
+    // AUDIT298C_RECREATION_DOES_NOT_LAND_AGAIN_V1: each arrival pulses once;
+    // the row coming back on screen or a recreated activity does not replay it.
     LaunchedEffect(focused, focusedArrivalPulseGeneration) {
-        if (focused && focusedArrivalPulseGeneration > 0) {
+        if (focused && focusedArrivalPulseShouldPlay(focusedArrivalPulseGeneration, focusedArrivalPulsePlayed)) {
+            onFocusedArrivalPulsePlayed(focusedArrivalPulseGeneration)
             focusedPulse.snapTo(FOCUSED_COMMENT_PULSE_START_ALPHA)
             focusedPulse.animateTo(
                 targetValue = 0f,
@@ -3901,7 +4368,7 @@ private fun CommentRow(
                     .fillMaxWidth()
                     .clip(MaterialTheme.shapes.small)
                     .then(
-                        if (state.commentCollapseMode == CommentCollapseMode.HEADER) {
+                        if (state.commentCollapseMode.collapsesFromHeader) {
                             Modifier.clickable { onToggleComment(comment.id) }
                         } else {
                             Modifier
@@ -4052,7 +4519,7 @@ private fun CommentRow(
                         modifier = Modifier
                             .fillMaxWidth()
                             .then(
-                                if (state.commentCollapseMode == CommentCollapseMode.COMMENT) {
+                                if (state.commentCollapseMode.collapsesFromComment) {
                                     Modifier.clickable { onToggleComment(comment.id) }
                                 } else {
                                     Modifier
@@ -4194,8 +4661,24 @@ private fun MoreRepliesRow(
     fullDiscussionReady: Boolean,
     fullDiscussionLoading: Boolean,
     onRetry: (Comment) -> Unit,
+    loadingFence: CommentHydrationCommitFence? = null,
 ) {
+    // AUDIT298C_LOADING_ROW_STAYS_QUIET_V1 (owner: "veldig mye loading more
+    // comments, slitsomt å lese"): an automatic load stays a 1dp row for
+    // COMMENT_LOADING_ROW_QUIET_MS (most finish by then); one reached from
+    // below never grows (its comments go in above the screen, and a growing
+    // row above the reader pushed the rows being read). A Retry shows at once.
+    var loadingShown by remember(comment.id, loading) { mutableStateOf(!loading) }
+    LaunchedEffect(comment.id, loading) {
+        if (loading && !loadingShown) {
+            kotlinx.coroutines.delay(COMMENT_LOADING_ROW_QUIET_MS)
+            loadingShown = true
+        }
+    }
+    val quietLoad = loading && !failed && loadingFence?.userInitiated != true &&
+        (loadingFence?.reachedFromBelow == true || !loadingShown)
     if (
+        quietLoad ||
         !commentTransportMoreRowVisible(
             fullDiscussionReady = fullDiscussionReady,
             fullDiscussionLoading = fullDiscussionLoading,

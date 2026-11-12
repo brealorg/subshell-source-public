@@ -766,6 +766,7 @@ class SubshellState(
     initialCommentThreadColours: CommentThreadColours = CommentThreadColours.OFF,
     initialCommentIndentSize: CommentIndentSize = CommentIndentSize.NORMAL,
     initialCommentRailFromParent: Boolean = true,
+    initialCleanLinks: Boolean = true,
     initialShownLanguages: Set<String> = emptySet(),
     initialSwipeActionsEnabled: Boolean = false,
     initialPostSwipeLeftAction: PostSwipeAction = DefaultSubshellSettings.postSwipeLeftAction,
@@ -1091,6 +1092,7 @@ class SubshellState(
         initialCommentThreadColours = initialCommentThreadColours,
         initialCommentIndentSize = initialCommentIndentSize,
         initialCommentRailFromParent = initialCommentRailFromParent,
+        initialCleanLinks = initialCleanLinks,
         initialShownLanguages = initialShownLanguages,
         initialSwipeActionsEnabled = initialSwipeActionsEnabled,
         initialPostSwipeLeftAction = initialPostSwipeLeftAction,
@@ -1232,6 +1234,8 @@ class SubshellState(
     var commentIndentSize by settings::commentIndentSize
         private set
     var commentRailFromParent by settings::commentRailFromParent
+        private set
+    var cleanLinks by settings::cleanLinks
         private set
     var shownLanguages by settings::shownLanguages
         private set
@@ -5923,6 +5927,10 @@ class SubshellState(
         settings.updateCommentIndentSize(size)
     }
 
+    fun updateCleanLinks(enabled: Boolean) {
+        settings.updateCleanLinks(enabled)
+    }
+
     fun updateCommentRailFromParent(enabled: Boolean) {
         settings.updateCommentRailFromParent(enabled)
     }
@@ -6396,6 +6404,7 @@ class SubshellState(
         commentThreadColours = commentThreadColours,
         commentIndentSize = commentIndentSize,
         commentRailFromParent = commentRailFromParent,
+        cleanLinks = cleanLinks,
         shownLanguages = shownLanguages,
         swipeActionsEnabled = swipeActionsEnabled,
         postSwipeLeftAction = postSwipeLeftAction,
@@ -6490,6 +6499,7 @@ class SubshellState(
         commentThreadColours = settings.commentThreadColours
         commentIndentSize = settings.commentIndentSize
         commentRailFromParent = settings.commentRailFromParent
+        cleanLinks = settings.cleanLinks
         shownLanguages = settings.shownLanguages
         // ISSUE71_RESTORE_APPLIES_COMMENT_COLLAPSE_MODE_V1: the only setting a
         // restore wrote to disk but left stale in the live state.
