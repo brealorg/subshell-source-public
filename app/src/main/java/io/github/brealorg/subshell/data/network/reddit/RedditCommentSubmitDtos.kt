@@ -35,6 +35,8 @@ internal data class RedditCommentApiError(
     val kind: RedditCommentApiErrorKind,
     val code: String? = null,
     val field: String? = null,
+    // COMPOSERERR01_REDDITS_REASON_IS_KEPT_V1: Reddit's own words for a refusal.
+    val message: String? = null,
 )
 
 internal sealed interface RedditCommentSubmitPayload {
@@ -150,6 +152,14 @@ private fun JsonElement.toSanitizedApiError(): RedditCommentApiError {
                 }
         }
 
+    val message = (tuple
+        ?.getOrNull(1) as? JsonPrimitive)
+        ?.takeIf { primitive -> primitive.isString }
+        ?.contentOrNull
+        ?.trim()
+        ?.takeIf { candidate -> candidate.isNotEmpty() }
+        ?.take(MAX_API_ERROR_MESSAGE_LENGTH)
+
     val kind = when (code) {
         "RATELIMIT" -> RedditCommentApiErrorKind.RATE_LIMIT
 
@@ -177,9 +187,10 @@ private fun JsonElement.toSanitizedApiError(): RedditCommentApiError {
                 character.isLetterOrDigit() || character == '_' || character == '-'
             }
     }
-    return RedditCommentApiError(kind = kind, code = safeCode, field = field)
+    return RedditCommentApiError(kind = kind, code = safeCode, field = field, message = message)
 }
 
 private const val REDDIT_COMMENT_KIND = "t1"
 private const val REDDIT_SUBMIT_MAX_DEPTH = 10
 private const val MAX_API_ERROR_FIELD_LENGTH = 64
+private const val MAX_API_ERROR_MESSAGE_LENGTH = 500

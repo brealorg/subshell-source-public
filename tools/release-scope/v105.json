@@ -1,0 +1,46 @@
+{
+  "id": "v105",
+  "release": {
+    "versionCode": 264,
+    "versionName": "1.0.5",
+    "date": "2026-11-20",
+    "headline": "Subshell 1.0.5: swipes that act when you let go, and Reddit's own reasons when a post is refused",
+    "highlights": [
+      "Swipes: a vote or other swipe action now runs the moment you let go, and the post or comment springs straight back instead of sliding off the screen.",
+      "Swipes: pick a swipe distance in Settings › Navigation & gestures and try it on a card there. Standard is a little longer than before; Short is the old distance.",
+      "Posting: when Reddit refuses a post or comment, the notice says why in Reddit's own words, for example a community's minimum length, and scrolls into view.",
+      "Posting: a community's own posting rules, such as a word the title must contain, are shown on the field they apply to.",
+      "Wiki: pages show when they were last edited, and that edits made in Reddit's new Wiki may not have reached apps.",
+      "Behind the scenes: newer Android libraries (Compose 1.13, Material 3 1.5).",
+      "If something does not work for you, tell us on r/subshell or GitHub."
+    ],
+    "releaseUrl": "https://github.com/brealorg/subshell/releases/tag/v1.0.5"
+  },
+  "below": [
+    {
+      "versionCode": 263,
+      "versionName": "1.0.4",
+      "date": "2026-11-17"
+    },
+    {
+      "versionCode": 262,
+      "versionName": "1.0.3",
+      "date": "2026-11-15"
+    },
+    {
+      "versionCode": 261,
+      "versionName": "1.0.2",
+      "date": "2026-11-12"
+    },
+    {
+      "versionCode": 260,
+      "versionName": "1.0.1",
+      "date": "2026-11-11"
+    },
+    {
+      "versionCode": 259,
+      "versionName": "1.0.0",
+      "date": "2026-11-10"
+    }
+  ]
+}

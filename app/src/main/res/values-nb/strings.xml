@@ -265,6 +265,14 @@
     <string name="set_comment_swipe_right">Kommentar · sveip til høyre</string>
     <string name="set_swipe_left">Sveip til venstre</string>
     <string name="set_swipe_right">Sveip til høyre</string>
+    <string name="set_swipe_distance">Sveipeavstand</string>
+    <string name="set_how_far_to_swipe_before_the_action_runs">Hvor langt et innlegg eller en kommentar må sveipes før handlingen skjer. Et raskt sveip virker alltid.</string>
+    <string name="swipe_distance_short">Kort</string>
+    <string name="swipe_distance_standard">Standard</string>
+    <string name="swipe_distance_long">Lang</string>
+    <string name="set_swipe_try_title">Prøv her</string>
+    <string name="set_swipe_try_hint">Sveip dette kortet sakte for å kjenne avstanden. Ingenting sendes til Reddit.</string>
+    <string name="set_swipe_try_result">Det sveipet: %1$s</string>
     <string name="settings_destination_settings_title">Innstillinger</string>
     <string name="settings_destination_accounts_title">Kontoer</string>
     <string name="settings_destination_reddit_accounts_privacy_and_connection_description">Reddit-kontoer, personvern og tilkobling</string>
@@ -677,6 +685,7 @@
     <string name="error_write_this_image_type_can_t_be_posted">Denne bildetypen kan ikke publiseres. Velg JPEG, PNG, WebP eller GIF.</string>
     <string name="error_write_this_image_can_no_longer_be_read">Bildet kan ikke lenger leses. Velg det på nytt.</string>
     <string name="error_write_reddit_rejected_the_comment">Reddit avviste kommentaren.</string>
+    <string name="error_write_reddit_rejected_the_comment_saying">Reddit avviste kommentaren: %1$s</string>
     <string name="error_write_reddit_rejected_the_comment_request">Reddit avviste kommentarforespørselen.</string>
     <string name="error_write_subshell_couldn_t_reach_reddit_to_post">subshell kunne ikke nå Reddit for å publisere kommentaren.</string>
     <string name="error_write_this_comment_is_already_being_posted">Denne kommentaren publiseres allerede.</string>
@@ -717,6 +726,7 @@
     <string name="error_write_reddit_requires_an_additional_verification_step">Reddit krever et ekstra bekreftelsessteg.</string>
     <string name="error_write_review_the_highlighted_field_before_publishing">Se over det uthevede feltet før du publiserer.</string>
     <string name="error_write_reddit_rejected_the_post">Reddit avviste innlegget.</string>
+    <string name="error_write_reddit_rejected_the_post_saying">Reddit avviste innlegget: %1$s</string>
     <string name="error_write_reddit_rejected_the_publish_request">Reddit avviste publiseringsforespørselen.</string>
     <string name="error_write_subshell_couldn_t_reach_reddit_to_publish">subshell kunne ikke nå Reddit for å publisere innlegget.</string>
     <string name="error_write_this_post_is_already_being_published">Dette innlegget publiseres allerede.</string>
@@ -959,6 +969,9 @@
     <string name="comp_mute_until">Demp til</string>
     <string name="comp_back">Tilbake</string>
     <string name="comp_last_revised_by_u">Sist endret av u/%1$s</string>
+    <string name="comp_last_revised_on_by_u">Sist endret %1$s av u/%2$s</string>
+    <string name="comp_last_revised_on">Sist endret %1$s</string>
+    <string name="comp_wiki_page_may_be_older">Endringer i Reddits nye wiki når ikke apper, så denne siden kan være eldre enn på reddit.com.</string>
     <string name="comp_empty_wiki_page">Tom wikiside</string>
     <string name="comp_no_wiki_pages">Ingen wikisider</string>
     <string name="comp_community_pages">Fellesskapssider</string>

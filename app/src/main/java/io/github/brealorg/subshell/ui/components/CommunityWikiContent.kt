@@ -68,6 +68,10 @@ internal fun communityWikiPageGroups(
 
 internal const val WIKI_CONFIGURATION_TEXT_TEST_TAG = "wiki-configuration-text"
 
+internal fun communityWikiRevisionDate(epochSeconds: Long): String =
+    java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM)
+        .format(java.util.Date(epochSeconds * 1_000L))
+
 /** The page (or the Wiki) on reddit.com, which shows Reddit's new Wiki. */
 internal fun communityWikiWebUrl(communityName: String, pagePath: String?): String =
     "https://www.reddit.com/r/$communityName/wiki/" + (pagePath?.trim()?.trimStart('/') ?: "")
@@ -169,9 +173,20 @@ internal fun LazyListScope.communityWikiItems(
                     text = page.path,
                     style = MaterialTheme.typography.titleLarge,
                 )
-                page.revisionAuthor?.let { author ->
+                // WIKI04_THE_REVISION_DATE_IS_SHOWN_V1: the date tells how old the
+                // text Reddit's API gave is.
+                val revisedOn = page.revisionDateEpochSeconds?.let(::communityWikiRevisionDate)
+                val author = page.revisionAuthor
+                val revisedLine = when {
+                    revisedOn != null && author != null ->
+                        stringResource(R.string.comp_last_revised_on_by_u, revisedOn, author)
+                    revisedOn != null -> stringResource(R.string.comp_last_revised_on, revisedOn)
+                    author != null -> stringResource(R.string.comp_last_revised_by_u, author)
+                    else -> null
+                }
+                revisedLine?.let { line ->
                     Text(
-                        text = stringResource(R.string.comp_last_revised_by_u, author),
+                        text = line,
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -185,6 +200,16 @@ internal fun LazyListScope.communityWikiItems(
                 }
                 // WIKI03_THE_NEW_WIKI_IS_NAMED_V1: Reddit's API reads the old Wiki;
                 // a page edited on reddit.com after the Wiki moved can differ.
+                // WIKI04_A_PAGE_SAYS_IT_MAY_BE_OLDER_V1: seen 2026-11-18, an edit on
+                // reddit.com never reached the API (r/astronotyet). Config pages
+                // sync to both Wikis and need no warning.
+                if (!communityWikiConfigurationPath(page.path)) {
+                    Text(
+                        text = stringResource(R.string.comp_wiki_page_may_be_older),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 OpenWikiOnRedditButton(communityWikiWebUrl(communityName, page.path))
             }
         }

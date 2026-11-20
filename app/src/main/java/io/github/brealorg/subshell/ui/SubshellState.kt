@@ -775,6 +775,7 @@ class SubshellState(
     initialPostSwipeRightAction: PostSwipeAction = DefaultSubshellSettings.postSwipeRightAction,
     initialCommentSwipeLeftAction: CommentSwipeAction = DefaultSubshellSettings.commentSwipeLeftAction,
     initialCommentSwipeRightAction: CommentSwipeAction = DefaultSubshellSettings.commentSwipeRightAction,
+    initialSwipeDistance: SwipeDistance = DefaultSubshellSettings.swipeDistance,
     initialHighlightNewComments: Boolean = true,
     initialShowCommentAvatars: Boolean = true,
     initialTopLevelCommentJumpButton: Boolean = false,
@@ -1106,6 +1107,7 @@ class SubshellState(
         initialPostSwipeRightAction = initialPostSwipeRightAction,
         initialCommentSwipeLeftAction = initialCommentSwipeLeftAction,
         initialCommentSwipeRightAction = initialCommentSwipeRightAction,
+        initialSwipeDistance = initialSwipeDistance,
         initialHighlightNewComments = initialHighlightNewComments,
         initialShowCommentAvatars = initialShowCommentAvatars,
         initialTopLevelCommentJumpButton = initialTopLevelCommentJumpButton,
@@ -1270,6 +1272,8 @@ class SubshellState(
     var commentSwipeLeftAction by settings::commentSwipeLeftAction
         private set
     var commentSwipeRightAction by settings::commentSwipeRightAction
+        private set
+    var swipeDistance by settings::swipeDistance
         private set
     var highlightNewComments by settings::highlightNewComments
     var showCommentAvatars by settings::showCommentAvatars
@@ -6036,6 +6040,10 @@ class SubshellState(
         settings.updateCommentSwipeRightAction(action)
     }
 
+    fun updateSwipeDistance(distance: SwipeDistance) {
+        settings.updateSwipeDistance(distance)
+    }
+
 
     fun updateHighlightNewComments(enabled: Boolean) {
         settings.updateHighlightNewComments(enabled)
@@ -6452,6 +6460,7 @@ class SubshellState(
         postSwipeRightAction = postSwipeRightAction,
         commentSwipeLeftAction = commentSwipeLeftAction,
         commentSwipeRightAction = commentSwipeRightAction,
+        swipeDistance = swipeDistance,
         highlightNewComments = highlightNewComments,
         showCommentAvatars = showCommentAvatars,
         topLevelCommentJumpButton = topLevelCommentJumpButton,
@@ -6553,6 +6562,7 @@ class SubshellState(
         postSwipeRightAction = settings.postSwipeRightAction
         commentSwipeLeftAction = settings.commentSwipeLeftAction
         commentSwipeRightAction = settings.commentSwipeRightAction
+        swipeDistance = settings.swipeDistance
         highlightNewComments = settings.highlightNewComments
         showCommentAvatars = settings.showCommentAvatars
         topLevelCommentJumpButton = settings.topLevelCommentJumpButton

@@ -786,6 +786,16 @@ fun CreatePostScreen(
             }
         }
     }
+    // COMPOSERERR01_A_REFUSED_POST_SCROLLS_ITS_NOTICE_INTO_VIEW_V1: only where the notice
+    // is shown (signed in).
+    if (authenticated) {
+        RevealTextPostWriteNotice(
+            writeState = activeTextPostWriteState,
+            listState = composerListState,
+            noticeItemIndex = 0,
+            draftKey = "${draft.id}",
+        )
+    }
     // LOWUX1_REMOTE_ISSUE_REVEALED_ONCE_V1 (OCB-313): the reveal ran again on
     // every re-entry of the composer (and after a recreation), relaunching the
     // flair authorization or a sheet without a tap; each stage of an issue is

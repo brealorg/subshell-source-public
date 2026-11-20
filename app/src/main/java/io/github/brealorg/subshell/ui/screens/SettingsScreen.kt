@@ -80,7 +80,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import io.github.brealorg.subshell.backup.BackupProtection
 import io.github.brealorg.subshell.backup.SettingsBackupRepository
@@ -153,6 +152,8 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.drop
+import androidx.compose.foundation.text.input.clearText
 import kotlinx.coroutines.withContext
 import io.github.brealorg.subshell.applock.AppLockDelayDialog
 import io.github.brealorg.subshell.applock.AppLockEntryPoints
@@ -245,7 +246,11 @@ fun SettingsScreen(
     var downloadDeleteInProgress by remember { mutableStateOf(false) }
     var downloadOperationMessage by remember { mutableStateOf<UiText?>(null) }
     var redReaderConfigurationDialogVisible by remember { mutableStateOf(false) }
-    var redReaderClientIdDraft by remember { mutableStateOf("") }
+    // COMPOSE113_TEXT_FIELDS_USE_TEXT_FIELD_STATE_V1 (1.0.5 tool update): the client ID
+    // field is M3's OutlinedSecureTextField over a TextFieldState (Compose 1.13 deprecated
+    // the String field and PasswordVisualTransformation).
+    val redReaderClientIdState = androidx.compose.foundation.text.input.rememberTextFieldState()
+    val redReaderClientIdDraft = redReaderClientIdState.text.toString()
     var redReaderCompatibilityConfigured by remember { mutableStateOf(false) }
     var redReaderConfigurationBusy by remember { mutableStateOf(false) }
     var redReaderOperationMessage by remember { mutableStateOf<UiText?>(null) }
@@ -1079,7 +1084,7 @@ fun SettingsScreen(
             onDismissRequest = {
                 if (!redReaderConfigurationBusy) {
                     redReaderConfigurationDialogVisible = false
-                    redReaderClientIdDraft = ""
+                    redReaderClientIdState.clearText()
                 }
             },
             title = { Text(stringResource(R.string.set_redreader_compatibility)) },
@@ -1091,22 +1096,23 @@ fun SettingsScreen(
                     Text(
                         stringResource(R.string.set_compatibility_mode_explained),
                     )
-                    OutlinedTextField(
-                        value = redReaderClientIdDraft,
-                        onValueChange = { value ->
-                            redReaderClientIdDraft = value
-                            redReaderOperationMessage = null
-                        },
+                    // Typing clears the last operation message, as the old onValueChange did;
+                    // a programmatic clear (after save) leaves it.
+                    LaunchedEffect(redReaderClientIdState) {
+                        androidx.compose.runtime.snapshotFlow { redReaderClientIdState.text.toString() }
+                            .drop(1)
+                            .collect { text -> if (text.isNotEmpty()) redReaderOperationMessage = null }
+                    }
+                    androidx.compose.material3.OutlinedSecureTextField(
+                        state = redReaderClientIdState,
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !redReaderConfigurationBusy,
-                        singleLine = true,
                         label = { Text(stringResource(R.string.set_oauth_client_id)) },
                         supportingText = if (redReaderCompatibilityConfigured) {
                             { Text(stringResource(R.string.set_leave_empty_to_keep_the_current_one)) }
                         } else {
                             null
                         },
-                        visualTransformation = PasswordVisualTransformation(),
                         // LOWUI3_CLIENT_ID_KEYBOARD_LEARNS_NOTHING_V1 (OCB-269): a password
                         // field, so the keyboard neither suggests nor learns the client ID.
                         keyboardOptions = KeyboardOptions(
@@ -1150,7 +1156,7 @@ fun SettingsScreen(
                                         redReaderConfigurationBusy = false
                                         result.onSuccess {
                                             redReaderConfigurationDialogVisible = false
-                                            redReaderClientIdDraft = ""
+                                            redReaderClientIdState.clearText()
                                             redReaderOperationFailed = false
                                             redReaderOperationMessage =
                                                 UiText.Resource(R.string.set_connection_configuration_saved)
@@ -1188,7 +1194,7 @@ fun SettingsScreen(
                                         result.onSuccess {
                                             redReaderCompatibilityConfigured = false
                                             redReaderConfigurationDialogVisible = false
-                                            redReaderClientIdDraft = ""
+                                            redReaderClientIdState.clearText()
                                             redReaderOperationFailed = false
                                             redReaderOperationMessage =
                                                 UiText.Resource(R.string.set_connection_configuration_removed)
@@ -1243,7 +1249,7 @@ fun SettingsScreen(
                                 result.onSuccess {
                                     redReaderCompatibilityConfigured = true
                                     redReaderConfigurationDialogVisible = false
-                                    redReaderClientIdDraft = ""
+                                    redReaderClientIdState.clearText()
                                     redReaderOperationFailed = false
                                     redReaderOperationMessage =
                                         UiText.Resource(R.string.set_connection_configuration_saved)
@@ -1270,7 +1276,7 @@ fun SettingsScreen(
                     enabled = !redReaderConfigurationBusy,
                     onClick = {
                         redReaderConfigurationDialogVisible = false
-                        redReaderClientIdDraft = ""
+                        redReaderClientIdState.clearText()
                     },
                 ) {
                     Text(stringResource(R.string.set_cancel))
@@ -2125,6 +2131,32 @@ fun SettingsScreen(
                             onPostRightActionChange = state::updatePostSwipeRightAction,
                             onCommentLeftActionChange = state::updateCommentSwipeLeftAction,
                             onCommentRightActionChange = state::updateCommentSwipeRightAction,
+                        )
+                    }
+                }
+                // SWIPEDISTANCE01_THE_READER_PICKS_HOW_FAR_A_SWIPE_GOES_V1: only while
+                // swipe actions are on (or when searched for).
+                if (
+                    (destination == SettingsDestination.NAVIGATION && query.isBlank() && state.swipeActionsEnabled) ||
+                    searchResult.isItemVisible("swipe-distance")
+                ) {
+                    item("swipe-distance") {
+                        SettingsSegmentedChoice(
+                            icon = Symbols.Swipe,
+                            title = stringResource(R.string.set_swipe_distance),
+                            description = stringResource(R.string.set_how_far_to_swipe_before_the_action_runs),
+                            options = io.github.brealorg.subshell.ui.SwipeDistance.entries,
+                            selected = state.swipeDistance,
+                            label = { stringResource(it.labelRes) },
+                            onSelect = state::updateSwipeDistance,
+                        )
+                    }
+                    // SWIPEDISTANCE02_A_CARD_TO_TRY_THE_SWIPE_ON_V1: only while swipe actions
+                    // are on (review: found by search it swiped a gesture the feed lacks).
+                    if (state.swipeActionsEnabled) item("swipe-distance-try") {
+                        io.github.brealorg.subshell.ui.components.SwipeDistanceTryCard(
+                            state = state,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                         )
                     }
                 }
@@ -3202,7 +3234,7 @@ fun SettingsScreen(
                             stringResource(R.string.set_add_oauth_client_id)
                         },
                         onClick = {
-                            redReaderClientIdDraft = ""
+                            redReaderClientIdState.clearText()
                             redReaderOperationMessage = null
                             redditApiValues = null
                             redditApiValuesDraft = null

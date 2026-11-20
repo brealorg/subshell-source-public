@@ -316,7 +316,7 @@ class RedditTextPostSubmitPolicyTest {
     }
 
     @Test
-    fun apiErrorsAreTypedWithoutProviderMessages() {
+    fun apiErrorsAreTypedAndKeepRedditsReason() {
         val response = RedditTextPostSubmitResponseDto(
             json = RedditTextPostSubmitJsonDto(
                 errors = listOf(
@@ -354,26 +354,52 @@ class RedditTextPostSubmitPolicyTest {
                     kind = RedditTextPostApiErrorKind.RATE_LIMIT,
                     code = "RATELIMIT",
                     field = "title",
+                    message = "provider message must not survive",
                 ),
                 RedditTextPostApiError(
                     kind = RedditTextPostApiErrorKind.SUBMISSION_RESTRICTED,
                     code = "SUBREDDIT_NOPOST",
                     field = "sr",
+                    message = "another provider message",
                 ),
                 RedditTextPostApiError(
                     kind = RedditTextPostApiErrorKind.CHALLENGE_REQUIRED,
                     code = "BAD_CAPTCHA",
                     field = "captcha",
+                    message = "challenge details",
                 ),
             ),
             payload.errors,
         )
-        assertFalse(payload.toString().contains("provider message"))
-        assertFalse(payload.toString().contains("challenge details"))
+    }
+
+    // COMPOSERERR01_REDDITS_REASON_IS_KEPT_V1: only a string is Reddit's reason;
+    // a blank one is none, a long one is cut.
+    @Test
+    fun redditsReasonIsAStringTrimmedAndCut() {
+        fun reasonOf(message: JsonPrimitive): String? = RedditTextPostSubmitResponseDto(
+            json = RedditTextPostSubmitJsonDto(
+                errors = listOf(
+                    JsonArray(
+                        listOf(
+                            JsonPrimitive("POST_GUIDANCE_VALIDATION_FAILED"),
+                            message,
+                            JsonPrimitive("body"),
+                        ),
+                    ),
+                ),
+            ),
+        ).toTextPostSubmitPayload("subshell", "Title", "Body")
+            .let { payload -> (payload as RedditTextPostSubmitPayload.ApiFailure).errors.single().message }
+
+        assertEquals("This is under 25 words", reasonOf(JsonPrimitive("  This is under 25 words \n")))
+        assertEquals(null, reasonOf(JsonPrimitive("   ")))
+        assertEquals(null, reasonOf(JsonPrimitive(25)))
+        assertEquals(500, reasonOf(JsonPrimitive("x".repeat(900)))?.length)
     }
 
     @Test
-    fun submitValidationFlairRequiredPreservesOnlySanitizedCodeAndField() {
+    fun submitValidationFlairRequiredPreservesSanitizedCodeFieldAndReason() {
         val response = RedditTextPostSubmitResponseDto(
             json = RedditTextPostSubmitJsonDto(
                 errors = listOf(
@@ -397,11 +423,11 @@ class RedditTextPostSubmitPolicyTest {
                     kind = RedditTextPostApiErrorKind.VALIDATION,
                     code = "SUBMIT_VALIDATION_FLAIR_REQUIRED",
                     field = "flair",
+                    message = "Post must contain post flair.",
                 ),
             ),
             payload.errors,
         )
-        assertFalse(payload.toString().contains("Post must contain post flair."))
     }
 
     @Test
@@ -500,11 +526,11 @@ class RedditTextPostSubmitPolicyTest {
                     kind = RedditTextPostApiErrorKind.VALIDATION,
                     code = "BAD_VIDEO",
                     field = "video_poster_url",
+                    message = "provider detail must not cross boundary",
                 ),
             ),
             payload.errors,
         )
-        assertFalse(payload.toString().contains("provider detail"))
     }
 
     @Test

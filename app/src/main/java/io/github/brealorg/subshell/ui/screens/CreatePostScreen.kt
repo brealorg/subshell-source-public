@@ -9,7 +9,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.brealorg.subshell.data.account.TextPostWriteFailureKind
@@ -28,6 +34,39 @@ internal fun textPostWriteStateForRequest(
     else -> TextPostWriteUiState(completionRevision = state.completionRevision)
 }
 
+internal fun textPostWriteNoticeShown(state: TextPostWriteUiState): Boolean =
+    state.phase in setOf(
+        TextPostWritePhase.FAILED,
+        TextPostWritePhase.OUTCOME_UNKNOWN,
+    ) && state.validationIssues.isEmpty()
+
+/**
+ * COMPOSERERR01_A_REFUSED_POST_SCROLLS_ITS_NOTICE_INTO_VIEW_V1: the write notice
+ * is an item near the top of the form; with the body focused and the form
+ * scrolled down it stayed above the screen and Post seemed to do nothing (seen
+ * on the Pixel 11, 2026-11-18). Each write result scrolls to it once (as
+ * LOWUX1 reveals a field issue once).
+ */
+@Composable
+internal fun RevealTextPostWriteNotice(
+    writeState: TextPostWriteUiState,
+    listState: LazyListState,
+    noticeItemIndex: Int,
+    draftKey: String,
+) {
+    var revealedKey by rememberSaveable(draftKey) { mutableStateOf<String?>(null) }
+    val noticeKey = if (textPostWriteNoticeShown(writeState)) {
+        "${writeState.requestKey}:${writeState.completionRevision}:${writeState.phase}"
+    } else {
+        null
+    }
+    LaunchedEffect(noticeKey) {
+        if (noticeKey == null || noticeKey == revealedKey) return@LaunchedEffect
+        revealedKey = noticeKey
+        listState.animateScrollToItem(noticeItemIndex)
+    }
+}
+
 @Composable
 internal fun TextPostWriteStatus(
     authenticated: Boolean,
@@ -42,12 +81,7 @@ internal fun TextPostWriteStatus(
     sendingMessage: String = stringResource(R.string.all_posting_to_reddit),
 ) {
     if (!authenticated) return
-    if (
-        writeState.phase in setOf(
-            TextPostWritePhase.FAILED,
-            TextPostWritePhase.OUTCOME_UNKNOWN,
-        ) && writeState.validationIssues.isEmpty()
-    ) {
+    if (textPostWriteNoticeShown(writeState)) {
         ErrorNotice(
             presentation = textPostWriteErrorPresentation(writeState),
             diagnosticScopeKey = "post_create",

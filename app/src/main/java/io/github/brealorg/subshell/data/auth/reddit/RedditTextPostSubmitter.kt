@@ -15,6 +15,7 @@ import io.github.brealorg.subshell.data.auth.toFailureDetails
 import io.github.brealorg.subshell.data.error.FailureDetails
 import io.github.brealorg.subshell.data.error.redditWriteHttpFailureDetails
 import io.github.brealorg.subshell.data.error.redditWriteProtocolFailureDetails
+import io.github.brealorg.subshell.data.error.SafeFailureText
 import io.github.brealorg.subshell.data.error.redditWriteProviderFailureDetails
 import io.github.brealorg.subshell.data.error.redditWriteTransportFailureDetails
 import io.github.brealorg.subshell.data.network.NetworkClock
@@ -1015,6 +1016,7 @@ internal class ConfiguredRedditTextPostSubmitter(
         val providerError = result.errors.firstOrNull()
         val failureDetails = redditWriteProviderFailureDetails(
             code = providerError?.code,
+            message = providerError?.message,
             retryAfterMs = retryAfterMs,
         )
         return when {
@@ -1377,7 +1379,16 @@ internal fun RedditTextPostApiError.toAuthenticatedValidationIssue():
                 "The post doesn't meet this community's posting requirements"
         }
     }
-    return AuthenticatedTextPostValidationIssue(field = target, message = message)
+    // COMPOSERERR01_COMMUNITY_REQUIREMENTS_USE_REDDITS_WORDS_V1: a community's own
+    // posting requirement (SUBMIT_VALIDATION_*) is best told in Reddit's words,
+    // which name the rule ("Title must contain [OC]"); flair keeps its own flow.
+    val redditWords = this.message
+        ?.takeIf {
+            code?.startsWith("SUBMIT_VALIDATION_") == true &&
+                code != "SUBMIT_VALIDATION_FLAIR_REQUIRED"
+        }
+        ?.let { words -> SafeFailureText.fromUntrusted(words)?.value }
+    return AuthenticatedTextPostValidationIssue(field = target, message = redditWords ?: message)
 
 
 }

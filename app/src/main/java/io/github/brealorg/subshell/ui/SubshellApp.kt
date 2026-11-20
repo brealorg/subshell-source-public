@@ -517,6 +517,7 @@ fun SubshellApp(
     ) {
         CompositionLocalProvider(
             io.github.brealorg.subshell.ui.components.LocalCleanLinks provides state.cleanLinks,
+            io.github.brealorg.subshell.ui.components.LocalSwipeDistance provides state.swipeDistance,
             LocalModeratorToolsNavigation provides moderatorToolsNavigation,
             LocalModeratorToolsWorkspaceContent provides moderatorToolsWorkspaceContent,
             LocalModeratorReports provides moderatorReportsEntries,

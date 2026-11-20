@@ -9,6 +9,40 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class RedditTextPostSubmitValidationMappingTest {
+    // COMPOSERERR01_COMMUNITY_REQUIREMENTS_USE_REDDITS_WORDS_V1
+    @Test
+    fun aCommunityRequirementReadsInRedditsWords() {
+        val issue = RedditTextPostApiError(
+            kind = RedditTextPostApiErrorKind.VALIDATION,
+            code = "SUBMIT_VALIDATION_TITLE_REQUIRED_STRING",
+            field = "title",
+            message = "Title must contain [OC]",
+        ).toAuthenticatedValidationIssue()
+
+        requireNotNull(issue)
+        assertEquals(AuthenticatedTextPostValidationField.TITLE, issue.field)
+        assertEquals("Title must contain [OC]", issue.message)
+    }
+
+    @Test
+    fun flairAndPlainCodesKeepTheAppsWords() {
+        val flair = RedditTextPostApiError(
+            kind = RedditTextPostApiErrorKind.VALIDATION,
+            code = "SUBMIT_VALIDATION_FLAIR_REQUIRED",
+            field = "flair",
+            message = "Post must contain post flair.",
+        ).toAuthenticatedValidationIssue()
+        val title = RedditTextPostApiError(
+            kind = RedditTextPostApiErrorKind.VALIDATION,
+            code = "NO_TITLE",
+            field = "title",
+            message = "we need something here",
+        ).toAuthenticatedValidationIssue()
+
+        assertEquals("Post flair is required", flair?.message)
+        assertEquals("Add a title", title?.message)
+    }
+
     @Test
     fun flairRequiredMapsToActionableFieldError() {
         val issue = RedditTextPostApiError(

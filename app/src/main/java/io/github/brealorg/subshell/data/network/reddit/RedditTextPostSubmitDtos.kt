@@ -41,6 +41,10 @@ internal data class RedditTextPostApiError(
     val kind: RedditTextPostApiErrorKind,
     val code: String? = null,
     val field: String? = null,
+    // COMPOSERERR01_REDDITS_REASON_IS_KEPT_V1: Reddit's own words for a refusal
+    // ([code, message, field]); post guidance and Automations put the
+    // moderators' text here ("This is under 25 words").
+    val message: String? = null,
 )
 
 internal data class RedditSubmittedTextPost(
@@ -220,6 +224,14 @@ private fun JsonElement.toSanitizedTextPostApiError(): RedditTextPostApiError {
                 }
         }
 
+    val message = (tuple
+        ?.getOrNull(1) as? JsonPrimitive)
+        ?.takeIf { primitive -> primitive.isString }
+        ?.contentOrNull
+        ?.trim()
+        ?.takeIf { candidate -> candidate.isNotEmpty() }
+        ?.take(MAX_API_ERROR_MESSAGE_LENGTH)
+
     val kind = when (code) {
         "RATELIMIT" -> RedditTextPostApiErrorKind.RATE_LIMIT
 
@@ -282,13 +294,14 @@ private fun JsonElement.toSanitizedTextPostApiError(): RedditTextPostApiError {
             }
         }
     }
-    return RedditTextPostApiError(kind = kind, code = code, field = field)
+    return RedditTextPostApiError(kind = kind, code = code, field = field, message = message)
 }
 
 private const val REDDIT_POST_FULLNAME_PREFIX = "t3_"
 private const val REDDIT_THING_ID_MAX_LENGTH = 16
 private const val MAX_API_ERROR_CODE_LENGTH = 96
 private const val MAX_API_ERROR_FIELD_LENGTH = 64
+private const val MAX_API_ERROR_MESSAGE_LENGTH = 500
 private const val MAX_MEDIA_WEBSOCKET_URL_LENGTH = 4_096
 private val REDDIT_PERMALINK_HOSTS = setOf(
     "reddit.com",

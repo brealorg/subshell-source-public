@@ -48,8 +48,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.foundation.text.input.clearText
+import kotlinx.coroutines.flow.drop
 import androidx.compose.ui.unit.dp
 import io.github.brealorg.subshell.R
 import io.github.brealorg.subshell.ui.RedditLinkHandlingState
@@ -803,9 +803,10 @@ private fun RedditClientIdEntry(
 
     // LOWUI3_CLIENT_ID_DRAFT_NOT_IN_SAVED_STATE_V1 (OCB-248): the Client ID
     // being typed stays in memory only, not in the activity's saved state.
-    var draft by remember {
-        mutableStateOf("")
-    }
+    // COMPOSE113_TEXT_FIELDS_USE_TEXT_FIELD_STATE_V1 (1.0.5 tool update): M3's
+    // OutlinedSecureTextField over a TextFieldState, still not saved state (plain remember).
+    val draftState = remember { androidx.compose.foundation.text.input.TextFieldState() }
+    val draft = draftState.text.toString()
 
     var visible by rememberSaveable {
         mutableStateOf(false)
@@ -867,26 +868,31 @@ private fun RedditClientIdEntry(
                 .onSurfaceVariant,
     )
 
-    OutlinedTextField(
-        value = draft,
-        onValueChange = { value ->
-            draft = value
-                .replace('\n', ' ')
-                .replace('\r', ' ')
-            failureMessage = null
+    // Typing clears the last save failure, as the old onValueChange did.
+    LaunchedEffect(draftState) {
+        androidx.compose.runtime.snapshotFlow { draftState.text.toString() }
+            .drop(1)
+            .collect { failureMessage = null }
+    }
+    androidx.compose.material3.OutlinedSecureTextField(
+        state = draftState,
+        // A pasted line break becomes a space, as before.
+        inputTransformation = {
+            val text = asCharSequence().toString()
+            if (text.any { it == '\n' || it == '\r' }) {
+                replace(0, length, text.replace('\n', ' ').replace('\r', ' '))
+            }
+        },
+        textObfuscationMode = if (visible) {
+            androidx.compose.foundation.text.input.TextObfuscationMode.Visible
+        } else {
+            androidx.compose.foundation.text.input.TextObfuscationMode.RevealLastTyped
         },
         modifier = Modifier.fillMaxWidth(),
         enabled = !busy,
-        singleLine = true,
         label = {
             Text(stringResource(R.string.scr_client_id))
         },
-        visualTransformation =
-            if (visible) {
-                VisualTransformation.None
-            } else {
-                PasswordVisualTransformation()
-            },
         trailingIcon = {
             IconButton(
                 onClick = {
@@ -1058,7 +1064,7 @@ private fun RedditClientIdEntry(
                     busy = false
 
                     result.onSuccess {
-                        draft = ""
+                        draftState.clearText()
                         onSaved()
                     }.onFailure {
                         failureMessage = couldNotSaveClientId

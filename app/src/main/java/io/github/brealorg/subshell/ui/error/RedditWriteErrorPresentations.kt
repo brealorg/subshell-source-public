@@ -143,6 +143,15 @@ internal fun commentWriteErrorPresentation(
             dismissible = true,
         )
     }
+    // COMPOSERERR01_REDDITS_REASON_IS_SHOWN_V1: as for posts.
+    val redditReason = state.failureDetails?.providerMessage?.value
+        ?.takeIf {
+            state.failureKind == CommentWriteFailureKind.API ||
+                state.failureKind == CommentWriteFailureKind.VALIDATION
+        }
+    val redditReasonText = redditReason?.let { reason ->
+        UiText.Resource(R.string.error_write_reddit_rejected_the_comment_saying, reason)
+    }
     return writeErrorPresentation(
         title = UiText.Resource(R.string.error_write_couldn_t_post_comment),
         message = when (state.failureKind) {
@@ -164,8 +173,8 @@ internal fun commentWriteErrorPresentation(
                 UiText.Resource(R.string.error_write_this_thread_can_no_longer_accept_replies)
             CommentWriteFailureKind.PERMISSION ->
                 UiText.Resource(R.string.error_write_this_account_can_t_comment_in_this)
-            CommentWriteFailureKind.VALIDATION ->
-                UiText.Resource(R.string.error_write_review_the_comment_text_and_try_again)
+            CommentWriteFailureKind.VALIDATION -> redditReasonText
+                ?: UiText.Resource(R.string.error_write_review_the_comment_text_and_try_again)
             CommentWriteFailureKind.NOT_POSTED ->
                 UiText.Resource(R.string.error_write_reddit_doesn_t_show_this_comment_you)
             CommentWriteFailureKind.MEDIA_NOT_ALLOWED ->
@@ -176,8 +185,8 @@ internal fun commentWriteErrorPresentation(
                 UiText.Resource(R.string.error_write_this_image_type_can_t_be_posted)
             CommentWriteFailureKind.MEDIA_UNAVAILABLE ->
                 UiText.Resource(R.string.error_write_this_image_can_no_longer_be_read)
-            CommentWriteFailureKind.API ->
-                UiText.Resource(R.string.error_write_reddit_rejected_the_comment)
+            CommentWriteFailureKind.API -> redditReasonText
+                ?: UiText.Resource(R.string.error_write_reddit_rejected_the_comment)
             CommentWriteFailureKind.HTTP ->
                 UiText.Resource(R.string.error_write_reddit_rejected_the_comment_request)
             CommentWriteFailureKind.TRANSPORT ->
@@ -186,7 +195,11 @@ internal fun commentWriteErrorPresentation(
                 UiText.Resource(R.string.error_write_this_comment_is_already_being_posted)
             null -> UiText.Resource(R.string.error_write_the_comment_couldn_t_be_posted)
         },
-        details = state.failureDetails,
+        details = if (redditReason != null) {
+            state.failureDetails.copy(providerMessage = null)
+        } else {
+            state.failureDetails
+        },
         retryable = state.retryable &&
             state.failureKind != CommentWriteFailureKind.ALREADY_SUBMITTING,
         dismissible = true,
@@ -348,6 +361,11 @@ internal fun textPostWriteErrorPresentation(
             retryLabel = UiText.Resource(R.string.error_write_check_again),
         )
     }
+    // COMPOSERERR01_REDDITS_REASON_IS_SHOWN_V1: a refusal the app has no words
+    // for (post guidance, Automations) reads as Reddit wrote it, once: not
+    // again among the details.
+    val redditReason = state.failureDetails?.providerMessage?.value
+        ?.takeIf { state.failureKind == TextPostWriteFailureKind.API }
     return writeErrorPresentation(
         title = UiText.Resource(R.string.error_write_couldn_t_publish_post),
         message = when (state.failureKind) {
@@ -375,8 +393,9 @@ internal fun textPostWriteErrorPresentation(
                 UiText.Resource(R.string.error_write_reddit_requires_an_additional_verification_step)
             TextPostWriteFailureKind.VALIDATION ->
                 UiText.Resource(R.string.error_write_review_the_highlighted_field_before_publishing)
-            TextPostWriteFailureKind.API ->
-                UiText.Resource(R.string.error_write_reddit_rejected_the_post)
+            TextPostWriteFailureKind.API -> redditReason
+                ?.let { reason -> UiText.Resource(R.string.error_write_reddit_rejected_the_post_saying, reason) }
+                ?: UiText.Resource(R.string.error_write_reddit_rejected_the_post)
             TextPostWriteFailureKind.HTTP ->
                 UiText.Resource(R.string.error_write_reddit_rejected_the_publish_request)
             TextPostWriteFailureKind.TRANSPORT ->
@@ -389,7 +408,11 @@ internal fun textPostWriteErrorPresentation(
                 UiText.Resource(R.string.error_write_reddit_may_have_received_an_earlier_post)
             null -> UiText.Resource(R.string.error_write_the_post_couldn_t_be_published)
         },
-        details = state.failureDetails,
+        details = if (redditReason != null) {
+            state.failureDetails.copy(providerMessage = null)
+        } else {
+            state.failureDetails
+        },
         retryable = state.retryable &&
             state.failureKind != TextPostWriteFailureKind.ALREADY_SUBMITTING,
         // COMPOSER02_SUBMIT_ATTEMPT_PER_ACCOUNT_V1: the action reads the earlier

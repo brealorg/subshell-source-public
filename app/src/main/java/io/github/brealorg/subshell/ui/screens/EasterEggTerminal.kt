@@ -18,8 +18,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -85,21 +85,23 @@ internal fun EasterEggTerminalScreen(
     val history = remember { mutableStateListOf<String>() }
 
     var shellDepth by remember { mutableIntStateOf(1) }
-    var input by remember { mutableStateOf("") }
+    // COMPOSE113_TEXT_FIELDS_USE_TEXT_FIELD_STATE_V1 (1.0.5 tool update): Compose 1.13
+    // deprecated the String BasicTextField; the field owns a TextFieldState.
+    val inputState = androidx.compose.foundation.text.input.rememberTextFieldState()
     var historyCursor by remember { mutableIntStateOf(0) }
     var collapseRequested by remember { mutableStateOf(false) }
     var matrixMode by remember { mutableStateOf(false) }
     var keyboardKeepAliveToken by remember { mutableIntStateOf(0) }
 
     fun submit() {
-        val command = input.trim()
+        val command = inputState.text.toString().trim()
         if (command.isEmpty()) return
 
         val prompt = easterEggTerminalPrompt(shellDepth)
         history += command
         historyCursor = history.size
         lines += "$prompt $command"
-        input = ""
+        inputState.setTextAndPlaceCursorAtEnd("")
         keyboardKeepAliveToken++
 
         val result = executeEasterEggTerminalCommand(
@@ -125,7 +127,9 @@ internal fun EasterEggTerminalScreen(
     fun recallHistory(step: Int) {
         if (history.isEmpty()) return
         historyCursor = (historyCursor + step).coerceIn(0, history.size)
-        input = if (historyCursor == history.size) "" else history[historyCursor]
+        inputState.setTextAndPlaceCursorAtEnd(
+            if (historyCursor == history.size) "" else history[historyCursor],
+        )
     }
 
     LaunchedEffect(Unit) {
@@ -233,9 +237,10 @@ internal fun EasterEggTerminalScreen(
             Text(" ", style = terminalStyle)
             Box(modifier = Modifier.weight(1f)) {
                 BasicTextField(
-                    value = input,
-                    onValueChange = { next ->
-                        if ('\n' !in next && '\r' !in next) input = next
+                    state = inputState,
+                    // One line: a pasted line break is dropped, as before.
+                    inputTransformation = {
+                        if (asCharSequence().any { it == '\n' || it == '\r' }) revertAllChanges()
                     },
                     // LOWUI7_LABELS_SAY_WHAT_A_CONTROL_DOES_V1 (OCB-215)
                     modifier = Modifier
@@ -260,13 +265,13 @@ internal fun EasterEggTerminalScreen(
                                 else -> false
                             }
                         },
-                    singleLine = true,
+                    lineLimits = androidx.compose.foundation.text.input.TextFieldLineLimits.SingleLine,
                     textStyle = terminalStyle,
                     cursorBrush = SolidColor(promptColor),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(onSend = { submit() }),
+                    onKeyboardAction = { submit() },
                 )
-                if (input.isEmpty()) {
+                if (inputState.text.isEmpty()) {
                     Text(
                         text = "_",
                         style = terminalStyle,

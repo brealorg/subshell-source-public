@@ -3,12 +3,13 @@ agp = "9.5.1"
 kotlin = "2.4.21"
 activityCompose = "1.13.0"
 # LIFECYCLECOLLECT01: collectAsStateWithLifecycle.
-lifecycleRuntimeCompose = "2.11.0"
+lifecycleRuntimeCompose = "2.11.1"
 fragment = "1.9.1"
 coreKtx = "1.19.1"
-composeBom = "2026.09.00"
-# #232 (owner, 2026-10-16): material3 1.5 for the M3 Expressive toolbar; the BOM still gives 1.4.0.
-material3 = "1.5.0-rc01"
+composeBom = "2026.11.01"
+# #232 (owner, 2026-10-16): material3 1.5 for the M3 Expressive toolbar; pinned since the BOM gave 1.4.0
+# (BOM 2026.11.01 gives 1.5.0 too; the pin stays explicit).
+material3 = "1.5.0"
 media3 = "1.11.1"
 # VIDEO11: already on the runtime classpath through material3-adaptive; tabletop posture needs it at compile time.
 androidxWindow = "1.5.1"
@@ -32,7 +33,7 @@ uiautomator = "2.4.1"
 profileinstaller = "1.4.1"
 leakcanary = "2.14"
 # Robolectric: the newest release at fetch time; bump if resolution says it does not exist.
-robolectric = "4.18"
+robolectric = "4.18.1"
 
 [libraries]
 androidx-biometric = { module = "androidx.biometric:biometric", version = "1.1.0" }

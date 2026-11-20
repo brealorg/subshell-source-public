@@ -143,7 +143,7 @@ class RedditCommentSubmitPolicyTest {
     }
 
     @Test
-    fun apiErrorsAreTypedWithoutProviderMessages() {
+    fun apiErrorsAreTypedAndKeepRedditsReason() {
         val response = RedditCommentSubmitResponseDto(
             json = RedditCommentSubmitJsonDto(
                 errors = listOf(
@@ -174,16 +174,17 @@ class RedditCommentSubmitPolicyTest {
                     kind = RedditCommentApiErrorKind.RATE_LIMIT,
                     code = "RATELIMIT",
                     field = "text",
+                    message = "provider message must not survive",
                 ),
                 RedditCommentApiError(
                     kind = RedditCommentApiErrorKind.PARENT_UNAVAILABLE,
                     code = "THREAD_LOCKED",
                     field = "thing_id",
+                    message = "another provider message",
                 ),
             ),
             payload.errors,
         )
-        assertFalse(payload.toString().contains("provider message"))
     }
 
     @Test

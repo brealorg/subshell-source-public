@@ -151,6 +151,20 @@ enum class PostSwipeAction(@androidx.annotation.StringRes val labelRes: Int) {
     HIDE( io.github.brealorg.subshell.R.string.post_swipe_action_hide),
 }
 
+// SWIPEDISTANCE01_THE_READER_PICKS_HOW_FAR_A_SWIPE_GOES_V1 (owner 2026-11-18): the
+// distance a post or comment row must travel before its swipe action runs. A fast
+// fling still runs the action at any distance. Owner on the Pixel 11 (2026-11-19):
+// 40 dp was "extremely short" and 56 dp (Material 3's SwipeToDismissBox value) "what I
+// would call short", so the scale moved up one step: SHORT is Material 3's 56 dp.
+enum class SwipeDistance(
+    @androidx.annotation.StringRes val labelRes: Int,
+    val thresholdDp: Int,
+) {
+    SHORT(io.github.brealorg.subshell.R.string.swipe_distance_short, 56),
+    STANDARD(io.github.brealorg.subshell.R.string.swipe_distance_standard, 80),
+    LONG(io.github.brealorg.subshell.R.string.swipe_distance_long, 104),
+}
+
 enum class CommentSwipeAction(@androidx.annotation.StringRes val labelRes: Int) {
     NONE( io.github.brealorg.subshell.R.string.comment_swipe_action_none),
     UPVOTE( io.github.brealorg.subshell.R.string.comment_swipe_action_upvote),
@@ -205,6 +219,7 @@ data class SubshellSettings(
     val postSwipeRightAction: PostSwipeAction = PostSwipeAction.DOWNVOTE,
     val commentSwipeLeftAction: CommentSwipeAction = CommentSwipeAction.UPVOTE,
     val commentSwipeRightAction: CommentSwipeAction = CommentSwipeAction.DOWNVOTE,
+    val swipeDistance: SwipeDistance = SwipeDistance.STANDARD,
     val highlightNewComments: Boolean = true,
     // ISSUE22_COMMENT_AUTHOR_AVATARS_SETTING_V1
     val showCommentAvatars: Boolean = true,
@@ -319,6 +334,7 @@ data class SubshellSettings(
         POST_SWIPE_RIGHT_ACTION to postSwipeRightAction.name,
         COMMENT_SWIPE_LEFT_ACTION to commentSwipeLeftAction.name,
         COMMENT_SWIPE_RIGHT_ACTION to commentSwipeRightAction.name,
+        SWIPE_DISTANCE to swipeDistance.name,
         HIGHLIGHT_NEW_COMMENTS to highlightNewComments.toString(),
         SHOW_COMMENT_AVATARS to showCommentAvatars.toString(),
         TOP_LEVEL_COMMENT_JUMP_BUTTON to topLevelCommentJumpButton.toString(),
@@ -414,6 +430,7 @@ data class SubshellSettings(
         const val POST_SWIPE_RIGHT_ACTION = "post_swipe_right_action"
         const val COMMENT_SWIPE_LEFT_ACTION = "comment_swipe_left_action"
         const val COMMENT_SWIPE_RIGHT_ACTION = "comment_swipe_right_action"
+        const val SWIPE_DISTANCE = "swipe_distance"
         const val HIGHLIGHT_NEW_COMMENTS = "highlight_new_comments"
         const val SHOW_COMMENT_AVATARS = "show_comment_avatars"
         const val TOP_LEVEL_COMMENT_JUMP_BUTTON = "top_level_comment_jump_button"
@@ -526,6 +543,7 @@ data class SubshellSettings(
             POST_SWIPE_RIGHT_ACTION,
             COMMENT_SWIPE_LEFT_ACTION,
             COMMENT_SWIPE_RIGHT_ACTION,
+            SWIPE_DISTANCE,
             HIGHLIGHT_NEW_COMMENTS,
             SHOW_COMMENT_AVATARS,
             TOP_LEVEL_COMMENT_JUMP_BUTTON,
@@ -743,6 +761,7 @@ data class SubshellSettings(
                     compatibleValues,
                     CommentSwipeAction.entries,
                 ),
+                swipeDistance = enumValue(SWIPE_DISTANCE, compatibleValues, SwipeDistance.entries),
                 highlightNewComments = booleanValue(HIGHLIGHT_NEW_COMMENTS, compatibleValues),
                 showCommentAvatars = booleanValue(SHOW_COMMENT_AVATARS, compatibleValues),
                 topLevelCommentJumpButton = booleanValue(TOP_LEVEL_COMMENT_JUMP_BUTTON, compatibleValues),

@@ -82,9 +82,13 @@ class Step3SettingsComposeTest {
         assertTrue(count("Right") > 0)
         assertEquals(0, count("Follow"))
         // Another setting on this page has its own "Left"; take the side menu's.
-        composeRule.onNode(
-            hasText("Left") and hasAnyAncestor(hasAnyChild(hasText("Side menu position"))),
-        ).performClick()
+        // SWIPEDISTANCE02: the swipe try card above pushes the choice below the
+        // title, so bring the choice itself into view before tapping it.
+        val sideMenuLeft =
+            hasText("Left") and hasAnyAncestor(hasAnyChild(hasText("Side menu position")))
+        composeRule.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(sideMenuLeft)
+        composeRule.waitForIdle()
+        composeRule.onNode(sideMenuLeft).performClick()
         composeRule.waitForIdle()
 
         assertEquals(DrawerSidePreference.LEFT, state.drawerSidePreference)

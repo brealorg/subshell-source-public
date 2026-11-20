@@ -9,15 +9,23 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxDefaults
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.foundation.gestures.AnchoredDraggableDefaults
+import androidx.compose.foundation.gestures.AnchoredDraggableState
+import androidx.compose.foundation.gestures.DraggableAnchors
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.anchoredDraggable
+import androidx.compose.foundation.gestures.animateTo
+import androidx.compose.foundation.gestures.snapTo
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,9 +35,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.brealorg.subshell.model.Comment
 import io.github.brealorg.subshell.model.Post
@@ -40,31 +46,40 @@ import io.github.brealorg.subshell.ui.VoteColorPalette
 import io.github.brealorg.subshell.ui.VoteControlMode
 import io.github.brealorg.subshell.ui.symbols.Symbols
 import io.github.brealorg.subshell.ui.theme.isDarkScheme
-import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.first
 import kotlin.math.roundToInt
 
-// ISSUE16_GOOGLE_M3_SWIPE_TO_DISMISS_V1
+// SWIPEACTION02_ANCHORED_DRAGGABLE_V1 (owner 2026-11-19): the row is moved by
+// Compose Foundation's AnchoredDraggable (Google's own anchor primitive, the
+// replacement Material 3 names for SwipeToDismissBox's deprecated veto
+// callback). Sides are physical: the drag offset is never mirrored
+// (reverseDirection = false), so a finger moving right is the right action in
+// every layout direction.
 internal enum class PhysicalSwipeSide {
     LEFT,
     RIGHT,
 }
 
-internal fun physicalSwipeSide(
-    value: SwipeToDismissBoxValue,
-    layoutDirection: LayoutDirection,
-): PhysicalSwipeSide? = when (value) {
-    SwipeToDismissBoxValue.Settled -> null
-    SwipeToDismissBoxValue.StartToEnd ->
-        if (layoutDirection == LayoutDirection.Ltr) PhysicalSwipeSide.RIGHT
-        else PhysicalSwipeSide.LEFT
-    SwipeToDismissBoxValue.EndToStart ->
-        if (layoutDirection == LayoutDirection.Ltr) PhysicalSwipeSide.LEFT
-        else PhysicalSwipeSide.RIGHT
+internal enum class SwipeAnchor {
+    LEFT,
+    SETTLED,
+    RIGHT,
 }
 
-internal fun startToEndUsesRightAction(layoutDirection: LayoutDirection): Boolean =
-    layoutDirection == LayoutDirection.Ltr
+internal fun physicalSwipeSide(anchor: SwipeAnchor): PhysicalSwipeSide? = when (anchor) {
+    SwipeAnchor.LEFT -> PhysicalSwipeSide.LEFT
+    SwipeAnchor.RIGHT -> PhysicalSwipeSide.RIGHT
+    SwipeAnchor.SETTLED -> null
+}
+
+internal fun swipeSideForOffset(offsetPx: Float): PhysicalSwipeSide? = when {
+    offsetPx > 0f -> PhysicalSwipeSide.RIGHT
+    offsetPx < 0f -> PhysicalSwipeSide.LEFT
+    else -> null
+}
 
 internal data class SwipeActionVisual(
     val label: UiText,
@@ -264,6 +279,10 @@ internal fun dispatchCommentSwipeAction(
     return true
 }
 
+/** SWIPEDISTANCE01_THE_READER_PICKS_HOW_FAR_A_SWIPE_GOES_V1 */
+internal val LocalSwipeDistance =
+    androidx.compose.runtime.compositionLocalOf { io.github.brealorg.subshell.ui.SwipeDistance.STANDARD }
+
 @Composable
 internal fun SwipeActionSurface(
     enabled: Boolean,
@@ -276,88 +295,149 @@ internal fun SwipeActionSurface(
     shape: Shape = MaterialTheme.shapes.medium,
     content: @Composable (Modifier) -> Unit,
 ) {
-    val layoutDirection = LocalLayoutDirection.current
     val haptic = LocalHapticFeedback.current
-    val scope = rememberCoroutineScope()
+    val density = androidx.compose.ui.platform.LocalDensity.current
 
-    val leftAvailable = enabled && leftAction?.enabled == true
-    val rightAvailable = enabled && rightAction?.enabled == true
-    val startToEndAvailable =
-        if (startToEndUsesRightAction(layoutDirection)) rightAvailable else leftAvailable
-    val endToStartAvailable =
-        if (startToEndUsesRightAction(layoutDirection)) leftAvailable else rightAvailable
-
-    val swipeState = rememberSwipeToDismissBoxState(
-        positionalThreshold = SwipeToDismissBoxDefaults.positionalThreshold,
-    )
-
-    LaunchedEffect(swipeState.targetValue) {
-        if (swipeState.targetValue != SwipeToDismissBoxValue.Settled) {
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        }
+    val state = remember { AnchoredDraggableState(initialValue = SwipeAnchor.SETTLED) }
+    // SWIPEACTION02_ANCHORS_DO_NOT_FOLLOW_A_WRITE_IN_FLIGHT_V1 (Pixel 11, 2026-11-19): a
+    // vote switches its action off while Reddit answers, right as the row heads back;
+    // removing the anchor then broke the return and the row stayed out. A side keeps its
+    // anchor while the row is on that side.
+    // SWIPEACTION03_A_ROW_WITHOUT_AN_ENABLED_ACTION_IS_NOT_DRAGGED_V1 (review 2026-11-19):
+    // otherwise a side is anchored only while its action is enabled, so a row with none
+    // (signed out, archived, locked) leaves the horizontal gesture to the drawer or pager.
+    val rowOffset by androidx.compose.runtime.remember(state) {
+        androidx.compose.runtime.derivedStateOf { state.offset.takeUnless { it.isNaN() } ?: 0f }
     }
+    val leftAnchored = enabled && leftAction != null && (leftAction.enabled || rowOffset < 0f)
+    val rightAnchored = enabled && rightAction != null && (rightAction.enabled || rowOffset > 0f)
 
-    fun actionFor(value: SwipeToDismissBoxValue): Pair<SwipeActionVisual?, (() -> Unit)?> =
-        when (physicalSwipeSide(value, layoutDirection)) {
-            PhysicalSwipeSide.LEFT -> leftAction to onLeft
-            PhysicalSwipeSide.RIGHT -> rightAction to onRight
-            null -> null to null
-        }
-
-    // ISSUE16_M3_STABLE_ONDISMISS_CALLBACK_V1
-    // Material3 keys its internal dismiss LaunchedEffect with onDismiss.
-    // Keep this callback identity stable while optimistic vote/save/hide state
-    // recomposes the row; read the latest action values through State holders.
+    // Read the latest actions through State holders: optimistic vote/save/hide
+    // state recomposes the row while a swipe is in flight.
     val latestLeftAction = rememberUpdatedState(leftAction)
     val latestRightAction = rememberUpdatedState(rightAction)
     val latestOnLeft = rememberUpdatedState(onLeft)
     val latestOnRight = rememberUpdatedState(onRight)
-    val latestLayoutDirection = rememberUpdatedState(layoutDirection)
     val latestReduceMotion = rememberUpdatedState(reduceMotion)
 
-    val stableOnDismiss = remember(swipeState) {
-        { direction: SwipeToDismissBoxValue ->
-            val side = physicalSwipeSide(
-                value = direction,
-                layoutDirection = latestLayoutDirection.value,
-            )
-            val visual = when (side) {
+    // SWIPEDISTANCE01_THE_READER_PICKS_HOW_FAR_A_SWIPE_GOES_V1
+    val chosenThresholdPx = with(density) { LocalSwipeDistance.current.thresholdDp.dp.toPx() }
+
+    var widthPx by remember { mutableIntStateOf(0) }
+
+    // The action anchors sit where the row can be pulled to; the fling behaviour's
+    // positional threshold (the reader's distance) decides, on release, whether the row
+    // settles there (action) or back at rest.
+    // SWIPEDISTANCE03_THE_ROW_ALWAYS_HAS_ROOM_FOR_ITS_LABEL_V1 (Pixel 11, 2026-11-19): at
+    // twice a short threshold the row stopped before "Downvote" (or "Remove upvote")
+    // fitted. The row can always be pulled half its width; the threshold alone decides
+    // the action, through the fling behaviour.
+    val reach = widthPx / 2f
+    // SWIPEDISTANCE04_THE_THRESHOLD_STAYS_WITHIN_REACH_V1 (review): on a narrow row half the
+    // width can be less than the chosen distance; a slow swipe must still be able to pass it.
+    val thresholdPx = if (reach > 0f) minOf(chosenThresholdPx, reach * 0.8f) else chosenThresholdPx
+    val latestThresholdPx = rememberUpdatedState(thresholdPx)
+    LaunchedEffect(state, reach, leftAnchored, rightAnchored) {
+        state.updateAnchors(
+            DraggableAnchors {
+                SwipeAnchor.SETTLED at 0f
+                if (rightAnchored && reach > 0f) SwipeAnchor.RIGHT at reach
+                if (leftAnchored && reach > 0f) SwipeAnchor.LEFT at -reach
+            },
+        )
+    }
+
+    // SWIPEACTION02_THE_ACTION_RUNS_ON_RELEASE_AND_THE_ROW_SPRINGS_BACK_V1: released past the
+    // threshold or flung, AnchoredDraggable settles the row at an action anchor (Google's
+    // fling behaviour decides from distance and speed). Then the action runs and the row
+    // goes straight back; nothing slides off the screen.
+    // SWIPEACTION02_A_GRAB_ON_THE_WAY_BACK_NEVER_STRANDS_THE_ROW_V1 (Pixel 11, 2026-11-19):
+    // a second swipe while the row was on its way back interrupted the return
+    // (MutationInterruptedException) and the old one-shot listener died, leaving the row
+    // out and later swipes dead. One loop now owns the return: it waits for the row to
+    // rest at an action anchor with no finger on it, runs the action only if a new drag
+    // got it there (so an interrupted return never votes twice), and retries the return.
+    val dragInteractions = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val dragged = dragInteractions.collectIsDraggedAsState()
+    val freshDrag = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
+    LaunchedEffect(dragInteractions) {
+        dragInteractions.interactions.collect { interaction ->
+            if (interaction is androidx.compose.foundation.interaction.DragInteraction.Start) freshDrag.set(true)
+        }
+    }
+    LaunchedEffect(state) {
+        while (true) {
+            val anchor = androidx.compose.runtime.snapshotFlow {
+                val offset = state.offset
+                val right = state.anchors.positionOf(SwipeAnchor.RIGHT)
+                val left = state.anchors.positionOf(SwipeAnchor.LEFT)
+                when {
+                    dragged.value || offset.isNaN() -> null
+                    !right.isNaN() && offset >= right - 0.5f -> SwipeAnchor.RIGHT
+                    !left.isNaN() && offset <= left + 0.5f -> SwipeAnchor.LEFT
+                    else -> null
+                }
+            }.first { it != null }!!
+            val side = physicalSwipeSide(anchor)!!
+            if (freshDrag.getAndSet(false)) {
+                val visual = when (side) {
+                    PhysicalSwipeSide.LEFT -> latestLeftAction.value
+                    PhysicalSwipeSide.RIGHT -> latestRightAction.value
+                }
+                if (visual?.enabled == true) {
+                    when (side) {
+                        PhysicalSwipeSide.LEFT -> latestOnLeft.value()
+                        PhysicalSwipeSide.RIGHT -> latestOnRight.value()
+                    }
+                }
+            }
+            try {
+                if (latestReduceMotion.value) {
+                    state.snapTo(SwipeAnchor.SETTLED)
+                } else {
+                    state.animateTo(SwipeAnchor.SETTLED)
+                }
+            } catch (interrupted: kotlinx.coroutines.CancellationException) {
+                // A finger took the row (or the anchors moved): the loop decides again.
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            }
+        }
+    }
+
+    // Haptic at the activation point, while the finger drags, on a side whose action can
+    // run (SWIPEACTION03_THE_HAPTIC_MARKS_ONLY_A_LIVE_THRESHOLD_V1, review: it read the first
+    // composition's distance and also fired during the settle and on disabled sides).
+    val latestHaptic = rememberUpdatedState(haptic)
+    LaunchedEffect(state) {
+        androidx.compose.runtime.snapshotFlow {
+            val offset = state.offset
+            val visual = when (swipeSideForOffset(if (offset.isNaN()) 0f else offset)) {
                 PhysicalSwipeSide.LEFT -> latestLeftAction.value
                 PhysicalSwipeSide.RIGHT -> latestRightAction.value
                 null -> null
             }
-            val action = when (side) {
-                PhysicalSwipeSide.LEFT -> latestOnLeft.value
-                PhysicalSwipeSide.RIGHT -> latestOnRight.value
-                null -> null
-            }
-
-            if (visual?.enabled == true && action != null) {
-                action()
-            }
-
-            scope.launch {
-                if (latestReduceMotion.value) {
-                    swipeState.snapTo(SwipeToDismissBoxValue.Settled)
-                } else {
-                    swipeState.reset()
-                }
-            }
-            Unit
-        }
+            dragged.value && visual?.enabled == true &&
+                !offset.isNaN() && offset.absoluteValue >= latestThresholdPx.value
+        }.collect { past -> if (past) latestHaptic.value.performHapticFeedback(HapticFeedbackType.LongPress) }
     }
 
-    SwipeToDismissBox(
-        state = swipeState,
-        modifier = modifier.clip(shape),
-        gesturesEnabled = enabled && (leftAvailable || rightAvailable),
-        enableDismissFromStartToEnd = startToEndAvailable,
-        enableDismissFromEndToStart = endToStartAvailable,
-        backgroundContent = {
-            val direction = swipeState.dismissDirection
-            val (visual, _) = actionFor(direction)
+    androidx.compose.foundation.layout.Box(
+        modifier = modifier
+            .clip(shape)
+            .onSizeChanged { size -> widthPx = size.width },
+    ) {
+        // Behind the row: the action for the side the row is pulled toward.
+        androidx.compose.foundation.layout.Box(Modifier.matchParentSize()) {
+            // Changes only when the row crosses rest, not on every drag frame.
+            val side by androidx.compose.runtime.remember(state) {
+                androidx.compose.runtime.derivedStateOf { swipeSideForOffset(rowOffset) }
+            }
+            val visual = when (side) {
+                PhysicalSwipeSide.LEFT -> leftAction
+                PhysicalSwipeSide.RIGHT -> rightAction
+                null -> null
+            }
             if (visual != null && visual.enabled) {
-                val swipeSide = physicalSwipeSide(direction, layoutDirection)
                 Layout(
                     modifier = Modifier
                         .fillMaxSize()
@@ -388,11 +468,7 @@ internal fun SwipeActionSurface(
                     val edgePadding = 18.dp.roundToPx()
                     val gap = 8.dp.roundToPx()
                     // Read in the layout phase: dragging relayouts, it does not recompose.
-                    val revealed = try {
-                        swipeState.requireOffset().absoluteValue.roundToInt()
-                    } catch (_: IllegalStateException) {
-                        0
-                    }
+                    val revealed = state.offset.takeUnless { it.isNaN() }?.absoluteValue?.roundToInt() ?: 0
                     val showLabel = swipeActionLabelFits(
                         revealedPx = revealed,
                         edgePaddingPx = edgePadding,
@@ -401,7 +477,7 @@ internal fun SwipeActionSurface(
                         labelPx = label.width,
                     )
                     val rowWidth = icon.width + if (showLabel) gap + label.width else 0
-                    val rowStart = when (swipeSide) {
+                    val rowStart = when (side) {
                         PhysicalSwipeSide.LEFT -> width - edgePadding - rowWidth
                         PhysicalSwipeSide.RIGHT -> edgePadding
                         null -> (width - rowWidth) / 2
@@ -418,9 +494,31 @@ internal fun SwipeActionSurface(
                     }
                 }
             }
-        },
-        onDismiss = stableOnDismiss,
-    ) {
-        content(Modifier.fillMaxWidth())
+        }
+        content(
+            Modifier
+                .fillMaxWidth()
+                // Physical: never mirrored in RTL, like the drag (reverseDirection = false).
+                .absoluteOffset { IntOffset(state.offset.takeUnless { it.isNaN() }?.roundToInt() ?: 0, 0) }
+                .anchoredDraggable(
+                    state = state,
+                    reverseDirection = false,
+                    orientation = Orientation.Horizontal,
+                    enabled = leftAnchored || rightAnchored,
+                    interactionSource = dragInteractions,
+                    flingBehavior = AnchoredDraggableDefaults.flingBehavior(
+                        state = state,
+                        // The fling behaviour keeps its lambda: read the current distance.
+                        positionalThreshold = { latestThresholdPx.value },
+                        // SWIPEACTION02_A_STIFF_SETTLE_MAKES_THE_ACTION_PROMPT_V1 (Pixel 11):
+                        // with the default spring the row took ~280 ms from release to the
+                        // action anchor; a stiff spring without bounce gets there sooner.
+                        animationSpec = androidx.compose.animation.core.spring(
+                            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioNoBouncy,
+                            stiffness = androidx.compose.animation.core.Spring.StiffnessHigh,
+                        ),
+                    ),
+                ),
+        )
     }
 }

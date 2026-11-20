@@ -377,6 +377,7 @@ internal class ConfiguredRedditCommentSubmitter(
         val retryAfterMs = redditWriteRetryAfterMs(result.metadata, rateLimited = RedditCommentApiErrorKind.RATE_LIMIT in kinds)
         val failureDetails = redditWriteProviderFailureDetails(
             code = result.errors.firstOrNull()?.code,
+            message = result.errors.firstOrNull()?.message,
             retryAfterMs = retryAfterMs,
         )
         return when {

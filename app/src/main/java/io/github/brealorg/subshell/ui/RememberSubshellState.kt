@@ -909,6 +909,11 @@ fun rememberSubshellState(
                 io.github.brealorg.subshell.ui.CommentSwipeAction.entries,
                 DefaultSubshellSettings.commentSwipeRightAction,
             ),
+            initialSwipeDistance = enumValue(
+                SubshellSettings.SWIPE_DISTANCE,
+                io.github.brealorg.subshell.ui.SwipeDistance.entries,
+                DefaultSubshellSettings.swipeDistance,
+            ),
             initialReduceMotion = preferences.getBoolean("reduce_motion", DefaultSubshellSettings.reduceMotion),
             initialFeedPreviewState = enumValue(
                 "feed_preview_state",

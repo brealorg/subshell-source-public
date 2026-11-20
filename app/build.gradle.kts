@@ -520,6 +520,9 @@ private val subshellReleaseVersionOverrideConfigured = when {
 android {
     namespace = AUTH05C_COMPONENT_NAMESPACE
     compileSdk = 37
+    // Compose 1.13 (BOM 2026.11.01) needs compileSdk 37.1 or later; 37.2 is the newest stable
+    // platform (1.0.5 tool update, 2026-11-19). targetSdk stays 37.
+    compileSdkMinor = 2
 
     defaultConfig {
         applicationId = AUTH05C_FINAL_APPLICATION_ID

@@ -61,8 +61,12 @@ A successful response must provide one consistent Reddit post identity through
 fullname plus the normalized request community, title, body, and an optional
 sanitized Reddit permalink. Conflicting response identities are malformed.
 
-Provider error tuples are reduced to sanitized categories. Provider messages
-and response bodies never enter result state:
+Provider error tuples are reduced to sanitized categories. Response bodies
+never enter result state. Since COMPOSERERR01 (2026-11-18) the message of the
+first error tuple is kept, trimmed to 500 characters and passed through
+`SafeFailureText` into `FailureDetails.providerMessage`: post guidance and
+Automations put the moderators' own reason there ("This is under 25 words"),
+and an `API` refusal the app has no words for shows it to the reader:
 
 - rate limit
 - validation

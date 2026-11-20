@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -180,6 +181,15 @@ internal fun CrosspostCreateScreen(
         if (state.postComposerDraft.id == draft.id) state.savePostComposerDraft()
     }
 
+    val crosspostListState = rememberLazyListState()
+    // COMPOSERERR01_A_REFUSED_POST_SCROLLS_ITS_NOTICE_INTO_VIEW_V1: the notice is
+    // the second item, after the source card.
+    RevealTextPostWriteNotice(
+        writeState = activeWrite,
+        listState = crosspostListState,
+        noticeItemIndex = 1,
+        draftKey = "${draft.id}",
+    )
     val routeTopBarScroll = rememberRouteTopBarScrollBehavior(ChromeBehavior.ALWAYS_SHOW)
     Scaffold(
         modifier = modifier.predictiveBackPage(pageBack).fillMaxSize().imePadding()
@@ -205,6 +215,7 @@ internal fun CrosspostCreateScreen(
         },
     ) { padding ->
         LazyColumn(
+            state = crosspostListState,
             modifier = Modifier.fillMaxSize().padding(padding),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),

@@ -5,8 +5,6 @@ import org.robolectric.annotation.Config
 import org.robolectric.RobolectricTestRunner
 import org.junit.runner.RunWith
 import io.github.brealorg.subshell.harness.readSourceText
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.ui.unit.LayoutDirection
 import io.github.brealorg.subshell.harness.SUBSHELL_PACKAGE_DIR
 import io.github.brealorg.subshell.ui.CommentSwipeAction
 import io.github.brealorg.subshell.ui.PostSwipeAction
@@ -35,27 +33,16 @@ class Issue16SwipeActionsPolicyTest {
         assertEquals(CommentSwipeAction.DOWNVOTE, settings.commentSwipeRightAction)
     }
 
+    // SWIPEACTION02_ANCHORED_DRAGGABLE_V1: sides are physical by construction (the
+    // drag offset is never mirrored), so layout direction no longer enters the mapping.
     @Test
-    fun physicalLeftRightMappingsRemainCorrectAcrossLayoutDirection() {
-        assertEquals(
-            PhysicalSwipeSide.RIGHT,
-            physicalSwipeSide(SwipeToDismissBoxValue.StartToEnd, LayoutDirection.Ltr),
-        )
-        assertEquals(
-            PhysicalSwipeSide.LEFT,
-            physicalSwipeSide(SwipeToDismissBoxValue.EndToStart, LayoutDirection.Ltr),
-        )
-        assertEquals(
-            PhysicalSwipeSide.LEFT,
-            physicalSwipeSide(SwipeToDismissBoxValue.StartToEnd, LayoutDirection.Rtl),
-        )
-        assertEquals(
-            PhysicalSwipeSide.RIGHT,
-            physicalSwipeSide(SwipeToDismissBoxValue.EndToStart, LayoutDirection.Rtl),
-        )
-        assertNull(
-            physicalSwipeSide(SwipeToDismissBoxValue.Settled, LayoutDirection.Ltr),
-        )
+    fun physicalLeftRightMappingsFollowTheFinger() {
+        assertEquals(PhysicalSwipeSide.RIGHT, swipeSideForOffset(12f))
+        assertEquals(PhysicalSwipeSide.LEFT, swipeSideForOffset(-12f))
+        assertNull(swipeSideForOffset(0f))
+        assertEquals(PhysicalSwipeSide.RIGHT, physicalSwipeSide(SwipeAnchor.RIGHT))
+        assertEquals(PhysicalSwipeSide.LEFT, physicalSwipeSide(SwipeAnchor.LEFT))
+        assertNull(physicalSwipeSide(SwipeAnchor.SETTLED))
     }
 
     @Test
@@ -110,23 +97,23 @@ class Issue16SwipeActionsPolicyTest {
         val post = source("ui/screens/PostScreen.kt")
         val settings = source("ui/screens/SettingsScreen.kt")
 
-        assertTrue(swipe.contains("ISSUE16_GOOGLE_M3_SWIPE_TO_DISMISS_V1"))
-        assertTrue(swipe.contains("SwipeToDismissBox("))
-        assertTrue(swipe.contains("rememberSwipeToDismissBoxState("))
-        assertTrue(swipe.contains("SwipeToDismissBoxDefaults.positionalThreshold"))
-        assertTrue(swipe.contains("gesturesEnabled = enabled && (leftAvailable || rightAvailable)"))
-        assertTrue(swipe.contains("enableDismissFromStartToEnd = startToEndAvailable"))
-        assertTrue(swipe.contains("enableDismissFromEndToStart = endToStartAvailable"))
-        assertTrue(swipe.contains("ISSUE16_M3_STABLE_ONDISMISS_CALLBACK_V1"))
+        // SWIPEACTION02_ANCHORED_DRAGGABLE_V1 (owner 2026-11-19): SwipeToDismissBox slid the
+        // row off before the action ran and its confirmValueChange is deprecated in M3 1.5;
+        // the successor is Foundation's AnchoredDraggable with its default fling behaviour.
+        assertTrue(swipe.contains("SWIPEACTION02_ANCHORED_DRAGGABLE_V1"))
+        assertTrue(swipe.contains("SWIPEACTION02_THE_ACTION_RUNS_ON_RELEASE_AND_THE_ROW_SPRINGS_BACK_V1"))
+        assertTrue(swipe.contains("AnchoredDraggableState(initialValue = SwipeAnchor.SETTLED)"))
+        assertTrue(swipe.contains(".anchoredDraggable("))
+        assertTrue(swipe.contains("AnchoredDraggableDefaults.flingBehavior("))
+        assertTrue(swipe.contains("enabled = leftAnchored || rightAnchored,"))
+        assertTrue(swipe.contains("SWIPEACTION02_ANCHORS_DO_NOT_FOLLOW_A_WRITE_IN_FLIGHT_V1"))
         assertTrue(swipe.contains("rememberUpdatedState(leftAction)"))
         assertTrue(swipe.contains("rememberUpdatedState(onLeft)"))
-        assertTrue(swipe.contains("val stableOnDismiss = remember(swipeState)"))
-        assertTrue(swipe.contains("onDismiss = stableOnDismiss"))
-        assertFalse(swipe.contains("onDismiss = { direction ->"))
-        assertTrue(swipe.contains("swipeState.reset()"))
-        assertTrue(swipe.contains("swipeState.snapTo(SwipeToDismissBoxValue.Settled)"))
-        assertTrue(swipe.contains("LaunchedEffect(swipeState.targetValue)"))
+        assertTrue(swipe.contains("state.animateTo(SwipeAnchor.SETTLED)"))
+        assertTrue(swipe.contains("state.snapTo(SwipeAnchor.SETTLED)"))
         assertTrue(swipe.contains("HapticFeedbackType.LongPress"))
+        assertFalse(swipe.contains("confirmValueChange"))
+        assertFalse(swipe.contains("SwipeToDismissBox("))
 
         listOf(
             "pointerInput(",
@@ -137,7 +124,6 @@ class Issue16SwipeActionsPolicyTest {
             "visualSwipeOffsetPx(",
             "maximumVisualOffsetPx",
             "Animatable(",
-            "confirmValueChange",
             "systemGestureExclusion",
         ).forEach { forbidden ->
             assertFalse("Custom/deprecated swipe engine remains: $forbidden", swipe.contains(forbidden))

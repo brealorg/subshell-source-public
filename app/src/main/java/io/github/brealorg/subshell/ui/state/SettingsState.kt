@@ -77,6 +77,8 @@ internal class SettingsState(
     initialPostSwipeRightAction: PostSwipeAction,
     initialCommentSwipeLeftAction: CommentSwipeAction,
     initialCommentSwipeRightAction: CommentSwipeAction,
+    initialSwipeDistance: io.github.brealorg.subshell.ui.SwipeDistance =
+        io.github.brealorg.subshell.ui.SwipeDistance.STANDARD,
     initialHighlightNewComments: Boolean,
     initialShowCommentAvatars: Boolean,
     initialTopLevelCommentJumpButton: Boolean,
@@ -181,6 +183,9 @@ internal class SettingsState(
     var commentSwipeLeftAction by mutableStateOf(initialCommentSwipeLeftAction)
         internal set
     var commentSwipeRightAction by mutableStateOf(initialCommentSwipeRightAction)
+        internal set
+    // SWIPEDISTANCE01_THE_READER_PICKS_HOW_FAR_A_SWIPE_GOES_V1
+    var swipeDistance by mutableStateOf(initialSwipeDistance)
         internal set
     var highlightNewComments by mutableStateOf(initialHighlightNewComments)
     var showCommentAvatars by mutableStateOf(initialShowCommentAvatars)
@@ -394,6 +399,11 @@ internal class SettingsState(
     fun updateCommentSwipeRightAction(action: CommentSwipeAction) {
         commentSwipeRightAction = action
         persistPreference(SubshellSettings.COMMENT_SWIPE_RIGHT_ACTION, action.name)
+    }
+
+    fun updateSwipeDistance(distance: io.github.brealorg.subshell.ui.SwipeDistance) {
+        swipeDistance = distance
+        persistPreference(SubshellSettings.SWIPE_DISTANCE, distance.name)
     }
 
     fun updateHighlightNewComments(enabled: Boolean) {

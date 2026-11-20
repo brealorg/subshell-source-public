@@ -510,6 +510,8 @@
     <!-- Used in: RedditWriteErrorPresentations -->
     <string name="error_write_reddit_rejected_the_comment">Reddit rejected the comment.</string>
     <!-- Used in: RedditWriteErrorPresentations -->
+    <string name="error_write_reddit_rejected_the_comment_saying">Reddit rejected the comment: %1$s</string>
+    <!-- Used in: RedditWriteErrorPresentations -->
     <string name="error_write_reddit_rejected_the_comment_request">Reddit rejected the comment request.</string>
     <!-- Used in: RedditWriteErrorPresentations -->
     <string name="error_write_subshell_couldn_t_reach_reddit_to_post">subshell couldn\'t reach Reddit to post the comment.</string>
@@ -589,6 +591,8 @@
     <string name="error_write_review_the_highlighted_field_before_publishing">Review the highlighted field before publishing.</string>
     <!-- Used in: RedditWriteErrorPresentations -->
     <string name="error_write_reddit_rejected_the_post">Reddit rejected the post.</string>
+    <!-- Used in: RedditWriteErrorPresentations -->
+    <string name="error_write_reddit_rejected_the_post_saying">Reddit rejected the post: %1$s</string>
     <!-- Used in: RedditWriteErrorPresentations -->
     <string name="error_write_reddit_rejected_the_publish_request">Reddit rejected the publish request.</string>
     <!-- Used in: RedditWriteErrorPresentations -->
@@ -1073,6 +1077,12 @@
     <string name="comp_back">Back</string>
     <!-- Used in: CommunityWikiContent -->
     <string name="comp_last_revised_by_u">Last revised by u/%1$s</string>
+    <!-- Used in: CommunityWikiContent -->
+    <string name="comp_last_revised_on_by_u">Last revised %1$s by u/%2$s</string>
+    <!-- Used in: CommunityWikiContent -->
+    <string name="comp_last_revised_on">Last revised %1$s</string>
+    <!-- Used in: CommunityWikiContent -->
+    <string name="comp_wiki_page_may_be_older">Edits made in Reddit\'s new Wiki don\'t reach apps, so this page may be older than on reddit.com.</string>
     <!-- Used in: CommunityWikiContent -->
     <string name="comp_empty_wiki_page">Empty Wiki page</string>
     <!-- Used in: CommunityWikiContent -->
@@ -2527,6 +2537,22 @@
     <string name="set_swipe_left">Swipe left</string>
     <!-- Used in: Settings03SwipeActionsSheet -->
     <string name="set_swipe_right">Swipe right</string>
+    <!-- Used in: SettingsScreen -->
+    <string name="set_swipe_distance">Swipe distance</string>
+    <!-- Used in: SettingsScreen -->
+    <string name="set_how_far_to_swipe_before_the_action_runs">How far a post or comment must be swiped before its action runs. A quick flick always works.</string>
+    <!-- Used in: SettingsScreen -->
+    <string name="swipe_distance_short">Short</string>
+    <!-- Used in: SettingsScreen -->
+    <string name="swipe_distance_standard">Standard</string>
+    <!-- Used in: SettingsScreen -->
+    <string name="swipe_distance_long">Long</string>
+    <!-- Used in: SwipeDistanceTryCard -->
+    <string name="set_swipe_try_title">Try it here</string>
+    <!-- Used in: SwipeDistanceTryCard -->
+    <string name="set_swipe_try_hint">Swipe this card slowly to feel the distance. Nothing is sent to Reddit.</string>
+    <!-- Used in: SwipeDistanceTryCard -->
+    <string name="set_swipe_try_result">That swipe: %1$s</string>
     <!-- Used in: PostsWidgetConfigureActivity -->
     <string name="sw_show_posts_from">Show posts from</string>
     <!-- Used in: PostsWidgetConfigureActivity -->
